@@ -80,6 +80,7 @@
     - [getRateLimiterParams](#getRateLimiterParams)
     - [getDynamicFeeParams](#getDynamicFeeParams)
     - [getLockedVestingParams](#getLockedVestingParams)
+    - [getQuoteReserveFromNextSqrtPrice](#getQuoteReserveFromNextSqrtPrice)
 
 ---
 
@@ -198,7 +199,7 @@ const transaction = await client.partner.createConfig({
     },
     activationType: 0,
     collectFeeMode: 0,
-    migrationOption: 0
+    migrationOption: 0,
     tokenType: 0,
     tokenDecimal: 9,
     migrationQuoteThreshold: new BN('1000000000'),
@@ -622,7 +623,7 @@ const curveConfig = buildCurve({
     totalTokenSupply: 1000000000,
     percentageSupplyOnMigration: 10,
     migrationQuoteThreshold: 300,
-    migrationOption: MigrationOption.MET_DAMM,
+    migrationOption: MigrationOption.MET_DAMM_V2,
     tokenBaseDecimal: TokenDecimal.SIX,
     tokenQuoteDecimal: TokenDecimal.NINE,
     lockedVestingParam: {
@@ -654,8 +655,8 @@ const curveConfig = buildCurve({
     leftover: 10000,
     tokenUpdateAuthority: 0,
     migrationFee: {
-        feePercentage: 25,
-        creatorFeePercentage: 50,
+        feePercentage: 0,
+        creatorFeePercentage: 0,
     },
 })
 
@@ -758,7 +759,7 @@ const curveConfig = buildCurveWithMarketCap({
     totalTokenSupply: 1000000000,
     initialMarketCap: 100,
     migrationMarketCap: 3000,
-    migrationOption: MigrationOption.MET_DAMM,
+    migrationOption: MigrationOption.MET_DAMM_V2,
     tokenBaseDecimal: TokenDecimal.SIX,
     tokenQuoteDecimal: TokenDecimal.NINE,
     lockedVestingParam: {
@@ -790,8 +791,8 @@ const curveConfig = buildCurveWithMarketCap({
     leftover: 0,
     tokenUpdateAuthority: 0,
     migrationFee: {
-        feePercentage: 25,
-        creatorFeePercentage: 50,
+        feePercentage: 0,
+        creatorFeePercentage: 0,
     },
 })
 
@@ -925,11 +926,11 @@ const curveConfig = buildCurveWithTwoSegments({
     partnerLockedLpPercentage: 0,
     creatorLockedLpPercentage: 0,
     creatorTradingFeePercentage: 0,
-    leftover: 1000000,
+    leftover: 1000,
     tokenUpdateAuthority: 0,
     migrationFee: {
-        feePercentage: 25,
-        creatorFeePercentage: 50,
+        feePercentage: 0,
+        creatorFeePercentage: 0,
     },
 })
 
@@ -1067,12 +1068,12 @@ const curveConfig = buildCurveWithLiquidityWeights({
     partnerLockedLpPercentage: 0,
     creatorLockedLpPercentage: 0,
     creatorTradingFeePercentage: 0,
-    leftover: 1000000,
+    leftover: 1000,
     liquidityWeights,
     tokenUpdateAuthority: 0,
     migrationFee: {
-        feePercentage: 25,
-        creatorFeePercentage: 50,
+        feePercentage: 0,
+        creatorFeePercentage: 0,
     },
 })
 
@@ -1280,7 +1281,7 @@ const transaction = await client.pool.createConfigAndPool({
     },
     activationType: 0,
     collectFeeMode: 0,
-    migrationOption: 0
+    migrationOption: 0,
     tokenType: 0,
     tokenDecimal: 9,
     migrationQuoteThreshold: new BN('1000000000'),
@@ -1463,7 +1464,7 @@ const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
     },
     activationType: 0,
     collectFeeMode: 0,
-    migrationOption: 0
+    migrationOption: 0,
     tokenType: 0,
     tokenDecimal: 9,
     migrationQuoteThreshold: new BN('1000000000'),
@@ -1512,7 +1513,9 @@ const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
     swapBuyParam: {
         buyAmount: new BN(0.1 * 1e9),
         minimumAmountOut: new BN(1),
-        quoteMintTokenAccount: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+        quoteMintTokenAccount: new PublicKey(
+            'boss1234567890abcdefghijklmnopqrstuvwxyz'
+        ),
         referralTokenAccount: null,
     },
 })
@@ -2921,8 +2924,10 @@ The address of the DAMM V1 pool.
 #### Example
 
 ```typescript
+const poolConfig = await client.state.getPoolConfig(configAddress)
+
 const dammV1PoolAddress = deriveDammV1PoolAddress(
-    dammConfig: new PublicKey('8f848CEy8eY6PhJ3VcemtBDzPPSD4Vq7aJczLZ3o8MmX'),
+    dammConfig: DAMM_V1_MIGRATION_FEE_ADDRESS[poolConfig.migrationFeeOption],
     tokenAMint: new PublicKey('tokenA1234567890abcdefghijklmnopqrstuvwxyz'),
     tokenBMint: new PublicKey('tokenB1234567890abcdefghijklmnopqrstuvwxyz')
 )
@@ -2959,8 +2964,10 @@ The address of the DAMM V2 pool.
 #### Example
 
 ```typescript
+const poolConfig = await client.state.getPoolConfig(configAddress)
+
 const dammV2PoolAddress = deriveDammV2PoolAddress(
-    dammConfig: new PublicKey('7F6dnUcRuyM2TwR8myT1dYypFXpPSxqwKNSFNkxyNESd'),
+    dammConfig: DAMM_V2_MIGRATION_FEE_ADDRESS[poolConfig.migrationFeeOption],
     tokenAMint: new PublicKey('tokenA1234567890abcdefghijklmnopqrstuvwxyz'),
     tokenBMint: new PublicKey('tokenB1234567890abcdefghijklmnopqrstuvwxyz')
 )
@@ -3191,3 +3198,45 @@ const lockedVestingParams = getLockedVestingParams(
 #### Notes
 
 - The `totalVestingDuration` is the total duration of the vesting. It must be calculated in terms of seconds => 1000ms (timestamp).
+
+---
+
+### getQuoteReserveFromNextSqrtPrice
+
+Gets the quote reserve from the next sqrt price instead of getting from the pool state.
+
+#### Function
+
+```typescript
+function getQuoteReserveFromNextSqrtPrice(
+    nextSqrtPrice: BN,
+    config: PoolConfig
+): BN
+```
+
+#### Parameters
+
+```typescript
+nextSqrtPrice: BN // The next sqrt price that you can fetch from swap cpi logs
+config: PoolConfig // The pool config
+```
+
+#### Returns
+
+A `BN` object containing the calculated quote reserve.
+
+#### Example
+
+```typescript
+const poolConfig = await client.state.getPoolConfig(configAddress)
+
+const quoteReserve = getQuoteReserveFromNextSqrtPrice(
+    nextSqrtPrice: new BN('13663931917038696),
+    config: poolConfig
+)
+```
+
+#### Notes
+
+- The `nextSqrtPrice` is the next sqrt price that you can fetch from swap cpi logs.
+- The `config` is the pool config that the token pool used to launch.

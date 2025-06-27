@@ -84,9 +84,9 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
         tokenBaseDecimal
     )
 
-    const migrationBaseSupply = new BN(totalTokenSupply)
-        .mul(new BN(percentageSupplyOnMigration))
-        .div(new BN(100))
+    const migrationBaseSupply = new Decimal(totalTokenSupply)
+        .mul(new Decimal(percentageSupplyOnMigration))
+        .div(new Decimal(100))
 
     const totalSupply = convertToLamports(totalTokenSupply, tokenBaseDecimal)
 

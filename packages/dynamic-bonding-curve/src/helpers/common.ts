@@ -8,6 +8,7 @@ import {
     type LiquidityDistributionParameters,
     type LockedVestingParameters,
     ActivationType,
+    type PoolConfig,
 } from '../types'
 import {
     BASIS_POINT_MAX,
@@ -940,6 +941,7 @@ export function getRateLimiterParams(
         baseFeeMode: BaseFeeMode.RateLimiter,
     }
 }
+
 /**
  * Get the dynamic fee parameters (20% of base fee)
  * @param baseFeeBps - The base fee in basis points
@@ -1244,4 +1246,39 @@ export function getBaseFeeParams(
             totalDuration
         )
     }
+}
+
+/**
+ * Get the quote token amount from sqrt price
+ * @param nextSqrtPrice - The next sqrt price
+ * @param config - The pool configuration
+ * @returns The total quote token amount
+ */
+export function getQuoteReserveFromNextSqrtPrice(
+    nextSqrtPrice: BN,
+    config: PoolConfig
+): BN {
+    let totalAmount = new BN(0)
+
+    for (let i = 0; i < config.curve.length; i++) {
+        const lowerSqrtPrice =
+            i === 0 ? config.sqrtStartPrice : config.curve[i - 1].sqrtPrice
+
+        if (nextSqrtPrice.gt(lowerSqrtPrice)) {
+            const upperSqrtPrice = nextSqrtPrice.lt(config.curve[i].sqrtPrice)
+                ? nextSqrtPrice
+                : config.curve[i].sqrtPrice
+
+            const maxAmountIn = getDeltaAmountQuoteUnsigned(
+                lowerSqrtPrice,
+                upperSqrtPrice,
+                config.curve[i].liquidity,
+                Rounding.Up
+            )
+
+            totalAmount = totalAmount.add(maxAmountIn)
+        }
+    }
+
+    return totalAmount
 }

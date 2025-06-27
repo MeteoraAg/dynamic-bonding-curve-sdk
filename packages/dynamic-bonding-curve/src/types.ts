@@ -257,7 +257,7 @@ export type LockedVestingParams = {
     cliffDurationFromMigrationTime: number
 }
 
-type BaseFeeParams =
+export type BaseFeeParams =
     | {
           baseFeeMode:
               | BaseFeeMode.FeeSchedulerLinear

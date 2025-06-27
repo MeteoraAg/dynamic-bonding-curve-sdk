@@ -1,15 +1,8 @@
 import { Commitment, Connection, PublicKey } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
-import {
-    createProgramAccountFilter,
-    deriveDammV1MigrationMetadataAddress,
-    deriveDammV2MigrationMetadataAddress,
-    getAccountData,
-} from '../helpers'
+import { createProgramAccountFilter, getAccountData } from '../helpers'
 import {
     LockEscrow,
-    MeteoraDammMigrationMetadata,
-    MeteoraDammV2MigrationMetadata,
     PartnerMetadata,
     PoolConfig,
     VirtualPool,

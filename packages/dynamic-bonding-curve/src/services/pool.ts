@@ -9,7 +9,6 @@ import {
 import { DynamicBondingCurveProgram } from './program'
 import {
     ActivationType,
-    BaseFeeMode,
     ConfigParameters,
     CreateConfigAndPoolParam,
     CreateConfigAndPoolWithFirstBuyParam,
