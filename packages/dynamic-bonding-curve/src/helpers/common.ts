@@ -1244,3 +1244,45 @@ export function getQuoteReserveFromNextSqrtPrice(
 
     return totalAmount
 }
+
+/**
+ * Get the flat curve
+ * @param migrationSqrtPrice - The migration sqrt price
+ * @param migrationAmount - The migration amount
+ * @param migrationQuoteThreshold - The migration quote threshold
+ * @param swapAmount - The swap amount
+ * @param flatSegmentSqrtPrice - The flat segment sqrt price
+ * @param flatSegmentThreshold - The flat segment threshold
+ * @param flatSegmentSwapAmount - The flat segment swap amount
+ * @returns The flat curve
+ */
+export const getFlatCurve = (
+    initialSqrtPrice: BN,
+    flatSegmentSqrtPrice: BN,
+    flatSegmentThreshold: BN,
+    flatSegmentSwapAmount: BN
+) => {
+    // Calculate liquidity for flat segment
+    const flatSegmentLiquidity = getLiquidity(
+        flatSegmentSwapAmount,
+        flatSegmentThreshold,
+        initialSqrtPrice,
+        flatSegmentSqrtPrice
+    )
+    console.log('flatSegmentLiquidity', flatSegmentLiquidity.toString())
+
+    let curve = [
+        {
+            sqrtPrice: flatSegmentSqrtPrice,
+            liquidity: flatSegmentLiquidity,
+        },
+    ]
+
+    console.log('curve', curve[0].liquidity.toString())
+    console.log('sqrtPrice', curve[0].sqrtPrice.toString())
+
+    return {
+        sqrtStartPrice: initialSqrtPrice,
+        curve,
+    }
+}

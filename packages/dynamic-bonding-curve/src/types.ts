@@ -316,6 +316,13 @@ export type BuildCurveWithLiquidityWeightsParam = BuildCurveBaseParam & {
     liquidityWeights: number[]
 }
 
+export type BuildCurveWithFlatSegmentParam = BuildCurveBaseParam & {
+    initialMarketCap: number
+    migrationMarketCap: number
+    percentageSupplyOnMigration: number
+    flatSegmentPercentage: number
+}
+
 export type InitializePoolBaseParam = {
     name: string
     symbol: string
