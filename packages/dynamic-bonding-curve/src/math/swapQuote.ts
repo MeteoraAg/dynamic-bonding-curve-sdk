@@ -9,7 +9,6 @@ import {
 import { getBaseFeeNumerator, getFeeOnAmount, getVariableFee } from './feeMath'
 import {
     CollectFeeMode,
-    GetFeeMode,
     Rounding,
     TradeDirection,
     type FeeMode,
@@ -348,14 +347,15 @@ export function getSwapAmountFromQuoteToBase(
  * @returns Fee mode
  */
 export function getFeeMode(
-    collectFeeMode: GetFeeMode,
+    collectFeeMode: CollectFeeMode,
     tradeDirection: TradeDirection,
     hasReferral: boolean
 ): FeeMode {
     const quoteToBase = tradeDirection === TradeDirection.QuoteToBase
-    const feesOnInput = quoteToBase && collectFeeMode === GetFeeMode.QuoteToken
+    const feesOnInput =
+        quoteToBase && collectFeeMode === CollectFeeMode.QuoteToken
     const feesOnBaseToken =
-        quoteToBase && collectFeeMode === GetFeeMode.OutputToken
+        quoteToBase && collectFeeMode === CollectFeeMode.OutputToken
 
     return {
         feesOnInput,
@@ -453,7 +453,7 @@ export function calculateQuoteExactInAmount(
         virtualPool.quoteReserve
     )
 
-    if (config.collectFeeMode === CollectFeeMode.OnlyQuote) {
+    if (config.collectFeeMode === CollectFeeMode.QuoteToken) {
         const baseFeeNumerator = getBaseFeeNumerator(
             config.poolFees.baseFee,
             TradeDirection.QuoteToBase,

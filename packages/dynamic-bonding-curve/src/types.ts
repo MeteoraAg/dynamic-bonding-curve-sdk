@@ -157,18 +157,13 @@ export enum TokenType {
 }
 
 export enum CollectFeeMode {
-    OnlyQuote = 0,
-    Both = 1,
+    QuoteToken = 0,
+    OutputToken = 1,
 }
 
 export enum MigrationOption {
     MET_DAMM = 0,
     MET_DAMM_V2 = 1,
-}
-
-export enum GetFeeMode {
-    QuoteToken = 0,
-    OutputToken = 1,
 }
 
 export enum BaseFeeMode {
@@ -204,8 +199,16 @@ export enum Rounding {
 }
 
 export enum TokenUpdateAuthorityOption {
-    Mutable = 0,
+    // Creator has permission to update update_authority
+    CreatorUpdateAuthority = 0,
+    // No one has permission to update the authority
     Immutable = 1,
+    // Partner has permission to update update_authority
+    PartnerUpdateAuthority = 2,
+    // Creator has permission as mint_authority and update_authority
+    CreatorUpdateAndMintAuthority = 3,
+    // Partner has permission as mint_authority and update_authority
+    PartnerUpdateAndMintAuthority = 4,
 }
 
 ///////////
@@ -349,25 +352,48 @@ export type CreatePoolParam = {
 }
 
 export type CreateConfigAndPoolParam = CreateConfigParam & {
-    createPoolParam: {
-        name: string
-        symbol: string
-        uri: string
-        poolCreator: PublicKey
-        baseMint: PublicKey
-    }
+    preCreatePoolParam: PreCreatePoolParam
 }
 
 export type CreateConfigAndPoolWithFirstBuyParam = CreateConfigAndPoolParam & {
-    swapBuyParam: {
-        buyAmount: BN
-        minimumAmountOut: BN
-        referralTokenAccount: PublicKey | null
-    }
+    firstBuyParam: FirstBuyParam
 }
 
 export type CreatePoolWithFirstBuyParam = {
     createPoolParam: CreatePoolParam
+    firstBuyParam: FirstBuyParam
+}
+
+export type CreatePoolWithPartnerAndCreatorFirstBuyParam = {
+    createPoolParam: CreatePoolParam
+    partnerFirstBuyParam: PartnerFirstBuyParam
+    creatorFirstBuyParam: CreatorFirstBuyParam
+}
+
+export type PreCreatePoolParam = {
+    name: string
+    symbol: string
+    uri: string
+    poolCreator: PublicKey
+    baseMint: PublicKey
+}
+
+export type FirstBuyParam = {
+    buyer: PublicKey
+    buyAmount: BN
+    minimumAmountOut: BN
+    referralTokenAccount: PublicKey | null
+}
+
+export type PartnerFirstBuyParam = {
+    partner: PublicKey
+    buyAmount: BN
+    minimumAmountOut: BN
+    referralTokenAccount: PublicKey | null
+}
+
+export type CreatorFirstBuyParam = {
+    creator: PublicKey
     buyAmount: BN
     minimumAmountOut: BN
     referralTokenAccount: PublicKey | null
@@ -380,6 +406,7 @@ export type SwapParam = {
     minimumAmountOut: BN
     swapBaseForQuote: boolean
     referralTokenAccount: PublicKey | null
+    payer?: PublicKey
 }
 
 export type SwapQuoteParam = {

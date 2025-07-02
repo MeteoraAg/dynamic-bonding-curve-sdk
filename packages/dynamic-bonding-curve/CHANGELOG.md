@@ -2,6 +2,33 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.3.0] - 2025-07-01
+
+### Added
+
+- Added optional `payer` parameter to `swap` function
+- Added `createPoolWithPartnerAndCreatorFirstBuy` function
+
+### Changed
+
+- `createConfigAndPoolWithFirstBuy` and `createPoolWithFirstBuy` function now accepts a `buyer` parameter
+- `createPoolWithFirstBuy` function now returns a `Transaction[]` containing `createPoolTx` and a `swapBuyTx` instead of a single `Transaction`
+
+## [1.2.9] - 2025-06-26
+
+### Added
+
+- `TokenUpdateAuthorityOption` enum to have more options for token update authority:
+    - CreatorUpdateAuthority (0)
+    - Immutable (1)
+    - PartnerUpdateAuthority (2)
+    - CreatorUpdateAndMintAuthority (3)
+    - PartnerUpdateAndMintAuthority (4)
+
+### Changed
+
+- Changed `CollectFeeMode` enums from `OnlyQuote` and `Both` to `QuoteToken` and `OutputToken`
+
 ## [1.2.8] - 2025-06-24
 
 ### Added

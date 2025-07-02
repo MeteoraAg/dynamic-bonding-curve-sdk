@@ -5,13 +5,13 @@ import {
     getSwapAmountFromBaseToQuote,
     getSwapAmountFromQuoteToBase,
 } from '../../src/math/swapQuote'
-import { TradeDirection, GetFeeMode } from '../../src/types'
+import { TradeDirection, CollectFeeMode } from '../../src/types'
 import { Q } from '../utils/common'
 
 test('getFeeMode with QuoteToken mode', () => {
     // Test base to quote direction
     const feeMode1 = getFeeMode(
-        GetFeeMode.QuoteToken,
+        CollectFeeMode.QuoteToken,
         TradeDirection.BaseToQuote,
         false
     )
@@ -21,7 +21,7 @@ test('getFeeMode with QuoteToken mode', () => {
 
     // Test quote to base direction
     const feeMode2 = getFeeMode(
-        GetFeeMode.QuoteToken,
+        CollectFeeMode.QuoteToken,
         TradeDirection.QuoteToBase,
         true
     )
@@ -33,7 +33,7 @@ test('getFeeMode with QuoteToken mode', () => {
 test('getFeeMode with OutputToken mode', () => {
     // Test base to quote direction
     const feeMode1 = getFeeMode(
-        GetFeeMode.OutputToken,
+        CollectFeeMode.OutputToken,
         TradeDirection.BaseToQuote,
         false
     )
@@ -43,7 +43,7 @@ test('getFeeMode with OutputToken mode', () => {
 
     // Test quote to base direction
     const feeMode2 = getFeeMode(
-        GetFeeMode.OutputToken,
+        CollectFeeMode.OutputToken,
         TradeDirection.QuoteToBase,
         true
     )

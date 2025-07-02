@@ -24,6 +24,7 @@
     - [createConfigAndPool](#createConfigAndPool)
     - [createConfigAndPoolWithFirstBuy](#createConfigAndPoolWithFirstBuy)
     - [createPoolWithFirstBuy](#createPoolWithFirstBuy)
+    - [createPoolWithPartnerAndCreatorFirstBuy](#createPoolWithPartnerAndCreatorFirstBuy)
     - [swap](#swap)
     - [swapQuote](#swapQuote)
     - [swapQuoteExactIn](#swapQuoteExactIn)
@@ -150,7 +151,7 @@ interface CreateConfigParam {
         postMigrationTokenSupply: BN // The token supply after migration
     } | null
     creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
-    tokenUpdateAuthority: number // 0 - Mutable, 1 - Immutable,
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
@@ -221,7 +222,7 @@ const transaction = await client.partner.createConfig({
         postMigrationTokenSupply: new BN('10000000000000000000'),
     },
     creatorTradingFeePercentage: 0,
-    tokenUpdateAuthority: 0,
+    tokenUpdateAuthority: 1,
     migrationFee: {
         feePercentage: 25,
         creatorFeePercentage: 50,
@@ -320,7 +321,7 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 
 ##### Token Update Authority
 
-- Must be either Mutable (0) or Immutable (1)
+- Must be either CreatorUpdateAuthority (0), Immutable (1), PartnerUpdateAuthority (2), CreatorUpdateAndMintAuthority (3), PartnerUpdateAndMintAuthority (4)
 
 ---
 
@@ -603,7 +604,7 @@ interface BuildCurveParam {
     creatorLockedLpPercentage: number // The percentage of the pool that will be allocated to the creator locked
     creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
     leftover: number // The leftover amount that can be withdrawn by leftover receiver
-    tokenUpdateAuthority: number // 0 - Mutable, 1 - Immutable,
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
@@ -653,7 +654,7 @@ const curveConfig = buildCurve({
     creatorLockedLpPercentage: 0,
     creatorTradingFeePercentage: 0,
     leftover: 10000,
-    tokenUpdateAuthority: 0,
+    tokenUpdateAuthority: 1,
     migrationFee: {
         feePercentage: 0,
         creatorFeePercentage: 0,
@@ -739,7 +740,7 @@ interface BuildCurveWithMarketCapParam {
     creatorLockedLpPercentage: number // The percentage of the pool that will be allocated to the creator locked
     creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
     leftover: number // The leftover amount that can be withdrawn by leftover receiver
-    tokenUpdateAuthority: number // 0 - Mutable, 1 - Immutable,
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
@@ -789,7 +790,7 @@ const curveConfig = buildCurveWithMarketCap({
     creatorLockedLpPercentage: 0,
     creatorTradingFeePercentage: 0,
     leftover: 0,
-    tokenUpdateAuthority: 0,
+    tokenUpdateAuthority: 1,
     migrationFee: {
         feePercentage: 0,
         creatorFeePercentage: 0,
@@ -876,7 +877,7 @@ interface BuildCurveWithTwoSegmentsParam {
     creatorLockedLpPercentage: number // The percentage of the pool that will be allocated to the creator locked
     creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
     leftover: number // The leftover amount that can be withdrawn by leftover receiver
-    tokenUpdateAuthority: number // 0 - Mutable, 1 - Immutable,
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
@@ -927,7 +928,7 @@ const curveConfig = buildCurveWithTwoSegments({
     creatorLockedLpPercentage: 0,
     creatorTradingFeePercentage: 0,
     leftover: 1000,
-    tokenUpdateAuthority: 0,
+    tokenUpdateAuthority: 1,
     migrationFee: {
         feePercentage: 0,
         creatorFeePercentage: 0,
@@ -1014,7 +1015,7 @@ interface BuildCurveWithLiquidityWeightsParam {
     creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
     leftover: number // The leftover amount that can be withdrawn by leftover receiver
     liquidityWeights: number[] // The liquidity weights for each liquidity segment in the curve
-    tokenUpdateAuthority: number // 0 - Mutable, 1 - Immutable,
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
@@ -1070,7 +1071,7 @@ const curveConfig = buildCurveWithLiquidityWeights({
     creatorTradingFeePercentage: 0,
     leftover: 1000,
     liquidityWeights,
-    tokenUpdateAuthority: 0,
+    tokenUpdateAuthority: 1,
     migrationFee: {
         feePercentage: 0,
         creatorFeePercentage: 0,
@@ -1225,7 +1226,7 @@ interface CreateConfigAndPoolParam {
         postMigrationTokenSupply: BN // The token supply after migration
     } | null
     creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
-    tokenUpdateAuthority: number // 0 - Mutable, 1 - Immutable,
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
@@ -1238,7 +1239,7 @@ interface CreateConfigAndPoolParam {
         sqrtPrice: BN // The square root of the curve point price
         liquidity: BN // The liquidity of the curve point
     }[]
-    createPoolParam: {
+    preCreatePoolParam: {
         baseMint: PublicKey // The base mint address (generated by you)
         name: string // The name of the pool
         symbol: string // The symbol of the pool
@@ -1303,7 +1304,7 @@ const transaction = await client.pool.createConfigAndPool({
         postMigrationTokenSupply: new BN('10000000000000000000'),
     },
     creatorTradingFeePercentage: 0,
-    tokenUpdateAuthority: 0,
+    tokenUpdateAuthority: 1,
     migrationFee: {
         feePercentage: 25,
         creatorFeePercentage: 50,
@@ -1320,7 +1321,7 @@ const transaction = await client.pool.createConfigAndPool({
             liquidity: new BN('1'),
         },
     ],
-    createPoolParam: {
+    preCreatePoolParam: {
         baseMint: new PublicKey('0987654321zyxwvutsrqponmlkjihgfedcba'),
         name: 'Meteora',
         symbol: 'MET',
@@ -1346,7 +1347,11 @@ Creates a config key and a token pool and buys the token immediately in a single
 #### Function
 
 ```typescript
-async createConfigAndPoolWithFirstBuy(createConfigAndPoolWithFirstBuyParam: CreateConfigAndPoolWithFirstBuyParam): Promise<Transaction>
+async createConfigAndPoolWithFirstBuy(createConfigAndPoolWithFirstBuyParam: CreateConfigAndPoolWithFirstBuyParam): Promise<{
+    createConfigTx: Transaction
+    createPoolTx: Transaction
+    swapBuyTx: Transaction
+}>
 ```
 
 #### Parameters
@@ -1403,7 +1408,7 @@ interface CreateConfigAndPoolWithFirstBuyParam {
         postMigrationTokenSupply: BN // The token supply after migration
     } | null
     creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
-    tokenUpdateAuthority: number // 0 - Mutable, 1 - Immutable,
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
@@ -1416,14 +1421,15 @@ interface CreateConfigAndPoolWithFirstBuyParam {
         sqrtPrice: BN // The square root of the curve point price
         liquidity: BN // The liquidity of the curve point
     }[]
-    createPoolParam: {
+    preCreatePoolParam: {
         baseMint: PublicKey // The base mint address (generated by you)
         name: string // The name of the pool
         symbol: string // The symbol of the pool
         uri: string // The uri of the pool
         poolCreator: PublicKey // The pool creator of the transaction
     }
-    swapBuyParam: {
+    firstBuyParam: {
+        buyer: PublicKey // The buyer of the transaction
         buyAmount: BN // The amount of tokens to buy
         minimumAmountOut: BN // The minimum amount of tokens to receive
         referralTokenAccount: PublicKey | null // The referral token account (optional)
@@ -1433,7 +1439,7 @@ interface CreateConfigAndPoolWithFirstBuyParam {
 
 #### Returns
 
-An object of transactions (containing createConfigTx, createPoolTx, and swapBuyTx) that requires signatures before being submitted to the network.
+An object of transactions (containing createConfigTx, createPoolTx, and swapBuyTx) that requires signatures before being submitted to the network. Can be bundled together.
 
 #### Example
 
@@ -1486,7 +1492,7 @@ const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
         postMigrationTokenSupply: new BN('10000000000000000000'),
     },
     creatorTradingFeePercentage: 0,
-    tokenUpdateAuthority: 0,
+    tokenUpdateAuthority: 1,
     migrationFee: {
         feePercentage: 25,
         creatorFeePercentage: 50,
@@ -1503,19 +1509,17 @@ const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
             liquidity: new BN('1'),
         },
     ],
-    createPoolParam: {
+    preCreatePoolParam: {
         baseMint: new PublicKey('0987654321zyxwvutsrqponmlkjihgfedcba'),
         name: 'Meteora',
         symbol: 'MET',
         uri: 'https://launch.meteora.ag/icons/logo.svg',
         poolCreator: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     },
-    swapBuyParam: {
+    firstBuyParam: {
+        buyer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
         buyAmount: new BN(0.1 * 1e9),
         minimumAmountOut: new BN(1),
-        quoteMintTokenAccount: new PublicKey(
-            'boss1234567890abcdefghijklmnopqrstuvwxyz'
-        ),
         referralTokenAccount: null,
     },
 })
@@ -1537,7 +1541,10 @@ Creates a new pool with the config key and buys the token immediately.
 #### Function
 
 ```typescript
-async createPoolWithFirstBuy(createPoolWithFirstBuyParam: CreatePoolWithFirstBuyParam): Promise<Transaction>
+async createPoolWithFirstBuy(createPoolWithFirstBuyParam: CreatePoolWithFirstBuyParam): Promise<{
+    createPoolTx: Transaction
+    swapBuyTx: Transaction
+}>
 ```
 
 #### Parameters
@@ -1553,15 +1560,18 @@ interface CreatePoolWithFirstBuyParam {
         payer: PublicKey // The payer of the transaction
         poolCreator: PublicKey // The pool creator of the transaction
     }
-    buyAmount: BN // The amount of tokens to buy
-    minimumAmountOut: BN // The minimum amount of tokens to receive
-    referralTokenAccount: PublicKey | null // The referral token account (optional)
+    firstBuyParam: {
+        buyer: PublicKey // The buyer of the transaction
+        buyAmount: BN // The amount of tokens to buy
+        minimumAmountOut: BN // The minimum amount of tokens to receive
+        referralTokenAccount: PublicKey | null // The referral token account (optional)
+    }
 }
 ```
 
 #### Returns
 
-A transaction that requires signatures from the payer, the baseMint keypair, and the poolCreator before being submitted to the network.
+An object of transactions (containing createPoolTx and swapBuyTx) that requires signatures before being submitted to the network. Can be bundled together.
 
 #### Example
 
@@ -1576,18 +1586,104 @@ const transaction = await client.pool.createPoolWithFirstBuy({
         payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
         poolCreator: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     },
-    buyAmount: new BN(0.1 * 1e9),
-    minimumAmountOut: new BN(1),
-    referralTokenAccount: null,
+    firstBuyParam: {
+        buyer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+        buyAmount: new BN(0.1 * 1e9),
+        minimumAmountOut: new BN(1),
+        referralTokenAccount: null,
+    },
 })
 ```
 
 #### Notes
 
-- The `payer` must be the same as the payer in the `CreatePoolWithFirstBuyParam` params.
 - The `poolCreator` is required to sign when creating the pool.
+- The `buyer` is required to sign when buying the token.
 - The `baseMint` token type must be the same as the config key's token type.
-- The `buyAmount` must be greater than 0.
+- The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
+- The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+
+---
+
+### createPoolWithPartnerAndCreatorFirstBuy
+
+Creates a new pool with the config key and buys the token immediately with partner and creator.
+
+#### Function
+
+```typescript
+async createPoolWithPartnerAndCreatorFirstBuy(createPoolWithPartnerAndCreatorFirstBuyParam: CreatePoolWithPartnerAndCreatorFirstBuyParam): Promise<{
+    createPoolTx: Transaction
+    partnerSwapBuyTx: Transaction
+    creatorSwapBuyTx: Transaction
+}>
+```
+
+#### Parameters
+
+```typescript
+interface CreatePoolWithPartnerAndCreatorFirstBuyParam {
+    createPoolParam: {
+        baseMint: PublicKey // The base mint address (generated by you)
+        config: PublicKey // The config account address
+        name: string // The name of the pool
+        symbol: string // The symbol of the pool
+        uri: string // The uri of the pool
+        payer: PublicKey // The payer of the transaction
+        poolCreator: PublicKey // The pool creator of the transaction
+    }
+    partnerFirstBuyParam: {
+        partner: PublicKey // The launchpad partner
+        buyAmount: BN // The amount of tokens to buy
+        minimumAmountOut: BN // The minimum amount of tokens to receive
+        referralTokenAccount: PublicKey | null // The referral token account (optional)
+    }
+    creatorFirstBuyParam: {
+        creator: PublicKey // The pool creator
+        buyAmount: BN // The amount of tokens to buy
+        minimumAmountOut: BN // The minimum amount of tokens to receive
+        referralTokenAccount: PublicKey | null // The referral token account (optional)
+    }
+}
+```
+
+#### Returns
+
+An object of transactions (containing createPoolTx, partnerSwapBuyTx, and creatorSwapBuyTx) that requires signatures before being submitted to the network. Can be bundled together.
+
+#### Example
+
+```typescript
+const transaction = await client.pool.createPoolWithPartnerAndCreatorFirstBuy({
+    createPoolParam: {
+        baseMint: new PublicKey('0987654321zyxwvutsrqponmlkjihgfedcba'),
+        config: new PublicKey('1234567890abcdefghijklmnopqrstuvwxyz'),
+        name: 'Meteora',
+        symbol: 'MET',
+        uri: 'https://launch.meteora.ag/icons/logo.svg',
+        payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+        poolCreator: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    },
+    partnerFirstBuyParam: {
+        partner: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+        buyAmount: new BN(0.1 * 1e9),
+        minimumAmountOut: new BN(1),
+        referralTokenAccount: null,
+    },
+    creatorFirstBuyParam: {
+        creator: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+        buyAmount: new BN(0.1 * 1e9),
+        minimumAmountOut: new BN(1),
+        referralTokenAccount: null,
+    },
+})
+```
+
+#### Notes
+
+- The `poolCreator` is required to sign when creating the pool.
+- The `partner` and `creator` are required to sign when buying the token.
+- The `baseMint` token type must be the same as the config key's token type.
 - The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
 
@@ -1613,6 +1709,7 @@ interface SwapParam {
     swapBaseForQuote: boolean // Whether to swap base for quote. true = swap base for quote, false = swap quote for base
     poolAddress: PublicKey // The pool address
     referralTokenAccount: PublicKey | null // The referral token account (optional)
+    payer?: PublicKey // The payer of the transaction (optional)
 }
 ```
 
@@ -1630,6 +1727,7 @@ const transaction = await client.pool.swap({
     swapBaseForQuote: false,
     pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     referralTokenAccount: null,
+    payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
 })
 ```
 
@@ -1643,6 +1741,7 @@ const transaction = await client.pool.swap({
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
 - If the transaction fails with "insufficient balance", check that you have enough tokens plus fees for the transaction.
 - The pool address can be derived using `deriveDbcPoolAddress`.
+- The `payer` parameter is optional. If not provided, the owner will be used as the payer to fund ATA creation.
 
 ---
 

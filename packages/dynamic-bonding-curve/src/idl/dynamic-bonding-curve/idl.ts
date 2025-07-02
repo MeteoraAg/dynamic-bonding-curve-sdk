@@ -8,7 +8,7 @@ export type DynamicBondingCurve = {
     address: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
     metadata: {
         name: 'dynamicBondingCurve'
-        version: '0.1.2'
+        version: '0.1.4'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -3079,8 +3079,8 @@ export type DynamicBondingCurve = {
         },
         {
             code: 6037
-            name: 'invalidTokenUpdateAuthorityOption'
-            msg: 'Invalid token update authority option'
+            name: 'invalidTokenAuthorityOption'
+            msg: 'Invalid token authority option'
         },
         {
             code: 6038

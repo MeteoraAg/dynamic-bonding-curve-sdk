@@ -2,7 +2,7 @@
   "address": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
   "metadata": {
     "name": "dynamic_bonding_curve",
-    "version": "0.1.2",
+    "version": "0.1.4",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -3893,8 +3893,8 @@
     },
     {
       "code": 6037,
-      "name": "InvalidTokenUpdateAuthorityOption",
-      "msg": "Invalid token update authority option"
+      "name": "InvalidTokenAuthorityOption",
+      "msg": "Invalid token authority option"
     },
     {
       "code": 6038,

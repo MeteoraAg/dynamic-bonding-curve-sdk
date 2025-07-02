@@ -179,7 +179,7 @@ export function validateFeeRateLimiter(
     if (!feeRateLimiter) return true
 
     // can only be applied in quote token collect fee mode
-    if (collectFeeMode !== CollectFeeMode.OnlyQuote) {
+    if (collectFeeMode !== CollectFeeMode.QuoteToken) {
         return false
     }
 
@@ -258,7 +258,7 @@ export function validateFeeRateLimiter(
 export function validateCollectFeeMode(
     collectFeeMode: CollectFeeMode
 ): boolean {
-    return [CollectFeeMode.OnlyQuote, CollectFeeMode.Both].includes(
+    return [CollectFeeMode.QuoteToken, CollectFeeMode.OutputToken].includes(
         collectFeeMode
     )
 }
@@ -456,8 +456,11 @@ export function validateTokenUpdateAuthorityOptions(
     option: TokenUpdateAuthorityOption
 ): boolean {
     return [
-        TokenUpdateAuthorityOption.Mutable,
+        TokenUpdateAuthorityOption.CreatorUpdateAuthority,
         TokenUpdateAuthorityOption.Immutable,
+        TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+        TokenUpdateAuthorityOption.CreatorUpdateAndMintAuthority,
+        TokenUpdateAuthorityOption.PartnerUpdateAndMintAuthority,
     ].includes(option)
 }
 
