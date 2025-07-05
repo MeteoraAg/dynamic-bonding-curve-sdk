@@ -21,5 +21,8 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@meteora-ag/dynamic-bonding-curve-sdk": "^1.3.1"
+  }
 }
