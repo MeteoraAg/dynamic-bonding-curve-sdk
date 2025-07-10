@@ -127,7 +127,7 @@ interface CreateConfigParam {
         } | null
     }
     activationType: number // 0: Slot, 1: Timestamp
-    collectFeeMode: number // 0: Only Quote, 1: Both
+    collectFeeMode: number // 0: QuoteToken, 1: OutputToken
     migrationOption: number // 0: DAMM V1, 1: DAMM v2
     tokenType: number // 0: SPL, 1: Token2022
     tokenDecimal: number // The number of decimals for the token
@@ -257,7 +257,7 @@ When creating a new configuration for a dynamic bonding curve, several validatio
     - Min and max fee numerators must be within valid range (MIN_FEE_NUMERATOR to MAX_FEE_NUMERATOR)
     - Fee numerators must be less than FEE_DENOMINATOR
 - If using Rate Limiter:
-    - Can only be used with OnlyQuote collect fee mode
+    - Can only be used with QuoteToken collect fee mode
     - All parameters must be set for non-zero rate limiter
     - Max limiter duration must be within limits based on activation type
     - Fee increment numerator must be less than FEE_DENOMINATOR
@@ -266,7 +266,7 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 
 ##### Fee Mode
 
-- Collect fee mode must be either `OnlyQuote` (0) or `Both` (1)
+- Collect fee mode must be either `QuoteToken` (0) or `OutputToken` (1)
 
 ##### Migration and Token Type
 
@@ -596,7 +596,7 @@ interface BuildCurveParam {
     }
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
-    collectFeeMode: number // 0: Only Quote, 1: Both
+    collectFeeMode: number // 0: QuoteToken, 1: OutputToken
     migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
@@ -646,7 +646,7 @@ const curveConfig = buildCurve({
     },
     dynamicFeeEnabled: true,
     activationType: ActivationType.Slot,
-    collectFeeMode: CollectFeeMode.OnlyQuote,
+    collectFeeMode: CollectFeeMode.QuoteToken,
     migrationFeeOption: MigrationFeeOption.FixedBps100,
     tokenType: TokenType.SPL,
     partnerLpPercentage: 0,
@@ -732,7 +732,7 @@ interface BuildCurveWithMarketCapParam {
     }
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
-    collectFeeMode: number // 0: Only Quote, 1: Both
+    collectFeeMode: number // 0: QuoteToken, 1: OutputToken
     migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
@@ -782,7 +782,7 @@ const curveConfig = buildCurveWithMarketCap({
     },
     dynamicFeeEnabled: true,
     activationType: ActivationType.Slot,
-    collectFeeMode: CollectFeeMode.OnlyQuote,
+    collectFeeMode: CollectFeeMode.QuoteToken,
     migrationFeeOption: MigrationFeeOption.FixedBps100,
     tokenType: TokenType.SPL,
     partnerLpPercentage: 0,
@@ -869,7 +869,7 @@ interface BuildCurveWithTwoSegmentsParam {
     }
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
-    collectFeeMode: number // 0: Only Quote, 1: Both
+    collectFeeMode: number // 0: QuoteToken, 1: OutputToken
     migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
@@ -920,7 +920,7 @@ const curveConfig = buildCurveWithTwoSegments({
     },
     dynamicFeeEnabled: true,
     activationType: ActivationType.Slot,
-    collectFeeMode: CollectFeeMode.OnlyQuote,
+    collectFeeMode: CollectFeeMode.QuoteToken,
     migrationFeeOption: MigrationFeeOption.FixedBps100,
     tokenType: TokenType.SPL,
     partnerLpPercentage: 100,
@@ -1006,7 +1006,7 @@ interface BuildCurveWithLiquidityWeightsParam {
     }
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
-    collectFeeMode: number // 0: Only Quote, 1: Both
+    collectFeeMode: number // 0: QuoteToken, 1: OutputToken
     migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
@@ -1062,7 +1062,7 @@ const curveConfig = buildCurveWithLiquidityWeights({
     },
     dynamicFeeEnabled: true,
     activationType: ActivationType.Slot,
-    collectFeeMode: CollectFeeMode.OnlyQuote,
+    collectFeeMode: CollectFeeMode.QuoteToken,
     migrationFeeOption: MigrationFeeOption.FixedBps100,
     tokenType: TokenType.SPL,
     partnerLpPercentage: 100,
@@ -1202,7 +1202,7 @@ interface CreateConfigAndPoolParam {
         } | null
     }
     activationType: number // 0: Slot, 1: Timestamp
-    collectFeeMode: number // 0: Only Quote, 1: Both
+    collectFeeMode: number // 0: QuoteToken, 1: OutputToken
     migrationOption: number // 0: DAMM V1, 1: DAMM v2
     tokenType: number // 0: SPL, 1: Token2022
     tokenDecimal: number // The number of decimals for the token
@@ -1384,7 +1384,7 @@ interface CreateConfigAndPoolWithFirstBuyParam {
         } | null
     }
     activationType: number // 0: Slot, 1: Timestamp
-    collectFeeMode: number // 0: Only Quote, 1: Both
+    collectFeeMode: number // 0: QuoteToken, 1: OutputToken
     migrationOption: number // 0: DAMM V1, 1: DAMM v2
     tokenType: number // 0: SPL, 1: Token2022
     tokenDecimal: number // The number of decimals for the token
