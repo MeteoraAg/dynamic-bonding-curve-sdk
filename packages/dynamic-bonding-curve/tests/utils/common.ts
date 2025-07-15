@@ -38,9 +38,14 @@ export function calculateRateLimiterFee(params: BaseFee, inputAmount: BN): BN {
 
     // let x0 = reference_amount
     // let c = cliff_fee_numerator
-    // let i = fee_increment (in basis points)
+    // let i = fee_increment
     // let a = (input_amount - x0) / x0 (integer division)
     // let b = (input_amount - x0) % x0 (remainder)
+
+    // max_index =
+    //     (MAX_FEE_NUMERATOR - cliff_fee_numerator) / fee_increment_numerator
+    // where: fee_increment_numerator =
+    //     (fee_increment_bps * FEE_DENOMINATOR) / 10_000
 
     // if a < max_index:
     // --> fee = x0 * (c + c*a + i*a*(a+1)/2) + b * (c + i*(a+1))
