@@ -10,6 +10,7 @@ import {
 } from '../types'
 import { ProgramAccount } from '@coral-xyz/anchor'
 import BN from 'bn.js'
+import Decimal from 'decimal.js'
 
 export class StateService extends DynamicBondingCurveProgram {
     constructor(connection: Connection, commitment: Commitment) {
@@ -143,10 +144,10 @@ export class StateService extends DynamicBondingCurveProgram {
         const quoteReserve = pool.quoteReserve
         const migrationThreshold = config.migrationQuoteThreshold
 
-        const quoteReserveNum = quoteReserve.toNumber()
-        const thresholdNum = migrationThreshold.toNumber()
+        const quoteReserveDecimal = new Decimal(quoteReserve.toString())
+        const thresholdDecimal = new Decimal(migrationThreshold.toString())
 
-        const progress = quoteReserveNum / thresholdNum
+        const progress = quoteReserveDecimal.div(thresholdDecimal).toNumber()
 
         return Math.min(Math.max(progress, 0), 1)
     }
