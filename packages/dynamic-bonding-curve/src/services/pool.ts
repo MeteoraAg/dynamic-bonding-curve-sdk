@@ -34,6 +34,7 @@ import {
     deriveDbcTokenVaultAddress,
     getTokenType,
     checkRateLimiterApplied,
+    getOrCreateATAInstruction,
 } from '../helpers'
 import { NATIVE_MINT, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
@@ -278,8 +279,13 @@ export class PoolService extends DynamicBondingCurveProgram {
         tokenType: TokenType,
         quoteMint: PublicKey
     ): Promise<Transaction> {
-        const { buyer, buyAmount, minimumAmountOut, referralTokenAccount } =
-            firstBuyParam
+        const {
+            buyer,
+            receiver,
+            buyAmount,
+            minimumAmountOut,
+            referralTokenAccount,
+        } = firstBuyParam
 
         // error checks
         validateSwapAmount(buyAmount)
@@ -314,18 +320,31 @@ export class PoolService extends DynamicBondingCurveProgram {
         const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
         const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
 
-        const {
-            ataTokenA: inputTokenAccount,
-            ataTokenB: outputTokenAccount,
-            instructions: preInstructions,
-        } = await this.prepareTokenAccounts(
-            buyer,
-            buyer,
-            inputMint,
-            outputMint,
-            inputTokenProgram,
-            outputTokenProgram
-        )
+        const preInstructions: TransactionInstruction[] = []
+
+        const [
+            { ataPubkey: inputTokenAccount, ix: createAtaTokenAIx },
+            { ataPubkey: outputTokenAccount, ix: createAtaTokenBIx },
+        ] = await Promise.all([
+            getOrCreateATAInstruction(
+                this.connection,
+                inputMint,
+                buyer,
+                buyer,
+                true,
+                inputTokenProgram
+            ),
+            getOrCreateATAInstruction(
+                this.connection,
+                outputMint,
+                receiver ? receiver : buyer,
+                buyer,
+                true,
+                outputTokenProgram
+            ),
+        ])
+        createAtaTokenAIx && preInstructions.push(createAtaTokenAIx)
+        createAtaTokenBIx && preInstructions.push(createAtaTokenBIx)
 
         // add SOL wrapping instructions if needed
         if (inputMint.equals(NATIVE_MINT)) {
@@ -636,6 +655,9 @@ export class PoolService extends DynamicBondingCurveProgram {
                 {
                     buyer: createPoolWithPartnerAndCreatorFirstBuyParam
                         .partnerFirstBuyParam.partner,
+                    receiver:
+                        createPoolWithPartnerAndCreatorFirstBuyParam
+                            .partnerFirstBuyParam.receiver,
                     buyAmount:
                         createPoolWithPartnerAndCreatorFirstBuyParam
                             .partnerFirstBuyParam.buyAmount,
@@ -667,6 +689,9 @@ export class PoolService extends DynamicBondingCurveProgram {
                 {
                     buyer: createPoolWithPartnerAndCreatorFirstBuyParam
                         .creatorFirstBuyParam.creator,
+                    receiver:
+                        createPoolWithPartnerAndCreatorFirstBuyParam
+                            .creatorFirstBuyParam.receiver,
                     buyAmount:
                         createPoolWithPartnerAndCreatorFirstBuyParam
                             .creatorFirstBuyParam.buyAmount,
