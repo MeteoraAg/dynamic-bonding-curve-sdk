@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.3.2] - 2025-07-22
+
+### Changed
+
+- Fixed precision issue in `getPoolCurveProgress` function
+
 ## [1.3.1] - 2025-07-02
 
 ### Added
