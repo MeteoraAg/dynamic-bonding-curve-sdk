@@ -1210,3 +1210,67 @@ export function getQuoteReserveFromNextSqrtPrice(
 
     return totalAmount
 }
+
+/**
+ * Get the tokenomics
+ * @param initialMarketCap - The initial market cap
+ * @param migrationMarketCap - The migration market cap
+ * @param totalLockedVestingAmount - The total locked vesting amount
+ * @param totalLeftover - The total leftover
+ * @param totalTokenSupply - The total token supply
+ * @returns The tokenomics
+ */
+export const getTokenomics = (
+    initialMarketCap: Decimal,
+    migrationMarketCap: Decimal,
+    totalLockedVestingAmount: BN,
+    totalLeftover: BN,
+    totalTokenSupply: BN
+): {
+    bondingCurveSupply: BN
+    migrationSupply: BN
+    leftoverSupply: BN
+    lockedVestingSupply: BN
+} => {
+    // formula: x = sqrt(initialMC / migrationMC) * (100 - lockedVesting - leftover) / (1 + sqrt(initialMC / migrationMC))
+
+    // sqrtRatio = sqrt(initial_MC / migration_MC)
+    const marketCapRatio = initialMarketCap.div(migrationMarketCap)
+    const sqrtRatio = Decimal.sqrt(marketCapRatio)
+
+    // locked vesting percentage
+    const vestingPercentage = new Decimal(totalLockedVestingAmount.toString())
+        .mul(new Decimal(100))
+        .div(new Decimal(totalTokenSupply.toString()))
+
+    // leftover percentage
+    const leftoverPercentage = new Decimal(totalLeftover.toString())
+        .mul(new Decimal(100))
+        .div(new Decimal(totalTokenSupply.toString()))
+
+    // (100 * sqrtRatio - (vestingPercentage + leftoverPercentage) * sqrtRatio) / (1 + sqrtRatio)
+    const percentageSupplyOnMigration = new Decimal(100)
+        .mul(sqrtRatio)
+        .sub(vestingPercentage.add(leftoverPercentage).mul(sqrtRatio))
+    const denominator = new Decimal(1).add(sqrtRatio)
+
+    // Calculate migration supply as BN
+    const migrationSupplyDecimal = percentageSupplyOnMigration
+        .div(denominator)
+        .mul(new Decimal(totalTokenSupply.toString()))
+        .div(new Decimal(100))
+    const migrationSupply = new BN(migrationSupplyDecimal.floor().toFixed())
+
+    // Calculate bonding curve supply (remaining after subtracting known amounts)
+    const bondingCurveSupply = totalTokenSupply
+        .sub(migrationSupply)
+        .sub(totalLeftover)
+        .sub(totalLockedVestingAmount)
+
+    return {
+        bondingCurveSupply: bondingCurveSupply,
+        migrationSupply: migrationSupply,
+        leftoverSupply: totalLeftover,
+        lockedVestingSupply: totalLockedVestingAmount,
+    }
+}

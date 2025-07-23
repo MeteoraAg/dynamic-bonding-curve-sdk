@@ -373,6 +373,7 @@ export type PreCreatePoolParam = {
 
 export type FirstBuyParam = {
     buyer: PublicKey
+    receiver?: PublicKey
     buyAmount: BN
     minimumAmountOut: BN
     referralTokenAccount: PublicKey | null
@@ -380,6 +381,7 @@ export type FirstBuyParam = {
 
 export type PartnerFirstBuyParam = {
     partner: PublicKey
+    receiver: PublicKey
     buyAmount: BN
     minimumAmountOut: BN
     referralTokenAccount: PublicKey | null
@@ -387,6 +389,7 @@ export type PartnerFirstBuyParam = {
 
 export type CreatorFirstBuyParam = {
     creator: PublicKey
+    receiver: PublicKey
     buyAmount: BN
     minimumAmountOut: BN
     referralTokenAccount: PublicKey | null

@@ -500,6 +500,11 @@ export class CreatorService extends DynamicBondingCurveProgram {
             .transaction()
     }
 
+    /**
+     * Transfer pool creator
+     * @param transferPoolCreatorParams - The parameters for the transfer pool creator
+     * @returns A transfer pool creator transaction
+     */
     async transferPoolCreator(
         transferPoolCreatorParams: TransferPoolCreatorParam
     ): Promise<Transaction> {
@@ -527,6 +532,11 @@ export class CreatorService extends DynamicBondingCurveProgram {
         return transaction
     }
 
+    /**
+     * Creator withdraw migration fee
+     * @param withdrawMigrationFeeParams - The parameters for the creator withdraw migration fee
+     * @returns A creator withdraw migration fee transaction
+     */
     async creatorWithdrawMigrationFee(
         withdrawMigrationFeeParams: WithdrawMigrationFeeParam
     ): Promise<Transaction> {

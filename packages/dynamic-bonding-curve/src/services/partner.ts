@@ -535,6 +535,11 @@ export class PartnerService extends DynamicBondingCurveProgram {
             .transaction()
     }
 
+    /**
+     * Partner withdraw migration fee
+     * @param withdrawMigrationFeeParams - The parameters for the partner withdraw migration fee
+     * @returns A partner withdraw migration fee transaction
+     */
     async partnerWithdrawMigrationFee(
         withdrawMigrationFeeParams: WithdrawMigrationFeeParam
     ): Promise<Transaction> {

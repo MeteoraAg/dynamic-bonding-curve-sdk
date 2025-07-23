@@ -2,6 +2,13 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.3.3] - 2025-07-22
+
+### Changed
+
+- Added compulsory `receiver` parameter for `partner` and `creator` first buy in `createPoolWithPartnerAndCreatorFirstBuy` function
+- Added optional `receiver` parameter to `createPoolWithFirstBuy` and `createConfigAndPoolWithFirstBuy` functions
+
 ## [1.3.2] - 2025-07-22
 
 ### Changed

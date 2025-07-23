@@ -1432,6 +1432,7 @@ interface CreateConfigAndPoolWithFirstBuyParam {
     firstBuyParam?: {
         // Optional first buy param
         buyer: PublicKey // The buyer of the transaction
+        receiver?: PublicKey // Optional: The receiver of the transaction
         buyAmount: BN // The amount of tokens to buy
         minimumAmountOut: BN // The minimum amount of tokens to receive
         referralTokenAccount: PublicKey | null // The referral token account (optional)
@@ -1534,6 +1535,7 @@ const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
 - The `createPoolTx` requires the payer, poolCreator, and baseMint to sign the transaction.
 - If the `firstBuyParam` is not provided, the `swapBuyTx` will be undefined.
 - The `swapBuyTx` requires the buyer and payer to sign the transaction.
+- The `receiver` parameter is an optional account. If provided, the token will be sent to the receiver address.
 
 ---
 
@@ -1566,6 +1568,7 @@ interface CreatePoolWithFirstBuyParam {
     firstBuyParam?: {
         // Optional first buy param
         buyer: PublicKey // The buyer of the transaction
+        receiver?: PublicKey // Optional: The receiver of the transaction
         buyAmount: BN // The amount of tokens to buy
         minimumAmountOut: BN // The minimum amount of tokens to receive
         referralTokenAccount: PublicKey | null // The referral token account (optional)
@@ -1606,6 +1609,7 @@ const transaction = await client.pool.createPoolWithFirstBuy({
 - The `baseMint` token type must be the same as the config key's token type.
 - The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+- The `receiver` parameter is an optional account. If provided, the token will be sent to the receiver address.
 
 ---
 
@@ -1639,6 +1643,7 @@ interface CreatePoolWithPartnerAndCreatorFirstBuyParam {
     partnerFirstBuyParam?: {
         // Optional partner first buy param
         partner: PublicKey // The launchpad partner
+        receiver: PublicKey // The receiver of the transaction
         buyAmount: BN // The amount of tokens to buy
         minimumAmountOut: BN // The minimum amount of tokens to receive
         referralTokenAccount: PublicKey | null // The referral token account (optional)
@@ -1646,6 +1651,7 @@ interface CreatePoolWithPartnerAndCreatorFirstBuyParam {
     creatorFirstBuyParam?: {
         // Optional creator first buy param
         creator: PublicKey // The pool creator
+        receiver: PublicKey // The receiver of the transaction
         buyAmount: BN // The amount of tokens to buy
         minimumAmountOut: BN // The minimum amount of tokens to receive
         referralTokenAccount: PublicKey | null // The referral token account (optional)
@@ -1672,12 +1678,14 @@ const transaction = await client.pool.createPoolWithPartnerAndCreatorFirstBuy({
     },
     partnerFirstBuyParam: {
         partner: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+        receiver: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
         buyAmount: new BN(0.1 * 1e9),
         minimumAmountOut: new BN(1),
         referralTokenAccount: null,
     },
     creatorFirstBuyParam: {
         creator: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+        receiver: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
         buyAmount: new BN(0.1 * 1e9),
         minimumAmountOut: new BN(1),
         referralTokenAccount: null,
