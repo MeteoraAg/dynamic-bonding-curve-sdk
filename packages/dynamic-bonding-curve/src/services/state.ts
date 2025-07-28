@@ -1,8 +1,13 @@
 import { Commitment, Connection, PublicKey } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
-import { createProgramAccountFilter, getAccountData } from '../helpers'
+import {
+    createProgramAccountFilter,
+    deriveDammV1MigrationMetadataAddress,
+    getAccountData,
+} from '../helpers'
 import {
     LockEscrow,
+    MeteoraDammMigrationMetadata,
     PartnerMetadata,
     PoolConfig,
     VirtualPool,
@@ -288,5 +293,23 @@ export class StateService extends DynamicBondingCurveProgram {
             totalTradingBaseFee: pool.account.metrics.totalTradingBaseFee,
             totalTradingQuoteFee: pool.account.metrics.totalTradingQuoteFee,
         }))
+    }
+
+    /**
+     * Get DAMM V1 migration metadata
+     * @param poolAddress - The address of the pool
+     * @returns A DAMM V1 migration metadata
+     */
+    async getDammV1MigrationMetadata(
+        poolAddress: PublicKey
+    ): Promise<MeteoraDammMigrationMetadata> {
+        const migrationMetadataAddress =
+            deriveDammV1MigrationMetadataAddress(poolAddress)
+        const metadata =
+            await this.program.account.meteoraDammMigrationMetadata.fetch(
+                migrationMetadataAddress
+            )
+
+        return metadata
     }
 }
