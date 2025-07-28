@@ -68,6 +68,7 @@
     - [getPoolFeeMetrics](#getPoolFeeMetrics)
     - [getPoolsFeesByConfig](#getPoolsFeesByConfig)
     - [getPoolsFeesByCreator](#getPoolsFeesByCreator)
+    - [getDammV1MigrationMetadata](#getDammV1MigrationMetadata)
 
 - [Helper Functions](#helper-functions)
 
@@ -2995,6 +2996,34 @@ An array of objects containing quote fee metrics for each pool.
 
 ```typescript
 const fees = await client.state.getPoolsFeesByConfig(configAddress)
+```
+
+---
+
+### getDammV1MigrationMetadata
+
+Gets the DAMM V1 migration metadata for a specific pool.
+
+#### Function
+
+```typescript
+async getDammV1MigrationMetadata(poolAddress: PublicKey): Promise<MeteoraDammMigrationMetadata>
+```
+
+#### Parameters
+
+```typescript
+poolAddress: PublicKey // The address of the DBC pool
+```
+
+#### Returns
+
+A `MeteoraDammMigrationMetadata` object containing the DAMM V1 migration metadata.
+
+#### Example
+
+```typescript
+const metadata = await client.state.getDammV1MigrationMetadata(poolAddress)
 ```
 
 ---
