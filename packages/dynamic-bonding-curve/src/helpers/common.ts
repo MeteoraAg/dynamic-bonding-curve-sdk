@@ -1280,9 +1280,11 @@ export const getTokenomics = (
 }
 
 /**
- * Get default migrated pool fee parameters when not provided
- * @param migratedPoolFee - Optional migrated pool fee parameters
- * @returns Default migrated pool fee with all parameters set to 0/default values
+ * Get migrated pool fee parameters based on migration options
+ * @param migrationOption - The migration option (DAMM or DAMM_V2)
+ * @param migrationFeeOption - The fee option (fixed rates 0-5 or customizable)
+ * @param migratedPoolFee - Optional custom migrated pool fee parameters (only used with DAMM_V2 + Customizable)
+ * @returns Migrated pool fee parameters with appropriate defaults
  */
 export function getMigratedPoolFeeParams(
     migrationOption: MigrationOption,
@@ -1293,33 +1295,26 @@ export function getMigratedPoolFeeParams(
     dynamicFee: DammV2DynamicFeeMode
     poolFeeBps: number
 } {
-    // migrationOption = DAMM_V1, migratedPoolFee must be empty
+    // Default fee parameters for non-customizable scenarios
+    const defaultFeeParams = {
+        collectFeeMode: CollectFeeMode.QuoteToken,
+        dynamicFee: DammV2DynamicFeeMode.Disabled,
+        poolFeeBps: 0,
+    } as const
+
+    // For DAMM_V1: always use default parameters
     if (migrationOption === MigrationOption.MET_DAMM) {
-        return {
-            collectFeeMode: CollectFeeMode.QuoteToken,
-            dynamicFee: DammV2DynamicFeeMode.Disabled,
-            poolFeeBps: 0,
-        }
+        return defaultFeeParams
     }
 
-    // migrationOption = DAMM_V2, migrationFeeOption = 0-5, migratedPoolFee must be empty
-    if (
-        migrationOption === MigrationOption.MET_DAMM_V2 &&
-        migrationFeeOption !== 6
-    ) {
-        return {
-            collectFeeMode: CollectFeeMode.QuoteToken,
-            dynamicFee: DammV2DynamicFeeMode.Disabled,
-            poolFeeBps: 0,
+    // For DAMM_V2: use custom parameters only if Customizable option is selected
+    if (migrationOption === MigrationOption.MET_DAMM_V2) {
+        if (migrationFeeOption === MigrationFeeOption.Customizable) {
+            return migratedPoolFee
         }
+        // For fixed fee options (0-5), always use defaults
+        return defaultFeeParams
     }
 
-    // migrationOption = DAMM_V2, migrationFeeOption = 6, migratedPoolFee must pass full validation
-    return (
-        migratedPoolFee || {
-            collectFeeMode: CollectFeeMode.QuoteToken,
-            dynamicFee: DammV2DynamicFeeMode.Disabled,
-            poolFeeBps: 0,
-        }
-    )
+    return defaultFeeParams
 }

@@ -56,12 +56,6 @@ export const DYNAMIC_FEE_DECAY_PERIOD_DEFAULT = 120 // 120 seconds
 export const DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT = 5000 // 50%
 export const MAX_DYNAMIC_FEE_PERCENTAGE = 20 // 20% of base fee
 
-// refer https://github.com/MeteoraAg/damm-v2-sdk/blob/main/src/helpers/fee.ts#L344C23-L344C25
-export const MAX_VOLATILITY_ACCUMULATOR = 14460000
-
-// refer https://github.com/MeteoraAg/damm-v2-sdk/blob/main/src/helpers/fee.ts#L344C23-L344C25
-export const SQUARE_VFA_BIN = 209091600000000
-
 export const BIN_STEP_BPS_DEFAULT = 1
 //  bin_step << 64 / BASIS_POINT_MAX
 export const BIN_STEP_BPS_U128_DEFAULT = new BN('1844674407370955')
