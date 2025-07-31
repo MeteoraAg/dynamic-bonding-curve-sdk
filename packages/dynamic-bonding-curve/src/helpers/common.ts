@@ -9,6 +9,10 @@ import {
     type LockedVestingParameters,
     ActivationType,
     type PoolConfig,
+    CollectFeeMode,
+    DammV2DynamicFeeMode,
+    MigratedPoolFee,
+    MigrationFeeOption,
 } from '../types'
 import {
     BASIS_POINT_MAX,
@@ -1273,4 +1277,44 @@ export const getTokenomics = (
         leftoverSupply: totalLeftover,
         lockedVestingSupply: totalLockedVestingAmount,
     }
+}
+
+/**
+ * Get migrated pool fee parameters based on migration options
+ * @param migrationOption - The migration option (DAMM or DAMM_V2)
+ * @param migrationFeeOption - The fee option (fixed rates 0-5 or customizable)
+ * @param migratedPoolFee - Optional custom migrated pool fee parameters (only used with DAMM_V2 + Customizable)
+ * @returns Migrated pool fee parameters with appropriate defaults
+ */
+export function getMigratedPoolFeeParams(
+    migrationOption: MigrationOption,
+    migrationFeeOption: MigrationFeeOption,
+    migratedPoolFee?: MigratedPoolFee
+): {
+    collectFeeMode: CollectFeeMode
+    dynamicFee: DammV2DynamicFeeMode
+    poolFeeBps: number
+} {
+    // Default fee parameters for non-customizable scenarios
+    const defaultFeeParams = {
+        collectFeeMode: 0,
+        dynamicFee: 0,
+        poolFeeBps: 0,
+    } as const
+
+    // For DAMM_V1: always use default parameters
+    if (migrationOption === MigrationOption.MET_DAMM) {
+        return defaultFeeParams
+    }
+
+    // For DAMM_V2: use custom parameters only if Customizable option is selected
+    if (migrationOption === MigrationOption.MET_DAMM_V2) {
+        if (migrationFeeOption === MigrationFeeOption.Customizable) {
+            return migratedPoolFee
+        }
+        // For fixed fee options (0-5), always use defaults
+        return defaultFeeParams
+    }
+
+    return defaultFeeParams
 }

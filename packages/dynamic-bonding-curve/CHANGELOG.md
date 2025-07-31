@@ -2,6 +2,24 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.3.5] - 2025-07-31
+
+### Added
+
+- Added `MigrationFeeOption === 6` to `MigrationFeeOption` enum for customizable graduated pool fee. Only available for DAMM V2.
+- Added new address in `DAMM_V2_MIGRATION_FEE_ADDRESS` fee address array for `MigrationFeeOption === 6`
+- Validation checks for `migratedPoolFee` parameter
+
+### Changed
+
+- `buildCurve`, `buildCurveWithMarketCap`, `buildCurveWithTwoSegments`, `buildCurveWithLiquidityWeights` functions now have an optional `migrationFeeOption` parameter
+
+## [1.3.4] - 2025-07-28
+
+### Added
+
+- Added `getDammV1MigrationMetadata` to get DAMM v1 migration states
+
 ## [1.3.3] - 2025-07-22
 
 ### Changed

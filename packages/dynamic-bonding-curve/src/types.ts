@@ -99,6 +99,7 @@ export type WithdrawLeftoverAccounts = Accounts<
 ///////////////
 
 export type ConfigParameters = IdlTypes<DynamicBondingCurve>['configParameters']
+export type MigratedPoolFee = IdlTypes<DynamicBondingCurve>['migratedPoolFee']
 export type LockedVestingParameters =
     IdlTypes<DynamicBondingCurve>['lockedVestingParams']
 export type InitializePoolParameters =
@@ -161,6 +162,11 @@ export enum CollectFeeMode {
     OutputToken = 1,
 }
 
+export enum DammV2DynamicFeeMode {
+    Disabled = 0,
+    Enabled = 1,
+}
+
 export enum MigrationOption {
     MET_DAMM = 0,
     MET_DAMM_V2 = 1,
@@ -179,6 +185,7 @@ export enum MigrationFeeOption {
     FixedBps200 = 3,
     FixedBps400 = 4,
     FixedBps600 = 5,
+    Customizable = 6, // only for DAMM v2
 }
 
 export enum TokenDecimal {
@@ -294,6 +301,11 @@ export type BuildCurveBaseParam = {
     migrationFee: {
         feePercentage: number
         creatorFeePercentage: number
+    }
+    migratedPoolFee?: {
+        collectFeeMode: CollectFeeMode
+        dynamicFee: DammV2DynamicFeeMode
+        poolFeeBps: number
     }
 }
 

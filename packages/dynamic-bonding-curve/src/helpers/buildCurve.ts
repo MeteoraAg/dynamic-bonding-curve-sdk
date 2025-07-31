@@ -26,6 +26,7 @@ import {
     getMigrationQuoteAmount,
     getMigrationQuoteThresholdFromMigrationQuoteAmount,
     getBaseFeeParams,
+    getMigratedPoolFeeParams,
 } from './common'
 import { getInitialLiquidityFromDeltaBase } from '../math/curve'
 import { convertDecimalToBN, convertToLamports, fromDecimalToBN } from './utils'
@@ -57,6 +58,7 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
         tokenUpdateAuthority,
         migrationFee,
         baseFeeParams,
+        migratedPoolFee,
     } = buildCurveParam
 
     const baseFee = getBaseFeeParams(
@@ -80,6 +82,12 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
         totalVestingDuration,
         cliffDurationFromMigrationTime,
         tokenBaseDecimal
+    )
+
+    const migratedPoolFeeParams = getMigratedPoolFeeParams(
+        migrationOption,
+        migrationFeeOption,
+        migratedPoolFee
     )
 
     const migrationBaseSupply = new Decimal(totalTokenSupply)
@@ -194,8 +202,12 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
         creatorTradingFeePercentage,
         tokenUpdateAuthority,
         migrationFee,
-        padding0: [],
-        padding1: [],
+        migratedPoolFee: {
+            collectFeeMode: migratedPoolFeeParams.collectFeeMode,
+            dynamicFee: migratedPoolFeeParams.dynamicFee,
+            poolFeeBps: migratedPoolFeeParams.poolFeeBps,
+        },
+        padding: [],
         curve,
     }
     return instructionParams
@@ -294,6 +306,7 @@ export function buildCurveWithTwoSegments(
         migrationFee,
         tokenUpdateAuthority,
         baseFeeParams,
+        migratedPoolFee,
     } = buildCurveWithTwoSegmentsParam
 
     const baseFee = getBaseFeeParams(
@@ -317,6 +330,12 @@ export function buildCurveWithTwoSegments(
         totalVestingDuration,
         cliffDurationFromMigrationTime,
         tokenBaseDecimal
+    )
+
+    const migratedPoolFeeParams = getMigratedPoolFeeParams(
+        migrationOption,
+        migrationFeeOption,
+        migratedPoolFee
     )
 
     let migrationBaseSupply = new BN(totalTokenSupply)
@@ -462,8 +481,12 @@ export function buildCurveWithTwoSegments(
             postMigrationTokenSupply: totalSupply,
         },
         creatorTradingFeePercentage,
-        padding0: [],
-        padding1: [],
+        migratedPoolFee: {
+            collectFeeMode: migratedPoolFeeParams.collectFeeMode,
+            dynamicFee: migratedPoolFeeParams.dynamicFee,
+            poolFeeBps: migratedPoolFeeParams.poolFeeBps,
+        },
+        padding: [],
         curve,
         tokenUpdateAuthority,
         migrationFee,
@@ -501,6 +524,7 @@ export function buildCurveWithLiquidityWeights(
         migrationFee,
         tokenUpdateAuthority,
         baseFeeParams,
+        migratedPoolFee,
     } = buildCurveWithLiquidityWeightsParam
 
     const baseFee = getBaseFeeParams(
@@ -524,6 +548,12 @@ export function buildCurveWithLiquidityWeights(
         totalVestingDuration,
         cliffDurationFromMigrationTime,
         tokenBaseDecimal
+    )
+
+    const migratedPoolFeeParams = getMigratedPoolFeeParams(
+        migrationOption,
+        migrationFeeOption,
+        migratedPoolFee
     )
 
     // 1. finding Pmax and Pmin
@@ -673,8 +703,12 @@ export function buildCurveWithLiquidityWeights(
             postMigrationTokenSupply: totalSupply,
         },
         creatorTradingFeePercentage,
-        padding0: [],
-        padding1: [],
+        migratedPoolFee: {
+            collectFeeMode: migratedPoolFeeParams.collectFeeMode,
+            dynamicFee: migratedPoolFeeParams.dynamicFee,
+            poolFeeBps: migratedPoolFeeParams.poolFeeBps,
+        },
+        padding: [],
         curve,
         migrationFee,
         tokenUpdateAuthority,

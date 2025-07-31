@@ -79,3 +79,4 @@ Accessible via `DAMM_V2_MIGRATION_FEE_ADDRESS[i]` in the SDK.
 - MigrationFeeOption.FixedBps200 == 3: 2c4cYd4reUYVRAB9kUUkrq55VPyy2FNQ3FDL4o12JXmq
 - MigrationFeeOption.FixedBps400 == 4: AkmQWebAwFvWk55wBoCr5D62C6VVDTzi84NJuD9H7cFD
 - MigrationFeeOption.FixedBps600 == 5: DbCRBj8McvPYHJG1ukj8RE15h2dCNUdTAESG49XpQ44u
+- MigrationFeeOption.Customizable == 6: A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck
