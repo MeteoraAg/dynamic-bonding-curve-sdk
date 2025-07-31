@@ -1297,8 +1297,8 @@ export function getMigratedPoolFeeParams(
 } {
     // Default fee parameters for non-customizable scenarios
     const defaultFeeParams = {
-        collectFeeMode: CollectFeeMode.QuoteToken,
-        dynamicFee: DammV2DynamicFeeMode.Disabled,
+        collectFeeMode: 0,
+        dynamicFee: 0,
         poolFeeBps: 0,
     } as const
 
