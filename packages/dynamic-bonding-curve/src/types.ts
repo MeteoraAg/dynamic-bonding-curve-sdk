@@ -286,7 +286,7 @@ export type BuildCurveBaseParam = {
     tokenQuoteDecimal: TokenDecimal
     lockedVestingParam: LockedVestingParams
     baseFeeParams: BaseFeeParams
-    dbcDynamicFeeEnabled: boolean
+    dynamicFeeEnabled: boolean
     activationType: ActivationType
     collectFeeMode: CollectFeeMode
     migrationFeeOption: MigrationFeeOption

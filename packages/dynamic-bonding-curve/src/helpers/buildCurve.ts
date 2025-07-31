@@ -26,6 +26,7 @@ import {
     getMigrationQuoteAmount,
     getMigrationQuoteThresholdFromMigrationQuoteAmount,
     getBaseFeeParams,
+    getMigratedPoolFeeParams,
 } from './common'
 import { getInitialLiquidityFromDeltaBase } from '../math/curve'
 import { convertDecimalToBN, convertToLamports, fromDecimalToBN } from './utils'
@@ -43,7 +44,7 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
         migrationOption,
         tokenBaseDecimal,
         tokenQuoteDecimal,
-        dbcDynamicFeeEnabled,
+        dynamicFeeEnabled,
         activationType,
         collectFeeMode,
         migrationFeeOption,
@@ -81,6 +82,12 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
         totalVestingDuration,
         cliffDurationFromMigrationTime,
         tokenBaseDecimal
+    )
+
+    const migratedPoolFeeParams = getMigratedPoolFeeParams(
+        migrationOption,
+        migrationFeeOption,
+        migratedPoolFee
     )
 
     const migrationBaseSupply = new Decimal(totalTokenSupply)
@@ -167,7 +174,7 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
             baseFee: {
                 ...baseFee,
             },
-            dynamicFee: dbcDynamicFeeEnabled
+            dynamicFee: dynamicFeeEnabled
                 ? getDynamicFeeParams(
                       baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
                           ? baseFeeParams.rateLimiterParam.baseFeeBps
@@ -196,9 +203,9 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
         tokenUpdateAuthority,
         migrationFee,
         migratedPoolFee: {
-            collectFeeMode: migratedPoolFee.collectFeeMode,
-            dynamicFee: migratedPoolFee.dynamicFee,
-            poolFeeBps: migratedPoolFee.poolFeeBps,
+            collectFeeMode: migratedPoolFeeParams.collectFeeMode,
+            dynamicFee: migratedPoolFeeParams.dynamicFee,
+            poolFeeBps: migratedPoolFeeParams.poolFeeBps,
         },
         padding: [],
         curve,
@@ -294,7 +301,7 @@ export function buildCurveWithTwoSegments(
         partnerLockedLpPercentage,
         creatorLockedLpPercentage,
         activationType,
-        dbcDynamicFeeEnabled,
+        dynamicFeeEnabled,
         migrationFeeOption,
         migrationFee,
         tokenUpdateAuthority,
@@ -323,6 +330,12 @@ export function buildCurveWithTwoSegments(
         totalVestingDuration,
         cliffDurationFromMigrationTime,
         tokenBaseDecimal
+    )
+
+    const migratedPoolFeeParams = getMigratedPoolFeeParams(
+        migrationOption,
+        migrationFeeOption,
+        migratedPoolFee
     )
 
     let migrationBaseSupply = new BN(totalTokenSupply)
@@ -442,7 +455,7 @@ export function buildCurveWithTwoSegments(
             baseFee: {
                 ...baseFee,
             },
-            dynamicFee: dbcDynamicFeeEnabled
+            dynamicFee: dynamicFeeEnabled
                 ? getDynamicFeeParams(
                       baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
                           ? baseFeeParams.rateLimiterParam.baseFeeBps
@@ -469,9 +482,9 @@ export function buildCurveWithTwoSegments(
         },
         creatorTradingFeePercentage,
         migratedPoolFee: {
-            collectFeeMode: migratedPoolFee.collectFeeMode,
-            dynamicFee: migratedPoolFee.dynamicFee,
-            poolFeeBps: migratedPoolFee.poolFeeBps,
+            collectFeeMode: migratedPoolFeeParams.collectFeeMode,
+            dynamicFee: migratedPoolFeeParams.dynamicFee,
+            poolFeeBps: migratedPoolFeeParams.poolFeeBps,
         },
         padding: [],
         curve,
@@ -494,7 +507,7 @@ export function buildCurveWithLiquidityWeights(
         migrationOption,
         tokenBaseDecimal,
         tokenQuoteDecimal,
-        dbcDynamicFeeEnabled,
+        dynamicFeeEnabled,
         activationType,
         collectFeeMode,
         migrationFeeOption,
@@ -535,6 +548,12 @@ export function buildCurveWithLiquidityWeights(
         totalVestingDuration,
         cliffDurationFromMigrationTime,
         tokenBaseDecimal
+    )
+
+    const migratedPoolFeeParams = getMigratedPoolFeeParams(
+        migrationOption,
+        migrationFeeOption,
+        migratedPoolFee
     )
 
     // 1. finding Pmax and Pmin
@@ -658,7 +677,7 @@ export function buildCurveWithLiquidityWeights(
             baseFee: {
                 ...baseFee,
             },
-            dynamicFee: dbcDynamicFeeEnabled
+            dynamicFee: dynamicFeeEnabled
                 ? getDynamicFeeParams(
                       baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
                           ? baseFeeParams.rateLimiterParam.baseFeeBps
@@ -685,9 +704,9 @@ export function buildCurveWithLiquidityWeights(
         },
         creatorTradingFeePercentage,
         migratedPoolFee: {
-            collectFeeMode: migratedPoolFee.collectFeeMode,
-            dynamicFee: migratedPoolFee.dynamicFee,
-            poolFeeBps: migratedPoolFee.poolFeeBps,
+            collectFeeMode: migratedPoolFeeParams.collectFeeMode,
+            dynamicFee: migratedPoolFeeParams.dynamicFee,
+            poolFeeBps: migratedPoolFeeParams.poolFeeBps,
         },
         padding: [],
         curve,

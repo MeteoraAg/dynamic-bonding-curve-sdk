@@ -9,6 +9,10 @@ import {
     type LockedVestingParameters,
     ActivationType,
     type PoolConfig,
+    CollectFeeMode,
+    DammV2DynamicFeeMode,
+    MigratedPoolFee,
+    MigrationFeeOption,
 } from '../types'
 import {
     BASIS_POINT_MAX,
@@ -1273,4 +1277,49 @@ export const getTokenomics = (
         leftoverSupply: totalLeftover,
         lockedVestingSupply: totalLockedVestingAmount,
     }
+}
+
+/**
+ * Get default migrated pool fee parameters when not provided
+ * @param migratedPoolFee - Optional migrated pool fee parameters
+ * @returns Default migrated pool fee with all parameters set to 0/default values
+ */
+export function getMigratedPoolFeeParams(
+    migrationOption: MigrationOption,
+    migrationFeeOption: MigrationFeeOption,
+    migratedPoolFee?: MigratedPoolFee
+): {
+    collectFeeMode: CollectFeeMode
+    dynamicFee: DammV2DynamicFeeMode
+    poolFeeBps: number
+} {
+    // migrationOption = DAMM_V1, migratedPoolFee must be empty
+    if (migrationOption === MigrationOption.MET_DAMM) {
+        return {
+            collectFeeMode: CollectFeeMode.QuoteToken,
+            dynamicFee: DammV2DynamicFeeMode.Disabled,
+            poolFeeBps: 0,
+        }
+    }
+
+    // migrationOption = DAMM_V2, migrationFeeOption = 0-5, migratedPoolFee must be empty
+    if (
+        migrationOption === MigrationOption.MET_DAMM_V2 &&
+        migrationFeeOption !== 6
+    ) {
+        return {
+            collectFeeMode: CollectFeeMode.QuoteToken,
+            dynamicFee: DammV2DynamicFeeMode.Disabled,
+            poolFeeBps: 0,
+        }
+    }
+
+    // migrationOption = DAMM_V2, migrationFeeOption = 6, migratedPoolFee must pass full validation
+    return (
+        migratedPoolFee || {
+            collectFeeMode: CollectFeeMode.QuoteToken,
+            dynamicFee: DammV2DynamicFeeMode.Disabled,
+            poolFeeBps: 0,
+        }
+    )
 }
