@@ -2,7 +2,7 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
-## [1.3.4] - 2025-07-31
+## [1.3.5] - 2025-07-31
 
 ### Added
 
@@ -13,6 +13,12 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 ### Changed
 
 - `buildCurve`, `buildCurveWithMarketCap`, `buildCurveWithTwoSegments`, `buildCurveWithLiquidityWeights` functions now have an optional `migrationFeeOption` parameter
+
+## [1.3.4] - 2025-07-28
+
+### Added
+
+- Added `getDammV1MigrationMetadata` to get DAMM v1 migration states
 
 ## [1.3.3] - 2025-07-22
 
