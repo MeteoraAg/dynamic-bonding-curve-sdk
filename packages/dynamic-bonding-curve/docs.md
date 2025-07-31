@@ -159,8 +159,13 @@ interface CreateConfigParam {
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
-    padding0: []
-    padding1: []
+    migratedPoolFee: {
+        // Only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        dynamicFee: number // 0: Disabled, 1: Enabled
+        poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+    }
+    padding: []
     curve: {
         // The curve of the pool
         sqrtPrice: BN // The square root of the curve point price
@@ -229,8 +234,12 @@ const transaction = await client.partner.createConfig({
         feePercentage: 25,
         creatorFeePercentage: 50,
     },
-    padding0: [],
-    padding1: [],
+    migratedPoolFee: {
+        collectFeeMode: 0,
+        dynamicFee: 0,
+        poolFeeBps: 0,
+    },
+    padding: [],
     curve: [
         {
             sqrtPrice: new BN('233334906748540631'),
@@ -612,6 +621,12 @@ interface BuildCurveParam {
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
+    migratedPoolFee?: {
+        // Defaults to all 0. Configure only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        dynamicFee: number // 0: Disabled, 1: Enabled
+        poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+    }
 }
 ```
 
@@ -648,18 +663,23 @@ const curveConfig = buildCurve({
     dynamicFeeEnabled: true,
     activationType: ActivationType.Slot,
     collectFeeMode: CollectFeeMode.QuoteToken,
-    migrationFeeOption: MigrationFeeOption.FixedBps100,
+    migrationFeeOption: MigrationFeeOption.Customizable,
     tokenType: TokenType.SPL,
     partnerLpPercentage: 0,
     creatorLpPercentage: 0,
     partnerLockedLpPercentage: 100,
     creatorLockedLpPercentage: 0,
     creatorTradingFeePercentage: 0,
-    leftover: 10000,
-    tokenUpdateAuthority: 1,
+    leftover: 0,
+    tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
     migrationFee: {
         feePercentage: 0,
         creatorFeePercentage: 0,
+    },
+    migratedPoolFee: {
+        collectFeeMode: CollectFeeMode.QuoteToken,
+        dynamicFee: DammV2DynamicFeeMode.Enabled,
+        poolFeeBps: 250,
     },
 })
 
@@ -679,6 +699,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVestingParam.totalVestingDuration` and `lockedVestingParam.cliffDurationFromMigrationTime` are calculated in terms of seconds.
 - `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`.
+- `migratedPoolFee` is only configurable when `migrationOption = MET_DAMM_V2 (1)` and `migrationFeeOption = Customizable (6)`.
 - Slot is 400ms, Timestamp is 1000ms.
 
 ---
@@ -748,6 +769,12 @@ interface BuildCurveWithMarketCapParam {
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
+    migratedPoolFee?: {
+        // Defaults to all 0. Configure only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        dynamicFee: number // 0: Disabled, 1: Enabled
+        poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+    }
 }
 ```
 
@@ -784,7 +811,7 @@ const curveConfig = buildCurveWithMarketCap({
     dynamicFeeEnabled: true,
     activationType: ActivationType.Slot,
     collectFeeMode: CollectFeeMode.QuoteToken,
-    migrationFeeOption: MigrationFeeOption.FixedBps100,
+    migrationFeeOption: MigrationFeeOption.Customizable,
     tokenType: TokenType.SPL,
     partnerLpPercentage: 0,
     creatorLpPercentage: 0,
@@ -792,10 +819,15 @@ const curveConfig = buildCurveWithMarketCap({
     creatorLockedLpPercentage: 0,
     creatorTradingFeePercentage: 0,
     leftover: 0,
-    tokenUpdateAuthority: 1,
+    tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
     migrationFee: {
         feePercentage: 0,
         creatorFeePercentage: 0,
+    },
+    migratedPoolFee: {
+        collectFeeMode: CollectFeeMode.QuoteToken,
+        dynamicFee: DammV2DynamicFeeMode.Enabled,
+        poolFeeBps: 250,
     },
 })
 
@@ -815,6 +847,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVestingParam.totalVestingDuration` and `lockedVestingParam.cliffDurationFromMigrationTime` are calculated in terms of seconds.
 - `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`.
+- `migratedPoolFee` is only configurable when `migrationOption = MET_DAMM_V2 (1)` and `migrationFeeOption = Customizable (6)`.
 - Slot is 400ms, Timestamp is 1000ms.
 
 ---
@@ -885,6 +918,12 @@ interface BuildCurveWithTwoSegmentsParam {
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
+    migratedPoolFee?: {
+        // Defaults to all 0. Configure only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        dynamicFee: number // 0: Disabled, 1: Enabled
+        poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+    }
 }
 ```
 
@@ -922,7 +961,7 @@ const curveConfig = buildCurveWithTwoSegments({
     dynamicFeeEnabled: true,
     activationType: ActivationType.Slot,
     collectFeeMode: CollectFeeMode.QuoteToken,
-    migrationFeeOption: MigrationFeeOption.FixedBps100,
+    migrationFeeOption: MigrationFeeOption.Customizable,
     tokenType: TokenType.SPL,
     partnerLpPercentage: 100,
     creatorLpPercentage: 0,
@@ -930,10 +969,15 @@ const curveConfig = buildCurveWithTwoSegments({
     creatorLockedLpPercentage: 0,
     creatorTradingFeePercentage: 0,
     leftover: 1000,
-    tokenUpdateAuthority: 1,
+    tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
     migrationFee: {
         feePercentage: 0,
         creatorFeePercentage: 0,
+    },
+    migratedPoolFee: {
+        collectFeeMode: CollectFeeMode.QuoteToken,
+        dynamicFee: DammV2DynamicFeeMode.Enabled,
+        poolFeeBps: 250,
     },
 })
 
@@ -953,6 +997,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVestingParam.totalVestingDuration` and `lockedVestingParam.cliffDurationFromMigrationTime` are calculated in terms of seconds.
 - `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`.
+- `migratedPoolFee` is only configurable when `migrationOption = MET_DAMM_V2 (1)` and `migrationFeeOption = Customizable (6)`.
 - Slot is 400ms, Timestamp is 1000ms.
 
 ---
@@ -1023,6 +1068,12 @@ interface BuildCurveWithLiquidityWeightsParam {
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
+    migratedPoolFee?: {
+        // Defaults to all 0. Configure only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        dynamicFee: number // 0: Disabled, 1: Enabled
+        poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+    }
 }
 ```
 
@@ -1064,7 +1115,7 @@ const curveConfig = buildCurveWithLiquidityWeights({
     dynamicFeeEnabled: true,
     activationType: ActivationType.Slot,
     collectFeeMode: CollectFeeMode.QuoteToken,
-    migrationFeeOption: MigrationFeeOption.FixedBps100,
+    migrationFeeOption: MigrationFeeOption.Customizable,
     tokenType: TokenType.SPL,
     partnerLpPercentage: 100,
     creatorLpPercentage: 0,
@@ -1077,6 +1128,11 @@ const curveConfig = buildCurveWithLiquidityWeights({
     migrationFee: {
         feePercentage: 0,
         creatorFeePercentage: 0,
+    },
+    migratedPoolFee: {
+        collectFeeMode: CollectFeeMode.QuoteToken,
+        dynamicFee: DammV2DynamicFeeMode.Disabled,
+        poolFeeBps: 125,
     },
 })
 
@@ -1108,6 +1164,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVestingParam.totalVestingDuration` and `lockedVestingParam.cliffDurationFromMigrationTime` are calculated in terms of seconds.
 - `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`.
+- `migratedPoolFee` is only configurable when `migrationOption = MET_DAMM_V2 (1)` and `migrationFeeOption = Customizable (6)`.
 - Slot is 400ms, Timestamp is 1000ms.
 
 ---
@@ -1234,8 +1291,13 @@ interface CreateConfigAndPoolParam {
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
-    padding0: []
-    padding1: []
+    migratedPoolFee: {
+        // Defaults to all 0. Configure only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        dynamicFee: number // 0: Disabled, 1: Enabled
+        poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+    }
+    padding: []
     curve: {
         // The curve of the pool
         sqrtPrice: BN // The square root of the curve point price
@@ -1311,8 +1373,12 @@ const transaction = await client.pool.createConfigAndPool({
         feePercentage: 25,
         creatorFeePercentage: 50,
     },
-    padding0: [],
-    padding1: [],
+    migratedPoolFee: {
+        collectFeeMode: CollectFeeMode.QuoteToken,
+        dynamicFee: DammV2DynamicFeeMode.Disabled,
+        poolFeeBps: 0,
+    },
+    padding: [],
     curve: [
         {
             sqrtPrice: new BN('233334906748540631'),
@@ -1416,8 +1482,13 @@ interface CreateConfigAndPoolWithFirstBuyParam {
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
-    padding0: []
-    padding1: []
+    migratedPoolFee: {
+        // Defaults to all 0. Configure only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        dynamicFee: number // 0: Disabled, 1: Enabled
+        poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+    }
+    padding: []
     curve: {
         // The curve of the pool
         sqrtPrice: BN // The square root of the curve point price
@@ -1501,8 +1572,12 @@ const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
         feePercentage: 25,
         creatorFeePercentage: 50,
     },
-    padding0: [],
-    padding1: [],
+    migratedPoolFee: {
+        collectFeeMode: CollectFeeMode.QuoteToken,
+        dynamicFee: DammV2DynamicFeeMode.Disabled,
+        poolFeeBps: 0,
+    },
+    padding: [],
     curve: [
         {
             sqrtPrice: new BN('233334906748540631'),
