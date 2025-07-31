@@ -2,8 +2,10 @@ import BN from 'bn.js'
 import {
     MAX_CREATOR_MIGRATION_FEE_PERCENTAGE,
     MAX_CURVE_POINT,
+    MAX_MIGRATED_POOL_FEE_BPS,
     MAX_MIGRATION_FEE_PERCENTAGE,
     MAX_SQRT_PRICE,
+    MIN_MIGRATED_POOL_FEE_BPS,
     MIN_SQRT_PRICE,
 } from '../constants'
 import {
@@ -11,7 +13,9 @@ import {
     BaseFee,
     BaseFeeMode,
     CollectFeeMode,
+    DammV2DynamicFeeMode,
     LockedVestingParameters,
+    MigratedPoolFee,
     MigrationFeeOption,
     MigrationOption,
     PoolFeeParameters,
@@ -295,19 +299,28 @@ export function validateActivationType(
 /**
  * Validate the migration fee option
  * @param migrationFeeOption - The migration fee option
+ * @param migrationOption - The migration option
  * @returns true if the migration fee option is valid, false otherwise
  */
 export function validateMigrationFeeOption(
-    migrationFeeOption: MigrationFeeOption
+    migrationFeeOption: MigrationFeeOption,
+    migrationOption?: MigrationOption
 ): boolean {
-    return [
+    const validOptions = [
         MigrationFeeOption.FixedBps25,
         MigrationFeeOption.FixedBps30,
         MigrationFeeOption.FixedBps100,
         MigrationFeeOption.FixedBps200,
         MigrationFeeOption.FixedBps400,
         MigrationFeeOption.FixedBps600,
-    ].includes(migrationFeeOption)
+    ]
+
+    // Customizable is only allowed for MET_DAMM_V2 migration
+    if (migrationFeeOption === MigrationFeeOption.Customizable) {
+        return migrationOption === MigrationOption.MET_DAMM_V2
+    }
+
+    return validOptions.includes(migrationFeeOption)
 }
 
 /**
@@ -464,6 +477,65 @@ export function validateTokenUpdateAuthorityOptions(
     ].includes(option)
 }
 
+export function validateMigratedPoolFee(
+    migratedPoolFee: MigratedPoolFee,
+    migrationOption?: MigrationOption,
+    migrationFeeOption?: MigrationFeeOption
+): boolean {
+    // check if migratedPoolFee is empty (all fields are 0)
+    const isEmpty = () => {
+        return (
+            migratedPoolFee.collectFeeMode === 0 &&
+            migratedPoolFee.dynamicFee === 0 &&
+            migratedPoolFee.poolFeeBps === 0
+        )
+    }
+
+    // check if migration fee option and migration option is provided
+    if (migrationOption !== undefined && migrationFeeOption !== undefined) {
+        // For MeteoraDamm migration, migratedPoolFee must be empty
+        if (migrationOption === MigrationOption.MET_DAMM) {
+            return isEmpty()
+        }
+
+        // For DammV2 migration
+        if (migrationOption === MigrationOption.MET_DAMM_V2) {
+            // If using fixed fee options (0-5), migratedPoolFee must be empty
+            if (migrationFeeOption !== MigrationFeeOption.Customizable) {
+                return isEmpty()
+            }
+        }
+    }
+
+    // If migratedPoolFee is empty, it's valid (for when it must be empty)
+    if (isEmpty()) {
+        return true
+    }
+
+    // Validate pool fee BPS (between 10 and 1000 basis points)
+    if (
+        migratedPoolFee.poolFeeBps < MIN_MIGRATED_POOL_FEE_BPS ||
+        migratedPoolFee.poolFeeBps > MAX_MIGRATED_POOL_FEE_BPS
+    ) {
+        return false
+    }
+
+    // Validate collect fee mode (0 = QuoteToken, 1 = OutputToken)
+    if (!validateCollectFeeMode(migratedPoolFee.collectFeeMode)) {
+        return false
+    }
+
+    // Validate dynamic fee (0 = Disable, 1 = Enable)
+    if (
+        migratedPoolFee.dynamicFee !== DammV2DynamicFeeMode.Disabled &&
+        migratedPoolFee.dynamicFee !== DammV2DynamicFeeMode.Enabled
+    ) {
+        return false
+    }
+
+    return true
+}
+
 /**
  * Validate the config parameters
  * @param configParam - The config parameters
@@ -488,7 +560,7 @@ export function validateConfigParameters(
         throw new Error('Invalid pool fees')
     }
 
-    // Collect fee mode validation
+    // DBC collect fee mode validation
     if (!validateCollectFeeMode(configParam.collectFeeMode)) {
         throw new Error('Invalid collect fee mode')
     }
@@ -516,7 +588,12 @@ export function validateConfigParameters(
     }
 
     // Migration fee validation
-    if (!validateMigrationFeeOption(configParam.migrationFeeOption)) {
+    if (
+        !validateMigrationFeeOption(
+            configParam.migrationFeeOption,
+            configParam.migrationOption
+        )
+    ) {
         throw new Error('Invalid migration fee option')
     }
 
@@ -567,6 +644,19 @@ export function validateConfigParameters(
         new BN(configParam.sqrtStartPrice).gte(new BN(MAX_SQRT_PRICE))
     ) {
         throw new Error('Invalid sqrt start price')
+    }
+
+    // Migrated pool fee validation
+    if (configParam.migratedPoolFee) {
+        if (
+            !validateMigratedPoolFee(
+                configParam.migratedPoolFee,
+                configParam.migrationOption,
+                configParam.migrationFeeOption
+            )
+        ) {
+            throw new Error('Invalid migrated pool fee parameters')
+        }
     }
 
     // Curve validation

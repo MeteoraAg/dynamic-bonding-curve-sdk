@@ -43,7 +43,7 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
         migrationOption,
         tokenBaseDecimal,
         tokenQuoteDecimal,
-        dynamicFeeEnabled,
+        dbcDynamicFeeEnabled,
         activationType,
         collectFeeMode,
         migrationFeeOption,
@@ -57,6 +57,7 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
         tokenUpdateAuthority,
         migrationFee,
         baseFeeParams,
+        migratedPoolFee,
     } = buildCurveParam
 
     const baseFee = getBaseFeeParams(
@@ -166,7 +167,7 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
             baseFee: {
                 ...baseFee,
             },
-            dynamicFee: dynamicFeeEnabled
+            dynamicFee: dbcDynamicFeeEnabled
                 ? getDynamicFeeParams(
                       baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
                           ? baseFeeParams.rateLimiterParam.baseFeeBps
@@ -194,8 +195,12 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
         creatorTradingFeePercentage,
         tokenUpdateAuthority,
         migrationFee,
-        padding0: [],
-        padding1: [],
+        migratedPoolFee: {
+            collectFeeMode: migratedPoolFee.collectFeeMode,
+            dynamicFee: migratedPoolFee.dynamicFee,
+            poolFeeBps: migratedPoolFee.poolFeeBps,
+        },
+        padding: [],
         curve,
     }
     return instructionParams
@@ -289,11 +294,12 @@ export function buildCurveWithTwoSegments(
         partnerLockedLpPercentage,
         creatorLockedLpPercentage,
         activationType,
-        dynamicFeeEnabled,
+        dbcDynamicFeeEnabled,
         migrationFeeOption,
         migrationFee,
         tokenUpdateAuthority,
         baseFeeParams,
+        migratedPoolFee,
     } = buildCurveWithTwoSegmentsParam
 
     const baseFee = getBaseFeeParams(
@@ -436,7 +442,7 @@ export function buildCurveWithTwoSegments(
             baseFee: {
                 ...baseFee,
             },
-            dynamicFee: dynamicFeeEnabled
+            dynamicFee: dbcDynamicFeeEnabled
                 ? getDynamicFeeParams(
                       baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
                           ? baseFeeParams.rateLimiterParam.baseFeeBps
@@ -462,8 +468,12 @@ export function buildCurveWithTwoSegments(
             postMigrationTokenSupply: totalSupply,
         },
         creatorTradingFeePercentage,
-        padding0: [],
-        padding1: [],
+        migratedPoolFee: {
+            collectFeeMode: migratedPoolFee.collectFeeMode,
+            dynamicFee: migratedPoolFee.dynamicFee,
+            poolFeeBps: migratedPoolFee.poolFeeBps,
+        },
+        padding: [],
         curve,
         tokenUpdateAuthority,
         migrationFee,
@@ -484,7 +494,7 @@ export function buildCurveWithLiquidityWeights(
         migrationOption,
         tokenBaseDecimal,
         tokenQuoteDecimal,
-        dynamicFeeEnabled,
+        dbcDynamicFeeEnabled,
         activationType,
         collectFeeMode,
         migrationFeeOption,
@@ -501,6 +511,7 @@ export function buildCurveWithLiquidityWeights(
         migrationFee,
         tokenUpdateAuthority,
         baseFeeParams,
+        migratedPoolFee,
     } = buildCurveWithLiquidityWeightsParam
 
     const baseFee = getBaseFeeParams(
@@ -647,7 +658,7 @@ export function buildCurveWithLiquidityWeights(
             baseFee: {
                 ...baseFee,
             },
-            dynamicFee: dynamicFeeEnabled
+            dynamicFee: dbcDynamicFeeEnabled
                 ? getDynamicFeeParams(
                       baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
                           ? baseFeeParams.rateLimiterParam.baseFeeBps
@@ -673,8 +684,12 @@ export function buildCurveWithLiquidityWeights(
             postMigrationTokenSupply: totalSupply,
         },
         creatorTradingFeePercentage,
-        padding0: [],
-        padding1: [],
+        migratedPoolFee: {
+            collectFeeMode: migratedPoolFee.collectFeeMode,
+            dynamicFee: migratedPoolFee.dynamicFee,
+            poolFeeBps: migratedPoolFee.poolFeeBps,
+        },
+        padding: [],
         curve,
         migrationFee,
         tokenUpdateAuthority,

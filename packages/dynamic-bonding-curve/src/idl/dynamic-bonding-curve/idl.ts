@@ -8,7 +8,7 @@ export type DynamicBondingCurve = {
     address: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
     metadata: {
         name: 'dynamicBondingCurve'
-        version: '0.1.4'
+        version: '0.1.5'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -2352,7 +2352,7 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'quoteMint'
-                    docs: ['The mint of of token']
+                    docs: ['The mint of token']
                     relations: ['config']
                 },
                 {
@@ -2835,6 +2835,10 @@ export type DynamicBondingCurve = {
             discriminator: [131, 207, 180, 174, 180, 73, 165, 54]
         },
         {
+            name: 'evtCreateConfigV2'
+            discriminator: [163, 74, 66, 187, 119, 195, 26, 144]
+        },
+        {
             name: 'evtCreateDammV2MigrationMetadata'
             discriminator: [103, 111, 132, 168, 140, 253, 150, 114]
         },
@@ -3112,6 +3116,11 @@ export type DynamicBondingCurve = {
             name: 'failToValidateSingleSwapInstruction'
             msg: 'Fail to validate single swap instruction in rate limiter'
         },
+        {
+            code: 6044
+            name: 'invalidMigratedPoolFee'
+            msg: 'Invalid migrated pool fee params'
+        },
     ]
     types: [
         {
@@ -3343,13 +3352,15 @@ export type DynamicBondingCurve = {
                         }
                     },
                     {
-                        name: 'padding0'
+                        name: 'migratedPoolFee'
                         type: {
-                            array: ['u8', 4]
+                            defined: {
+                                name: 'migratedPoolFee'
+                            }
                         }
                     },
                     {
-                        name: 'padding1'
+                        name: 'padding'
                         docs: ['padding for future use']
                         type: {
                             array: ['u64', 7]
@@ -3715,6 +3726,38 @@ export type DynamicBondingCurve = {
                                 defined: {
                                     name: 'liquidityDistributionParameters'
                                 }
+                            }
+                        }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtCreateConfigV2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'quoteMint'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'feeClaimer'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'leftoverReceiver'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'configParameters'
+                        type: {
+                            defined: {
+                                name: 'configParameters'
                             }
                         }
                     },
@@ -4303,6 +4346,26 @@ export type DynamicBondingCurve = {
             }
         },
         {
+            name: 'migratedPoolFee'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'collectFeeMode'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'dynamicFee'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'poolFeeBps'
+                        type: 'u16'
+                    },
+                ]
+            }
+        },
+        {
             name: 'migrationFee'
             type: {
                 kind: 'struct'
@@ -4477,8 +4540,8 @@ export type DynamicBondingCurve = {
                         type: 'u8'
                     },
                     {
-                        name: 'padding1'
-                        docs: ['padding 1']
+                        name: 'padding0'
+                        docs: ['padding 0']
                         type: {
                             array: ['u8', 7]
                         }
@@ -4523,11 +4586,31 @@ export type DynamicBondingCurve = {
                         type: 'u64'
                     },
                     {
+                        name: 'migratedCollectFeeMode'
+                        docs: ['migrated pool collect fee mode']
+                        type: 'u8'
+                    },
+                    {
+                        name: 'migratedDynamicFee'
+                        docs: ['migrated dynamic fee option.']
+                        type: 'u8'
+                    },
+                    {
+                        name: 'migratedPoolFeeBps'
+                        docs: ['migrated pool fee in bps']
+                        type: 'u16'
+                    },
+                    {
+                        name: 'padding1'
+                        docs: ['padding 1']
+                        type: {
+                            array: ['u8', 12]
+                        }
+                    },
+                    {
                         name: 'padding2'
                         docs: ['padding 2']
-                        type: {
-                            array: ['u128', 2]
-                        }
+                        type: 'u128'
                     },
                     {
                         name: 'sqrtStartPrice'

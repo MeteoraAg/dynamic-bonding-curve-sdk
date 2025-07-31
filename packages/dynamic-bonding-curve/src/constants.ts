@@ -18,7 +18,6 @@ export const BASIS_POINT_MAX = 10000
 export const MAX_CURVE_POINT = 16
 export const PARTNER_SURPLUS_SHARE = 80 // 80%
 export const SWAP_BUFFER_PERCENTAGE = 25 // 25%
-export const MAX_SWALLOW_PERCENTAGE = 20 // 20%
 export const MAX_MIGRATION_FEE_PERCENTAGE = 50 // 50%
 export const MAX_CREATOR_MIGRATION_FEE_PERCENTAGE = 100 // 100%
 
@@ -52,13 +51,24 @@ export const BASE_ADDRESS = new PublicKey(
 )
 
 // Dynamic Fee
-export const DYNAMIC_FEE_FILTER_PERIOD_DEFAULT = 10
-export const DYNAMIC_FEE_DECAY_PERIOD_DEFAULT = 120
+export const DYNAMIC_FEE_FILTER_PERIOD_DEFAULT = 10 // 10 seconds
+export const DYNAMIC_FEE_DECAY_PERIOD_DEFAULT = 120 // 120 seconds
 export const DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT = 5000 // 50%
+export const MAX_DYNAMIC_FEE_PERCENTAGE = 20 // 20% of base fee
+
+// refer https://github.com/MeteoraAg/damm-v2-sdk/blob/main/src/helpers/fee.ts#L344C23-L344C25
+export const MAX_VOLATILITY_ACCUMULATOR = 14460000
+
+// refer https://github.com/MeteoraAg/damm-v2-sdk/blob/main/src/helpers/fee.ts#L344C23-L344C25
+export const SQUARE_VFA_BIN = 209091600000000
+
 export const BIN_STEP_BPS_DEFAULT = 1
 //  bin_step << 64 / BASIS_POINT_MAX
 export const BIN_STEP_BPS_U128_DEFAULT = new BN('1844674407370955')
 export const MAX_PRICE_CHANGE_BPS_DEFAULT = 1500 // 15%
+
+export const MIN_MIGRATED_POOL_FEE_BPS = 10 // 0.1%
+export const MAX_MIGRATED_POOL_FEE_BPS = 1000 // 10%
 
 // DAMM V1 Migration Fee Options
 export const DAMM_V1_MIGRATION_FEE_ADDRESS = [
@@ -78,4 +88,5 @@ export const DAMM_V2_MIGRATION_FEE_ADDRESS = [
     new PublicKey('2c4cYd4reUYVRAB9kUUkrq55VPyy2FNQ3FDL4o12JXmq'), // FixedBps200
     new PublicKey('AkmQWebAwFvWk55wBoCr5D62C6VVDTzi84NJuD9H7cFD'), // FixedBps400
     new PublicKey('DbCRBj8McvPYHJG1ukj8RE15h2dCNUdTAESG49XpQ44u'), // FixedBps600
+    new PublicKey('A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck'), // Customizable
 ]
