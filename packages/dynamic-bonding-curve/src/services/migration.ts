@@ -196,7 +196,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 this.connection,
                 poolState.baseMint,
                 poolConfigState.leftoverReceiver,
-                poolConfigState.leftoverReceiver,
+                withdrawLeftoverParam.payer,
                 true,
                 tokenBaseProgram
             )
