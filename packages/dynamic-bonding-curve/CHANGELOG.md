@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.3.6] - 2025-08-08
+
+### Changed
+
+- `withdrawLeftover` function fully permissionless and only `payer` needs to sign.
+
 ## [1.3.5] - 2025-07-31
 
 ### Added
