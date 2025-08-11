@@ -20,6 +20,7 @@ import {
     PrepareSwapParams,
     SwapQuoteExactInParam,
     SwapQuoteExactOutParam,
+    SwapV2Param,
     TokenType,
     type CreatePoolParam,
     type SwapParam,
@@ -873,6 +874,138 @@ export class PoolService extends DynamicBondingCurveProgram {
             hasReferral,
             currentPoint
         )
+    }
+
+    /**
+     * Swap V2 between base and quote (included SwapMode: ExactIn, PartialFill, ExactOut)
+     * @param swapV2Param - The parameters for the swap
+     * @returns A swap transaction
+     */
+    async swapV2(swapV2Param: SwapV2Param): Promise<Transaction> {
+        const {
+            pool,
+            amountIn,
+            minimumAmountOut,
+            swapBaseForQuote,
+            swapMode,
+            owner,
+            payer,
+            referralTokenAccount,
+        } = swapV2Param
+
+        // error checks
+        validateSwapAmount(amountIn)
+
+        const poolState = await this.state.getPool(pool)
+
+        if (!poolState) {
+            throw new Error(`Pool not found: ${swapV2Param.pool.toString()}`)
+        }
+
+        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+
+        let currentPoint
+        if (poolConfigState.activationType === ActivationType.Slot) {
+            const currentSlot = await this.connection.getSlot()
+            currentPoint = new BN(currentSlot)
+        } else {
+            const currentSlot = await this.connection.getSlot()
+            const currentTime = await this.connection.getBlockTime(currentSlot)
+            currentPoint = new BN(currentTime)
+        }
+
+        // check if rate limiter is applied if:
+        // 1. rate limiter mode
+        // 2. swap direction is QuoteToBase
+        // 3. current point is greater than activation point
+        // 4. current point is less than activation point + maxLimiterDuration
+        const isRateLimiterApplied = checkRateLimiterApplied(
+            poolConfigState.poolFees.baseFee.baseFeeMode,
+            swapBaseForQuote,
+            currentPoint,
+            poolState.activationPoint,
+            poolConfigState.poolFees.baseFee.secondFactor
+        )
+
+        const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
+            this.prepareSwapParams(swapBaseForQuote, poolState, poolConfigState)
+
+        // add preInstructions for ATA creation and SOL wrapping
+        const {
+            ataTokenA: inputTokenAccount,
+            ataTokenB: outputTokenAccount,
+            instructions: preInstructions,
+        } = await this.prepareTokenAccounts(
+            owner,
+            payer ? payer : owner,
+            inputMint,
+            outputMint,
+            inputTokenProgram,
+            outputTokenProgram
+        )
+
+        // add SOL wrapping instructions if needed
+        if (inputMint.equals(NATIVE_MINT)) {
+            preInstructions.push(
+                ...wrapSOLInstruction(
+                    owner,
+                    inputTokenAccount,
+                    BigInt(amountIn.toString())
+                )
+            )
+        }
+
+        // add postInstructions for SOL unwrapping
+        const postInstructions: TransactionInstruction[] = []
+        if (
+            [inputMint.toBase58(), outputMint.toBase58()].includes(
+                NATIVE_MINT.toBase58()
+            )
+        ) {
+            const unwrapIx = unwrapSOLInstruction(owner, owner)
+            unwrapIx && postInstructions.push(unwrapIx)
+        }
+
+        // add remaining accounts if rate limiter is applied
+        const remainingAccounts = isRateLimiterApplied
+            ? [
+                  {
+                      isSigner: false,
+                      isWritable: false,
+                      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+                  },
+              ]
+            : []
+
+        return this.program.methods
+            .swap2({
+                amount0: amountIn,
+                amount1: minimumAmountOut,
+                swapMode: swapMode,
+            })
+            .accountsPartial({
+                baseMint: poolState.baseMint,
+                quoteMint: poolConfigState.quoteMint,
+                pool,
+                baseVault: poolState.baseVault,
+                quoteVault: poolState.quoteVault,
+                config: poolState.config,
+                poolAuthority: this.poolAuthority,
+                referralTokenAccount: swapV2Param.referralTokenAccount,
+                inputTokenAccount,
+                outputTokenAccount,
+                payer: owner,
+                tokenBaseProgram: swapBaseForQuote
+                    ? inputTokenProgram
+                    : outputTokenProgram,
+                tokenQuoteProgram: swapBaseForQuote
+                    ? outputTokenProgram
+                    : inputTokenProgram,
+            })
+            .remainingAccounts(remainingAccounts)
+            .preInstructions(preInstructions)
+            .postInstructions(postInstructions)
+            .transaction()
     }
 
     /**

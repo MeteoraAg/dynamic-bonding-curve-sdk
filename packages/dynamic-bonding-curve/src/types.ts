@@ -86,13 +86,21 @@ export type SwapAccounts = Accounts<
     DynamicBondingCurve['instructions']['20']
 >['swap']
 
-export type TransferPoolCreatorAccounts = Accounts<
+export type Swap2Accounts = Accounts<
     DynamicBondingCurve['instructions']['21']
+>['swap2']
+
+export type TransferPoolCreatorAccounts = Accounts<
+    DynamicBondingCurve['instructions']['22']
 >['transferPoolCreator']
 
 export type WithdrawLeftoverAccounts = Accounts<
-    DynamicBondingCurve['instructions']['22']
+    DynamicBondingCurve['instructions']['23']
 >['withdrawLeftover']
+
+export type WithdrawMigrationFeeAccounts = Accounts<
+    DynamicBondingCurve['instructions']['24']
+>['withdrawMigrationFee']
 
 ///////////////
 // IDL Types //
@@ -216,6 +224,12 @@ export enum TokenUpdateAuthorityOption {
     CreatorUpdateAndMintAuthority = 3,
     // Partner has permission as mint_authority and update_authority
     PartnerUpdateAndMintAuthority = 4,
+}
+
+export enum SwapMode {
+    ExactIn = 0,
+    PartialFill = 1,
+    ExactOut = 2,
 }
 
 ///////////
@@ -413,6 +427,17 @@ export type SwapParam = {
     amountIn: BN
     minimumAmountOut: BN
     swapBaseForQuote: boolean
+    referralTokenAccount: PublicKey | null
+    payer?: PublicKey
+}
+
+export type SwapV2Param = {
+    owner: PublicKey
+    pool: PublicKey
+    amountIn: BN
+    minimumAmountOut: BN
+    swapBaseForQuote: boolean
+    swapMode: SwapMode
     referralTokenAccount: PublicKey | null
     payer?: PublicKey
 }
