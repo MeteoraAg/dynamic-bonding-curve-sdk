@@ -442,7 +442,7 @@ export type SwapV2Param = {
     payer?: PublicKey
 }
 
-export type SwapQuoteParam = {
+export type SwapQuoteExactInParam = {
     virtualPool: VirtualPool
     config: PoolConfig
     swapBaseForQuote: boolean
@@ -452,7 +452,7 @@ export type SwapQuoteParam = {
     currentPoint: BN
 }
 
-export type SwapQuoteExactInParam = {
+export type SwapQuoteRemainingCurveParam = {
     virtualPool: VirtualPool
     config: PoolConfig
     currentPoint: BN

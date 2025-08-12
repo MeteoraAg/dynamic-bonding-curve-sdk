@@ -18,13 +18,13 @@ import {
     FirstBuyParam,
     InitializePoolBaseParam,
     PrepareSwapParams,
-    SwapQuoteExactInParam,
     SwapQuoteExactOutParam,
+    SwapQuoteRemainingCurveParam,
     SwapV2Param,
     TokenType,
     type CreatePoolParam,
     type SwapParam,
-    type SwapQuoteParam,
+    type SwapQuoteExactInParam,
 } from '../types'
 import {
     deriveDbcPoolAddress,
@@ -41,8 +41,8 @@ import { NATIVE_MINT, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { METAPLEX_PROGRAM_ID } from '../constants'
 import {
-    swapQuote,
-    calculateQuoteExactInAmount,
+    swapQuoteExactIn,
+    calculateQuoteRemainingCurveAmount,
     swapQuoteExactOut,
 } from '../math/swapQuote'
 import { StateService } from './state'
@@ -844,39 +844,6 @@ export class PoolService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Calculate the amount out for a swap (quote)
-     * @param virtualPool - The virtual pool
-     * @param config - The config
-     * @param swapBaseForQuote - Whether to swap base for quote
-     * @param amountIn - The amount in
-     * @param slippageBps - Slippage tolerance in basis points (100 = 1%)
-     * @param hasReferral - Whether the referral is enabled
-     * @param currentPoint - The current point
-     * @returns The swap quote result
-     */
-    swapQuote(swapQuoteParam: SwapQuoteParam) {
-        const {
-            virtualPool,
-            config,
-            swapBaseForQuote,
-            amountIn,
-            slippageBps = 0,
-            hasReferral,
-            currentPoint,
-        } = swapQuoteParam
-
-        return swapQuote(
-            virtualPool,
-            config,
-            swapBaseForQuote,
-            amountIn,
-            slippageBps,
-            hasReferral,
-            currentPoint
-        )
-    }
-
-    /**
      * Swap V2 between base and quote (included SwapMode: ExactIn, PartialFill, ExactOut)
      * @param swapV2Param - The parameters for the swap
      * @returns A swap transaction
@@ -1009,24 +976,36 @@ export class PoolService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Calculate the exact amount in for a swap (quote)
-     * @param swapQuoteExactInParam - The parameters for the swap
-     * @returns The exact amount in for the swap
+     * Calculate the amount out for a swap (quote)
+     * @param virtualPool - The virtual pool
+     * @param config - The config
+     * @param swapBaseForQuote - Whether to swap base for quote
+     * @param amountIn - The amount in
+     * @param slippageBps - Slippage tolerance in basis points (100 = 1%)
+     * @param hasReferral - Whether the referral is enabled
+     * @param currentPoint - The current point
+     * @returns The swap quote result
      */
-    swapQuoteExactIn(swapQuoteExactInParam: SwapQuoteExactInParam): {
-        exactAmountIn: BN
-    } {
-        const { virtualPool, config, currentPoint } = swapQuoteExactInParam
-
-        const requiredQuoteAmount = calculateQuoteExactInAmount(
-            config,
+    swapQuoteExactIn(swapQuoteExactInParam: SwapQuoteExactInParam) {
+        const {
             virtualPool,
+            config,
+            swapBaseForQuote,
+            amountIn,
+            slippageBps = 0,
+            hasReferral,
+            currentPoint,
+        } = swapQuoteExactInParam
+
+        return swapQuoteExactIn(
+            virtualPool,
+            config,
+            swapBaseForQuote,
+            amountIn,
+            slippageBps,
+            hasReferral,
             currentPoint
         )
-
-        return {
-            exactAmountIn: requiredQuoteAmount,
-        }
     }
 
     /**
@@ -1054,5 +1033,29 @@ export class PoolService extends DynamicBondingCurveProgram {
             hasReferral,
             currentPoint
         )
+    }
+
+    /**
+     * Calculate the remaining curve and return the exact amount in for to complete the curve
+     * @param swapQuoteRemainingCurveParam - The parameters for the swap
+     * @returns The exact amount in for the swap
+     */
+    swapQuoteRemainingCurve(
+        swapQuoteRemainingCurveParam: SwapQuoteRemainingCurveParam
+    ): {
+        exactAmountIn: BN
+    } {
+        const { virtualPool, config, currentPoint } =
+            swapQuoteRemainingCurveParam
+
+        const requiredQuoteAmount = calculateQuoteRemainingCurveAmount(
+            config,
+            virtualPool,
+            currentPoint
+        )
+
+        return {
+            exactAmountIn: requiredQuoteAmount,
+        }
     }
 }

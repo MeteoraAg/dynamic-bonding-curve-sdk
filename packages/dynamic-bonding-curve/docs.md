@@ -3,7 +3,6 @@
 ## Table of Contents
 
 - [Partner Functions](#partner-functions)
-
     - [createConfig](#createConfig)
     - [createPartnerMetadata](#createPartnerMetadata)
     - [claimPartnerTradingFee](#claimPartnerTradingFee)
@@ -12,26 +11,23 @@
     - [partnerWithdrawMigrationFee](#partnerWithdrawMigrationFee)
 
 - [Build Curve Functions](#build-curve-functions)
-
     - [buildCurve](#buildCurve)
     - [buildCurveWithMarketCap](#buildCurveWithMarketCap)
     - [buildCurveWithTwoSegments](#buildCurveWithTwoSegments)
     - [buildCurveWithLiquidityWeights](#buildCurveWithLiquidityWeights)
 
 - [Pool Functions](#pool-functions)
-
     - [createPool](#createPool)
     - [createConfigAndPool](#createConfigAndPool)
     - [createConfigAndPoolWithFirstBuy](#createConfigAndPoolWithFirstBuy)
     - [createPoolWithFirstBuy](#createPoolWithFirstBuy)
     - [createPoolWithPartnerAndCreatorFirstBuy](#createPoolWithPartnerAndCreatorFirstBuy)
     - [swap](#swap)
-    - [swapQuote](#swapQuote)
     - [swapQuoteExactIn](#swapQuoteExactIn)
     - [swapQuoteExactOut](#swapQuoteExactOut)
+    - [swapQuoteRemainingCurve](#swapQuoteRemainingCurve)
 
 - [Migration Functions](#migration-functions)
-
     - [createLocker](#createLocker)
     - [withdrawLeftover](#withdrawLeftover)
     - [createDammV1MigrationMetadata](#createDammV1MigrationMetadata)
@@ -42,7 +38,6 @@
     - [migrateToDammV2](#migrateToDammV2)
 
 - [Creator Functions](#creator-functions)
-
     - [createPoolMetadata](#createPoolMetadata)
     - [claimCreatorTradingFee](#claimCreatorTradingFee)
     - [claimCreatorTradingFee2](#claimCreatorTradingFee2)
@@ -51,7 +46,6 @@
     - [transferPoolCreator](#transferPoolCreator)
 
 - [State Functions](#state-functions)
-
     - [getPoolConfig](#getPoolConfig)
     - [getPoolConfigs](#getPoolConfigs)
     - [getPoolConfigsByOwner](#getPoolConfigsByOwner)
@@ -71,14 +65,12 @@
     - [getDammV1MigrationMetadata](#getDammV1MigrationMetadata)
 
 - [Helper Functions](#helper-functions)
-
     - [deriveDbcPoolAddress](#deriveDbcPoolAddress)
     - [deriveDammV1PoolAddress](#deriveDammV1PoolAddress)
     - [deriveDammV2PoolAddress](#deriveDammV2PoolAddress)
     - [deriveDbcTokenVaultAddress](#deriveDbcTokenVaultAddress)
 
 - [Calculation Functions](#calculation-functions)
-
     - [getFeeSchedulerParams](#getFeeSchedulerParams)
     - [getRateLimiterParams](#getRateLimiterParams)
     - [getDynamicFeeParams](#getDynamicFeeParams)
@@ -1836,20 +1828,20 @@ const transaction = await client.pool.swap({
 
 ---
 
-### swapQuote
+### swapQuoteExactIn
 
-Gets the swap quotation between base and quote swaps or quote and base swaps.
+Gets the exact in swap quotation between base and quote swaps or quote and base swaps.
 
 #### Function
 
 ```typescript
-swapQuote(swapQuoteParam: SwapQuoteParam): Promise<QuoteResult>
+swapQuoteExactIn(swapQuoteExactInParam: SwapQuoteExactInParam): Promise<QuoteResult>
 ```
 
 #### Parameters
 
 ```typescript
-interface SwapQuoteParam {
+interface SwapQuoteExactInParam {
     virtualPool: VirtualPool
     config: PoolConfig
     swapBaseForQuote: boolean
@@ -1862,7 +1854,7 @@ interface SwapQuoteParam {
 
 #### Returns
 
-The quote result of the swap.
+The exact in quote result of the swap.
 
 #### Example
 
@@ -1873,7 +1865,7 @@ const poolConfigState = await client.state.getPoolConfig(
 )
 const currentSlot = await connection.getSlot()
 
-const quote = await client.pool.swapQuote({
+const quote = await client.pool.swapQuoteExactIn({
     virtualPool: virtualPoolState, // The virtual pool state
     config: poolConfigState, // The pool config state
     swapBaseForQuote: false, // Whether to swap base for quote
@@ -1892,53 +1884,6 @@ const quote = await client.pool.swapQuote({
 - The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
 - The `slippageBps` parameter is the slippage in basis points (optional). This will calculate the minimum amount out based on the slippage.
 - The `hasReferral` parameter indicates whether a referral fee should be included in the calculation.
-- The `currentPoint` parameter is typically used in cases where the config has applied a fee scheduler. If activationType == 0, then it is current slot. If activationType == 1, then it is the current block timestamp. You can fill in accordingly based on slot or timestamp.
-
----
-
-### swapQuoteExactIn
-
-Gets the exact swap quotation in between quote and base swaps.
-
-#### Function
-
-```typescript
-swapQuoteExactIn(swapQuoteExactInParam: SwapQuoteExactInParam): Promise<QuoteResult>
-```
-
-#### Parameters
-
-```typescript
-interface SwapQuoteExactInParam {
-    virtualPool: VirtualPool
-    config: PoolConfig
-    currentPoint: BN
-}
-```
-
-#### Returns
-
-The exact quote in result of the swap.
-
-#### Example
-
-```typescript
-const virtualPoolState = await client.state.getPool(poolAddress)
-const poolConfigState = await client.state.getPoolConfig(
-    virtualPoolState.config
-)
-const currentSlot = await connection.getSlot()
-
-const quote = await client.pool.swapQuoteExactIn({
-    virtualPool: virtualPoolState, // The virtual pool state
-    config: poolConfigState, // The pool config state
-    currentPoint: new BN(currentSlot), // The current point
-})
-```
-
-#### Notes
-
-- This function helps to get the exact number of quote tokens to swap to hit the `migrationQuoteThreshold` in the config key.
 - The `currentPoint` parameter is typically used in cases where the config has applied a fee scheduler. If activationType == 0, then it is current slot. If activationType == 1, then it is the current block timestamp. You can fill in accordingly based on slot or timestamp.
 
 ---
@@ -2005,6 +1950,53 @@ const quote = await client.pool.swapQuoteExactOut({
 #### Notes
 
 - This function helps to get the exact number of input tokens to swap to get the exact output amount.
+- The `currentPoint` parameter is typically used in cases where the config has applied a fee scheduler. If activationType == 0, then it is current slot. If activationType == 1, then it is the current block timestamp. You can fill in accordingly based on slot or timestamp.
+
+---
+
+### swapQuoteRemainingCurve
+
+Gets the exact amount of quote tokens needed to complete the curve.
+
+#### Function
+
+```typescript
+swapQuoteRemainingCurve(swapQuoteRemainingCurveParam: SwapQuoteRemainingCurveParam): Promise<exactAmountIn: BN>
+```
+
+#### Parameters
+
+```typescript
+interface SwapQuoteRemainingCurveParam {
+    virtualPool: VirtualPool
+    config: PoolConfig
+    currentPoint: BN
+}
+```
+
+#### Returns
+
+The exact amount of quote tokens needed to complete the curve.
+
+#### Example
+
+```typescript
+const virtualPoolState = await client.state.getPool(poolAddress)
+const poolConfigState = await client.state.getPoolConfig(
+    virtualPoolState.config
+)
+const currentSlot = await connection.getSlot()
+
+const quote = await client.pool.swapQuoteRemainingCurve({
+    virtualPool: virtualPoolState, // The virtual pool state
+    config: poolConfigState, // The pool config state
+    currentPoint: new BN(currentSlot), // The current point
+})
+```
+
+#### Notes
+
+- This function helps to get the exact number of quote tokens to swap to hit the `migrationQuoteThreshold` in the config key.
 - The `currentPoint` parameter is typically used in cases where the config has applied a fee scheduler. If activationType == 0, then it is current slot. If activationType == 1, then it is the current block timestamp. You can fill in accordingly based on slot or timestamp.
 
 ---

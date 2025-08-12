@@ -376,7 +376,7 @@ export function getFeeMode(
  * @param currentPoint Current point
  * @returns Swap quote result
  */
-export async function swapQuote(
+export async function swapQuoteExactIn(
     virtualPool: VirtualPool,
     config: PoolConfig,
     swapBaseForQuote: boolean,
@@ -441,7 +441,7 @@ export async function swapQuote(
  * @param currentPoint Current point
  * @returns Required quote amount
  */
-export function calculateQuoteExactInAmount(
+export function calculateQuoteRemainingCurveAmount(
     config: PoolConfig,
     virtualPool: VirtualPool,
     currentPoint: BN
