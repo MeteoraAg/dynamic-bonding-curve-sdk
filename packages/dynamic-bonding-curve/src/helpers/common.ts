@@ -36,6 +36,7 @@ import {
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
 import {
+    getDeltaAmountBaseUnsigned,
     getDeltaAmountQuoteUnsigned,
     getInitialLiquidityFromDeltaBase,
     getInitialLiquidityFromDeltaQuote,
@@ -268,45 +269,25 @@ export function getBaseTokenForSwap(
     for (let i = 0; i < curve.length; i++) {
         const lowerSqrtPrice = i == 0 ? sqrtStartPrice : curve[i - 1].sqrtPrice
         if (curve[i].sqrtPrice && curve[i].sqrtPrice.gt(sqrtMigrationPrice)) {
-            const deltaAmount = getDeltaAmountBase(
+            const deltaAmount = getDeltaAmountBaseUnsigned(
                 lowerSqrtPrice,
                 sqrtMigrationPrice,
-                curve[i].liquidity
+                curve[i].liquidity,
+                Rounding.Up
             )
             totalAmount = totalAmount.add(deltaAmount)
             break
         } else {
-            const deltaAmount = getDeltaAmountBase(
+            const deltaAmount = getDeltaAmountBaseUnsigned(
                 lowerSqrtPrice,
                 curve[i].sqrtPrice,
-                curve[i].liquidity
+                curve[i].liquidity,
+                Rounding.Up
             )
             totalAmount = totalAmount.add(deltaAmount)
         }
     }
     return totalAmount
-}
-
-/**
- * Calculates the amount of base token needed for a price range
- * @param lowerSqrtPrice - The lower sqrt price
- * @param upperSqrtPrice - The upper sqrt price
- * @param liquidity - The liquidity
- * @returns The delta amount base
- */
-export function getDeltaAmountBase(
-    lowerSqrtPrice: BN,
-    upperSqrtPrice: BN,
-    liquidity: BN
-): BN {
-    // Formula: Δx = L * (√Pb - √Pa) / (√Pa * √Pb)
-    // Where:
-    // - L is the liquidity
-    // - √Pa is the lower sqrt price
-    // - √Pb is the upper sqrt price
-    const numerator = liquidity.mul(upperSqrtPrice.sub(lowerSqrtPrice))
-    const denominator = lowerSqrtPrice.mul(upperSqrtPrice)
-    return numerator.add(denominator).sub(new BN(1)).div(denominator)
 }
 
 /**
@@ -369,10 +350,11 @@ export const getMigrationBaseToken = (
             sqrtMigrationPrice
         )
         // calculate base threshold
-        const baseAmount = getDeltaAmountBase(
+        const baseAmount = getDeltaAmountBaseUnsigned(
             sqrtMigrationPrice,
             MAX_SQRT_PRICE,
-            liquidity
+            liquidity,
+            Rounding.Up
         )
         return baseAmount
     } else {
@@ -437,7 +419,7 @@ export const getFirstCurve = (
     migrationQuoteThreshold: BN,
     migrationFeePercent: number
 ) => {
-    // Swap_amount = L *(1/Pmin - 1/Pmax) = L * (Pmax - Pmin) / (Pmax * Pmin)       (1)
+    // Swap_amount = L * (1/Pmin - 1/Pmax) = L * (Pmax - Pmin) / (Pmax * Pmin)      (1)
     // Quote_amount = L * (Pmax - Pmin)                                             (2)
     // (Quote_amount * (1-migrationFeePercent/100) / Migration_amount = Pmax ^ 2    (3)
     const migrationSqrPriceDecimal = new Decimal(migrationSqrtPrice.toString())

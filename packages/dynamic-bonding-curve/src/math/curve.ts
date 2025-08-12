@@ -186,8 +186,8 @@ export function getInitialLiquidityFromDeltaQuote(
  * Gets the initial liquidity from delta base
  * Formula: L = Δa / (1/√P_lower - 1/√P_upper)
  * @param baseAmount Base amount
- * @param sqrtMaxPrice Maximum sqrt price
- * @param sqrtPrice Current sqrt price
+ * @param sqrtMaxPrice Maximum sqrt price (√P_upper)
+ * @param sqrtPrice Current sqrt price (√P_lower)
  * @returns Initial liquidity
  */
 export function getInitialLiquidityFromDeltaBase(
@@ -195,10 +195,12 @@ export function getInitialLiquidityFromDeltaBase(
     sqrtMaxPrice: BN,
     sqrtPrice: BN
 ): BN {
-    const priceDelta = SafeMath.sub(sqrtMaxPrice, sqrtPrice)
-    const prod = SafeMath.mul(SafeMath.mul(baseAmount, sqrtPrice), sqrtMaxPrice)
-
-    return SafeMath.div(prod, priceDelta)
+    // Calculate 1/√P_lower - 1/√P_upper = (√P_upper - √P_lower) / (√P_upper * √P_lower)
+    const numerator = SafeMath.sub(sqrtMaxPrice, sqrtPrice)
+    const denominator = SafeMath.mul(sqrtPrice, sqrtMaxPrice)
+    
+    // L = Δa / (1/√P_lower - 1/√P_upper) = Δa * (√P_upper * √P_lower) / (√P_upper - √P_lower)
+    return mulDiv(baseAmount, denominator, numerator, Rounding.Down)
 }
 
 /**
