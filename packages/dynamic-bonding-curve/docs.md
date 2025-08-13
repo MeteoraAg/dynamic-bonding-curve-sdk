@@ -23,9 +23,9 @@
     - [createPoolWithFirstBuy](#createPoolWithFirstBuy)
     - [createPoolWithPartnerAndCreatorFirstBuy](#createPoolWithPartnerAndCreatorFirstBuy)
     - [swap](#swap)
-    - [swapQuoteExactIn](#swapQuoteExactIn)
-    - [swapQuoteExactOut](#swapQuoteExactOut)
-    - [swapQuoteRemainingCurve](#swapQuoteRemainingCurve)
+    - [swapQuote](#swapQuoten)
+    - [swap2](#swap2)
+    - [swapQuote2](#swapQuote2)
 
 - [Migration Functions](#migration-functions)
     - [createLocker](#createLocker)
@@ -1828,27 +1828,28 @@ const transaction = await client.pool.swap({
 
 ---
 
-### swapQuoteExactIn
+### swap2
 
-Gets the exact in swap quotation between base and quote swaps or quote and base swaps.
+Swaps between base and quote or quote and base on the Dynamic Bonding Curve with specific swap modes (ExactIn, ExactOut, PartialFill).
 
 #### Function
 
 ```typescript
-swapQuoteExactIn(swapQuoteExactInParam: SwapQuoteExactInParam): Promise<QuoteResult>
+swap2(swap2Param: Swap2Param): Promise<Transaction>
 ```
 
 #### Parameters
 
 ```typescript
-interface SwapQuoteExactInParam {
-    virtualPool: VirtualPool
-    config: PoolConfig
-    swapBaseForQuote: boolean
-    amountIn: BN
-    slippageBps?: number
-    hasReferral: boolean
-    currentPoint: BN
+interface Swap2Param {
+    owner: PublicKey // The person swapping the tokens
+    amountIn: BN // The amount of quote or base tokens to swap
+    minimumAmountOut: BN // The minimum amount of quote or base tokens to receive
+    swapBaseForQuote: boolean // Whether to swap base for quote. true = swap base for quote, false = swap quote for base
+    poolAddress: PublicKey // The pool address
+    referralTokenAccount: PublicKey | null // The referral token account (optional)
+    payer?: PublicKey // The payer of the transaction (optional)
+    swapMode: SwapMode // The swap mode
 }
 ```
 

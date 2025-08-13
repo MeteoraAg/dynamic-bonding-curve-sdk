@@ -1,7 +1,5 @@
 import BN from 'bn.js'
 import { BASIS_POINT_MAX } from '../constants'
-import { mulDiv } from './utilsMath'
-import { Rounding } from '../types'
 import { pow, SafeMath } from './safeMath'
 
 /**

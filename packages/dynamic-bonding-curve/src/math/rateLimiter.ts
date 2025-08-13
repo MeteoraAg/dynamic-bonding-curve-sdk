@@ -25,37 +25,6 @@ export function getMaxIndex(cliffFeeNumerator: BN, feeIncrementBps: BN): BN {
 }
 
 /**
- * Get excluded fee amount from included fee amount using rate limiter
- * @param cliffFeeNumerator - The cliff fee numerator
- * @param referenceAmount - The reference amount
- * @param feeIncrementBps - The fee increment bps
- * @param includedFeeAmount - The included fee amount
- * @returns The excluded fee amount
- */
-export function getExcludedFeeAmount(
-    cliffFeeNumerator: BN,
-    referenceAmount: BN,
-    feeIncrementBps: BN,
-    includedFeeAmount: BN
-): BN {
-    const feeNumerator = getFeeNumeratorOnRateLimiterFromIncludedAmount(
-        cliffFeeNumerator,
-        referenceAmount,
-        feeIncrementBps,
-        includedFeeAmount
-    )
-
-    const tradingFee = mulDiv(
-        includedFeeAmount,
-        feeNumerator,
-        new BN(FEE_DENOMINATOR),
-        Rounding.Up
-    )
-
-    return includedFeeAmount.sub(tradingFee)
-}
-
-/**
  * Calculate the fee numerator on rate limiter from included fee amount
  * @param cliffFeeNumerator - The cliff fee numerator
  * @param referenceAmount - The reference amount
@@ -129,6 +98,37 @@ export function getFeeNumeratorOnRateLimiterFromIncludedAmount(
 }
 
 /**
+ * Get excluded fee amount from included fee amount using rate limiter
+ * @param cliffFeeNumerator - The cliff fee numerator
+ * @param referenceAmount - The reference amount
+ * @param feeIncrementBps - The fee increment bps
+ * @param includedFeeAmount - The included fee amount
+ * @returns The excluded fee amount
+ */
+export function getExcludedFeeAmount(
+    cliffFeeNumerator: BN,
+    referenceAmount: BN,
+    feeIncrementBps: BN,
+    includedFeeAmount: BN
+): BN {
+    const feeNumerator = getFeeNumeratorOnRateLimiterFromIncludedAmount(
+        cliffFeeNumerator,
+        referenceAmount,
+        feeIncrementBps,
+        includedFeeAmount
+    )
+
+    const tradingFee = mulDiv(
+        includedFeeAmount,
+        feeNumerator,
+        new BN(FEE_DENOMINATOR),
+        Rounding.Up
+    )
+
+    return includedFeeAmount.sub(tradingFee)
+}
+
+/**
  * Calculate the fee numerator on rate limiter from excluded fee amount
  * @param cliffFeeNumerator - The cliff fee numerator
  * @param referenceAmount - The reference amount
@@ -158,7 +158,7 @@ export function getFeeNumeratorOnRateLimiterFromExcludedAmount(
     const one = new BN(1)
     const maxIndexInputAmount = maxIndex.add(one).mul(x0)
 
-    // Check if we're within the quadratic region or the max fee region
+    // check if we're within the quadratic region or the max fee region
     const maxIndexExcludedAmount = getExcludedFeeAmount(
         cliffFeeNumerator,
         referenceAmount,
@@ -169,8 +169,6 @@ export function getFeeNumeratorOnRateLimiterFromExcludedAmount(
     let includedFeeAmount: BN
 
     if (excludedFeeAmount.lt(maxIndexExcludedAmount)) {
-        // Solve quadratic equation to find included fee amount
-        // Based on the Rust implementation's quadratic formula
         const i = mulDiv(
             feeIncrementBps,
             new BN(FEE_DENOMINATOR),
@@ -183,12 +181,12 @@ export function getFeeNumeratorOnRateLimiterFromExcludedAmount(
         const two = new BN(2)
         const four = new BN(4)
 
-        // Quadratic equation coefficients
+        // quadratic equation coefficients
         const x = i // coefficient of input_amount^2
         const y = two.mul(d).mul(x0).add(i.mul(x0)).sub(two.mul(c).mul(x0)) // coefficient of input_amount
         const z = two.mul(ex).mul(d).mul(x0) // constant term
 
-        // Solve: x * input_amount^2 - y * input_amount + z = 0
+        // x * input_amount^2 - y * input_amount + z = 0
         // input_amount = (y - sqrt(y^2 - 4*x*z)) / (2*x)
         const discriminant = y.mul(y).sub(four.mul(x).mul(z))
         const sqrtDiscriminant = sqrt(discriminant)
@@ -219,7 +217,7 @@ export function getFeeNumeratorOnRateLimiterFromExcludedAmount(
             )
         }
     } else {
-        // Use max fee for the excess amount
+        // use max fee for the excess amount
         const excludedFeeRemainingAmount = excludedFeeAmount.sub(
             maxIndexExcludedAmount
         )
@@ -240,6 +238,6 @@ export function getFeeNumeratorOnRateLimiterFromExcludedAmount(
         Rounding.Up
     )
 
-    // Sanity check - ensure fee numerator is at least the cliff fee numerator
+    // sanity check - ensure fee numerator is at least the cliff fee numerator
     return BN.max(feeNumerator, cliffFeeNumerator)
 }

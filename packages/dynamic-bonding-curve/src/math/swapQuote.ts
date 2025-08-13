@@ -8,9 +8,6 @@ import {
     getNextSqrtPriceFromOutput,
 } from './curve'
 import {
-    getBaseFeeNumerator,
-    getFeeOnAmount,
-    getVariableFee,
     getTotalFeeNumeratorFromIncludedFeeAmount,
     getTotalFeeNumeratorFromExcludedFeeAmount,
     getIncludedFeeAmount,
@@ -31,11 +28,7 @@ import {
     type VirtualPool,
     SwapQuote2Result,
 } from '../types'
-import {
-    FEE_DENOMINATOR,
-    MAX_FEE_NUMERATOR,
-    MAX_SWALLOW_PERCENTAGE,
-} from '../constants'
+import { MAX_SWALLOW_PERCENTAGE } from '../constants'
 
 /**
  * Get swap amount from base to quote with stop price
@@ -68,7 +61,6 @@ export function getSwapAmountFromBaseToQuote(
     let currentSqrtPriceLocal = currentSqrtPrice
     let amountLeft = amountIn
 
-    // Use curve.len() - 1 for backward compatibility for existing pools with 20 points
     // iterate through curve points in reverse order
     for (let i = configState.curve.length - 2; i >= 0; i--) {
         if (
@@ -369,18 +361,25 @@ export function getSwapResult(
     let actualTradingFee = new BN(0)
     let actualReferralFee = new BN(0)
 
+    const tradeFeeNumerator = getTotalFeeNumeratorFromIncludedFeeAmount(
+        configState.poolFees,
+        poolState.volatilityTracker,
+        currentPoint,
+        poolState.activationPoint,
+        amountIn,
+        tradeDirection
+    )
+
     // apply fees on input if needed
     let actualAmountIn: BN
     if (feeMode.feesOnInput) {
-        const feeResult: FeeOnAmountResult = getFeeOnAmount(
-            amountIn,
-            configState.poolFees,
-            feeMode.hasReferral,
-            currentPoint,
-            poolState.activationPoint,
-            poolState.volatilityTracker,
-            tradeDirection
-        )
+        const feeResult: FeeOnAmountResult =
+            getFeeOnAmountWithTradeFeeNumerator(
+                tradeFeeNumerator,
+                amountIn,
+                configState.poolFees,
+                feeMode.hasReferral
+            )
 
         actualProtocolFee = feeResult.protocolFee
         actualTradingFee = feeResult.tradingFee
@@ -411,14 +410,11 @@ export function getSwapResult(
     if (feeMode.feesOnInput) {
         actualAmountOut = swapAmount.outputAmount
     } else {
-        const feeResult: FeeOnAmountResult = getFeeOnAmount(
+        const feeResult = getFeeOnAmountWithTradeFeeNumerator(
+            tradeFeeNumerator,
             swapAmount.outputAmount,
             configState.poolFees,
-            feeMode.hasReferral,
-            currentPoint,
-            poolState.activationPoint,
-            poolState.volatilityTracker,
-            tradeDirection
+            feeMode.hasReferral
         )
 
         actualProtocolFee = feeResult.protocolFee
@@ -523,113 +519,6 @@ export function getSwapResultFromExactInput(
         excludedFeeInputAmount: actualAmountIn,
         outputAmount: actualAmountOut,
         nextSqrtPrice: swapAmount.nextSqrtPrice,
-        tradingFee: actualTradingFee,
-        protocolFee: actualProtocolFee,
-        referralFee: actualReferralFee,
-    }
-}
-
-/**
- * Get swap result from exact output
- * @param virtualPool Virtual pool state
- * @param config Pool config state
- * @param amountOut Output amount
- * @param feeMode Fee mode
- * @param tradeDirection Trade direction
- * @param currentPoint Current point
- * @returns Swap result
- */
-export function getSwapResultFromExactOutput(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
-    amountOut: BN,
-    feeMode: FeeMode,
-    tradeDirection: TradeDirection,
-    currentPoint: BN
-): SwapResult2 {
-    let actualProtocolFee = new BN(0)
-    let actualTradingFee = new BN(0)
-    let actualReferralFee = new BN(0)
-
-    const includedFeeOutAmount = feeMode.feesOnInput
-        ? amountOut
-        : (() => {
-              const tradeFeeNumerator =
-                  getTotalFeeNumeratorFromExcludedFeeAmount(
-                      config.poolFees,
-                      virtualPool.volatilityTracker,
-                      currentPoint,
-                      virtualPool.activationPoint,
-                      amountOut,
-                      tradeDirection
-                  )
-              const [includedFeeAmount, feeAmount] = getIncludedFeeAmount(
-                  tradeFeeNumerator,
-                  amountOut
-              )
-
-              const [tradingFee, protocolFee, referralFee] = splitFees(
-                  config.poolFees,
-                  feeAmount,
-                  feeMode.hasReferral
-              )
-
-              actualTradingFee = tradingFee
-              actualProtocolFee = protocolFee
-              actualReferralFee = referralFee
-              return includedFeeAmount
-          })()
-
-    const swapAmountFromOutput =
-        tradeDirection === TradeDirection.BaseToQuote
-            ? getInAmountFromBaseToQuote(
-                  config,
-                  virtualPool.sqrtPrice,
-                  includedFeeOutAmount
-              )
-            : getInAmountFromQuoteToBase(
-                  config,
-                  virtualPool.sqrtPrice,
-                  includedFeeOutAmount
-              )
-
-    const [excludedFeeInputAmount, includedFeeInputAmount] = feeMode.feesOnInput
-        ? (() => {
-              const tradeFeeNumerator =
-                  getTotalFeeNumeratorFromExcludedFeeAmount(
-                      config.poolFees,
-                      virtualPool.volatilityTracker,
-                      currentPoint,
-                      virtualPool.activationPoint,
-                      swapAmountFromOutput.outputAmount,
-                      tradeDirection
-                  )
-
-              const [includedFeeAmount, feeAmount] = getIncludedFeeAmount(
-                  tradeFeeNumerator,
-                  swapAmountFromOutput.outputAmount
-              )
-
-              const [tradingFee, protocolFee, referralFee] = splitFees(
-                  config.poolFees,
-                  feeAmount,
-                  feeMode.hasReferral
-              )
-
-              actualTradingFee = tradingFee
-              actualProtocolFee = protocolFee
-              actualReferralFee = referralFee
-
-              return [swapAmountFromOutput.outputAmount, includedFeeAmount]
-          })()
-        : [swapAmountFromOutput.outputAmount, swapAmountFromOutput.outputAmount]
-
-    return {
-        amountLeft: new BN(0),
-        includedFeeInputAmount,
-        excludedFeeInputAmount,
-        outputAmount: amountOut,
-        nextSqrtPrice: swapAmountFromOutput.nextSqrtPrice,
         tradingFee: actualTradingFee,
         protocolFee: actualProtocolFee,
         referralFee: actualReferralFee,
@@ -817,6 +706,113 @@ export function getInAmountFromQuoteToBase(
         outputAmount: totalInAmount,
         nextSqrtPrice: currentSqrtPriceLocal,
         amountLeft: new BN(0),
+    }
+}
+
+/**
+ * Get swap result from exact output
+ * @param virtualPool Virtual pool state
+ * @param config Pool config state
+ * @param amountOut Output amount
+ * @param feeMode Fee mode
+ * @param tradeDirection Trade direction
+ * @param currentPoint Current point
+ * @returns Swap result
+ */
+export function getSwapResultFromExactOutput(
+    virtualPool: VirtualPool,
+    config: PoolConfig,
+    amountOut: BN,
+    feeMode: FeeMode,
+    tradeDirection: TradeDirection,
+    currentPoint: BN
+): SwapResult2 {
+    let actualProtocolFee = new BN(0)
+    let actualTradingFee = new BN(0)
+    let actualReferralFee = new BN(0)
+
+    const includedFeeOutAmount = feeMode.feesOnInput
+        ? amountOut
+        : (() => {
+              const tradeFeeNumerator =
+                  getTotalFeeNumeratorFromExcludedFeeAmount(
+                      config.poolFees,
+                      virtualPool.volatilityTracker,
+                      currentPoint,
+                      virtualPool.activationPoint,
+                      amountOut,
+                      tradeDirection
+                  )
+              const [includedFeeAmount, feeAmount] = getIncludedFeeAmount(
+                  tradeFeeNumerator,
+                  amountOut
+              )
+
+              const [tradingFee, protocolFee, referralFee] = splitFees(
+                  config.poolFees,
+                  feeAmount,
+                  feeMode.hasReferral
+              )
+
+              actualTradingFee = tradingFee
+              actualProtocolFee = protocolFee
+              actualReferralFee = referralFee
+              return includedFeeAmount
+          })()
+
+    const swapAmountFromOutput =
+        tradeDirection === TradeDirection.BaseToQuote
+            ? getInAmountFromBaseToQuote(
+                  config,
+                  virtualPool.sqrtPrice,
+                  includedFeeOutAmount
+              )
+            : getInAmountFromQuoteToBase(
+                  config,
+                  virtualPool.sqrtPrice,
+                  includedFeeOutAmount
+              )
+
+    const [excludedFeeInputAmount, includedFeeInputAmount] = feeMode.feesOnInput
+        ? (() => {
+              const tradeFeeNumerator =
+                  getTotalFeeNumeratorFromExcludedFeeAmount(
+                      config.poolFees,
+                      virtualPool.volatilityTracker,
+                      currentPoint,
+                      virtualPool.activationPoint,
+                      swapAmountFromOutput.outputAmount,
+                      tradeDirection
+                  )
+
+              const [includedFeeAmount, feeAmount] = getIncludedFeeAmount(
+                  tradeFeeNumerator,
+                  swapAmountFromOutput.outputAmount
+              )
+
+              const [tradingFee, protocolFee, referralFee] = splitFees(
+                  config.poolFees,
+                  feeAmount,
+                  feeMode.hasReferral
+              )
+
+              actualTradingFee = tradingFee
+              actualProtocolFee = protocolFee
+              actualReferralFee = referralFee
+
+              return [swapAmountFromOutput.outputAmount, includedFeeAmount]
+          })()
+        : [swapAmountFromOutput.outputAmount, swapAmountFromOutput.outputAmount]
+
+    return {
+        amountLeft: new BN(0),
+        includedFeeInputAmount,
+        excludedFeeInputAmount,
+        outputAmount: amountOut,
+        nextSqrtPrice: swapAmountFromOutput.nextSqrtPrice,
+        tradingFee: actualTradingFee,
+        protocolFee: actualProtocolFee,
+        referralFee: actualReferralFee,
     }
 }
 
@@ -1221,60 +1217,5 @@ export function swapQuoteExactOut(
     return {
         ...result,
         maximumAmountIn,
-    }
-}
-
-/**
- * Calculate the required quote amount for exact input
- * @param migrationQuoteThreshold Migration quote threshold
- * @param quoteReserve Current quote reserve
- * @param collectFeeMode Fee collection mode
- * @param config Pool config state
- * @param currentPoint Current point
- * @returns Required quote amount
- */
-export function swapQuoteRemainingCurve(
-    config: PoolConfig,
-    virtualPool: VirtualPool,
-    currentPoint: BN
-): BN {
-    if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
-        return new BN(0)
-    }
-
-    const amountInAfterFee = config.migrationQuoteThreshold.sub(
-        virtualPool.quoteReserve
-    )
-
-    if (config.collectFeeMode === CollectFeeMode.QuoteToken) {
-        const baseFeeNumerator = getBaseFeeNumerator(
-            config.poolFees.baseFee,
-            TradeDirection.QuoteToBase,
-            currentPoint,
-            virtualPool.activationPoint
-        )
-
-        let totalFeeNumerator = baseFeeNumerator
-        if (config.poolFees.dynamicFee.initialized !== 0) {
-            const variableFee = getVariableFee(
-                config.poolFees.dynamicFee,
-                virtualPool.volatilityTracker
-            )
-            totalFeeNumerator = SafeMath.add(totalFeeNumerator, variableFee)
-        }
-
-        // cap at MAX_FEE_NUMERATOR
-        totalFeeNumerator = BN.min(totalFeeNumerator, new BN(MAX_FEE_NUMERATOR))
-
-        // amountIn = amountInAfterFee * FEE_DENOMINATOR / (FEE_DENOMINATOR - effectiveFeeNumerator)
-        const denominator = new BN(FEE_DENOMINATOR).sub(totalFeeNumerator)
-        return mulDiv(
-            amountInAfterFee,
-            new BN(FEE_DENOMINATOR),
-            denominator,
-            Rounding.Up
-        )
-    } else {
-        return amountInAfterFee
     }
 }

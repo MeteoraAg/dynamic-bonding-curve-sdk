@@ -47,7 +47,6 @@ import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { METAPLEX_PROGRAM_ID } from '../constants'
 import {
     swapQuoteExactIn,
-    swapQuoteRemainingCurve,
     swapQuoteExactOut,
     swapQuotePartialFill,
     swapQuote,
@@ -998,7 +997,7 @@ export class PoolService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Calculate the amount out for a swap (quote)
+     * Calculate the amount out for a swap (quote) (for swap1)
      * @param virtualPool - The virtual pool
      * @param config - The config
      * @param swapBaseForQuote - Whether to swap base for quote
@@ -1031,7 +1030,7 @@ export class PoolService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Calculate the swap quote based on swap mode
+     * Calculate the amount out for a swap (quote) based on swap mode (for swap2)
      * @param swapQuoteParam - The unified parameters for the swap quote
      * @returns The swap quote result
      */
@@ -1093,30 +1092,6 @@ export class PoolService extends DynamicBondingCurveProgram {
 
             default:
                 throw new Error(`Unsupported swap mode: ${swapMode}`)
-        }
-    }
-
-    /**
-     * Calculate the remaining curve and return the exact amount in for to complete the curve
-     * @param swapQuoteRemainingCurveParam - The parameters for the swap
-     * @returns The exact amount in for the swap
-     */
-    swapQuoteRemainingCurve(
-        swapQuoteRemainingCurveParam: SwapQuoteRemainingCurveParam
-    ): {
-        exactAmountIn: BN
-    } {
-        const { virtualPool, config, currentPoint } =
-            swapQuoteRemainingCurveParam
-
-        const requiredQuoteAmount = swapQuoteRemainingCurve(
-            config,
-            virtualPool,
-            currentPoint
-        )
-
-        return {
-            exactAmountIn: requiredQuoteAmount,
         }
     }
 }
