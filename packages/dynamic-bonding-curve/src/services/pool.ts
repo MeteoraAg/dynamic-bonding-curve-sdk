@@ -930,11 +930,16 @@ export class PoolService extends DynamicBondingCurveProgram {
 
         // add SOL wrapping instructions if needed
         if (inputMint.equals(NATIVE_MINT)) {
+            const amount =
+                swapMode === SwapMode.ExactIn ||
+                swapMode === SwapMode.PartialFill
+                    ? amount0
+                    : amount1
             preInstructions.push(
                 ...wrapSOLInstruction(
                     owner,
                     inputTokenAccount,
-                    BigInt(amount0.toString())
+                    BigInt(amount.toString())
                 )
             )
         }
