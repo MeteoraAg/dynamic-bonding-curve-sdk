@@ -8,7 +8,7 @@ export type DynamicBondingCurve = {
     address: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
     metadata: {
         name: 'dynamicBondingCurve'
-        version: '0.1.5'
+        version: '0.1.6'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -544,7 +544,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'createClaimFeeOperator'
-            docs: ['ADMIN FUNCTIONS ///']
+            docs: ['ADMIN FUNCTIONS_ ///']
             discriminator: [169, 62, 207, 107, 58, 187, 162, 109]
             accounts: [
                 {
@@ -2507,6 +2507,117 @@ export type DynamicBondingCurve = {
             ]
         },
         {
+            name: 'swap2'
+            discriminator: [65, 75, 63, 76, 235, 91, 91, 136]
+            accounts: [
+                {
+                    name: 'poolAuthority'
+                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
+                },
+                {
+                    name: 'config'
+                    docs: ['config key']
+                    relations: ['pool']
+                },
+                {
+                    name: 'pool'
+                    docs: ['Pool account']
+                    writable: true
+                },
+                {
+                    name: 'inputTokenAccount'
+                    docs: ['The user token account for input token']
+                    writable: true
+                },
+                {
+                    name: 'outputTokenAccount'
+                    docs: ['The user token account for output token']
+                    writable: true
+                },
+                {
+                    name: 'baseVault'
+                    docs: ['The vault token account for base token']
+                    writable: true
+                    relations: ['pool']
+                },
+                {
+                    name: 'quoteVault'
+                    docs: ['The vault token account for quote token']
+                    writable: true
+                    relations: ['pool']
+                },
+                {
+                    name: 'baseMint'
+                    docs: ['The mint of base token']
+                },
+                {
+                    name: 'quoteMint'
+                    docs: ['The mint of quote token']
+                },
+                {
+                    name: 'payer'
+                    docs: ['The user performing the swap']
+                    signer: true
+                },
+                {
+                    name: 'tokenBaseProgram'
+                    docs: ['Token base program']
+                },
+                {
+                    name: 'tokenQuoteProgram'
+                    docs: ['Token quote program']
+                },
+                {
+                    name: 'referralTokenAccount'
+                    docs: ['referral token account']
+                    writable: true
+                    optional: true
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'params'
+                    type: {
+                        defined: {
+                            name: 'swapParameters2'
+                        }
+                    }
+                },
+            ]
+        },
+        {
             name: 'transferPoolCreator'
             discriminator: [20, 7, 169, 33, 58, 147, 166, 33]
             accounts: [
@@ -2879,6 +2990,10 @@ export type DynamicBondingCurve = {
             discriminator: [27, 60, 21, 213, 138, 170, 187, 147]
         },
         {
+            name: 'evtSwap2'
+            discriminator: [189, 66, 51, 168, 38, 80, 117, 153]
+        },
+        {
             name: 'evtUpdatePoolCreator'
             discriminator: [107, 225, 165, 237, 91, 158, 213, 220]
         },
@@ -3120,6 +3235,26 @@ export type DynamicBondingCurve = {
             code: 6044
             name: 'invalidMigratedPoolFee'
             msg: 'Invalid migrated pool fee params'
+        },
+        {
+            code: 6045
+            name: 'undeterminedError'
+            msg: 'Undertermined error'
+        },
+        {
+            code: 6046
+            name: 'rateLimiterNotSupported'
+            msg: 'Rate limiter not supported'
+        },
+        {
+            code: 6047
+            name: 'amountLeftIsNotZero'
+            msg: 'Amount left is not zero'
+        },
+        {
+            code: 6048
+            name: 'nextSqrtPriceIsSmallerThanStartSqrtPrice'
+            msg: 'Next sqrt price is smaller than start sqrt price'
         },
     ]
     types: [
@@ -3974,6 +4109,58 @@ export type DynamicBondingCurve = {
             }
         },
         {
+            name: 'evtSwap2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'tradeDirection'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'hasReferral'
+                        type: 'bool'
+                    },
+                    {
+                        name: 'swapParameters'
+                        type: {
+                            defined: {
+                                name: 'swapParameters2'
+                            }
+                        }
+                    },
+                    {
+                        name: 'swapResult'
+                        type: {
+                            defined: {
+                                name: 'swapResult2'
+                            }
+                        }
+                    },
+                    {
+                        name: 'quoteReserveAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'migrationThreshold'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'currentTimestamp'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
             name: 'evtUpdatePoolCreator'
             type: {
                 kind: 'struct'
@@ -4783,6 +4970,33 @@ export type DynamicBondingCurve = {
             }
         },
         {
+            name: 'swapParameters2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'amount0'
+                        docs: [
+                            "When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out",
+                        ]
+                        type: 'u64'
+                    },
+                    {
+                        name: 'amount1'
+                        docs: [
+                            "When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in",
+                        ]
+                        type: 'u64'
+                    },
+                    {
+                        name: 'swapMode'
+                        docs: ['Swap mode, refer [SwapMode]']
+                        type: 'u8'
+                    },
+                ]
+            }
+        },
+        {
             name: 'swapResult'
             docs: ['Encodes all results of swapping']
             type: {
@@ -4790,6 +5004,46 @@ export type DynamicBondingCurve = {
                 fields: [
                     {
                         name: 'actualInputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'outputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'nextSqrtPrice'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'tradingFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'protocolFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'referralFee'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'swapResult2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'includedFeeInputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'excludedFeeInputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'amountLeft'
                         type: 'u64'
                     },
                     {

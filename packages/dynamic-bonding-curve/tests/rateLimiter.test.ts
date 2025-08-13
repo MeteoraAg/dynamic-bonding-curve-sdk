@@ -5,10 +5,10 @@ import {
     bpsToFeeNumerator,
     FEE_DENOMINATOR,
     MAX_FEE_NUMERATOR,
+    calculateRateLimiterFee,
 } from '../src'
 import { expect, test, describe } from 'bun:test'
 import BN from 'bn.js'
-import { calculateRateLimiterFee } from './utils/common'
 
 describe('Rate Limiter tests', () => {
     test('getRateLimiterParams with Slot activation type', () => {

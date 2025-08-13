@@ -186,8 +186,8 @@ export function getInitialLiquidityFromDeltaQuote(
  * Gets the initial liquidity from delta base
  * Formula: L = Δa / (1/√P_lower - 1/√P_upper)
  * @param baseAmount Base amount
- * @param sqrtMaxPrice Maximum sqrt price
- * @param sqrtPrice Current sqrt price
+ * @param sqrtMaxPrice Maximum sqrt price (√P_upper)
+ * @param sqrtPrice Current sqrt price (√P_lower)
  * @returns Initial liquidity
  */
 export function getInitialLiquidityFromDeltaBase(
@@ -195,10 +195,12 @@ export function getInitialLiquidityFromDeltaBase(
     sqrtMaxPrice: BN,
     sqrtPrice: BN
 ): BN {
-    const priceDelta = SafeMath.sub(sqrtMaxPrice, sqrtPrice)
-    const prod = SafeMath.mul(SafeMath.mul(baseAmount, sqrtPrice), sqrtMaxPrice)
+    // Calculate 1/√P_lower - 1/√P_upper = (√P_upper - √P_lower) / (√P_upper * √P_lower)
+    const numerator = SafeMath.sub(sqrtMaxPrice, sqrtPrice)
+    const denominator = SafeMath.mul(sqrtPrice, sqrtMaxPrice)
 
-    return SafeMath.div(prod, priceDelta)
+    // L = Δa / (1/√P_lower - 1/√P_upper) = Δa * (√P_upper * √P_lower) / (√P_upper - √P_lower)
+    return mulDiv(baseAmount, denominator, numerator, Rounding.Down)
 }
 
 /**
@@ -233,14 +235,14 @@ export function getInitializeAmounts(
 }
 
 /**
- * Gets the next sqrt price from amount quote rounding up
+ * Gets the next sqrt price from amount quote output rounding down
  * Formula: √P' = √P - Δy / L
  * @param sqrtPrice Current sqrt price
  * @param liquidity Liquidity
  * @param amount Output amount
  * @returns Next sqrt price
  */
-export function getNextSqrtPriceFromAmountQuoteRoundingUp(
+export function getNextSqrtPriceFromQuoteAmountOutRoundingDown(
     sqrtPrice: BN,
     liquidity: BN,
     amount: BN
@@ -260,14 +262,14 @@ export function getNextSqrtPriceFromAmountQuoteRoundingUp(
 }
 
 /**
- * Gets the next sqrt price from amount base rounding down
+ * Gets the next sqrt price from amount base output rounding up
  * Formula: √P' = √P * L / (L - Δx * √P)
  * @param sqrtPrice Current sqrt price
  * @param liquidity Liquidity
  * @param amount Output amount
  * @returns Next sqrt price
  */
-export function getNextSqrtPriceFromAmountBaseRoundingDown(
+export function getNextSqrtPriceFromBaseAmountOutRoundingUp(
     sqrtPrice: BN,
     liquidity: BN,
     amount: BN
@@ -282,8 +284,8 @@ export function getNextSqrtPriceFromAmountBaseRoundingDown(
     // L - Δx * √P
     const denominator = SafeMath.sub(liquidity, product)
 
-    // √P * L / (L - Δx * √P) with rounding down
-    return mulDiv(liquidity, sqrtPrice, denominator, Rounding.Down)
+    // √P * L / (L - Δx * √P) with rounding up
+    return mulDiv(liquidity, sqrtPrice, denominator, Rounding.Up)
 }
 
 /**
@@ -291,27 +293,29 @@ export function getNextSqrtPriceFromAmountBaseRoundingDown(
  * @param sqrtPrice Current sqrt price
  * @param liquidity Liquidity
  * @param outAmount Output amount
- * @param isQuote Whether the output is quote token
+ * @param baseForQuote Whether we're trading base for quote (true) or quote for base (false)
  * @returns Next sqrt price
  */
 export function getNextSqrtPriceFromOutput(
     sqrtPrice: BN,
     liquidity: BN,
     outAmount: BN,
-    isQuote: boolean
+    baseForQuote: boolean
 ): BN {
     if (sqrtPrice.isZero()) {
         throw new Error('Sqrt price cannot be zero')
     }
 
-    if (isQuote) {
-        return getNextSqrtPriceFromAmountQuoteRoundingUp(
+    if (baseForQuote) {
+        // when trading base for quote, output is quote token
+        return getNextSqrtPriceFromQuoteAmountOutRoundingDown(
             sqrtPrice,
             liquidity,
             outAmount
         )
     } else {
-        return getNextSqrtPriceFromAmountBaseRoundingDown(
+        // when trading quote for base, output is base token
+        return getNextSqrtPriceFromBaseAmountOutRoundingUp(
             sqrtPrice,
             liquidity,
             outAmount

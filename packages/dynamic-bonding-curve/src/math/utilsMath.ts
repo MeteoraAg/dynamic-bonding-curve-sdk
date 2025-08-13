@@ -47,3 +47,28 @@ export function mulShr(x: BN, y: BN, offset: number): BN {
 
     return SafeMath.shr(prod, offset)
 }
+
+/**
+ * Calculate square root of a BN number using Newton's method
+ * @param value - The value to calculate square root for
+ * @returns Square root of the value
+ */
+export function sqrt(value: BN): BN {
+    if (value.isZero()) {
+        return new BN(0)
+    }
+
+    if (value.eq(new BN(1))) {
+        return new BN(1)
+    }
+
+    let x = value
+    let y = value.add(new BN(1)).div(new BN(2))
+
+    while (y.lt(x)) {
+        x = y
+        y = x.add(value.div(x)).div(new BN(2))
+    }
+
+    return x
+}

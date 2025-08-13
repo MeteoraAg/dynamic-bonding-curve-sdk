@@ -8,7 +8,7 @@ import {
     Transaction,
     TransactionInstruction,
 } from '@solana/web3.js'
-import { BanksClient, startAnchor } from 'solana-bankrun'
+import { BanksClient, start, startAnchor } from 'solana-bankrun'
 import {
     DYNAMIC_BONDING_CURVE_PROGRAM_ID,
     METAPLEX_PROGRAM_ID,
@@ -30,6 +30,7 @@ import {
     DynamicBondingCurveClient,
     DynamicBondingCurveProgram,
 } from '../../src'
+import BN from 'bn.js'
 
 export const LOCAL_ADMIN_KEYPAIR = Keypair.fromSecretKey(
     Uint8Array.from([
@@ -41,67 +42,32 @@ export const LOCAL_ADMIN_KEYPAIR = Keypair.fromSecretKey(
     ])
 )
 
-export const VAULT_BASE_KEY = LOCAL_ADMIN_KEYPAIR.publicKey
-
-export const USDC = new PublicKey(
-    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-)
-
-export const ADMIN_USDC_ATA = getAssociatedTokenAddressSync(
-    USDC,
-    LOCAL_ADMIN_KEYPAIR.publicKey,
-    true
-)
-
-const usdcToOwn = 1_000_000_000_000
-
-const tokenAccData = Buffer.alloc(ACCOUNT_SIZE)
-
-AccountLayout.encode(
-    {
-        mint: USDC,
-        owner: LOCAL_ADMIN_KEYPAIR.publicKey,
-        amount: BigInt(usdcToOwn),
-        delegateOption: 0,
-        delegate: PublicKey.default,
-        delegatedAmount: BigInt(0),
-        state: 1,
-        isNativeOption: 0,
-        isNative: BigInt(0),
-        closeAuthorityOption: 0,
-        closeAuthority: PublicKey.default,
-    },
-    tokenAccData
-)
-
 export async function startTest() {
-    // Program name need to match fixtures program name
-    return startAnchor(
-        './',
+    return start(
         [
             {
                 name: 'dynamic_bonding_curve',
                 programId: new PublicKey(DYNAMIC_BONDING_CURVE_PROGRAM_ID),
             },
             {
-                name: 'metaplex',
-                programId: new PublicKey(METAPLEX_PROGRAM_ID),
+                name: 'cp_amm',
+                programId: new PublicKey(DAMM_V2_PROGRAM_ID),
             },
             {
                 name: 'amm',
                 programId: new PublicKey(DAMM_V1_PROGRAM_ID),
             },
             {
-                name: 'vault',
-                programId: new PublicKey(VAULT_PROGRAM_ID),
-            },
-            {
-                name: 'damm_v2',
-                programId: new PublicKey(DAMM_V2_PROGRAM_ID),
-            },
-            {
                 name: 'locker',
                 programId: new PublicKey(LOCKER_PROGRAM_ID),
+            },
+            {
+                name: 'metaplex',
+                programId: new PublicKey(METAPLEX_PROGRAM_ID),
+            },
+            {
+                name: 'vault',
+                programId: new PublicKey(VAULT_PROGRAM_ID),
             },
         ],
         [
@@ -114,24 +80,8 @@ export async function startTest() {
                     data: new Uint8Array(),
                 },
             },
-            {
-                address: ADMIN_USDC_ATA,
-                info: {
-                    lamports: 1_000_000_000,
-                    data: tokenAccData,
-                    owner: TOKEN_PROGRAM_ID,
-                    executable: false,
-                },
-            },
         ]
     )
-}
-
-export function createDynamicBondingCurveProgram(): DynamicBondingCurveProgram {
-    const wallet = new Wallet(Keypair.generate())
-    const connection = new Connection(clusterApiUrl('devnet'))
-    const provider = new AnchorProvider(connection, wallet, {})
-    return new DynamicBondingCurveProgram(connection, 'confirmed')
 }
 
 export async function fundSol(
@@ -150,15 +100,62 @@ export async function fundSol(
         )
     }
 
-    const transaction = new Transaction()
-    const recentBlockhashResponse = await banksClient.getLatestBlockhash()
-    if (!recentBlockhashResponse) {
+    let transaction = new Transaction()
+    const latestBlockhash = await banksClient.getLatestBlockhash()
+    if (!latestBlockhash) {
         throw new Error('Failed to get recent blockhash')
     }
-    const [recentBlockhash] = recentBlockhashResponse
+    const [recentBlockhash] = latestBlockhash
     transaction.recentBlockhash = recentBlockhash
     transaction.add(...instructions)
     transaction.sign(from)
 
     await banksClient.processTransaction(transaction)
+}
+
+export async function processTransactionMaybeThrow(
+    banksClient: BanksClient,
+    transaction: Transaction
+) {
+    const transactionMeta = await banksClient.tryProcessTransaction(transaction)
+    if (transactionMeta.result && transactionMeta.result.length > 0) {
+        throw Error(transactionMeta.result)
+    }
+}
+
+export async function expectThrowsAsync(
+    fn: () => Promise<void>,
+    errorMessage: String
+) {
+    try {
+        await fn()
+    } catch (err) {
+        if (!(err instanceof Error)) {
+            throw err
+        } else {
+            if (
+                !err.message.toLowerCase().includes(errorMessage.toLowerCase())
+            ) {
+                throw new Error(
+                    `Unexpected error: ${err.message}. Expected error: ${errorMessage}`
+                )
+            }
+            return
+        }
+    }
+    throw new Error("Expected an error but didn't get one")
+}
+
+export async function createUsersAndFund(
+    banksClient: BanksClient,
+    payer: Keypair,
+    user?: Keypair
+): Promise<Keypair> {
+    if (!user) {
+        user = Keypair.generate()
+    }
+
+    await fundSol(banksClient, payer, [user.publicKey])
+
+    return user
 }

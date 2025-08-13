@@ -70,6 +70,7 @@ test('getSwapAmountFromBaseToQuote zero amount', () => {
     const result = getSwapAmountFromBaseToQuote(
         config,
         sqrtStartPrice,
+        new BN(0),
         new BN(0)
     )
     expect(result.outputAmount.isZero()).toBe(true)
@@ -94,6 +95,7 @@ test('getSwapAmountFromQuoteToBase zero amount', () => {
     const result = getSwapAmountFromQuoteToBase(
         config,
         sqrtStartPrice,
+        new BN(0),
         new BN(0)
     )
     expect(result.outputAmount.isZero()).toBe(true)
@@ -119,7 +121,8 @@ test('getSwapAmountFromQuoteToBase not enough liquidity', () => {
         getSwapAmountFromQuoteToBase(
             config,
             sqrtStartPrice,
-            new BN('10000000000000000000000')
+            new BN('10000000000000000000000'),
+            new BN(0)
         )
     ).toThrow('Not enough liquidity to process the entire amount')
 })

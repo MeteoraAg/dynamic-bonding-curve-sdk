@@ -3,7 +3,6 @@
 ## Table of Contents
 
 - [Partner Functions](#partner-functions)
-
     - [createConfig](#createConfig)
     - [createPartnerMetadata](#createPartnerMetadata)
     - [claimPartnerTradingFee](#claimPartnerTradingFee)
@@ -12,14 +11,12 @@
     - [partnerWithdrawMigrationFee](#partnerWithdrawMigrationFee)
 
 - [Build Curve Functions](#build-curve-functions)
-
     - [buildCurve](#buildCurve)
     - [buildCurveWithMarketCap](#buildCurveWithMarketCap)
     - [buildCurveWithTwoSegments](#buildCurveWithTwoSegments)
     - [buildCurveWithLiquidityWeights](#buildCurveWithLiquidityWeights)
 
 - [Pool Functions](#pool-functions)
-
     - [createPool](#createPool)
     - [createConfigAndPool](#createConfigAndPool)
     - [createConfigAndPoolWithFirstBuy](#createConfigAndPoolWithFirstBuy)
@@ -27,11 +24,10 @@
     - [createPoolWithPartnerAndCreatorFirstBuy](#createPoolWithPartnerAndCreatorFirstBuy)
     - [swap](#swap)
     - [swapQuote](#swapQuote)
-    - [swapQuoteExactIn](#swapQuoteExactIn)
-    - [swapQuoteExactOut](#swapQuoteExactOut)
+    - [swap2](#swap2)
+    - [swapQuote2](#swapQuote2)
 
 - [Migration Functions](#migration-functions)
-
     - [createLocker](#createLocker)
     - [withdrawLeftover](#withdrawLeftover)
     - [createDammV1MigrationMetadata](#createDammV1MigrationMetadata)
@@ -42,7 +38,6 @@
     - [migrateToDammV2](#migrateToDammV2)
 
 - [Creator Functions](#creator-functions)
-
     - [createPoolMetadata](#createPoolMetadata)
     - [claimCreatorTradingFee](#claimCreatorTradingFee)
     - [claimCreatorTradingFee2](#claimCreatorTradingFee2)
@@ -51,7 +46,6 @@
     - [transferPoolCreator](#transferPoolCreator)
 
 - [State Functions](#state-functions)
-
     - [getPoolConfig](#getPoolConfig)
     - [getPoolConfigs](#getPoolConfigs)
     - [getPoolConfigsByOwner](#getPoolConfigsByOwner)
@@ -71,14 +65,12 @@
     - [getDammV1MigrationMetadata](#getDammV1MigrationMetadata)
 
 - [Helper Functions](#helper-functions)
-
     - [deriveDbcPoolAddress](#deriveDbcPoolAddress)
     - [deriveDammV1PoolAddress](#deriveDammV1PoolAddress)
     - [deriveDammV2PoolAddress](#deriveDammV2PoolAddress)
     - [deriveDbcTokenVaultAddress](#deriveDbcTokenVaultAddress)
 
 - [Calculation Functions](#calculation-functions)
-
     - [getFeeSchedulerParams](#getFeeSchedulerParams)
     - [getRateLimiterParams](#getRateLimiterParams)
     - [getDynamicFeeParams](#getDynamicFeeParams)
@@ -1836,33 +1828,47 @@ const transaction = await client.pool.swap({
 
 ---
 
-### swapQuote
+### swap2
 
-Gets the swap quotation between base and quote swaps or quote and base swaps.
+Swaps between base and quote or quote and base on the Dynamic Bonding Curve with specific swap modes (ExactIn, ExactOut, PartialFill).
 
 #### Function
 
 ```typescript
-swapQuote(swapQuoteParam: SwapQuoteParam): Promise<QuoteResult>
+swap2(swap2Param: Swap2Param): Promise<Transaction>
 ```
 
 #### Parameters
 
 ```typescript
-interface SwapQuoteParam {
-    virtualPool: VirtualPool
-    config: PoolConfig
-    swapBaseForQuote: boolean
-    amountIn: BN
-    slippageBps?: number
-    hasReferral: boolean
-    currentPoint: BN
-}
+interface Swap2Param {
+    owner: PublicKey // The wallet performing the swap
+    pool: PublicKey // The pool address to swap on
+    swapBaseForQuote: boolean // True for base->quote, false for quote->base
+    referralTokenAccount: PublicKey | null // The referral token account (optional)
+    payer?: PublicKey // The payer of the transaction (optional)
+} & (
+    | {
+          swapMode: SwapMode.ExactIn // Swap exact input amount
+          amountIn: BN // The exact amount to swap in
+          minimumAmountOut: BN // Minimum amount expected out (slippage protection)
+      }
+    | {
+          swapMode: SwapMode.PartialFill // Allow partial fills
+          amountIn: BN // The amount to swap in
+          minimumAmountOut: BN // Minimum amount expected out (slippage protection)
+      }
+    | {
+          swapMode: SwapMode.ExactOut // Swap for exact output amount
+          amountOut: BN // The exact amount desired out
+          maximumAmountIn: BN // Maximum amount willing to pay in (slippage protection)
+      }
+)
 ```
 
 #### Returns
 
-The quote result of the swap.
+A transaction that can be signed and sent to the network.
 
 #### Example
 
@@ -1873,103 +1879,82 @@ const poolConfigState = await client.state.getPoolConfig(
 )
 const currentSlot = await connection.getSlot()
 
-const quote = await client.pool.swapQuote({
-    virtualPool: virtualPoolState, // The virtual pool state
-    config: poolConfigState, // The pool config state
-    swapBaseForQuote: false, // Whether to swap base for quote
-    amountIn: new BN(100000000), // The amount of tokens to swap
-    slippageBps: 100, // The slippage in basis points (optional)
-    hasReferral: false, // Whether to include a referral fee
-    currentPoint: new BN(currentSlot), // The current point
+const quote = await client.pool.swapQuote2({
+    virtualPool: virtualPoolState.account,
+    config: poolConfigState,
+    swapBaseForQuote: false,
+    amountIn: new BN('10000000000'),
+    slippageBps: 50,
+    hasReferral: false,
+    currentPoint: new BN(currentTime),
+    swapMode: SwapMode.PartialFill,
+})
+
+const transaction = await client.pool.swap2({
+    amountIn: new BN('10000000000'),
+    minimumAmountOut: quote.minimumAmountOut,
+    swapMode: SwapMode.PartialFill,
+    swapBaseForQuote: false,
+    owner: wallet.publicKey,
+    pool: poolAddress,
+    referralTokenAccount: null,
+    payer: payer.publicKey,
 })
 ```
 
 #### Notes
 
-- The `swapBaseForQuote` parameter determines the direction of the swap:
-    - `true`: Swap base tokens for quote tokens
-    - `false`: Swap quote tokens for base tokens
+- The `swapMode` parameter determines the type of swap:
+    - `SwapMode.ExactIn`: Swap exact input amount
+    - `SwapMode.PartialFill`: Allow partial fills
+    - `SwapMode.ExactOut`: Swap for exact output amount
 - The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
-- The `slippageBps` parameter is the slippage in basis points (optional). This will calculate the minimum amount out based on the slippage.
-- The `hasReferral` parameter indicates whether a referral fee should be included in the calculation.
-- The `currentPoint` parameter is typically used in cases where the config has applied a fee scheduler. If activationType == 0, then it is current slot. If activationType == 1, then it is the current block timestamp. You can fill in accordingly based on slot or timestamp.
+- The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
+- The `maximumAmountIn` parameter protects against slippage. Set it to a value slightly higher than the expected input.
+- The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+- The `payer` parameter is optional. If not provided, the owner will be used as the payer to fund ATA creation.
 
 ---
 
-### swapQuoteExactIn
+### swapQuote2
 
-Gets the exact swap quotation in between quote and base swaps.
+Gets the exact swap out quotation in between quote and base swaps with specific swap modes (ExactIn, ExactOut, PartialFill).
 
 #### Function
 
 ```typescript
-swapQuoteExactIn(swapQuoteExactInParam: SwapQuoteExactInParam): Promise<QuoteResult>
+swapQuote2(swapQuote2Param: SwapQuote2Param): Promise<SwapResult2>
 ```
 
 #### Parameters
 
 ```typescript
-interface SwapQuoteExactInParam {
-    virtualPool: VirtualPool
-    config: PoolConfig
-    currentPoint: BN
-}
-```
-
-#### Returns
-
-The exact quote in result of the swap.
-
-#### Example
-
-```typescript
-const virtualPoolState = await client.state.getPool(poolAddress)
-const poolConfigState = await client.state.getPoolConfig(
-    virtualPoolState.config
+interface SwapQuote2Param {
+    virtualPool: VirtualPool // The virtual pool address
+    config: PoolConfig // The pool config address
+    swapBaseForQuote: boolean // True for base->quote, false for quote->base
+    hasReferral: boolean // Whether to include a referral fee
+    currentPoint: BN // The current point
+    slippageBps?: number // The slippage in bps
+} & (
+    | {
+          swapMode: SwapMode.ExactIn // Swap exact input amount
+          amountIn: BN // The exact amount to swap in
+      }
+    | {
+          swapMode: SwapMode.PartialFill // Allow partial fills
+          amountIn: BN // The amount to swap in
+      }
+    | {
+          swapMode: SwapMode.ExactOut // Swap for exact output amount
+          amountOut: BN // The exact amount to swap out
+      }
 )
-const currentSlot = await connection.getSlot()
-
-const quote = await client.pool.swapQuoteExactIn({
-    virtualPool: virtualPoolState, // The virtual pool state
-    config: poolConfigState, // The pool config state
-    currentPoint: new BN(currentSlot), // The current point
-})
-```
-
-#### Notes
-
-- This function helps to get the exact number of quote tokens to swap to hit the `migrationQuoteThreshold` in the config key.
-- The `currentPoint` parameter is typically used in cases where the config has applied a fee scheduler. If activationType == 0, then it is current slot. If activationType == 1, then it is the current block timestamp. You can fill in accordingly based on slot or timestamp.
-
----
-
-### swapQuoteExactOut
-
-Gets the exact swap out quotation in between quote and base swaps.
-
-#### Function
-
-```typescript
-swapQuoteExactOut(swapQuoteExactOutParam: SwapQuoteExactOutParam): Promise<QuoteResult>
-```
-
-#### Parameters
-
-```typescript
-interface SwapQuoteExactOutParam {
-    virtualPool: VirtualPool
-    config: PoolConfig
-    swapBaseForQuote: boolean
-    outAmount: BN
-    slippageBps?: number
-    hasReferral: boolean
-    currentPoint: BN
-}
 ```
 
 #### Returns
 
-The exact quote out result of the swap.
+The exact swap out quotation in between quote and base swaps with specific swap modes (ExactIn, ExactOut, PartialFill).
 
 #### Example
 
@@ -1991,21 +1976,27 @@ if (poolConfigState.activationType === 0) {
     currentPoint = new BN(currentTime || 0)
 }
 
-const quote = await client.pool.swapQuoteExactOut({
-    virtualPool: virtualPoolState,
+const quote = await client.pool.swapQuote2({
+    virtualPool: virtualPoolState.account,
     config: poolConfigState,
     swapBaseForQuote: false,
-    outAmount: new BN(100000000),
-    slippageBps: 0,
+    amountIn: new BN('10000000000'),
+    slippageBps: 50,
     hasReferral: false,
-    currentPoint,
+    currentPoint: new BN(currentTime),
+    swapMode: SwapMode.PartialFill,
 })
 ```
 
 #### Notes
 
-- This function helps to get the exact number of input tokens to swap to get the exact output amount.
-- The `currentPoint` parameter is typically used in cases where the config has applied a fee scheduler. If activationType == 0, then it is current slot. If activationType == 1, then it is the current block timestamp. You can fill in accordingly based on slot or timestamp.
+- The `swapMode` parameter determines the type of swap:
+    - `SwapMode.ExactIn`: Swap exact input amount
+    - `SwapMode.PartialFill`: Allow partial fills
+    - `SwapMode.ExactOut`: Swap for exact output amount
+- The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
+- The `slippageBps` parameter protects against slippage. Set it to a value slightly lower than the expected output.
+- The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
 
 ---
 

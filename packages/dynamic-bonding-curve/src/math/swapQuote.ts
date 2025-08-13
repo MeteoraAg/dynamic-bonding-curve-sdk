@@ -7,19 +7,337 @@ import {
     getNextSqrtPriceFromInput,
     getNextSqrtPriceFromOutput,
 } from './curve'
-import { getBaseFeeNumerator, getFeeOnAmount, getVariableFee } from './feeMath'
+import {
+    getTotalFeeNumeratorFromIncludedFeeAmount,
+    getTotalFeeNumeratorFromExcludedFeeAmount,
+    getIncludedFeeAmount,
+    splitFees,
+    getFeeOnAmountWithTradeFeeNumerator,
+} from './feeMath'
 import {
     CollectFeeMode,
     Rounding,
+    SwapResult,
     TradeDirection,
     type FeeMode,
     type FeeOnAmountResult,
     type PoolConfig,
-    type QuoteResult,
+    type SwapQuoteResult,
     type SwapAmount,
+    type SwapResult2,
     type VirtualPool,
+    SwapQuote2Result,
 } from '../types'
-import { FEE_DENOMINATOR, MAX_FEE_NUMERATOR } from '../constants'
+import { MAX_SWALLOW_PERCENTAGE } from '../constants'
+
+/**
+ * Get swap amount from base to quote with stop price
+ * @param configState Config state
+ * @param currentSqrtPrice Current sqrt price
+ * @param amountIn Input amount
+ * @param stopSqrtPrice Stop sqrt price
+ * @returns Swap amount
+ */
+export function getSwapAmountFromBaseToQuote(
+    configState: {
+        curve: Array<{
+            sqrtPrice: BN
+            liquidity: BN
+        }>
+    },
+    currentSqrtPrice: BN,
+    amountIn: BN,
+    stopSqrtPrice: BN
+): SwapAmount {
+    if (amountIn.isZero()) {
+        return {
+            outputAmount: new BN(0),
+            nextSqrtPrice: currentSqrtPrice,
+            amountLeft: new BN(0),
+        }
+    }
+
+    let totalOutputAmount = new BN(0)
+    let currentSqrtPriceLocal = currentSqrtPrice
+    let amountLeft = amountIn
+
+    // iterate through curve points in reverse order
+    for (let i = configState.curve.length - 2; i >= 0; i--) {
+        if (
+            configState.curve[i].sqrtPrice.isZero() ||
+            configState.curve[i].liquidity.isZero()
+        ) {
+            continue
+        }
+
+        if (configState.curve[i].sqrtPrice.lt(currentSqrtPriceLocal)) {
+            const currentLiquidity = configState.curve[i + 1].liquidity
+
+            const maxAmountIn = getDeltaAmountBaseUnsigned(
+                configState.curve[i].sqrtPrice,
+                currentSqrtPriceLocal,
+                currentLiquidity,
+                Rounding.Up
+            )
+
+            if (amountLeft.lt(maxAmountIn)) {
+                const nextSqrtPrice = getNextSqrtPriceFromInput(
+                    currentSqrtPriceLocal,
+                    currentLiquidity,
+                    amountLeft,
+                    true
+                )
+
+                const outputAmount = getDeltaAmountQuoteUnsigned(
+                    nextSqrtPrice,
+                    currentSqrtPriceLocal,
+                    currentLiquidity,
+                    Rounding.Down
+                )
+
+                totalOutputAmount = SafeMath.add(
+                    totalOutputAmount,
+                    outputAmount
+                )
+                currentSqrtPriceLocal = nextSqrtPrice
+                amountLeft = new BN(0)
+                break
+            } else {
+                const nextSqrtPrice = configState.curve[i].sqrtPrice
+                const outputAmount = getDeltaAmountQuoteUnsigned(
+                    nextSqrtPrice,
+                    currentSqrtPriceLocal,
+                    currentLiquidity,
+                    Rounding.Down
+                )
+
+                totalOutputAmount = SafeMath.add(
+                    totalOutputAmount,
+                    outputAmount
+                )
+                currentSqrtPriceLocal = nextSqrtPrice
+                amountLeft = SafeMath.sub(amountLeft, maxAmountIn)
+            }
+        }
+    }
+
+    if (!amountLeft.isZero()) {
+        const nextSqrtPrice = getNextSqrtPriceFromInput(
+            currentSqrtPriceLocal,
+            configState.curve[0].liquidity,
+            amountLeft,
+            true
+        )
+
+        // check if we hit the stop price (migration threshold)
+        if (nextSqrtPrice.lte(stopSqrtPrice)) {
+            // calculate how much we can actually consume before hitting stop price
+            const actualNextSqrtPrice = stopSqrtPrice
+            const actualAmountIn = getDeltaAmountBaseUnsigned(
+                actualNextSqrtPrice,
+                currentSqrtPriceLocal,
+                configState.curve[0].liquidity,
+                Rounding.Up
+            )
+
+            const outputAmount = getDeltaAmountQuoteUnsigned(
+                actualNextSqrtPrice,
+                currentSqrtPriceLocal,
+                configState.curve[0].liquidity,
+                Rounding.Down
+            )
+
+            totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount)
+            currentSqrtPriceLocal = actualNextSqrtPrice
+            amountLeft = SafeMath.sub(amountLeft, actualAmountIn)
+        } else {
+            const outputAmount = getDeltaAmountQuoteUnsigned(
+                nextSqrtPrice,
+                currentSqrtPriceLocal,
+                configState.curve[0].liquidity,
+                Rounding.Down
+            )
+
+            totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount)
+            currentSqrtPriceLocal = nextSqrtPrice
+            amountLeft = new BN(0)
+        }
+    }
+
+    return {
+        outputAmount: totalOutputAmount,
+        nextSqrtPrice: currentSqrtPriceLocal,
+        amountLeft: amountLeft,
+    }
+}
+
+/**
+ * Get swap amount from quote to base with stop price
+ * @param configState Config state
+ * @param currentSqrtPrice Current sqrt price
+ * @param amountIn Input amount
+ * @param stopSqrtPrice Stop sqrt price
+ * @returns Swap amount
+ */
+export function getSwapAmountFromQuoteToBase(
+    configState: {
+        curve: Array<{
+            sqrtPrice: BN
+            liquidity: BN
+        }>
+    },
+    currentSqrtPrice: BN,
+    amountIn: BN,
+    stopSqrtPrice: BN
+): SwapAmount {
+    if (amountIn.isZero()) {
+        return {
+            outputAmount: new BN(0),
+            nextSqrtPrice: currentSqrtPrice,
+            amountLeft: new BN(0),
+        }
+    }
+
+    let totalOutputAmount = new BN(0)
+    let currentSqrtPriceLocal = currentSqrtPrice
+    let amountLeft = amountIn
+
+    // iterate through the curve points
+    for (let i = 0; i < configState.curve.length; i++) {
+        if (
+            configState.curve[i].sqrtPrice.isZero() ||
+            configState.curve[i].liquidity.isZero()
+        ) {
+            break
+        }
+
+        // reference_sqrt_price = stop_sqrt_price.min(config.curve[i].sqrt_price)
+        const referenceSqrtPrice = BN.min(
+            stopSqrtPrice,
+            configState.curve[i].sqrtPrice
+        )
+
+        if (referenceSqrtPrice.gt(currentSqrtPriceLocal)) {
+            const maxAmountIn = getDeltaAmountQuoteUnsigned(
+                currentSqrtPriceLocal,
+                referenceSqrtPrice,
+                configState.curve[i].liquidity,
+                Rounding.Up
+            )
+
+            if (amountLeft.lt(maxAmountIn)) {
+                const nextSqrtPrice = getNextSqrtPriceFromInput(
+                    currentSqrtPriceLocal,
+                    configState.curve[i].liquidity,
+                    amountLeft,
+                    false
+                )
+
+                const outputAmount = getDeltaAmountBaseUnsigned(
+                    currentSqrtPriceLocal,
+                    nextSqrtPrice,
+                    configState.curve[i].liquidity,
+                    Rounding.Down
+                )
+
+                totalOutputAmount = SafeMath.add(
+                    totalOutputAmount,
+                    outputAmount
+                )
+                currentSqrtPriceLocal = nextSqrtPrice
+                amountLeft = new BN(0)
+                break
+            } else {
+                const nextSqrtPrice = referenceSqrtPrice
+                const outputAmount = getDeltaAmountBaseUnsigned(
+                    currentSqrtPriceLocal,
+                    nextSqrtPrice,
+                    configState.curve[i].liquidity,
+                    Rounding.Down
+                )
+
+                totalOutputAmount = SafeMath.add(
+                    totalOutputAmount,
+                    outputAmount
+                )
+                currentSqrtPriceLocal = nextSqrtPrice
+                amountLeft = SafeMath.sub(amountLeft, maxAmountIn)
+
+                if (nextSqrtPrice.eq(stopSqrtPrice)) {
+                    break
+                }
+            }
+        }
+    }
+
+    return {
+        outputAmount: totalOutputAmount,
+        nextSqrtPrice: currentSqrtPriceLocal,
+        amountLeft: amountLeft,
+    }
+}
+
+/**
+ * Get maximum swallow quote amount
+ * @param config Pool config state
+ * @returns Maximum swallow quote amount
+ */
+export function getMaxSwallowQuoteAmount(config: PoolConfig): BN {
+    return mulDiv(
+        config.migrationQuoteThreshold,
+        new BN(MAX_SWALLOW_PERCENTAGE),
+        new BN(100),
+        Rounding.Down
+    )
+}
+
+/**
+ * Get fee mode
+ * @param collectFeeMode Collect fee mode
+ * @param tradeDirection Trade direction
+ * @param hasReferral Whether referral is used
+ * @returns Fee mode
+ */
+export function getFeeMode(
+    collectFeeMode: CollectFeeMode,
+    tradeDirection: TradeDirection,
+    hasReferral: boolean
+): FeeMode {
+    // (CollectFeeMode::OutputToken, TradeDirection::BaseToQuote) => (false, false),
+    // (CollectFeeMode::OutputToken, TradeDirection::QuoteToBase) => (false, true),
+    // (CollectFeeMode::QuoteToken, TradeDirection::BaseToQuote) => (false, false),
+    // (CollectFeeMode::QuoteToken, TradeDirection::QuoteToBase) => (true, false),
+
+    let feesOnInput: boolean
+    let feesOnBaseToken: boolean
+
+    if (collectFeeMode === CollectFeeMode.OutputToken) {
+        if (tradeDirection === TradeDirection.BaseToQuote) {
+            feesOnInput = false
+            feesOnBaseToken = false
+        } else {
+            // TradeDirection.QuoteToBase
+            feesOnInput = false
+            feesOnBaseToken = true
+        }
+    } else {
+        // CollectFeeMode.QuoteToken
+        if (tradeDirection === TradeDirection.BaseToQuote) {
+            feesOnInput = false
+            feesOnBaseToken = false
+        } else {
+            // TradeDirection.QuoteToBase
+            feesOnInput = true
+            feesOnBaseToken = false
+        }
+    }
+
+    return {
+        feesOnInput,
+        feesOnBaseToken,
+        hasReferral,
+    }
+}
 
 /**
  * Get swap result
@@ -38,23 +356,30 @@ export function getSwapResult(
     feeMode: FeeMode,
     tradeDirection: TradeDirection,
     currentPoint: BN
-): QuoteResult {
+): SwapResult {
     let actualProtocolFee = new BN(0)
     let actualTradingFee = new BN(0)
     let actualReferralFee = new BN(0)
 
+    const tradeFeeNumerator = getTotalFeeNumeratorFromIncludedFeeAmount(
+        configState.poolFees,
+        poolState.volatilityTracker,
+        currentPoint,
+        poolState.activationPoint,
+        amountIn,
+        tradeDirection
+    )
+
     // apply fees on input if needed
     let actualAmountIn: BN
     if (feeMode.feesOnInput) {
-        const feeResult: FeeOnAmountResult = getFeeOnAmount(
-            amountIn,
-            configState.poolFees,
-            feeMode.hasReferral,
-            currentPoint,
-            poolState.activationPoint,
-            poolState.volatilityTracker,
-            tradeDirection
-        )
+        const feeResult: FeeOnAmountResult =
+            getFeeOnAmountWithTradeFeeNumerator(
+                tradeFeeNumerator,
+                amountIn,
+                configState.poolFees,
+                feeMode.hasReferral
+            )
 
         actualProtocolFee = feeResult.protocolFee
         actualTradingFee = feeResult.tradingFee
@@ -70,12 +395,14 @@ export function getSwapResult(
             ? getSwapAmountFromBaseToQuote(
                   configState,
                   poolState.sqrtPrice,
-                  actualAmountIn
+                  actualAmountIn,
+                  configState.migrationSqrtPrice
               )
             : getSwapAmountFromQuoteToBase(
                   configState,
                   poolState.sqrtPrice,
-                  actualAmountIn
+                  actualAmountIn,
+                  configState.migrationSqrtPrice
               )
 
     // apply fees on output if needed
@@ -83,14 +410,11 @@ export function getSwapResult(
     if (feeMode.feesOnInput) {
         actualAmountOut = swapAmount.outputAmount
     } else {
-        const feeResult: FeeOnAmountResult = getFeeOnAmount(
+        const feeResult = getFeeOnAmountWithTradeFeeNumerator(
+            tradeFeeNumerator,
             swapAmount.outputAmount,
             configState.poolFees,
-            feeMode.hasReferral,
-            currentPoint,
-            poolState.activationPoint,
-            poolState.volatilityTracker,
-            tradeDirection
+            feeMode.hasReferral
         )
 
         actualProtocolFee = feeResult.protocolFee
@@ -100,556 +424,104 @@ export function getSwapResult(
     }
 
     return {
-        amountOut: actualAmountOut,
-        minimumAmountOut: actualAmountOut,
+        actualInputAmount: actualAmountIn,
+        outputAmount: actualAmountOut,
         nextSqrtPrice: swapAmount.nextSqrtPrice,
-        fee: {
-            trading: actualTradingFee,
-            protocol: actualProtocolFee,
-            referral: actualReferralFee,
-        },
-        price: {
-            beforeSwap: poolState.sqrtPrice,
-            afterSwap: swapAmount.nextSqrtPrice,
-        },
+        tradingFee: actualTradingFee,
+        protocolFee: actualProtocolFee,
+        referralFee: actualReferralFee,
     }
 }
 
 /**
- * Get swap amount from base to quote
- * @param configState Config state
- * @param currentSqrtPrice Current sqrt price
- * @param amountIn Input amount
- * @returns Swap amount
- */
-export function getSwapAmountFromBaseToQuote(
-    configState: {
-        curve: Array<{
-            sqrtPrice: BN
-            liquidity: BN
-        }>
-    },
-    currentSqrtPrice: BN,
-    amountIn: BN
-): SwapAmount {
-    if (amountIn.isZero()) {
-        return {
-            outputAmount: new BN(0),
-            nextSqrtPrice: currentSqrtPrice,
-        }
-    }
-
-    // track total output with BN
-    let totalOutputAmount = new BN(0)
-    let sqrtPrice = currentSqrtPrice
-    let amountLeft = amountIn
-
-    // iterate through the curve points in reverse order
-    for (let i = configState.curve.length - 1; i >= 0; i--) {
-        if (
-            configState.curve[i].sqrtPrice.isZero() ||
-            configState.curve[i].liquidity.isZero()
-        ) {
-            continue
-        }
-
-        if (configState.curve[i].sqrtPrice.lt(sqrtPrice)) {
-            // get the current liquidity
-            const currentLiquidity =
-                i + 1 < configState.curve.length
-                    ? configState.curve[i + 1].liquidity
-                    : configState.curve[i].liquidity
-
-            // skip if liquidity is zero
-            if (currentLiquidity.isZero()) continue
-
-            const maxAmountIn = getDeltaAmountBaseUnsigned(
-                configState.curve[i].sqrtPrice,
-                sqrtPrice,
-                currentLiquidity,
-                Rounding.Up
-            )
-
-            if (amountLeft.lt(maxAmountIn)) {
-                const nextSqrtPrice = getNextSqrtPriceFromInput(
-                    sqrtPrice,
-                    currentLiquidity,
-                    amountLeft,
-                    true
-                )
-
-                const outputAmount = getDeltaAmountQuoteUnsigned(
-                    nextSqrtPrice,
-                    sqrtPrice,
-                    currentLiquidity,
-                    Rounding.Down
-                )
-
-                // add to total
-                totalOutputAmount = SafeMath.add(
-                    totalOutputAmount,
-                    outputAmount
-                )
-                sqrtPrice = nextSqrtPrice
-                amountLeft = new BN(0)
-                break
-            } else {
-                const nextSqrtPrice = configState.curve[i].sqrtPrice
-                const outputAmount = getDeltaAmountQuoteUnsigned(
-                    nextSqrtPrice,
-                    sqrtPrice,
-                    currentLiquidity,
-                    Rounding.Down
-                )
-
-                // add to total
-                totalOutputAmount = SafeMath.add(
-                    totalOutputAmount,
-                    outputAmount
-                )
-                sqrtPrice = nextSqrtPrice
-                amountLeft = SafeMath.sub(amountLeft, maxAmountIn)
-            }
-        }
-    }
-
-    if (!amountLeft.isZero() && !configState.curve[0].liquidity.isZero()) {
-        const nextSqrtPrice = getNextSqrtPriceFromInput(
-            sqrtPrice,
-            configState.curve[0].liquidity,
-            amountLeft,
-            true
-        )
-
-        const outputAmount = getDeltaAmountQuoteUnsigned(
-            nextSqrtPrice,
-            sqrtPrice,
-            configState.curve[0].liquidity,
-            Rounding.Down
-        )
-
-        // add to total
-        totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount)
-        sqrtPrice = nextSqrtPrice
-    }
-
-    return {
-        outputAmount: totalOutputAmount,
-        nextSqrtPrice: sqrtPrice,
-    }
-}
-
-/**
- * Get swap amount from quote to base
- * @param configState Config state
- * @param currentSqrtPrice Current sqrt price
- * @param amountIn Input amount
- * @returns Swap amount
- * @throws Error if not enough liquidity
- */
-export function getSwapAmountFromQuoteToBase(
-    configState: {
-        curve: Array<{
-            sqrtPrice: BN
-            liquidity: BN
-        }>
-    },
-    currentSqrtPrice: BN,
-    amountIn: BN
-): SwapAmount {
-    if (amountIn.isZero()) {
-        return {
-            outputAmount: new BN(0),
-            nextSqrtPrice: currentSqrtPrice,
-        }
-    }
-
-    let totalOutputAmount = new BN(0)
-    let sqrtPrice = currentSqrtPrice
-    let amountLeft = amountIn
-
-    // iterate through the curve points
-    for (let i = 0; i < configState.curve.length; i++) {
-        if (
-            configState.curve[i].sqrtPrice.isZero() ||
-            configState.curve[i].liquidity.isZero()
-        ) {
-            break
-        }
-
-        // skip if liquidity is zero
-        if (configState.curve[i].liquidity.isZero()) continue
-
-        if (configState.curve[i].sqrtPrice.gt(sqrtPrice)) {
-            const maxAmountIn = getDeltaAmountQuoteUnsigned(
-                sqrtPrice,
-                configState.curve[i].sqrtPrice,
-                configState.curve[i].liquidity,
-                Rounding.Up
-            )
-
-            if (amountLeft.lt(maxAmountIn)) {
-                const nextSqrtPrice = getNextSqrtPriceFromInput(
-                    sqrtPrice,
-                    configState.curve[i].liquidity,
-                    amountLeft,
-                    false
-                )
-
-                const outputAmount = getDeltaAmountBaseUnsigned(
-                    sqrtPrice,
-                    nextSqrtPrice,
-                    configState.curve[i].liquidity,
-                    Rounding.Down
-                )
-
-                totalOutputAmount = SafeMath.add(
-                    totalOutputAmount,
-                    outputAmount
-                )
-                sqrtPrice = nextSqrtPrice
-                amountLeft = new BN(0)
-                break
-            } else {
-                const nextSqrtPrice = configState.curve[i].sqrtPrice
-                const outputAmount = getDeltaAmountBaseUnsigned(
-                    sqrtPrice,
-                    nextSqrtPrice,
-                    configState.curve[i].liquidity,
-                    Rounding.Down
-                )
-
-                totalOutputAmount = SafeMath.add(
-                    totalOutputAmount,
-                    outputAmount
-                )
-                sqrtPrice = nextSqrtPrice
-                amountLeft = SafeMath.sub(amountLeft, maxAmountIn)
-            }
-        }
-    }
-
-    // check if all amount was processed
-    if (!amountLeft.isZero()) {
-        throw new Error('Not enough liquidity to process the entire amount')
-    }
-
-    return {
-        outputAmount: totalOutputAmount,
-        nextSqrtPrice: sqrtPrice,
-    }
-}
-
-/**
- * Get fee mode
- * @param collectFeeMode Collect fee mode
- * @param tradeDirection Trade direction
- * @param hasReferral Whether referral is used
- * @returns Fee mode
- */
-export function getFeeMode(
-    collectFeeMode: CollectFeeMode,
-    tradeDirection: TradeDirection,
-    hasReferral: boolean
-): FeeMode {
-    const quoteToBase = tradeDirection === TradeDirection.QuoteToBase
-    const feesOnInput =
-        quoteToBase && collectFeeMode === CollectFeeMode.QuoteToken
-    const feesOnBaseToken =
-        quoteToBase && collectFeeMode === CollectFeeMode.OutputToken
-
-    return {
-        feesOnInput,
-        feesOnBaseToken,
-        hasReferral,
-    }
-}
-
-/**
- * Calculate quote for a swap with exact input amount
+ * Get swap result from exact input
  * @param virtualPool Virtual pool state
  * @param config Pool config state
- * @param swapBaseForQuote Whether to swap base for quote
  * @param amountIn Input amount
- * @param slippageBps Slippage tolerance in basis points (100 = 1%)
- * @param hasReferral Whether referral is used
- * @param currentPoint Current point
- * @returns Swap quote result
- */
-export async function swapQuote(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
-    swapBaseForQuote: boolean,
-    amountIn: BN,
-    slippageBps: number = 0,
-    hasReferral: boolean,
-    currentPoint: BN
-): Promise<QuoteResult> {
-    if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
-        throw new Error('Virtual pool is completed')
-    }
-
-    if (amountIn.isZero()) {
-        throw new Error('Amount is zero')
-    }
-
-    const tradeDirection = swapBaseForQuote
-        ? TradeDirection.BaseToQuote
-        : TradeDirection.QuoteToBase
-
-    const feeMode = getFeeMode(
-        config.collectFeeMode,
-        tradeDirection,
-        hasReferral
-    )
-
-    const result = getSwapResult(
-        virtualPool,
-        config,
-        amountIn,
-        feeMode,
-        tradeDirection,
-        currentPoint
-    )
-
-    // calculate minimum amount out if slippage is provided
-    if (slippageBps > 0) {
-        // slippage factor: (10000 - slippageBps) / 10000
-        const slippageFactor = new BN(10000 - slippageBps)
-        const denominator = new BN(10000)
-
-        // minimum amount out: amountOut * (10000 - slippageBps) / 10000
-        const minimumAmountOut = result.amountOut
-            .mul(slippageFactor)
-            .div(denominator)
-
-        return {
-            ...result,
-            minimumAmountOut,
-        }
-    }
-
-    return result
-}
-
-/**
- * Calculate the required quote amount for exact input
- * @param migrationQuoteThreshold Migration quote threshold
- * @param quoteReserve Current quote reserve
- * @param collectFeeMode Fee collection mode
- * @param config Pool config state
- * @param currentPoint Current point
- * @returns Required quote amount
- */
-export function calculateQuoteExactInAmount(
-    config: PoolConfig,
-    virtualPool: VirtualPool,
-    currentPoint: BN
-): BN {
-    if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
-        return new BN(0)
-    }
-
-    const amountInAfterFee = config.migrationQuoteThreshold.sub(
-        virtualPool.quoteReserve
-    )
-
-    if (config.collectFeeMode === CollectFeeMode.QuoteToken) {
-        const baseFeeNumerator = getBaseFeeNumerator(
-            config.poolFees.baseFee,
-            TradeDirection.QuoteToBase,
-            currentPoint,
-            virtualPool.activationPoint
-        )
-
-        let totalFeeNumerator = baseFeeNumerator
-        if (config.poolFees.dynamicFee.initialized !== 0) {
-            const variableFee = getVariableFee(
-                config.poolFees.dynamicFee,
-                virtualPool.volatilityTracker
-            )
-            totalFeeNumerator = SafeMath.add(totalFeeNumerator, variableFee)
-        }
-
-        // cap at MAX_FEE_NUMERATOR
-        totalFeeNumerator = BN.min(totalFeeNumerator, new BN(MAX_FEE_NUMERATOR))
-
-        // amountIn = amountInAfterFee * FEE_DENOMINATOR / (FEE_DENOMINATOR - effectiveFeeNumerator)
-        const denominator = new BN(FEE_DENOMINATOR).sub(totalFeeNumerator)
-        return mulDiv(
-            amountInAfterFee,
-            new BN(FEE_DENOMINATOR),
-            denominator,
-            Rounding.Up
-        )
-    } else {
-        return amountInAfterFee
-    }
-}
-
-/**
- * Get excluded fee amount from included fee amount
- * @param tradeFeeNumerator Trade fee numerator
- * @param includedFeeAmount Included fee amount
- * @returns [excluded fee amount, trading fee]
- */
-export function getExcludedFeeAmount(
-    tradeFeeNumerator: BN,
-    includedFeeAmount: BN
-): [BN, BN] {
-    const tradingFee = mulDiv(
-        includedFeeAmount,
-        tradeFeeNumerator,
-        new BN(FEE_DENOMINATOR),
-        Rounding.Up
-    )
-
-    const excludedFeeAmount = SafeMath.sub(includedFeeAmount, tradingFee)
-    return [excludedFeeAmount, tradingFee]
-}
-
-/**
- * Get included fee amount from excluded fee amount
- * @param tradeFeeNumerator Trade fee numerator
- * @param excludedFeeAmount Excluded fee amount
- * @returns Included fee amount
- */
-export function getIncludedFeeAmount(
-    tradeFeeNumerator: BN,
-    excludedFeeAmount: BN
-): BN {
-    const includedFeeAmount = mulDiv(
-        excludedFeeAmount,
-        new BN(FEE_DENOMINATOR),
-        new BN(FEE_DENOMINATOR).sub(tradeFeeNumerator),
-        Rounding.Up
-    )
-
-    // sanity check - verify the inverse calculation
-    const [inverseAmount] = getExcludedFeeAmount(
-        tradeFeeNumerator,
-        includedFeeAmount
-    )
-    if (inverseAmount.lt(excludedFeeAmount)) {
-        throw new Error('Inverse amount is less than excluded_fee_amount')
-    }
-
-    return includedFeeAmount
-}
-
-/**
- * Get swap result from output amount (reverse calculation)
- * @param poolState Pool state
- * @param configState Config state
- * @param outAmount Output amount
  * @param feeMode Fee mode
  * @param tradeDirection Trade direction
  * @param currentPoint Current point
- * @returns Swap result with input amount calculated
+ * @returns Swap result
  */
-export function getSwapResultFromOutAmount(
-    poolState: VirtualPool,
-    configState: PoolConfig,
-    outAmount: BN,
+export function getSwapResultFromExactInput(
+    virtualPool: VirtualPool,
+    config: PoolConfig,
+    amountIn: BN,
     feeMode: FeeMode,
     tradeDirection: TradeDirection,
     currentPoint: BN
-): QuoteResult {
+): SwapResult2 {
     let actualProtocolFee = new BN(0)
     let actualTradingFee = new BN(0)
     let actualReferralFee = new BN(0)
 
-    // get total trading fee numerator
-    const baseFeeNumerator = getBaseFeeNumerator(
-        configState.poolFees.baseFee,
-        tradeDirection,
+    const tradeFeeNumerator = getTotalFeeNumeratorFromIncludedFeeAmount(
+        config.poolFees,
+        virtualPool.volatilityTracker,
         currentPoint,
-        poolState.activationPoint
+        virtualPool.activationPoint,
+        amountIn,
+        tradeDirection
     )
 
-    let tradeFeeNumerator = baseFeeNumerator
-    if (configState.poolFees.dynamicFee.initialized !== 0) {
-        const variableFee = getVariableFee(
-            configState.poolFees.dynamicFee,
-            poolState.volatilityTracker
-        )
-        tradeFeeNumerator = SafeMath.add(tradeFeeNumerator, variableFee)
-    }
-
-    // cap at MAX_FEE_NUMERATOR
-    tradeFeeNumerator = BN.min(tradeFeeNumerator, new BN(MAX_FEE_NUMERATOR))
-
-    // calculate included fee amount based on fee mode
-    const includedFeeOutAmount = feeMode.feesOnInput
-        ? outAmount
-        : getIncludedFeeAmount(tradeFeeNumerator, outAmount)
-
-    // apply fees on output if not on input
-    if (!feeMode.feesOnInput) {
-        const feeResult: FeeOnAmountResult = getFeeOnAmount(
-            includedFeeOutAmount,
-            configState.poolFees,
-            feeMode.hasReferral,
-            currentPoint,
-            poolState.activationPoint,
-            poolState.volatilityTracker,
-            tradeDirection
-        )
-
-        actualProtocolFee = feeResult.protocolFee
-        actualTradingFee = feeResult.tradingFee
-        actualReferralFee = feeResult.referralFee
-    }
-
-    // calculate swap amount (reverse calculation)
-    const swapAmount: SwapAmount =
-        tradeDirection === TradeDirection.BaseToQuote
-            ? getInAmountFromBaseToQuote(
-                  configState,
-                  poolState.sqrtPrice,
-                  includedFeeOutAmount
-              )
-            : getInAmountFromQuoteToBase(
-                  configState,
-                  poolState.sqrtPrice,
-                  includedFeeOutAmount
-              )
-
-    // calculate included fee input amount if fees are on input
-    const includedFeeInAmount = feeMode.feesOnInput
-        ? getIncludedFeeAmount(tradeFeeNumerator, swapAmount.outputAmount)
-        : swapAmount.outputAmount
-
-    // apply fees on input if needed
+    let actualAmountIn: BN
     if (feeMode.feesOnInput) {
-        const feeResult: FeeOnAmountResult = getFeeOnAmount(
-            includedFeeInAmount,
-            configState.poolFees,
-            feeMode.hasReferral,
-            currentPoint,
-            poolState.activationPoint,
-            poolState.volatilityTracker,
-            tradeDirection
+        const feeResult = getFeeOnAmountWithTradeFeeNumerator(
+            tradeFeeNumerator,
+            amountIn,
+            config.poolFees,
+            feeMode.hasReferral
         )
 
         actualProtocolFee = feeResult.protocolFee
         actualTradingFee = feeResult.tradingFee
         actualReferralFee = feeResult.referralFee
+        actualAmountIn = feeResult.amount
+    } else {
+        actualAmountIn = amountIn
+    }
+
+    const swapAmount =
+        tradeDirection === TradeDirection.BaseToQuote
+            ? getSwapAmountFromBaseToQuote(
+                  config,
+                  virtualPool.sqrtPrice,
+                  actualAmountIn,
+                  config.migrationSqrtPrice
+              )
+            : getSwapAmountFromQuoteToBase(
+                  config,
+                  virtualPool.sqrtPrice,
+                  actualAmountIn,
+                  config.migrationSqrtPrice
+              )
+
+    let actualAmountOut: BN
+    if (feeMode.feesOnInput) {
+        actualAmountOut = swapAmount.outputAmount
+    } else {
+        const feeResult = getFeeOnAmountWithTradeFeeNumerator(
+            tradeFeeNumerator,
+            swapAmount.outputAmount,
+            config.poolFees,
+            feeMode.hasReferral
+        )
+
+        actualTradingFee = feeResult.tradingFee
+        actualProtocolFee = feeResult.protocolFee
+        actualReferralFee = feeResult.referralFee
+        actualAmountOut = feeResult.amount
     }
 
     return {
-        amountOut: includedFeeInAmount,
-        minimumAmountOut: outAmount,
+        amountLeft: swapAmount.amountLeft,
+        includedFeeInputAmount: amountIn,
+        excludedFeeInputAmount: actualAmountIn,
+        outputAmount: actualAmountOut,
         nextSqrtPrice: swapAmount.nextSqrtPrice,
-        fee: {
-            trading: actualTradingFee,
-            protocol: actualProtocolFee,
-            referral: actualReferralFee,
-        },
-        price: {
-            beforeSwap: poolState.sqrtPrice,
-            afterSwap: swapAmount.nextSqrtPrice,
-        },
+        tradingFee: actualTradingFee,
+        protocolFee: actualProtocolFee,
+        referralFee: actualReferralFee,
     }
 }
 
@@ -669,8 +541,9 @@ export function getInAmountFromBaseToQuote(
     let amountLeft = outAmount
     let totalAmountIn = new BN(0)
 
+    // Use curve.len() - 1 for backward compatibility for existing pools with 20 points
     // iterate through curve points in reverse order
-    for (let i = configState.curve.length - 1; i >= 0; i--) {
+    for (let i = configState.curve.length - 2; i >= 0; i--) {
         if (
             configState.curve[i].sqrtPrice.isZero() ||
             configState.curve[i].liquidity.isZero()
@@ -679,10 +552,7 @@ export function getInAmountFromBaseToQuote(
         }
 
         if (configState.curve[i].sqrtPrice.lt(currentSqrtPriceLocal)) {
-            const currentLiquidity =
-                i + 1 < configState.curve.length
-                    ? configState.curve[i + 1].liquidity
-                    : configState.curve[i].liquidity
+            const currentLiquidity = configState.curve[i + 1].liquidity
 
             if (currentLiquidity.isZero()) continue
 
@@ -754,6 +624,7 @@ export function getInAmountFromBaseToQuote(
     return {
         outputAmount: totalAmountIn,
         nextSqrtPrice: currentSqrtPriceLocal,
+        amountLeft: new BN(0),
     }
 }
 
@@ -834,6 +705,450 @@ export function getInAmountFromQuoteToBase(
     return {
         outputAmount: totalInAmount,
         nextSqrtPrice: currentSqrtPriceLocal,
+        amountLeft: new BN(0),
+    }
+}
+
+/**
+ * Get swap result from exact output
+ * @param virtualPool Virtual pool state
+ * @param config Pool config state
+ * @param amountOut Output amount
+ * @param feeMode Fee mode
+ * @param tradeDirection Trade direction
+ * @param currentPoint Current point
+ * @returns Swap result
+ */
+export function getSwapResultFromExactOutput(
+    virtualPool: VirtualPool,
+    config: PoolConfig,
+    amountOut: BN,
+    feeMode: FeeMode,
+    tradeDirection: TradeDirection,
+    currentPoint: BN
+): SwapResult2 {
+    let actualProtocolFee = new BN(0)
+    let actualTradingFee = new BN(0)
+    let actualReferralFee = new BN(0)
+
+    const includedFeeOutAmount = feeMode.feesOnInput
+        ? amountOut
+        : (() => {
+              const tradeFeeNumerator =
+                  getTotalFeeNumeratorFromExcludedFeeAmount(
+                      config.poolFees,
+                      virtualPool.volatilityTracker,
+                      currentPoint,
+                      virtualPool.activationPoint,
+                      amountOut,
+                      tradeDirection
+                  )
+              const [includedFeeAmount, feeAmount] = getIncludedFeeAmount(
+                  tradeFeeNumerator,
+                  amountOut
+              )
+
+              const [tradingFee, protocolFee, referralFee] = splitFees(
+                  config.poolFees,
+                  feeAmount,
+                  feeMode.hasReferral
+              )
+
+              actualTradingFee = tradingFee
+              actualProtocolFee = protocolFee
+              actualReferralFee = referralFee
+              return includedFeeAmount
+          })()
+
+    const swapAmountFromOutput =
+        tradeDirection === TradeDirection.BaseToQuote
+            ? getInAmountFromBaseToQuote(
+                  config,
+                  virtualPool.sqrtPrice,
+                  includedFeeOutAmount
+              )
+            : getInAmountFromQuoteToBase(
+                  config,
+                  virtualPool.sqrtPrice,
+                  includedFeeOutAmount
+              )
+
+    const [excludedFeeInputAmount, includedFeeInputAmount] = feeMode.feesOnInput
+        ? (() => {
+              const tradeFeeNumerator =
+                  getTotalFeeNumeratorFromExcludedFeeAmount(
+                      config.poolFees,
+                      virtualPool.volatilityTracker,
+                      currentPoint,
+                      virtualPool.activationPoint,
+                      swapAmountFromOutput.outputAmount,
+                      tradeDirection
+                  )
+
+              const [includedFeeAmount, feeAmount] = getIncludedFeeAmount(
+                  tradeFeeNumerator,
+                  swapAmountFromOutput.outputAmount
+              )
+
+              const [tradingFee, protocolFee, referralFee] = splitFees(
+                  config.poolFees,
+                  feeAmount,
+                  feeMode.hasReferral
+              )
+
+              actualTradingFee = tradingFee
+              actualProtocolFee = protocolFee
+              actualReferralFee = referralFee
+
+              return [swapAmountFromOutput.outputAmount, includedFeeAmount]
+          })()
+        : [swapAmountFromOutput.outputAmount, swapAmountFromOutput.outputAmount]
+
+    return {
+        amountLeft: new BN(0),
+        includedFeeInputAmount,
+        excludedFeeInputAmount,
+        outputAmount: amountOut,
+        nextSqrtPrice: swapAmountFromOutput.nextSqrtPrice,
+        tradingFee: actualTradingFee,
+        protocolFee: actualProtocolFee,
+        referralFee: actualReferralFee,
+    }
+}
+
+/**
+ * Get swap result from partial input
+ * @param virtualPool Virtual pool state
+ * @param config Pool config state
+ * @param amountIn Input amount
+ * @param feeMode Fee mode
+ * @param tradeDirection Trade direction
+ * @param currentPoint Current point
+ * @returns Swap result
+ */
+export function getSwapResultFromPartialInput(
+    virtualPool: VirtualPool,
+    config: PoolConfig,
+    amountIn: BN,
+    feeMode: FeeMode,
+    tradeDirection: TradeDirection,
+    currentPoint: BN
+): SwapResult2 {
+    let actualProtocolFee = new BN(0)
+    let actualTradingFee = new BN(0)
+    let actualReferralFee = new BN(0)
+
+    const tradeFeeNumerator = getTotalFeeNumeratorFromIncludedFeeAmount(
+        config.poolFees,
+        virtualPool.volatilityTracker,
+        currentPoint,
+        virtualPool.activationPoint,
+        amountIn,
+        tradeDirection
+    )
+
+    let actualAmountIn: BN
+    if (feeMode.feesOnInput) {
+        const feeResult = getFeeOnAmountWithTradeFeeNumerator(
+            tradeFeeNumerator,
+            amountIn,
+            config.poolFees,
+            feeMode.hasReferral
+        )
+
+        actualProtocolFee = feeResult.protocolFee
+        actualTradingFee = feeResult.tradingFee
+        actualReferralFee = feeResult.referralFee
+        actualAmountIn = feeResult.amount
+    } else {
+        actualAmountIn = amountIn
+    }
+
+    // calculate swap amount using migration sqrt price as stop price for partial fill
+    const swapAmount =
+        tradeDirection === TradeDirection.BaseToQuote
+            ? getSwapAmountFromBaseToQuote(
+                  config,
+                  virtualPool.sqrtPrice,
+                  actualAmountIn,
+                  config.migrationSqrtPrice
+              )
+            : getSwapAmountFromQuoteToBase(
+                  config,
+                  virtualPool.sqrtPrice,
+                  actualAmountIn,
+                  config.migrationSqrtPrice
+              )
+
+    let includedFeeInputAmount = amountIn
+    if (swapAmount.amountLeft.gt(new BN(0))) {
+        actualAmountIn = SafeMath.sub(actualAmountIn, swapAmount.amountLeft)
+
+        // recalculate fees for partial fill
+        if (feeMode.feesOnInput) {
+            const tradeFeeNumeratorPartial =
+                getTotalFeeNumeratorFromExcludedFeeAmount(
+                    config.poolFees,
+                    virtualPool.volatilityTracker,
+                    currentPoint,
+                    virtualPool.activationPoint,
+                    actualAmountIn,
+                    tradeDirection
+                )
+            const [includedFeeAmount, feeAmount] = getIncludedFeeAmount(
+                tradeFeeNumeratorPartial,
+                actualAmountIn
+            )
+
+            const [tradingFee, protocolFee, referralFee] = splitFees(
+                config.poolFees,
+                feeAmount,
+                feeMode.hasReferral
+            )
+
+            actualTradingFee = tradingFee
+            actualProtocolFee = protocolFee
+            actualReferralFee = referralFee
+            includedFeeInputAmount = includedFeeAmount
+        } else {
+            includedFeeInputAmount = actualAmountIn
+        }
+    }
+
+    let actualAmountOut: BN
+    if (feeMode.feesOnInput) {
+        actualAmountOut = swapAmount.outputAmount
+    } else {
+        const feeResult = getFeeOnAmountWithTradeFeeNumerator(
+            tradeFeeNumerator,
+            swapAmount.outputAmount,
+            config.poolFees,
+            feeMode.hasReferral
+        )
+
+        actualProtocolFee = feeResult.protocolFee
+        actualTradingFee = feeResult.tradingFee
+        actualReferralFee = feeResult.referralFee
+        actualAmountOut = feeResult.amount
+    }
+
+    return {
+        amountLeft: swapAmount.amountLeft,
+        includedFeeInputAmount,
+        excludedFeeInputAmount: actualAmountIn,
+        outputAmount: actualAmountOut,
+        nextSqrtPrice: swapAmount.nextSqrtPrice,
+        tradingFee: actualTradingFee,
+        protocolFee: actualProtocolFee,
+        referralFee: actualReferralFee,
+    }
+}
+
+/**
+ * Calculate quote for a swap with exact input amount (for swapQuote v1)
+ * @param virtualPool Virtual pool state
+ * @param config Pool config state
+ * @param swapBaseForQuote Whether to swap base for quote
+ * @param amountIn Input amount
+ * @param slippageBps Slippage tolerance in basis points (100 = 1%)
+ * @param hasReferral Whether referral is used
+ * @param currentPoint Current point
+ * @returns Swap quote result
+ */
+export function swapQuote(
+    virtualPool: VirtualPool,
+    config: PoolConfig,
+    swapBaseForQuote: boolean,
+    amountIn: BN,
+    slippageBps: number = 0,
+    hasReferral: boolean,
+    currentPoint: BN
+): SwapQuoteResult {
+    if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
+        throw new Error('Virtual pool is completed')
+    }
+
+    if (amountIn.isZero()) {
+        throw new Error('Amount is zero')
+    }
+
+    const tradeDirection = swapBaseForQuote
+        ? TradeDirection.BaseToQuote
+        : TradeDirection.QuoteToBase
+
+    const feeMode = getFeeMode(
+        config.collectFeeMode,
+        tradeDirection,
+        hasReferral
+    )
+
+    const result = getSwapResult(
+        virtualPool,
+        config,
+        amountIn,
+        feeMode,
+        tradeDirection,
+        currentPoint
+    )
+
+    let minimumAmountOut: BN
+    if (slippageBps > 0) {
+        // slippage factor: (10000 - slippageBps) / 10000
+        const slippageFactor = new BN(10000 - slippageBps)
+        const denominator = new BN(10000)
+
+        // minimum amount out: amountOut * (10000 - slippageBps) / 10000
+        minimumAmountOut = result.outputAmount
+            .mul(slippageFactor)
+            .div(denominator)
+    } else {
+        minimumAmountOut = result.outputAmount
+    }
+
+    return {
+        ...result,
+        minimumAmountOut,
+    }
+}
+
+/**
+ * Calculate quote for a swap with exact input amount
+ * @param virtualPool Virtual pool state
+ * @param config Pool config state
+ * @param swapBaseForQuote Whether to swap base for quote
+ * @param amountIn Input amount
+ * @param slippageBps Slippage tolerance in basis points (100 = 1%)
+ * @param hasReferral Whether referral is used
+ * @param currentPoint Current point
+ * @returns Swap quote result
+ */
+export function swapQuoteExactIn(
+    virtualPool: VirtualPool,
+    config: PoolConfig,
+    swapBaseForQuote: boolean,
+    amountIn: BN,
+    slippageBps: number = 0,
+    hasReferral: boolean,
+    currentPoint: BN
+): SwapQuote2Result {
+    if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
+        throw new Error('Virtual pool is completed')
+    }
+
+    if (amountIn.isZero()) {
+        throw new Error('Amount is zero')
+    }
+
+    const tradeDirection = swapBaseForQuote
+        ? TradeDirection.BaseToQuote
+        : TradeDirection.QuoteToBase
+
+    const feeMode = getFeeMode(
+        config.collectFeeMode,
+        tradeDirection,
+        hasReferral
+    )
+
+    const result = getSwapResultFromExactInput(
+        virtualPool,
+        config,
+        amountIn,
+        feeMode,
+        tradeDirection,
+        currentPoint
+    )
+
+    // check amount left threshold for exact in
+    const maxSwallowQuoteAmount = getMaxSwallowQuoteAmount(config)
+    if (result.amountLeft.gt(maxSwallowQuoteAmount)) {
+        throw new Error('Amount left is over a threshold')
+    }
+
+    // calculate minimum amount out
+    let minimumAmountOut: BN
+    if (slippageBps > 0) {
+        // slippage factor: (10000 - slippageBps) / 10000
+        const slippageFactor = new BN(10000 - slippageBps)
+        const denominator = new BN(10000)
+
+        // minimum amount out: amountOut * (10000 - slippageBps) / 10000
+        minimumAmountOut = result.outputAmount
+            .mul(slippageFactor)
+            .div(denominator)
+    } else {
+        minimumAmountOut = result.outputAmount
+    }
+
+    return {
+        ...result,
+        minimumAmountOut,
+    }
+}
+
+/**
+ * Calculate quote for a swap with partial fill
+ * @param virtualPool Virtual pool state
+ * @param config Pool config state
+ * @param swapBaseForQuote Whether to swap base for quote
+ * @param amountIn Input amount
+ * @param hasReferral Whether referral is used
+ * @param currentPoint Current point
+ * @returns Swap quote result
+ */
+export function swapQuotePartialFill(
+    virtualPool: VirtualPool,
+    config: PoolConfig,
+    swapBaseForQuote: boolean,
+    amountIn: BN,
+    slippageBps: number = 0,
+    hasReferral: boolean,
+    currentPoint: BN
+): SwapQuote2Result {
+    if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
+        throw new Error('Virtual pool is completed')
+    }
+
+    if (amountIn.isZero()) {
+        throw new Error('Amount is zero')
+    }
+
+    const tradeDirection = swapBaseForQuote
+        ? TradeDirection.BaseToQuote
+        : TradeDirection.QuoteToBase
+
+    const feeMode = getFeeMode(
+        config.collectFeeMode,
+        tradeDirection,
+        hasReferral
+    )
+
+    const result = getSwapResultFromPartialInput(
+        virtualPool,
+        config,
+        amountIn,
+        feeMode,
+        tradeDirection,
+        currentPoint
+    )
+
+    // calculate minimum amount out
+    let minimumAmountOut: BN
+    if (slippageBps > 0) {
+        // slippage factor: (10000 - slippageBps) / 10000
+        const slippageFactor = new BN(10000 - slippageBps)
+        const denominator = new BN(10000)
+
+        // minimum amount out: amountOut * (10000 - slippageBps) / 10000
+        minimumAmountOut = result.outputAmount
+            .mul(slippageFactor)
+            .div(denominator)
+    } else {
+        minimumAmountOut = result.outputAmount
+    }
+
+    return {
+        ...result,
+        minimumAmountOut,
     }
 }
 
@@ -856,7 +1171,7 @@ export function swapQuoteExactOut(
     slippageBps: number = 0,
     hasReferral: boolean,
     currentPoint: BN
-): QuoteResult {
+): SwapQuote2Result {
     if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
         throw new Error('Virtual pool is completed')
     }
@@ -875,7 +1190,7 @@ export function swapQuoteExactOut(
         hasReferral
     )
 
-    const result = getSwapResultFromOutAmount(
+    const result = getSwapResultFromExactOutput(
         virtualPool,
         config,
         outAmount,
@@ -884,26 +1199,23 @@ export function swapQuoteExactOut(
         currentPoint
     )
 
-    // calculate maximum amount in if slippage is provided
+    // calculate maximum amount in (for slippage protection)
+    let maximumAmountIn: BN
     if (slippageBps > 0) {
         // slippage factor: (10000 + slippageBps) / 10000
         const slippageFactor = new BN(10000 + slippageBps)
         const denominator = new BN(10000)
 
-        // maximum amount in: amountIn * (10000 + slippageBps) / 10000
-        const maximumAmountIn = result.amountOut
+        // maximum amount in: inputAmount * (10000 + slippageBps) / 10000
+        maximumAmountIn = result.includedFeeInputAmount
             .mul(slippageFactor)
             .div(denominator)
-
-        return {
-            ...result,
-            amountOut: maximumAmountIn,
-            minimumAmountOut: outAmount,
-        }
+    } else {
+        maximumAmountIn = result.includedFeeInputAmount
     }
 
     return {
         ...result,
-        minimumAmountOut: outAmount,
+        maximumAmountIn,
     }
 }
