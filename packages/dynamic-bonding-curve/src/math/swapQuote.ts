@@ -38,7 +38,7 @@ import {
 } from '../constants'
 
 /**
- * Get swap amount from base to quote (matches Rust implementation)
+ * Get swap amount from base to quote
  * @param configState Config state
  * @param currentSqrtPrice Current sqrt price
  * @param amountIn Input amount
@@ -259,7 +259,7 @@ export function getSwapAmountFromQuoteToBase(
 }
 
 /**
- * Get maximum swallow quote amount (matches Rust implementation)
+ * Get maximum swallow quote amount
  * @param config Pool config state
  * @returns Maximum swallow quote amount
  */
@@ -387,7 +387,7 @@ export function getSwapResult(
 }
 
 /**
- * Get swap result from exact input (matches Rust implementation)
+ * Get swap result from exact input
  * @param virtualPool Virtual pool state
  * @param config Pool config state
  * @param amountIn Input amount
@@ -478,7 +478,7 @@ export function getSwapResultFromExactInput(
 }
 
 /**
- * Get swap result from exact output (matches Rust implementation)
+ * Get swap result from exact output
  * @param virtualPool Virtual pool state
  * @param config Pool config state
  * @param amountOut Output amount
@@ -769,7 +769,7 @@ export function getInAmountFromQuoteToBase(
 }
 
 /**
- * Get swap result from partial input (matches Rust implementation)
+ * Get swap result from partial input
  * @param virtualPool Virtual pool state
  * @param config Pool config state
  * @param amountIn Input amount
@@ -1103,7 +1103,7 @@ export function swapQuotePartialFill(
 }
 
 /**
- * Calculate quote for a swap with exact output amount (matches Rust implementation)
+ * Calculate quote for a swap with exact output amount
  * @param virtualPool Virtual pool state
  * @param config Pool config state
  * @param swapBaseForQuote Whether to swap base for quote
