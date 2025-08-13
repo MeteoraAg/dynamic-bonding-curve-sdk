@@ -2,6 +2,17 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.3.7] - 2025-08-14
+
+### Added
+
+- `swap2` function with `swapMode` parameter
+- `swapQuote2` function with `swapMode` parameter
+
+### Changed
+
+- `swapQuote` function now returns `SwapResult` instead of `QuoteResult`
+
 ## [1.3.6] - 2025-08-08
 
 ### Changed
