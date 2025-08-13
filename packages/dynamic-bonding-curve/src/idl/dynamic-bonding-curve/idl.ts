@@ -544,7 +544,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'createClaimFeeOperator'
-            docs: ['ADMIN FUNCTIONS ///']
+            docs: ['ADMIN FUNCTIONS_ ///']
             discriminator: [169, 62, 207, 107, 58, 187, 162, 109]
             accounts: [
                 {

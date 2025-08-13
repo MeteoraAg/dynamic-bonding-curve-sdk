@@ -659,7 +659,7 @@
     {
       "name": "create_claim_fee_operator",
       "docs": [
-        "ADMIN FUNCTIONS ///"
+        "ADMIN FUNCTIONS_ ///"
       ],
       "discriminator": [
         169,

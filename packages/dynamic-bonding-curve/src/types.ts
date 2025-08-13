@@ -125,6 +125,7 @@ export type BaseFeeConfig = IdlTypes<DynamicBondingCurve>['baseFeeConfig']
 export type PoolFees = IdlTypes<DynamicBondingCurve>['poolFees']
 export type PoolMetrics = IdlTypes<DynamicBondingCurve>['poolMetrics']
 export type SwapResult = IdlTypes<DynamicBondingCurve>['swapResult']
+export type SwapResult2 = IdlTypes<DynamicBondingCurve>['swapResult2']
 export type CreatePartnerMetadataParameters =
     IdlTypes<DynamicBondingCurve>['createPartnerMetadataParameters']
 export type CreateVirtualPoolMetadataParameters =
@@ -431,18 +432,31 @@ export type SwapParam = {
     payer?: PublicKey
 }
 
-export type SwapV2Param = {
+export type Swap2Param = {
     owner: PublicKey
     pool: PublicKey
-    amountIn: BN
-    minimumAmountOut: BN
     swapBaseForQuote: boolean
-    swapMode: SwapMode
     referralTokenAccount: PublicKey | null
     payer?: PublicKey
-}
+} & (
+    | {
+          swapMode: SwapMode.ExactIn
+          amountIn: BN
+          minimumAmountOut: BN
+      }
+    | {
+          swapMode: SwapMode.PartialFill
+          amountIn: BN
+          minimumAmountOut: BN
+      }
+    | {
+          swapMode: SwapMode.ExactOut
+          amountOut: BN
+          minimumAmountIn: BN
+      }
+)
 
-export type SwapQuoteExactInParam = {
+export type SwapQuoteParam = {
     virtualPool: VirtualPool
     config: PoolConfig
     swapBaseForQuote: boolean
@@ -451,20 +465,32 @@ export type SwapQuoteExactInParam = {
     hasReferral: boolean
     currentPoint: BN
 }
+
+export type SwapQuote2Param = {
+    virtualPool: VirtualPool
+    config: PoolConfig
+    swapBaseForQuote: boolean
+    hasReferral: boolean
+    currentPoint: BN
+    slippageBps?: number
+} & (
+    | {
+          swapMode: SwapMode.ExactIn
+          amountIn: BN
+      }
+    | {
+          swapMode: SwapMode.PartialFill
+          amountIn: BN
+      }
+    | {
+          swapMode: SwapMode.ExactOut
+          outAmount: BN
+      }
+)
 
 export type SwapQuoteRemainingCurveParam = {
     virtualPool: VirtualPool
     config: PoolConfig
-    currentPoint: BN
-}
-
-export type SwapQuoteExactOutParam = {
-    virtualPool: VirtualPool
-    config: PoolConfig
-    swapBaseForQuote: boolean
-    outAmount: BN
-    slippageBps?: number
-    hasReferral: boolean
     currentPoint: BN
 }
 
@@ -626,19 +652,13 @@ export interface FeeMode {
     hasReferral: boolean
 }
 
-export interface QuoteResult {
-    amountOut: BN
+export interface SwapQuoteResult extends SwapResult {
     minimumAmountOut: BN
-    nextSqrtPrice: BN
-    fee: {
-        trading: BN
-        protocol: BN
-        referral?: BN
-    }
-    price: {
-        beforeSwap: BN
-        afterSwap: BN
-    }
+}
+
+export interface SwapQuote2Result extends SwapResult2 {
+    minimumAmountOut?: BN
+    minimumAmountIn?: BN
 }
 
 export interface FeeOnAmountResult {
@@ -658,4 +678,5 @@ export interface PrepareSwapParams {
 export interface SwapAmount {
     outputAmount: BN
     nextSqrtPrice: BN
+    amountLeft: BN
 }

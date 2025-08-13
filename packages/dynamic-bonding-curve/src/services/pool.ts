@@ -18,13 +18,16 @@ import {
     FirstBuyParam,
     InitializePoolBaseParam,
     PrepareSwapParams,
-    SwapQuoteExactOutParam,
+    SwapMode,
+    SwapQuote2Param,
+    SwapQuoteParam,
     SwapQuoteRemainingCurveParam,
-    SwapV2Param,
+    Swap2Param,
     TokenType,
     type CreatePoolParam,
     type SwapParam,
-    type SwapQuoteExactInParam,
+    SwapQuoteResult,
+    SwapQuote2Result,
 } from '../types'
 import {
     deriveDbcPoolAddress,
@@ -36,20 +39,20 @@ import {
     getTokenType,
     checkRateLimiterApplied,
     getOrCreateATAInstruction,
+    validateConfigParameters,
+    validateSwapAmount,
 } from '../helpers'
 import { NATIVE_MINT, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { METAPLEX_PROGRAM_ID } from '../constants'
 import {
     swapQuoteExactIn,
-    calculateQuoteRemainingCurveAmount,
+    swapQuoteRemainingCurve,
     swapQuoteExactOut,
-} from '../math/swapQuote'
+    swapQuotePartialFill,
+    swapQuote,
+} from '../math'
 import { StateService } from './state'
-import {
-    validateConfigParameters,
-    validateSwapAmount,
-} from '../helpers/validation'
 import BN from 'bn.js'
 
 export class PoolService extends DynamicBondingCurveProgram {
@@ -845,28 +848,42 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Swap V2 between base and quote (included SwapMode: ExactIn, PartialFill, ExactOut)
-     * @param swapV2Param - The parameters for the swap
+     * @param swap2Param - The parameters for the swap
      * @returns A swap transaction
      */
-    async swapV2(swapV2Param: SwapV2Param): Promise<Transaction> {
+    async swap2(swap2Param: Swap2Param): Promise<Transaction> {
         const {
             pool,
-            amountIn,
-            minimumAmountOut,
             swapBaseForQuote,
             swapMode,
             owner,
             payer,
             referralTokenAccount,
-        } = swapV2Param
+        } = swap2Param
+
+        let amount0: BN
+        let amount1: BN
+
+        if (
+            swapMode === SwapMode.ExactIn ||
+            swapMode === SwapMode.PartialFill
+        ) {
+            amount0 = swap2Param.amountIn
+            amount1 = swap2Param.minimumAmountOut
+        } else if (swapMode === SwapMode.ExactOut) {
+            amount0 = swap2Param.amountOut
+            amount1 = swap2Param.minimumAmountIn
+        } else {
+            throw new Error('Invalid swap mode')
+        }
 
         // error checks
-        validateSwapAmount(amountIn)
+        validateSwapAmount(amount0)
 
         const poolState = await this.state.getPool(pool)
 
         if (!poolState) {
-            throw new Error(`Pool not found: ${swapV2Param.pool.toString()}`)
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(poolState.config)
@@ -917,7 +934,7 @@ export class PoolService extends DynamicBondingCurveProgram {
                 ...wrapSOLInstruction(
                     owner,
                     inputTokenAccount,
-                    BigInt(amountIn.toString())
+                    BigInt(amount0.toString())
                 )
             )
         }
@@ -946,8 +963,8 @@ export class PoolService extends DynamicBondingCurveProgram {
 
         return this.program.methods
             .swap2({
-                amount0: amountIn,
-                amount1: minimumAmountOut,
+                amount0,
+                amount1,
                 swapMode: swapMode,
             })
             .accountsPartial({
@@ -958,7 +975,7 @@ export class PoolService extends DynamicBondingCurveProgram {
                 quoteVault: poolState.quoteVault,
                 config: poolState.config,
                 poolAuthority: this.poolAuthority,
-                referralTokenAccount: swapV2Param.referralTokenAccount,
+                referralTokenAccount: referralTokenAccount,
                 inputTokenAccount,
                 outputTokenAccount,
                 payer: owner,
@@ -986,7 +1003,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param currentPoint - The current point
      * @returns The swap quote result
      */
-    swapQuoteExactIn(swapQuoteExactInParam: SwapQuoteExactInParam) {
+    swapQuote(swapQuoteParam: SwapQuoteParam): SwapQuoteResult {
         const {
             virtualPool,
             config,
@@ -995,9 +1012,9 @@ export class PoolService extends DynamicBondingCurveProgram {
             slippageBps = 0,
             hasReferral,
             currentPoint,
-        } = swapQuoteExactInParam
+        } = swapQuoteParam
 
-        return swapQuoteExactIn(
+        return swapQuote(
             virtualPool,
             config,
             swapBaseForQuote,
@@ -1009,30 +1026,69 @@ export class PoolService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Calculate the amount in for a swap with exact output amount (quote)
-     * @param swapQuoteExactOutParam - The parameters for the swap
-     * @returns The swap quote result with input amount calculated
+     * Calculate the swap quote based on swap mode
+     * @param swapQuoteParam - The unified parameters for the swap quote
+     * @returns The swap quote result
      */
-    swapQuoteExactOut(swapQuoteExactOutParam: SwapQuoteExactOutParam) {
+    swapQuote2(swapQuote2Param: SwapQuote2Param): SwapQuote2Result {
         const {
             virtualPool,
             config,
             swapBaseForQuote,
-            outAmount,
-            slippageBps = 0,
+            swapMode,
             hasReferral,
             currentPoint,
-        } = swapQuoteExactOutParam
+            slippageBps = 0,
+        } = swapQuote2Param
 
-        return swapQuoteExactOut(
-            virtualPool,
-            config,
-            swapBaseForQuote,
-            outAmount,
-            slippageBps,
-            hasReferral,
-            currentPoint
-        )
+        switch (swapMode) {
+            case SwapMode.ExactIn:
+                if ('amountIn' in swapQuote2Param) {
+                    return swapQuoteExactIn(
+                        virtualPool,
+                        config,
+                        swapBaseForQuote,
+                        swapQuote2Param.amountIn,
+                        slippageBps,
+                        hasReferral,
+                        currentPoint
+                    )
+                }
+                throw new Error('amountIn is required for ExactIn swap mode')
+
+            case SwapMode.ExactOut:
+                if ('outAmount' in swapQuote2Param) {
+                    return swapQuoteExactOut(
+                        virtualPool,
+                        config,
+                        swapBaseForQuote,
+                        swapQuote2Param.outAmount,
+                        slippageBps,
+                        hasReferral,
+                        currentPoint
+                    )
+                }
+                throw new Error('outAmount is required for ExactOut swap mode')
+
+            case SwapMode.PartialFill:
+                if ('amountIn' in swapQuote2Param) {
+                    return swapQuotePartialFill(
+                        virtualPool,
+                        config,
+                        swapBaseForQuote,
+                        swapQuote2Param.amountIn,
+                        slippageBps,
+                        hasReferral,
+                        currentPoint
+                    )
+                }
+                throw new Error(
+                    'amountIn is required for PartialFill swap mode'
+                )
+
+            default:
+                throw new Error(`Unsupported swap mode: ${swapMode}`)
+        }
     }
 
     /**
@@ -1048,7 +1104,7 @@ export class PoolService extends DynamicBondingCurveProgram {
         const { virtualPool, config, currentPoint } =
             swapQuoteRemainingCurveParam
 
-        const requiredQuoteAmount = calculateQuoteRemainingCurveAmount(
+        const requiredQuoteAmount = swapQuoteRemainingCurve(
             config,
             virtualPool,
             currentPoint

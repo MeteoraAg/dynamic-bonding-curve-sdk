@@ -2,7 +2,7 @@ import { clusterApiUrl, Connection, Keypair, PublicKey } from '@solana/web3.js'
 import { ProgramTestContext } from 'solana-bankrun'
 import { fundSol, startTest } from './utils/bankrun'
 import { expect, test, describe, beforeEach } from 'bun:test'
-import { DynamicBondingCurveClient, SwapMode } from '../src'
+import { DynamicBondingCurveClient, Swap2Param, SwapMode } from '../src'
 import { BN } from 'bn.js'
 import { executeTransaction } from './utils/common'
 
@@ -78,7 +78,7 @@ describe('Swap Tests', () => {
         executeTransaction(context.banksClient, swapTx, [user])
     })
 
-    test('swapV2ExactIn', async () => {
+    test('swap2ExactIn', async () => {
         const poolState = await dbcClient.state.getPool(pool)
         if (!poolState) {
             throw new Error(`Pool not found: ${pool.toString()}`)
@@ -104,23 +104,23 @@ describe('Swap Tests', () => {
         //     currentPoint: new BN(currentSlot),
         // })
 
-        const swapV2Param = {
+        const swap2Param: Swap2Param = {
+            swapMode: SwapMode.ExactIn,
+            swapBaseForQuote: false,
             amountIn: new BN(1000000000),
             minimumAmountOut: new BN(0),
-            swapBaseForQuote: false,
-            swapMode: SwapMode.ExactIn,
             owner: user.publicKey,
             pool: pool,
             referralTokenAccount: null,
             payer: user.publicKey,
         }
 
-        const swapTx = await dbcClient.pool.swapV2(swapV2Param)
+        const swapTx = await dbcClient.pool.swap2(swap2Param)
 
         executeTransaction(context.banksClient, swapTx, [user])
     })
 
-    test('swapV2PartialFill', async () => {
+    test('swap2PartialFill', async () => {
         const poolState = await dbcClient.state.getPool(pool)
         if (!poolState) {
             throw new Error(`Pool not found: ${pool.toString()}`)
@@ -146,7 +146,7 @@ describe('Swap Tests', () => {
         //     currentPoint: new BN(currentSlot),
         // })
 
-        const swapV2Param = {
+        const swap2Param: Swap2Param = {
             amountIn: new BN(1000000000),
             minimumAmountOut: new BN(0),
             swapBaseForQuote: false,
@@ -157,12 +157,12 @@ describe('Swap Tests', () => {
             payer: user.publicKey,
         }
 
-        const swapTx = await dbcClient.pool.swapV2(swapV2Param)
+        const swapTx = await dbcClient.pool.swap2(swap2Param)
 
         executeTransaction(context.banksClient, swapTx, [user])
     })
 
-    test('swapV2ExactOut', async () => {
+    test('swapVExactOut', async () => {
         const poolState = await dbcClient.state.getPool(pool)
         if (!poolState) {
             throw new Error(`Pool not found: ${pool.toString()}`)
@@ -188,9 +188,11 @@ describe('Swap Tests', () => {
         //     currentPoint: new BN(currentSlot),
         // })
 
-        const swapV2Param = {
-            amountIn: new BN(1000000000),
-            minimumAmountOut: new BN(0),
+        // console.log(swapQuote.outputAmount.toString())
+
+        const swap2Param: Swap2Param = {
+            amountOut: new BN(1000000000),
+            minimumAmountIn: new BN(0),
             swapBaseForQuote: false,
             swapMode: SwapMode.ExactOut,
             owner: user.publicKey,
@@ -199,7 +201,7 @@ describe('Swap Tests', () => {
             payer: user.publicKey,
         }
 
-        const swapTx = await dbcClient.pool.swapV2(swapV2Param)
+        const swapTx = await dbcClient.pool.swap2(swap2Param)
 
         executeTransaction(context.banksClient, swapTx, [user])
     })
