@@ -872,7 +872,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             amount1 = swap2Param.minimumAmountOut
         } else if (swapMode === SwapMode.ExactOut) {
             amount0 = swap2Param.amountOut
-            amount1 = swap2Param.minimumAmountIn
+            amount1 = swap2Param.maximumAmountIn
         } else {
             throw new Error('Invalid swap mode')
         }
@@ -1057,12 +1057,12 @@ export class PoolService extends DynamicBondingCurveProgram {
                 throw new Error('amountIn is required for ExactIn swap mode')
 
             case SwapMode.ExactOut:
-                if ('outAmount' in swapQuote2Param) {
+                if ('amountOut' in swapQuote2Param) {
                     return swapQuoteExactOut(
                         virtualPool,
                         config,
                         swapBaseForQuote,
-                        swapQuote2Param.outAmount,
+                        swapQuote2Param.amountOut,
                         slippageBps,
                         hasReferral,
                         currentPoint

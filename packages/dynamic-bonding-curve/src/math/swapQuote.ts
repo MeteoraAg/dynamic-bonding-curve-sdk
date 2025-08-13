@@ -38,11 +38,11 @@ import {
 } from '../constants'
 
 /**
- * Get swap amount from base to quote
+ * Get swap amount from base to quote with stop price
  * @param configState Config state
  * @param currentSqrtPrice Current sqrt price
  * @param amountIn Input amount
- * @param stopSqrtPrice Stop sqrt price (will be migration_sqrt_price in partial fill)
+ * @param stopSqrtPrice Stop sqrt price
  * @returns Swap amount
  */
 export function getSwapAmountFromBaseToQuote(
@@ -137,31 +137,55 @@ export function getSwapAmountFromBaseToQuote(
             true
         )
 
-        const outputAmount = getDeltaAmountQuoteUnsigned(
-            nextSqrtPrice,
-            currentSqrtPriceLocal,
-            configState.curve[0].liquidity,
-            Rounding.Down
-        )
+        // check if we hit the stop price (migration threshold)
+        if (nextSqrtPrice.lte(stopSqrtPrice)) {
+            // calculate how much we can actually consume before hitting stop price
+            const actualNextSqrtPrice = stopSqrtPrice
+            const actualAmountIn = getDeltaAmountBaseUnsigned(
+                actualNextSqrtPrice,
+                currentSqrtPriceLocal,
+                configState.curve[0].liquidity,
+                Rounding.Up
+            )
 
-        totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount)
-        currentSqrtPriceLocal = nextSqrtPrice
+            const outputAmount = getDeltaAmountQuoteUnsigned(
+                actualNextSqrtPrice,
+                currentSqrtPriceLocal,
+                configState.curve[0].liquidity,
+                Rounding.Down
+            )
+
+            totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount)
+            currentSqrtPriceLocal = actualNextSqrtPrice
+            amountLeft = SafeMath.sub(amountLeft, actualAmountIn)
+        } else {
+            const outputAmount = getDeltaAmountQuoteUnsigned(
+                nextSqrtPrice,
+                currentSqrtPriceLocal,
+                configState.curve[0].liquidity,
+                Rounding.Down
+            )
+
+            totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount)
+            currentSqrtPriceLocal = nextSqrtPrice
+            amountLeft = new BN(0)
+        }
     }
 
     return {
         outputAmount: totalOutputAmount,
         nextSqrtPrice: currentSqrtPriceLocal,
-        amountLeft: new BN(0),
+        amountLeft: amountLeft,
     }
 }
 
 /**
- * Get swap amount from quote to base
+ * Get swap amount from quote to base with stop price
  * @param configState Config state
  * @param currentSqrtPrice Current sqrt price
  * @param amountIn Input amount
+ * @param stopSqrtPrice Stop sqrt price
  * @returns Swap amount
- * @throws Error if not enough liquidity
  */
 export function getSwapAmountFromQuoteToBase(
     configState: {
@@ -171,7 +195,8 @@ export function getSwapAmountFromQuoteToBase(
         }>
     },
     currentSqrtPrice: BN,
-    amountIn: BN
+    amountIn: BN,
+    stopSqrtPrice: BN
 ): SwapAmount {
     if (amountIn.isZero()) {
         return {
@@ -182,7 +207,7 @@ export function getSwapAmountFromQuoteToBase(
     }
 
     let totalOutputAmount = new BN(0)
-    let sqrtPrice = currentSqrtPrice
+    let currentSqrtPriceLocal = currentSqrtPrice
     let amountLeft = amountIn
 
     // iterate through the curve points
@@ -194,27 +219,30 @@ export function getSwapAmountFromQuoteToBase(
             break
         }
 
-        // skip if liquidity is zero
-        if (configState.curve[i].liquidity.isZero()) continue
+        // reference_sqrt_price = stop_sqrt_price.min(config.curve[i].sqrt_price)
+        const referenceSqrtPrice = BN.min(
+            stopSqrtPrice,
+            configState.curve[i].sqrtPrice
+        )
 
-        if (configState.curve[i].sqrtPrice.gt(sqrtPrice)) {
+        if (referenceSqrtPrice.gt(currentSqrtPriceLocal)) {
             const maxAmountIn = getDeltaAmountQuoteUnsigned(
-                sqrtPrice,
-                configState.curve[i].sqrtPrice,
+                currentSqrtPriceLocal,
+                referenceSqrtPrice,
                 configState.curve[i].liquidity,
                 Rounding.Up
             )
 
             if (amountLeft.lt(maxAmountIn)) {
                 const nextSqrtPrice = getNextSqrtPriceFromInput(
-                    sqrtPrice,
+                    currentSqrtPriceLocal,
                     configState.curve[i].liquidity,
                     amountLeft,
                     false
                 )
 
                 const outputAmount = getDeltaAmountBaseUnsigned(
-                    sqrtPrice,
+                    currentSqrtPriceLocal,
                     nextSqrtPrice,
                     configState.curve[i].liquidity,
                     Rounding.Down
@@ -224,13 +252,13 @@ export function getSwapAmountFromQuoteToBase(
                     totalOutputAmount,
                     outputAmount
                 )
-                sqrtPrice = nextSqrtPrice
+                currentSqrtPriceLocal = nextSqrtPrice
                 amountLeft = new BN(0)
                 break
             } else {
-                const nextSqrtPrice = configState.curve[i].sqrtPrice
+                const nextSqrtPrice = referenceSqrtPrice
                 const outputAmount = getDeltaAmountBaseUnsigned(
-                    sqrtPrice,
+                    currentSqrtPriceLocal,
                     nextSqrtPrice,
                     configState.curve[i].liquidity,
                     Rounding.Down
@@ -240,26 +268,25 @@ export function getSwapAmountFromQuoteToBase(
                     totalOutputAmount,
                     outputAmount
                 )
-                sqrtPrice = nextSqrtPrice
+                currentSqrtPriceLocal = nextSqrtPrice
                 amountLeft = SafeMath.sub(amountLeft, maxAmountIn)
+
+                if (nextSqrtPrice.eq(stopSqrtPrice)) {
+                    break
+                }
             }
         }
     }
 
-    // check if all amount was processed
-    if (!amountLeft.isZero()) {
-        throw new Error('Not enough liquidity to process the entire amount')
-    }
-
     return {
         outputAmount: totalOutputAmount,
-        nextSqrtPrice: sqrtPrice,
+        nextSqrtPrice: currentSqrtPriceLocal,
         amountLeft: amountLeft,
     }
 }
 
 /**
- * Get maximum swallow quote amount
+ * Get maximum swallow quote amount 
  * @param config Pool config state
  * @returns Maximum swallow quote amount
  */
@@ -284,11 +311,34 @@ export function getFeeMode(
     tradeDirection: TradeDirection,
     hasReferral: boolean
 ): FeeMode {
-    const quoteToBase = tradeDirection === TradeDirection.QuoteToBase
-    const feesOnInput =
-        quoteToBase && collectFeeMode === CollectFeeMode.QuoteToken
-    const feesOnBaseToken =
-        quoteToBase && collectFeeMode === CollectFeeMode.OutputToken
+    // (CollectFeeMode::OutputToken, TradeDirection::BaseToQuote) => (false, false),
+    // (CollectFeeMode::OutputToken, TradeDirection::QuoteToBase) => (false, true),
+    // (CollectFeeMode::QuoteToken, TradeDirection::BaseToQuote) => (false, false),
+    // (CollectFeeMode::QuoteToken, TradeDirection::QuoteToBase) => (true, false),
+
+    let feesOnInput: boolean
+    let feesOnBaseToken: boolean
+
+    if (collectFeeMode === CollectFeeMode.OutputToken) {
+        if (tradeDirection === TradeDirection.BaseToQuote) {
+            feesOnInput = false
+            feesOnBaseToken = false
+        } else {
+            // TradeDirection.QuoteToBase
+            feesOnInput = false
+            feesOnBaseToken = true
+        }
+    } else {
+        // CollectFeeMode.QuoteToken
+        if (tradeDirection === TradeDirection.BaseToQuote) {
+            feesOnInput = false
+            feesOnBaseToken = false
+        } else {
+            // TradeDirection.QuoteToBase
+            feesOnInput = true
+            feesOnBaseToken = false
+        }
+    }
 
     return {
         feesOnInput,
@@ -352,7 +402,8 @@ export function getSwapResult(
             : getSwapAmountFromQuoteToBase(
                   configState,
                   poolState.sqrtPrice,
-                  actualAmountIn
+                  actualAmountIn,
+                  configState.migrationSqrtPrice
               )
 
     // apply fees on output if needed
@@ -387,7 +438,7 @@ export function getSwapResult(
 }
 
 /**
- * Get swap result from exact input
+ * Get swap result from exact input 
  * @param virtualPool Virtual pool state
  * @param config Pool config state
  * @param amountIn Input amount
@@ -445,7 +496,8 @@ export function getSwapResultFromExactInput(
             : getSwapAmountFromQuoteToBase(
                   config,
                   virtualPool.sqrtPrice,
-                  actualAmountIn
+                  actualAmountIn,
+                  config.migrationSqrtPrice
               )
 
     let actualAmountOut: BN
@@ -478,7 +530,7 @@ export function getSwapResultFromExactInput(
 }
 
 /**
- * Get swap result from exact output
+ * Get swap result from exact output 
  * @param virtualPool Virtual pool state
  * @param config Pool config state
  * @param amountOut Output amount
@@ -769,7 +821,7 @@ export function getInAmountFromQuoteToBase(
 }
 
 /**
- * Get swap result from partial input
+ * Get swap result from partial input 
  * @param virtualPool Virtual pool state
  * @param config Pool config state
  * @param amountIn Input amount
@@ -816,6 +868,7 @@ export function getSwapResultFromPartialInput(
         actualAmountIn = amountIn
     }
 
+    // calculate swap amount using migration sqrt price as stop price for partial fill
     const swapAmount =
         tradeDirection === TradeDirection.BaseToQuote
             ? getSwapAmountFromBaseToQuote(
@@ -827,7 +880,8 @@ export function getSwapResultFromPartialInput(
             : getSwapAmountFromQuoteToBase(
                   config,
                   virtualPool.sqrtPrice,
-                  actualAmountIn
+                  actualAmountIn,
+                  config.migrationSqrtPrice
               )
 
     let includedFeeInputAmount = amountIn
@@ -1149,24 +1203,24 @@ export function swapQuoteExactOut(
         currentPoint
     )
 
-    // calculate minimum amount in
-    let minimumAmountIn: BN
+    // calculate maximum amount in (for slippage protection)
+    let maximumAmountIn: BN
     if (slippageBps > 0) {
-        // slippage factor: (10000 - slippageBps) / 10000
-        const slippageFactor = new BN(10000 - slippageBps)
+        // slippage factor: (10000 + slippageBps) / 10000
+        const slippageFactor = new BN(10000 + slippageBps)
         const denominator = new BN(10000)
 
-        // minimum amount out: amountOut * (10000 - slippageBps) / 10000
-        minimumAmountIn = result.outputAmount
+        // maximum amount in: inputAmount * (10000 + slippageBps) / 10000
+        maximumAmountIn = result.includedFeeInputAmount
             .mul(slippageFactor)
             .div(denominator)
     } else {
-        minimumAmountIn = result.outputAmount
+        maximumAmountIn = result.includedFeeInputAmount
     }
 
     return {
         ...result,
-        minimumAmountIn,
+        maximumAmountIn,
     }
 }
 

@@ -192,7 +192,7 @@ describe('Swap Tests', () => {
 
         const swap2Param: Swap2Param = {
             amountOut: new BN(1000000000),
-            minimumAmountIn: new BN(0),
+            maximumAmountIn: new BN(0),
             swapBaseForQuote: false,
             swapMode: SwapMode.ExactOut,
             owner: user.publicKey,

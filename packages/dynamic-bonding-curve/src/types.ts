@@ -452,7 +452,7 @@ export type Swap2Param = {
     | {
           swapMode: SwapMode.ExactOut
           amountOut: BN
-          minimumAmountIn: BN
+          maximumAmountIn: BN
       }
 )
 
@@ -484,7 +484,7 @@ export type SwapQuote2Param = {
       }
     | {
           swapMode: SwapMode.ExactOut
-          outAmount: BN
+          amountOut: BN
       }
 )
 
@@ -658,7 +658,7 @@ export interface SwapQuoteResult extends SwapResult {
 
 export interface SwapQuote2Result extends SwapResult2 {
     minimumAmountOut?: BN
-    minimumAmountIn?: BN
+    maximumAmountIn?: BN
 }
 
 export interface FeeOnAmountResult {
