@@ -48,7 +48,7 @@ import {
     MIN_FEE_NUMERATOR,
 } from '../constants'
 import { bpsToFeeNumerator } from './utils'
-import { getFeeNumeratorOnRateLimiter } from '../math/rateLimiter'
+import { getFeeNumeratorOnRateLimiterFromIncludedAmount } from '../math/rateLimiter'
 
 /**
  * Validate the pool fees
@@ -230,14 +230,14 @@ export function validateFeeRateLimiter(
     }
 
     // validate min and max fee numerators based on amounts
-    const minFeeNumerator = getFeeNumeratorOnRateLimiter(
+    const minFeeNumerator = getFeeNumeratorOnRateLimiterFromIncludedAmount(
         feeRateLimiter.cliffFeeNumerator,
         feeRateLimiter.thirdFactor,
         new BN(feeRateLimiter.firstFactor),
         new BN(0)
     )
 
-    const maxFeeNumerator = getFeeNumeratorOnRateLimiter(
+    const maxFeeNumerator = getFeeNumeratorOnRateLimiterFromIncludedAmount(
         feeRateLimiter.cliffFeeNumerator,
         feeRateLimiter.thirdFactor,
         new BN(feeRateLimiter.firstFactor),

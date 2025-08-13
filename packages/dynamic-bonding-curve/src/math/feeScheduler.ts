@@ -41,26 +41,15 @@ export function getFeeNumeratorOnExponentialFeeScheduler(
         return cliffFeeNumerator
     }
 
-    if (period === 1) {
-        const basisPointMax = new BN(BASIS_POINT_MAX)
-        return mulDiv(
-            cliffFeeNumerator,
-            basisPointMax.sub(reductionFactor),
-            basisPointMax,
-            Rounding.Down
-        )
-    }
-
-    // calculate (1-reduction_factor/10_000)^period
+    // Match Rust implementation exactly
+    // Make reduction_factor into Q64x64, and divided by BASIS_POINT_MAX
     const basisPointMax = new BN(BASIS_POINT_MAX)
-
-    // base = ONE_Q64 - (reductionFactor << RESOLUTION) / BASIS_POINT_MAX
     const ONE_Q64 = new BN(1).shln(64)
-    const reductionFactorScaled = SafeMath.div(
-        SafeMath.shl(reductionFactor, 64),
-        basisPointMax
-    )
-    let base = SafeMath.sub(ONE_Q64, reductionFactorScaled)
+
+    const bps = SafeMath.div(SafeMath.shl(reductionFactor, 64), basisPointMax)
+
+    // base = ONE_Q64 - bps (equivalent to 1 - reduction_factor/10_000 in Q64.64)
+    const base = SafeMath.sub(ONE_Q64, bps)
 
     const result = pow(base, new BN(period))
 

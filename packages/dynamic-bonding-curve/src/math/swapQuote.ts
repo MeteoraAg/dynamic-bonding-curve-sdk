@@ -286,7 +286,7 @@ export function getSwapAmountFromQuoteToBase(
 }
 
 /**
- * Get maximum swallow quote amount 
+ * Get maximum swallow quote amount
  * @param config Pool config state
  * @returns Maximum swallow quote amount
  */
@@ -438,7 +438,7 @@ export function getSwapResult(
 }
 
 /**
- * Get swap result from exact input 
+ * Get swap result from exact input
  * @param virtualPool Virtual pool state
  * @param config Pool config state
  * @param amountIn Input amount
@@ -530,7 +530,7 @@ export function getSwapResultFromExactInput(
 }
 
 /**
- * Get swap result from exact output 
+ * Get swap result from exact output
  * @param virtualPool Virtual pool state
  * @param config Pool config state
  * @param amountOut Output amount
@@ -821,7 +821,7 @@ export function getInAmountFromQuoteToBase(
 }
 
 /**
- * Get swap result from partial input 
+ * Get swap result from partial input
  * @param virtualPool Virtual pool state
  * @param config Pool config state
  * @param amountIn Input amount
