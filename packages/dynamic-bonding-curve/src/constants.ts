@@ -3,7 +3,9 @@ import { PublicKey } from '@solana/web3.js'
 
 // Curve + Math constants
 export const OFFSET: number = 64
-export const U64_MAX: BN = new BN('18446744073709551615')
+export const U64_MAX: BN = new BN(2).pow(new BN(64)).sub(new BN(1))
+export const U128_MAX = new BN(2).pow(new BN(128)).sub(new BN(1))
+export const MAX_U16 = (1 << 16) - 1
 export const MIN_SQRT_PRICE: BN = new BN('4295048016')
 export const MAX_SQRT_PRICE: BN = new BN('79226673521066979257578248091')
 
@@ -56,6 +58,8 @@ export const DYNAMIC_FEE_FILTER_PERIOD_DEFAULT = 10 // 10 seconds
 export const DYNAMIC_FEE_DECAY_PERIOD_DEFAULT = 120 // 120 seconds
 export const DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT = 5000 // 50%
 export const MAX_DYNAMIC_FEE_PERCENTAGE = 20 // 20% of base fee
+export const DYNAMIC_FEE_SCALING_FACTOR = new BN(100_000_000_000)
+export const DYNAMIC_FEE_ROUNDING_OFFSET = new BN(99_999_999_999)
 
 export const BIN_STEP_BPS_DEFAULT = 1
 //  bin_step << 64 / BASIS_POINT_MAX
