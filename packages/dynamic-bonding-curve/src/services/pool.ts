@@ -888,17 +888,12 @@ export class PoolService extends DynamicBondingCurveProgram {
         let amount0: BN
         let amount1: BN
 
-        if (
-            swapMode === SwapMode.ExactIn ||
-            swapMode === SwapMode.PartialFill
-        ) {
-            amount0 = swap2Param.amountIn
-            amount1 = swap2Param.minimumAmountOut
-        } else if (swapMode === SwapMode.ExactOut) {
+        if (swapMode === SwapMode.ExactOut) {
             amount0 = swap2Param.amountOut
             amount1 = swap2Param.maximumAmountIn
         } else {
-            throw new Error('Invalid swap mode')
+            amount0 = swap2Param.amountIn
+            amount1 = swap2Param.minimumAmountOut
         }
 
         // error checks
