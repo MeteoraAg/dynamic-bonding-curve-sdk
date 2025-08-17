@@ -1,5 +1,5 @@
 import BN from 'bn.js'
-import { BASIS_POINT_MAX, MAX_U16 } from '../../constants'
+import { BASIS_POINT_MAX, U16_MAX } from '../../constants'
 import { pow, SafeMath } from '../safeMath'
 import { BaseFeeMode } from '../../types'
 
@@ -55,7 +55,7 @@ export function getBaseFeeNumeratorByPeriod(
 ): BN {
     const periodValue = BN.min(period, new BN(numberOfPeriod))
     const periodNumber = periodValue.toNumber()
-    if (periodNumber > MAX_U16) {
+    if (periodNumber > U16_MAX) {
         throw new Error('Math overflow')
     }
 

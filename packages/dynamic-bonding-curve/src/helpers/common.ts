@@ -1399,11 +1399,11 @@ export async function getCurrentPoint(
     connection: Connection,
     activationType: ActivationType
 ): Promise<BN> {
+    const currentSlot = await connection.getSlot()
+
     if (activationType === ActivationType.Slot) {
-        const currentSlot = await connection.getSlot()
         return new BN(currentSlot)
     } else {
-        const currentSlot = await connection.getSlot()
         const currentTime = await connection.getBlockTime(currentSlot)
         return new BN(currentTime)
     }

@@ -3,9 +3,9 @@ import { PublicKey } from '@solana/web3.js'
 
 // Curve + Math constants
 export const OFFSET: number = 64
-export const U64_MAX: BN = new BN(2).pow(new BN(64)).sub(new BN(1))
-export const U128_MAX = new BN(2).pow(new BN(128)).sub(new BN(1))
-export const MAX_U16 = (1 << 16) - 1
+export const U128_MAX = new BN('340282366920938463463374607431768211455')
+export const U64_MAX: BN = new BN('18446744073709551615')
+export const U16_MAX = 65535
 export const MIN_SQRT_PRICE: BN = new BN('4295048016')
 export const MAX_SQRT_PRICE: BN = new BN('79226673521066979257578248091')
 
