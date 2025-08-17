@@ -1,6 +1,15 @@
-import type { Accounts, BN, IdlAccounts, IdlTypes } from '@coral-xyz/anchor'
+import type {
+    Accounts,
+    BN,
+    IdlAccounts,
+    IdlTypes,
+    Program,
+} from '@coral-xyz/anchor'
 import type { DynamicBondingCurve } from './idl/dynamic-bonding-curve/idl'
 import type { Keypair, PublicKey, Transaction } from '@solana/web3.js'
+import { DynamicBondingCurve as DynamicBondingCurveIDL } from './idl/dynamic-bonding-curve/idl'
+
+export type DynamicCurveProgram = Program<DynamicBondingCurveIDL>
 
 /////////////////
 // IX ACCOUNTS //
@@ -638,6 +647,25 @@ export type WithdrawMigrationFeeParam = {
 ////////////////
 // INTERFACES //
 ////////////////
+
+export interface BaseFeeHandler {
+    validate(
+        collectFeeMode: CollectFeeMode,
+        activationType: ActivationType
+    ): boolean
+    getBaseFeeNumeratorFromIncludedFeeAmount(
+        currentPoint: BN,
+        activationPoint: BN,
+        tradeDirection: TradeDirection,
+        includedFeeAmount: BN
+    ): BN
+    getBaseFeeNumeratorFromExcludedFeeAmount(
+        currentPoint: BN,
+        activationPoint: BN,
+        tradeDirection: TradeDirection,
+        excludedFeeAmount: BN
+    ): BN
+}
 
 export interface FeeResult {
     amount: BN

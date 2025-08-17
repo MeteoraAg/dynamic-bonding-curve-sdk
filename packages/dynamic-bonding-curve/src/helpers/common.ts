@@ -24,7 +24,6 @@ import {
     FEE_DENOMINATOR,
     MAX_FEE_BPS,
     MAX_FEE_NUMERATOR,
-    MAX_MIGRATION_FEE_PERCENTAGE,
     MAX_PRICE_CHANGE_BPS_DEFAULT,
     MAX_RATE_LIMITER_DURATION_IN_SECONDS,
     MAX_RATE_LIMITER_DURATION_IN_SLOTS,
@@ -1388,4 +1387,24 @@ export function getMigratedPoolFeeParams(
     }
 
     return defaultFeeParams
+}
+
+/**
+ * Get the current point based on activation type
+ * @param connection - The Solana connection instance
+ * @param activationType - The activation type (Slot or Time)
+ * @returns The current point as a BN
+ */
+export async function getCurrentPoint(
+    connection: Connection,
+    activationType: ActivationType
+): Promise<BN> {
+    if (activationType === ActivationType.Slot) {
+        const currentSlot = await connection.getSlot()
+        return new BN(currentSlot)
+    } else {
+        const currentSlot = await connection.getSlot()
+        const currentTime = await connection.getBlockTime(currentSlot)
+        return new BN(currentTime)
+    }
 }

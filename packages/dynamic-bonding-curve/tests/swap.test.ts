@@ -2,7 +2,12 @@ import { clusterApiUrl, Connection, Keypair, PublicKey } from '@solana/web3.js'
 import { ProgramTestContext } from 'solana-bankrun'
 import { fundSol, startTest } from './utils/bankrun'
 import { expect, test, describe, beforeEach } from 'bun:test'
-import { DynamicBondingCurveClient, Swap2Param, SwapMode } from '../src'
+import {
+    DynamicBondingCurveClient,
+    getCurrentPoint,
+    Swap2Param,
+    SwapMode,
+} from '../src'
 import { BN } from 'bn.js'
 import { executeTransaction } from './utils/common'
 
@@ -51,17 +56,20 @@ describe('Swap Tests', () => {
             )
         }
 
-        // const currentSlot = await dbcClient.connection.getSlot()
+        const currentPoint = await getCurrentPoint(
+            dbcClient.connection,
+            poolConfigState.activationType
+        )
 
-        // const swapQuote = await dbcClient.pool.swapQuote({
-        //     virtualPool: poolState,
-        //     config: poolConfigState,
-        //     swapBaseForQuote: false,
-        //     amountIn: new BN(1000000000),
-        //     slippageBps: 50,
-        //     hasReferral: false,
-        //     currentPoint: new BN(currentSlot),
-        // })
+        const swapQuote = await dbcClient.pool.swapQuote({
+            virtualPool: poolState,
+            config: poolConfigState,
+            swapBaseForQuote: false,
+            amountIn: new BN(1000000000),
+            slippageBps: 50,
+            hasReferral: false,
+            currentPoint,
+        })
 
         const swapParam = {
             amountIn: new BN(1000000000),
@@ -92,23 +100,29 @@ describe('Swap Tests', () => {
             )
         }
 
-        // const currentSlot = await dbcClient.connection.getSlot()
+        const currentPoint = await getCurrentPoint(
+            dbcClient.connection,
+            poolConfigState.activationType
+        )
 
-        // const swapQuote = await dbcClient.pool.swapQuote({
-        //     virtualPool: poolState,
-        //     config: poolConfigState,
-        //     swapBaseForQuote: false,
-        //     amountIn: new BN(1000000000),
-        //     slippageBps: 50,
-        //     hasReferral: false,
-        //     currentPoint: new BN(currentSlot),
-        // })
+        const swapQuote = await dbcClient.pool.swapQuote2({
+            virtualPool: poolState,
+            config: poolConfigState,
+            swapBaseForQuote: true,
+            amountIn: new BN(1000000000),
+            slippageBps: 50,
+            hasReferral: false,
+            currentPoint,
+            swapMode: SwapMode.ExactIn,
+        })
+
+        console.log(swapQuote.outputAmount.toString())
 
         const swap2Param: Swap2Param = {
             swapMode: SwapMode.ExactIn,
             swapBaseForQuote: false,
             amountIn: new BN(1000000000),
-            minimumAmountOut: new BN(0),
+            minimumAmountOut: swapQuote.minimumAmountOut!,
             owner: user.publicKey,
             pool: pool,
             referralTokenAccount: null,
@@ -134,21 +148,27 @@ describe('Swap Tests', () => {
             )
         }
 
-        // const currentSlot = await dbcClient.connection.getSlot()
+        const currentPoint = await getCurrentPoint(
+            dbcClient.connection,
+            poolConfigState.activationType
+        )
 
-        // const swapQuote = await dbcClient.pool.swapQuote({
-        //     virtualPool: poolState,
-        //     config: poolConfigState,
-        //     swapBaseForQuote: false,
-        //     amountIn: new BN(1000000000),
-        //     slippageBps: 50,
-        //     hasReferral: false,
-        //     currentPoint: new BN(currentSlot),
-        // })
+        const swapQuote = await dbcClient.pool.swapQuote2({
+            virtualPool: poolState,
+            config: poolConfigState,
+            swapBaseForQuote: false,
+            amountIn: new BN(1000000000),
+            slippageBps: 50,
+            hasReferral: false,
+            currentPoint,
+            swapMode: SwapMode.PartialFill,
+        })
+
+        console.log(swapQuote.outputAmount.toString())
 
         const swap2Param: Swap2Param = {
             amountIn: new BN(1000000000),
-            minimumAmountOut: new BN(0),
+            minimumAmountOut: swapQuote.minimumAmountOut!,
             swapBaseForQuote: false,
             swapMode: SwapMode.PartialFill,
             owner: user.publicKey,
@@ -176,23 +196,27 @@ describe('Swap Tests', () => {
             )
         }
 
-        // const currentSlot = await dbcClient.connection.getSlot()
+        const currentPoint = await getCurrentPoint(
+            dbcClient.connection,
+            poolConfigState.activationType
+        )
 
-        // const swapQuote = await dbcClient.pool.swapQuote({
-        //     virtualPool: poolState,
-        //     config: poolConfigState,
-        //     swapBaseForQuote: false,
-        //     amountIn: new BN(1000000000),
-        //     slippageBps: 50,
-        //     hasReferral: false,
-        //     currentPoint: new BN(currentSlot),
-        // })
+        const swapQuote = await dbcClient.pool.swapQuote2({
+            virtualPool: poolState,
+            config: poolConfigState,
+            swapBaseForQuote: false,
+            amountOut: new BN(1000000000),
+            slippageBps: 50,
+            hasReferral: false,
+            currentPoint,
+            swapMode: SwapMode.ExactOut,
+        })
 
-        // console.log(swapQuote.outputAmount.toString())
+        console.log(swapQuote.outputAmount.toString())
 
         const swap2Param: Swap2Param = {
             amountOut: new BN(1000000000),
-            maximumAmountIn: new BN(0),
+            maximumAmountIn: swapQuote.maximumAmountIn!,
             swapBaseForQuote: false,
             swapMode: SwapMode.ExactOut,
             owner: user.publicKey,

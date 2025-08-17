@@ -1,6 +1,4 @@
 import {
-    clusterApiUrl,
-    Connection,
     Keypair,
     LAMPORTS_PER_SOL,
     PublicKey,
@@ -8,7 +6,7 @@ import {
     Transaction,
     TransactionInstruction,
 } from '@solana/web3.js'
-import { BanksClient, start, startAnchor } from 'solana-bankrun'
+import { BanksClient, start } from 'solana-bankrun'
 import {
     DYNAMIC_BONDING_CURVE_PROGRAM_ID,
     METAPLEX_PROGRAM_ID,
@@ -17,20 +15,6 @@ import {
     DAMM_V2_PROGRAM_ID,
     LOCKER_PROGRAM_ID,
 } from '../../src/constants'
-import {
-    ACCOUNT_SIZE,
-    AccountLayout,
-    getAssociatedTokenAddressSync,
-    TOKEN_PROGRAM_ID,
-} from '@solana/spl-token'
-import { AnchorProvider, Program, Wallet } from '@coral-xyz/anchor'
-import { DynamicBondingCurve } from '../../src/idl/dynamic-bonding-curve/idl'
-import DynamicBondingCurveIDL from '../../src/idl/dynamic-bonding-curve/idl.json'
-import {
-    DynamicBondingCurveClient,
-    DynamicBondingCurveProgram,
-} from '../../src'
-import BN from 'bn.js'
 
 export const LOCAL_ADMIN_KEYPAIR = Keypair.fromSecretKey(
     Uint8Array.from([

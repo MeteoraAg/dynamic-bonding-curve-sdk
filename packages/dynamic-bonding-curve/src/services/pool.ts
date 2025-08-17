@@ -8,8 +8,6 @@ import {
 } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
 import {
-    ActivationType,
-    BaseFeeMode,
     ConfigParameters,
     CreateConfigAndPoolParam,
     CreateConfigAndPoolWithFirstBuyParam,
@@ -21,13 +19,14 @@ import {
     SwapMode,
     SwapQuote2Param,
     SwapQuoteParam,
-    SwapQuoteRemainingCurveParam,
     Swap2Param,
     TokenType,
     type CreatePoolParam,
     type SwapParam,
     SwapQuoteResult,
     SwapQuote2Result,
+    TradeDirection,
+    BaseFee,
 } from '../types'
 import {
     deriveDbcPoolAddress,
@@ -37,10 +36,10 @@ import {
     wrapSOLInstruction,
     deriveDbcTokenVaultAddress,
     getTokenType,
-    checkRateLimiterApplied,
     getOrCreateATAInstruction,
     validateConfigParameters,
     validateSwapAmount,
+    getCurrentPoint,
 } from '../helpers'
 import { NATIVE_MINT, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
@@ -50,6 +49,7 @@ import {
     swapQuoteExactOut,
     swapQuotePartialFill,
     swapQuote,
+    isRateLimiterApplied,
 } from '../math'
 import { StateService } from './state'
 import BN from 'bn.js'
@@ -278,7 +278,9 @@ export class PoolService extends DynamicBondingCurveProgram {
         firstBuyParam: FirstBuyParam,
         baseMint: PublicKey,
         config: PublicKey,
-        baseFeeMode: BaseFeeMode,
+        baseFee: BaseFee,
+        swapBaseForQuote: boolean,
+        currentPoint: BN,
         tokenType: TokenType,
         quoteMint: PublicKey
     ): Promise<Transaction> {
@@ -296,12 +298,15 @@ export class PoolService extends DynamicBondingCurveProgram {
         // check if rate limiter is applied
         // this swapBuyTx is only QuoteToBase direction
         // this swapBuyTx does not check poolState, so there is no check for activation point
-        const isRateLimiterApplied = checkRateLimiterApplied(
-            baseFeeMode,
-            false,
+        const rateLimiterApplied = isRateLimiterApplied(
+            currentPoint,
             new BN(0),
-            new BN(0),
-            new BN(0)
+            swapBaseForQuote
+                ? TradeDirection.BaseToQuote
+                : TradeDirection.QuoteToBase,
+            baseFee.secondFactor,
+            baseFee.thirdFactor,
+            new BN(baseFee.firstFactor)
         )
 
         const quoteTokenFlag = await getTokenType(this.connection, quoteMint)
@@ -372,7 +377,7 @@ export class PoolService extends DynamicBondingCurveProgram {
         }
 
         // add remaining accounts if rate limiter is applied
-        const remainingAccounts = isRateLimiterApplied
+        const remainingAccounts = rateLimiterApplied
             ? [
                   {
                       isSigner: false,
@@ -547,6 +552,11 @@ export class PoolService extends DynamicBondingCurveProgram {
             quoteMintToken
         )
 
+        const currentPoint = await getCurrentPoint(
+            this.connection,
+            configParam.activationType
+        )
+
         // create first buy transaction
         let swapBuyTx: Transaction | undefined
         if (
@@ -560,8 +570,9 @@ export class PoolService extends DynamicBondingCurveProgram {
                 createConfigAndPoolWithFirstBuyParam.preCreatePoolParam
                     .baseMint,
                 configKey,
-                createConfigAndPoolWithFirstBuyParam.poolFees.baseFee
-                    .baseFeeMode,
+                configParam.poolFees.baseFee,
+                false,
+                currentPoint,
                 createConfigAndPoolWithFirstBuyParam.tokenType,
                 quoteMintToken
             )
@@ -598,6 +609,11 @@ export class PoolService extends DynamicBondingCurveProgram {
             quoteMint
         )
 
+        const currentPoint = await getCurrentPoint(
+            this.connection,
+            poolConfigState.activationType
+        )
+
         // create first buy transaction
         let swapBuyTx: Transaction | undefined
         if (
@@ -608,7 +624,9 @@ export class PoolService extends DynamicBondingCurveProgram {
                 createPoolWithFirstBuyParam.firstBuyParam,
                 createPoolWithFirstBuyParam.createPoolParam.baseMint,
                 config,
-                poolConfigState.poolFees.baseFee.baseFeeMode,
+                poolConfigState.poolFees.baseFee,
+                false,
+                currentPoint,
                 tokenType,
                 quoteMint
             )
@@ -646,6 +664,11 @@ export class PoolService extends DynamicBondingCurveProgram {
             quoteMint
         )
 
+        const currentPoint = await getCurrentPoint(
+            this.connection,
+            poolConfigState.activationType
+        )
+
         // create partner first buy transaction
         let partnerSwapBuyTx: Transaction | undefined
         if (
@@ -674,7 +697,9 @@ export class PoolService extends DynamicBondingCurveProgram {
                 createPoolWithPartnerAndCreatorFirstBuyParam.createPoolParam
                     .baseMint,
                 config,
-                poolConfigState.poolFees.baseFee.baseFeeMode,
+                poolConfigState.poolFees.baseFee,
+                false,
+                currentPoint,
                 tokenType,
                 quoteMint
             )
@@ -708,7 +733,9 @@ export class PoolService extends DynamicBondingCurveProgram {
                 createPoolWithPartnerAndCreatorFirstBuyParam.createPoolParam
                     .baseMint,
                 config,
-                poolConfigState.poolFees.baseFee.baseFeeMode,
+                poolConfigState.poolFees.baseFee,
+                false,
+                currentPoint,
                 tokenType,
                 quoteMint
             )
@@ -742,27 +769,25 @@ export class PoolService extends DynamicBondingCurveProgram {
         // error checks
         validateSwapAmount(amountIn)
 
-        let currentPoint
-        if (poolConfigState.activationType === ActivationType.Slot) {
-            const currentSlot = await this.connection.getSlot()
-            currentPoint = new BN(currentSlot)
-        } else {
-            const currentSlot = await this.connection.getSlot()
-            const currentTime = await this.connection.getBlockTime(currentSlot)
-            currentPoint = new BN(currentTime)
-        }
+        const currentPoint = await getCurrentPoint(
+            this.connection,
+            poolConfigState.activationType
+        )
 
         // check if rate limiter is applied if:
         // 1. rate limiter mode
         // 2. swap direction is QuoteToBase
         // 3. current point is greater than activation point
         // 4. current point is less than activation point + maxLimiterDuration
-        const isRateLimiterApplied = checkRateLimiterApplied(
-            poolConfigState.poolFees.baseFee.baseFeeMode,
-            swapBaseForQuote,
+        const rateLimiterApplied = isRateLimiterApplied(
             currentPoint,
             poolState.activationPoint,
-            poolConfigState.poolFees.baseFee.secondFactor
+            swapBaseForQuote
+                ? TradeDirection.BaseToQuote
+                : TradeDirection.QuoteToBase,
+            poolConfigState.poolFees.baseFee.secondFactor,
+            poolConfigState.poolFees.baseFee.thirdFactor,
+            new BN(poolConfigState.poolFees.baseFee.firstFactor)
         )
 
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
@@ -805,7 +830,7 @@ export class PoolService extends DynamicBondingCurveProgram {
         }
 
         // add remaining accounts if rate limiter is applied
-        const remainingAccounts = isRateLimiterApplied
+        const remainingAccounts = rateLimiterApplied
             ? [
                   {
                       isSigner: false,
@@ -887,27 +912,25 @@ export class PoolService extends DynamicBondingCurveProgram {
 
         const poolConfigState = await this.state.getPoolConfig(poolState.config)
 
-        let currentPoint
-        if (poolConfigState.activationType === ActivationType.Slot) {
-            const currentSlot = await this.connection.getSlot()
-            currentPoint = new BN(currentSlot)
-        } else {
-            const currentSlot = await this.connection.getSlot()
-            const currentTime = await this.connection.getBlockTime(currentSlot)
-            currentPoint = new BN(currentTime)
-        }
+        const currentPoint = await getCurrentPoint(
+            this.connection,
+            poolConfigState.activationType
+        )
 
         // check if rate limiter is applied if:
         // 1. rate limiter mode
         // 2. swap direction is QuoteToBase
         // 3. current point is greater than activation point
         // 4. current point is less than activation point + maxLimiterDuration
-        const isRateLimiterApplied = checkRateLimiterApplied(
-            poolConfigState.poolFees.baseFee.baseFeeMode,
-            swapBaseForQuote,
+        const rateLimiterApplied = isRateLimiterApplied(
             currentPoint,
             poolState.activationPoint,
-            poolConfigState.poolFees.baseFee.secondFactor
+            swapBaseForQuote
+                ? TradeDirection.BaseToQuote
+                : TradeDirection.QuoteToBase,
+            poolConfigState.poolFees.baseFee.secondFactor,
+            poolConfigState.poolFees.baseFee.thirdFactor,
+            new BN(poolConfigState.poolFees.baseFee.firstFactor)
         )
 
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
@@ -955,7 +978,7 @@ export class PoolService extends DynamicBondingCurveProgram {
         }
 
         // add remaining accounts if rate limiter is applied
-        const remainingAccounts = isRateLimiterApplied
+        const remainingAccounts = rateLimiterApplied
             ? [
                   {
                       isSigner: false,
@@ -1013,7 +1036,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             config,
             swapBaseForQuote,
             amountIn,
-            slippageBps = 0,
+            slippageBps,
             hasReferral,
             currentPoint,
         } = swapQuoteParam
@@ -1042,7 +1065,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             swapMode,
             hasReferral,
             currentPoint,
-            slippageBps = 0,
+            slippageBps,
         } = swapQuote2Param
 
         switch (swapMode) {
