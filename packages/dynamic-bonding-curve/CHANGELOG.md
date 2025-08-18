@@ -12,6 +12,7 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 ### Changed
 
 - `swapQuote` function now returns `SwapResult` instead of `QuoteResult`
+- `getAccountData` function now requires a `commitment` parameter
 
 ## [1.3.6] - 2025-08-08
 

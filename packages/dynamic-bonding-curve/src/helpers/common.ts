@@ -102,6 +102,7 @@ export async function getAccountData<T>(
         commitment
     )) as T
 }
+
 /**
  * Get creation timestamp for an account
  * @param accountAddress - The address of the account
