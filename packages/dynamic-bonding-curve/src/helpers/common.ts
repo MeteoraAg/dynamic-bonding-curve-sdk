@@ -45,6 +45,7 @@ import { Commitment, Connection, PublicKey } from '@solana/web3.js'
 import type { DynamicBondingCurve } from '../idl/dynamic-bonding-curve/idl'
 import { Program } from '@coral-xyz/anchor'
 import { bpsToFeeNumerator, convertToLamports, fromDecimalToBN } from './utils'
+import { getTokenDecimals } from './token'
 
 /**
  * Get the first key
@@ -1324,4 +1325,21 @@ export async function getCurrentPoint(
         const currentTime = await connection.getBlockTime(currentSlot)
         return new BN(currentTime)
     }
+}
+
+/**
+ * Prepare the swap amount param
+ * @param amount - The amount to swap
+ * @param mintAddress - The mint address
+ * @param connection - The Solana connection instance
+ * @returns The amount in lamports
+ */
+export async function prepareSwapAmountParam(
+    amount: number,
+    mintAddress: PublicKey,
+    connection: Connection
+): Promise<BN> {
+    const mintTokenDecimals = await getTokenDecimals(connection, mintAddress)
+
+    return convertToLamports(amount, mintTokenDecimals)
 }

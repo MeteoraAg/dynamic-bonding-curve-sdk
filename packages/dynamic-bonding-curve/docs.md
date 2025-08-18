@@ -1511,6 +1511,8 @@ An object of transactions (containing createConfigTx, createPoolTx, and swapBuyT
 #### Example
 
 ```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
 const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
     payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     config: new PublicKey('1234567890abcdefghijklmnopqrstuvwxyz'),
@@ -1589,7 +1591,7 @@ const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
     },
     firstBuyParam: {
         buyer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-        buyAmount: new BN(0.1 * 1e9),
+        buyAmount: amountIn,
         minimumAmountOut: new BN(1),
         referralTokenAccount: null,
     },
@@ -1651,6 +1653,8 @@ An object of transactions (containing createPoolTx and swapBuyTx) that requires 
 #### Example
 
 ```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
 const transaction = await client.pool.createPoolWithFirstBuy({
     createPoolParam: {
         baseMint: new PublicKey('0987654321zyxwvutsrqponmlkjihgfedcba'),
@@ -1663,7 +1667,7 @@ const transaction = await client.pool.createPoolWithFirstBuy({
     },
     firstBuyParam: {
         buyer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-        buyAmount: new BN(0.1 * 1e9),
+        buyAmount: amountIn,
         minimumAmountOut: new BN(1),
         referralTokenAccount: null,
     },
@@ -1734,6 +1738,17 @@ An object of transactions (containing createPoolTx, partnerSwapBuyTx, and creato
 #### Example
 
 ```typescript
+const creatorAmountIn = await prepareSwapAmountParam(
+    0.5,
+    NATIVE_MINT,
+    connection
+)
+const partnerAmountIn = await prepareSwapAmountParam(
+    0.1,
+    NATIVE_MINT,
+    connection
+)
+
 const transaction = await client.pool.createPoolWithPartnerAndCreatorFirstBuy({
     createPoolParam: {
         baseMint: new PublicKey('0987654321zyxwvutsrqponmlkjihgfedcba'),
@@ -1747,14 +1762,14 @@ const transaction = await client.pool.createPoolWithPartnerAndCreatorFirstBuy({
     partnerFirstBuyParam: {
         partner: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
         receiver: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-        buyAmount: new BN(0.1 * 1e9),
+        buyAmount: partnerAmountIn,
         minimumAmountOut: new BN(1),
         referralTokenAccount: null,
     },
     creatorFirstBuyParam: {
         creator: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
         receiver: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-        buyAmount: new BN(0.1 * 1e9),
+        buyAmount: creatorAmountIn,
         minimumAmountOut: new BN(1),
         referralTokenAccount: null,
     },
@@ -1803,6 +1818,28 @@ A transaction that can be signed and sent to the network.
 #### Example
 
 ```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
+const virtualPoolState = await client.state.getPool(poolAddress)
+const poolConfigState = await client.state.getPoolConfig(
+    virtualPoolState.config
+)
+const currentPoint = await getCurrentPoint(
+    connection,
+    poolConfigState.activationType
+)
+
+const quote = await client.pool.swapQuote({
+    virtualPool: virtualPoolState.account,
+    config: poolConfigState,
+    swapBaseForQuote: false,
+    amountIn,
+    slippageBps: 50,
+    hasReferral: false,
+    currentPoint: new BN(currentTime),
+    swapMode: SwapMode.PartialFill,
+})
+
 const transaction = await client.pool.swap({
     owner: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     amountIn: new BN(1000000000),
@@ -1825,6 +1862,73 @@ const transaction = await client.pool.swap({
 - If the transaction fails with "insufficient balance", check that you have enough tokens plus fees for the transaction.
 - The pool address can be derived using `deriveDbcPoolAddress`.
 - The `payer` parameter is optional. If not provided, the owner will be used as the payer to fund ATA creation.
+
+---
+
+### swapQuote
+
+Gets the exact swap out quotation in between quote and base swaps (only ExactIn).
+
+#### Function
+
+```typescript
+swapQuote(swapQuoteParam: SwapQuoteParam): Promise<SwapResult>
+```
+
+#### Parameters
+
+```typescript
+interface SwapQuoteParam {
+    virtualPool: VirtualPool // The virtual pool address
+    config: PoolConfig // The pool config address
+    swapBaseForQuote: boolean // True for base->quote, false for quote->base
+    amountIn: BN // The amount of tokens to swap in
+    slippageBps?: number // The slippage in bps
+    hasReferral: boolean // Whether to include a referral fee
+    currentPoint: BN // The current point
+}
+```
+
+#### Returns
+
+The exact swap out quotation in between quote and base swaps (only ExactIn).
+
+#### Example
+
+```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
+const virtualPoolState = await client.state.getPool(poolAddress)
+const poolConfigState = await client.state.getPoolConfig(
+    virtualPoolState.config
+)
+const currentPoint = await getCurrentPoint(
+    connection,
+    poolConfigState.activationType
+)
+
+const quote = await client.pool.swapQuote({
+    virtualPool: virtualPoolState,
+    config: poolConfigState,
+    swapBaseForQuote: false,
+    amountIn,
+    slippageBps: 50,
+    hasReferral: false,
+    currentPoint: new BN(currentTime),
+})
+```
+
+#### Notes
+
+- The `swapMode` parameter determines the type of swap:
+    - `SwapMode.ExactIn`: Swap exact input amount
+    - `SwapMode.PartialFill`: Allow partial fills
+    - `SwapMode.ExactOut`: Swap for exact output amount
+- The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
+- The `slippageBps` parameter protects against slippage. Set it to a value slightly lower than the expected output.
+- The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+
+---
 
 ---
 
@@ -1873,17 +1977,22 @@ A transaction that can be signed and sent to the network.
 #### Example
 
 ```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
 const virtualPoolState = await client.state.getPool(poolAddress)
 const poolConfigState = await client.state.getPoolConfig(
     virtualPoolState.config
 )
-const currentSlot = await connection.getSlot()
+const currentPoint = await getCurrentPoint(
+    connection,
+    poolConfigState.activationType
+)
 
 const quote = await client.pool.swapQuote2({
     virtualPool: virtualPoolState.account,
     config: poolConfigState,
     swapBaseForQuote: false,
-    amountIn: new BN('10000000000'),
+    amountIn,
     slippageBps: 50,
     hasReferral: false,
     currentPoint: new BN(currentTime),
@@ -1891,7 +2000,7 @@ const quote = await client.pool.swapQuote2({
 })
 
 const transaction = await client.pool.swap2({
-    amountIn: new BN('10000000000'),
+    amountIn,
     minimumAmountOut: quote.minimumAmountOut,
     swapMode: SwapMode.PartialFill,
     swapBaseForQuote: false,
@@ -1959,28 +2068,22 @@ The exact swap out quotation in between quote and base swaps with specific swap 
 #### Example
 
 ```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
 const virtualPoolState = await client.state.getPool(poolAddress)
 const poolConfigState = await client.state.getPoolConfig(
     virtualPoolState.config
 )
-
-let currentPoint: BN
-if (poolConfigState.activationType === 0) {
-    // Slot
-    const currentSlot = await connection.getSlot()
-    currentPoint = new BN(currentSlot)
-} else {
-    // Timestamp
-    const currentSlot = await connection.getSlot()
-    const currentTime = await connection.getBlockTime(currentSlot)
-    currentPoint = new BN(currentTime || 0)
-}
+const currentPoint = await getCurrentPoint(
+    connection,
+    poolConfigState.activationType
+)
 
 const quote = await client.pool.swapQuote2({
     virtualPool: virtualPoolState.account,
     config: poolConfigState,
     swapBaseForQuote: false,
-    amountIn: new BN('10000000000'),
+    amountIn,
     slippageBps: 50,
     hasReferral: false,
     currentPoint: new BN(currentTime),
