@@ -138,7 +138,7 @@ interface CreateConfigParam {
         numberOfPeriod: BN // The number of periods of the vesting
         cliffUnlockAmount: BN // The amount of tokens that will be unlocked when vesting starts
     }
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenSupply: {
         // Optional token supply
         preMigrationTokenSupply: BN // The token supply before migration
@@ -599,7 +599,7 @@ interface BuildCurveParam {
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
     creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
@@ -747,7 +747,7 @@ interface BuildCurveWithMarketCapParam {
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
     creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
@@ -896,7 +896,7 @@ interface BuildCurveWithTwoSegmentsParam {
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
     creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
@@ -1045,7 +1045,7 @@ interface BuildCurveWithLiquidityWeightsParam {
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
     creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
@@ -1270,7 +1270,7 @@ interface CreateConfigAndPoolParam {
         numberOfPeriod: BN // The number of periods
         cliffUnlockAmount: BN // The amount of tokens that will be unlocked at the cliff
     }
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenSupply: {
         // Optional token supply
         preMigrationTokenSupply: BN // The token supply before migration
@@ -1461,7 +1461,7 @@ interface CreateConfigAndPoolWithFirstBuyParam {
         numberOfPeriod: BN // The number of periods
         cliffUnlockAmount: BN // The amount of tokens that will be unlocked at the cliff
     }
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenSupply: {
         // Optional token supply
         preMigrationTokenSupply: BN // The token supply before migration
