@@ -1,9 +1,13 @@
 import { Commitment, Connection, PublicKey } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
 import {
+    createMetLockProgram,
     createProgramAccountFilter,
+    deriveBaseKeyForLocker,
     deriveDammV1MigrationMetadataAddress,
+    deriveEscrow,
     getAccountData,
+    getTotalSupplyFromCurve,
 } from '../helpers'
 import {
     LockEscrow,
@@ -311,5 +315,104 @@ export class StateService extends DynamicBondingCurveProgram {
             )
 
         return metadata
+    }
+
+    async getCirculatingSupply(
+        configAddress: PublicKey | string,
+        poolAddress: PublicKey | string,
+        currentPoint: BN
+    ) {
+        // circulating supply = totalTokenSupply - amount migrated into the lp - amount locked in the escrow
+        const poolConfigState = await this.getPoolConfig(configAddress)
+
+        // amount sold in the curve
+        const swapAmount = poolConfigState.swapBaseAmount
+
+        // amount migrated into the lp
+        let migrationAmount = poolConfigState.migrationBaseThreshold
+        if (
+            poolConfigState.partnerLockedLpPercentage === 0 &&
+            poolConfigState.creatorLockedLpPercentage === 0
+        ) {
+            migrationAmount = new BN(0)
+        }
+
+        let totalTokenSupply = poolConfigState.postMigrationTokenSupply
+        if (!poolConfigState.fixedTokenSupplyFlag) {
+            totalTokenSupply = getTotalSupplyFromCurve(
+                poolConfigState.migrationQuoteThreshold,
+                poolConfigState.sqrtStartPrice,
+                poolConfigState.curve,
+                poolConfigState.lockedVestingConfig,
+                poolConfigState.migrationOption,
+                new BN(0),
+                poolConfigState.migrationFeePercentage
+            )
+        }
+
+        const metLockProgram = createMetLockProgram(this.connection)
+
+        // amount locked in the escrow
+        const base = deriveBaseKeyForLocker(
+            poolAddress instanceof PublicKey
+                ? poolAddress
+                : new PublicKey(poolAddress)
+        )
+        const escrow = deriveEscrow(base)
+
+        const escrowAccount =
+            await metLockProgram.account.vestingEscrow.fetchNullable(escrow)
+
+        let amountLockedInEscrow = new BN(0)
+        if (escrowAccount) {
+            // total_locked_vesting_amount = cliff_unlock_amount + (amount_per_period * number_of_period)
+            const cliffUnlockAmount = escrowAccount.cliffUnlockAmount
+            const amountPerPeriod = escrowAccount.amountPerPeriod
+            const numberOfPeriod = escrowAccount.numberOfPeriod
+
+            const totalLockedAmount = cliffUnlockAmount.add(
+                amountPerPeriod.mul(numberOfPeriod)
+            )
+
+            let releasedAmount = new BN(0)
+
+            // if cliff time has passed, cliffUnlockAmount is circulating
+            if (currentPoint.gte(escrowAccount.cliffTime)) {
+                releasedAmount = releasedAmount.add(cliffUnlockAmount)
+            }
+
+            // calculate how many periods have passed since vesting started
+            if (currentPoint.gt(escrowAccount.vestingStartTime)) {
+                const timeElapsed = currentPoint.sub(
+                    escrowAccount.vestingStartTime
+                )
+                const frequency = escrowAccount.frequency
+
+                const periodsPassed = timeElapsed.div(frequency)
+                const actualPeriodsPassed = BN.min(
+                    periodsPassed,
+                    numberOfPeriod
+                )
+
+                // add the amount released from completed periods
+                const periodicReleasedAmount =
+                    amountPerPeriod.mul(actualPeriodsPassed)
+                releasedAmount = releasedAmount.add(periodicReleasedAmount)
+            }
+
+            // amount still locked = total locked - released amount
+            amountLockedInEscrow = totalLockedAmount.sub(releasedAmount)
+        }
+
+        const circulatingSupply = totalTokenSupply
+            .sub(migrationAmount)
+            .sub(amountLockedInEscrow)
+
+        return {
+            circulatingSupply,
+            totalTokenSupply,
+            migrationAmount,
+            amountLockedInEscrow,
+        }
     }
 }
