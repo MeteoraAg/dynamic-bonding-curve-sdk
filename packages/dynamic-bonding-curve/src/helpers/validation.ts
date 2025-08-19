@@ -48,7 +48,12 @@ import {
     MIN_FEE_NUMERATOR,
 } from '../constants'
 import { bpsToFeeNumerator } from './utils'
-import { getFeeNumeratorOnRateLimiter } from '../math/rateLimiter'
+import {
+    getFeeNumeratorFromIncludedAmount,
+    getMaxBaseFeeNumerator,
+    getMinBaseFeeNumerator,
+    toNumerator,
+} from '../math'
 
 /**
  * Validate the pool fees
@@ -75,7 +80,14 @@ export function validatePoolFees(
             poolFees.baseFee.baseFeeMode === BaseFeeMode.FeeSchedulerLinear ||
             poolFees.baseFee.baseFeeMode === BaseFeeMode.FeeSchedulerExponential
         ) {
-            if (!validateFeeScheduler(poolFees.baseFee)) {
+            if (
+                !validateFeeScheduler(
+                    poolFees.baseFee.firstFactor,
+                    new BN(poolFees.baseFee.secondFactor),
+                    new BN(poolFees.baseFee.thirdFactor),
+                    poolFees.baseFee.cliffFeeNumerator
+                )
+            ) {
                 return false
             }
         }
@@ -84,7 +96,10 @@ export function validatePoolFees(
         if (poolFees.baseFee.baseFeeMode === BaseFeeMode.RateLimiter) {
             if (
                 !validateFeeRateLimiter(
-                    poolFees.baseFee,
+                    poolFees.baseFee.cliffFeeNumerator,
+                    new BN(poolFees.baseFee.firstFactor),
+                    new BN(poolFees.baseFee.secondFactor),
+                    new BN(poolFees.baseFee.thirdFactor),
                     collectFeeMode,
                     activationType
                 )
@@ -98,66 +113,43 @@ export function validatePoolFees(
 }
 
 /**
- * Validate the fee scheduler parameters
- * @param feeScheduler - The fee scheduler parameters
- * @returns true if the fee scheduler parameters are valid, false otherwise
+ * Validate fee scheduler parameters
+ * @param numberOfPeriod Number of periods
+ * @param periodFrequency Period frequency
+ * @param reductionFactor Reduction factor
+ * @param cliffFeeNumerator Cliff fee numerator
+ * @returns Validation result
  */
-export function validateFeeScheduler(feeScheduler: BaseFee): boolean {
-    if (!feeScheduler) return true
-
-    // if any parameter is set, all must be set
+export function validateFeeScheduler(
+    numberOfPeriod: number,
+    periodFrequency: BN,
+    reductionFactor: BN,
+    cliffFeeNumerator: BN
+): boolean {
     if (
-        feeScheduler.firstFactor !== 0 ||
-        feeScheduler.secondFactor.gt(new BN(0)) ||
-        feeScheduler.thirdFactor.gt(new BN(0))
+        !periodFrequency.eq(new BN(0)) ||
+        numberOfPeriod !== 0 ||
+        !reductionFactor.eq(new BN(0))
     ) {
         if (
-            feeScheduler.firstFactor === 0 ||
-            feeScheduler.secondFactor.eq(new BN(0)) ||
-            feeScheduler.thirdFactor.eq(new BN(0))
+            numberOfPeriod === 0 ||
+            periodFrequency.eq(new BN(0)) ||
+            reductionFactor.eq(new BN(0))
         ) {
             return false
         }
     }
 
-    // validate cliff fee numerator
-    if (feeScheduler.cliffFeeNumerator.lte(new BN(0))) {
-        return false
-    }
-
-    // validate fee scheduler mode
-    if (
-        feeScheduler.baseFeeMode !== BaseFeeMode.FeeSchedulerLinear &&
-        feeScheduler.baseFeeMode !== BaseFeeMode.FeeSchedulerExponential
-    ) {
-        return false
-    }
-
-    // for linear mode, validate that the final fee won't be negative
-    if (feeScheduler.baseFeeMode === BaseFeeMode.FeeSchedulerLinear) {
-        const finalFee = feeScheduler.cliffFeeNumerator.sub(
-            feeScheduler.secondFactor.mul(new BN(feeScheduler.firstFactor))
-        )
-        if (finalFee.lt(new BN(0))) {
-            return false
-        }
-    }
-
-    // validate min and max fee numerators
-    const minFeeNumerator = feeScheduler.cliffFeeNumerator.sub(
-        feeScheduler.secondFactor.mul(new BN(feeScheduler.firstFactor))
+    const minFeeNumerator = getMinBaseFeeNumerator(
+        cliffFeeNumerator,
+        numberOfPeriod,
+        periodFrequency,
+        reductionFactor,
+        BaseFeeMode.FeeSchedulerLinear // Use linear for validation
     )
-    const maxFeeNumerator = feeScheduler.cliffFeeNumerator
+    const maxFeeNumerator = getMaxBaseFeeNumerator(cliffFeeNumerator)
 
-    // validate against fee denominator
-    if (
-        minFeeNumerator.gte(new BN(FEE_DENOMINATOR)) ||
-        maxFeeNumerator.gte(new BN(FEE_DENOMINATOR))
-    ) {
-        return false
-    }
-
-    // validate against min and max fee numerators
+    // Validate fee fractions - check if within valid range
     if (
         minFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
         maxFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
@@ -169,89 +161,89 @@ export function validateFeeScheduler(feeScheduler: BaseFee): boolean {
 }
 
 /**
- * Validate the fee rate limiter parameters
- * @param feeRateLimiter - The fee rate limiter parameters
- * @param collectFeeMode - The collect fee mode
- * @param activationType - The activation type
- * @returns true if the fee rate limiter parameters are valid, false otherwise
+ * Validate rate limiter parameters
+ * @param cliffFeeNumerator - Cliff fee numerator
+ * @param feeIncrementBps - Fee increment bps
+ * @param maxLimiterDuration - Max limiter duration
+ * @param referenceAmount - Reference amount
+ * @param collectFeeMode - Collect fee mode
+ * @param activationType - Activation type (slot or timestamp)
+ * @returns Validation result
  */
 export function validateFeeRateLimiter(
-    feeRateLimiter: BaseFee,
+    cliffFeeNumerator: BN,
+    feeIncrementBps: BN,
+    maxLimiterDuration: BN,
+    referenceAmount: BN,
     collectFeeMode: CollectFeeMode,
     activationType: ActivationType
 ): boolean {
-    if (!feeRateLimiter) return true
-
-    // can only be applied in quote token collect fee mode
+    // Can only be applied in quote token collect fee mode
     if (collectFeeMode !== CollectFeeMode.QuoteToken) {
         return false
     }
 
-    // check if it's a zero rate limiter
-    if (
-        !feeRateLimiter.firstFactor &&
-        !feeRateLimiter.secondFactor &&
-        !feeRateLimiter.thirdFactor
-    ) {
+    const isZeroRateLimiter =
+        referenceAmount.eq(new BN(0)) &&
+        maxLimiterDuration.eq(new BN(0)) &&
+        feeIncrementBps.eq(new BN(0))
+
+    if (isZeroRateLimiter) {
         return true
     }
 
-    // check if it's a non-zero rate limiter
-    if (
-        !feeRateLimiter.firstFactor ||
-        !feeRateLimiter.secondFactor ||
-        !feeRateLimiter.thirdFactor
-    ) {
+    const isNonZeroRateLimiter =
+        referenceAmount.gt(new BN(0)) &&
+        maxLimiterDuration.gt(new BN(0)) &&
+        feeIncrementBps.gt(new BN(0))
+
+    if (!isNonZeroRateLimiter) {
         return false
     }
 
-    // validate max limiter duration based on activation type
-    const maxDuration =
+    const maxLimiterDurationLimit =
         activationType === ActivationType.Slot
-            ? MAX_RATE_LIMITER_DURATION_IN_SLOTS
-            : MAX_RATE_LIMITER_DURATION_IN_SECONDS
+            ? new BN(MAX_RATE_LIMITER_DURATION_IN_SLOTS)
+            : new BN(MAX_RATE_LIMITER_DURATION_IN_SECONDS)
 
-    if (feeRateLimiter.secondFactor.gt(new BN(maxDuration))) {
+    if (maxLimiterDuration.gt(maxLimiterDurationLimit)) {
         return false
     }
 
-    // validate fee increment numerator
-    const feeIncrementNumerator = bpsToFeeNumerator(feeRateLimiter.firstFactor)
+    const feeIncrementNumerator = toNumerator(
+        feeIncrementBps,
+        new BN(FEE_DENOMINATOR)
+    )
     if (feeIncrementNumerator.gte(new BN(FEE_DENOMINATOR))) {
         return false
     }
 
-    // validate cliff fee numerator
+    // That condition is redundant, but it is safe to add this
     if (
-        feeRateLimiter.cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
-        feeRateLimiter.cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
+        cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
+        cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
     ) {
         return false
     }
 
-    // validate min and max fee numerators based on amounts
-    const minFeeNumerator = getFeeNumeratorOnRateLimiter(
-        feeRateLimiter.cliffFeeNumerator,
-        feeRateLimiter.thirdFactor,
-        new BN(feeRateLimiter.firstFactor),
+    // Validate max fee (more amount, then more fee)
+    const minFeeNumerator = getFeeNumeratorFromIncludedAmount(
+        cliffFeeNumerator,
+        referenceAmount,
+        feeIncrementBps,
         new BN(0)
     )
-
-    const maxFeeNumerator = getFeeNumeratorOnRateLimiter(
-        feeRateLimiter.cliffFeeNumerator,
-        feeRateLimiter.thirdFactor,
-        new BN(feeRateLimiter.firstFactor),
+    const maxFeeNumerator = getFeeNumeratorFromIncludedAmount(
+        cliffFeeNumerator,
+        referenceAmount,
+        feeIncrementBps,
         new BN(Number.MAX_SAFE_INTEGER)
     )
 
-    if (
-        minFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
-        maxFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
-    ) {
-        return false
-    }
-
-    return true
+    return (
+        minFeeNumerator.gte(new BN(MIN_FEE_NUMERATOR)) &&
+        maxFeeNumerator.lte(new BN(MAX_FEE_NUMERATOR))
+    )
 }
 
 /**

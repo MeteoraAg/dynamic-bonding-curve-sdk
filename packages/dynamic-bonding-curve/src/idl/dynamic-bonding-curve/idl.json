@@ -2,7 +2,7 @@
   "address": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
   "metadata": {
     "name": "dynamic_bonding_curve",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -659,7 +659,7 @@
     {
       "name": "create_claim_fee_operator",
       "docs": [
-        "ADMIN FUNCTIONS ///"
+        "ADMIN FUNCTIONS_ ///"
       ],
       "discriminator": [
         169,
@@ -2997,6 +2997,156 @@
       ]
     },
     {
+      "name": "swap2",
+      "discriminator": [
+        65,
+        75,
+        63,
+        76,
+        235,
+        91,
+        91,
+        136
+      ],
+      "accounts": [
+        {
+          "name": "pool_authority",
+          "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
+        },
+        {
+          "name": "config",
+          "docs": [
+            "config key"
+          ],
+          "relations": [
+            "pool"
+          ]
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "input_token_account",
+          "docs": [
+            "The user token account for input token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "output_token_account",
+          "docs": [
+            "The user token account for output token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "base_vault",
+          "docs": [
+            "The vault token account for base token"
+          ],
+          "writable": true,
+          "relations": [
+            "pool"
+          ]
+        },
+        {
+          "name": "quote_vault",
+          "docs": [
+            "The vault token account for quote token"
+          ],
+          "writable": true,
+          "relations": [
+            "pool"
+          ]
+        },
+        {
+          "name": "base_mint",
+          "docs": [
+            "The mint of base token"
+          ]
+        },
+        {
+          "name": "quote_mint",
+          "docs": [
+            "The mint of quote token"
+          ]
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "The user performing the swap"
+          ],
+          "signer": true
+        },
+        {
+          "name": "token_base_program",
+          "docs": [
+            "Token base program"
+          ]
+        },
+        {
+          "name": "token_quote_program",
+          "docs": [
+            "Token quote program"
+          ]
+        },
+        {
+          "name": "referral_token_account",
+          "docs": [
+            "referral token account"
+          ],
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "SwapParameters2"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "transfer_pool_creator",
       "discriminator": [
         20,
@@ -3666,6 +3816,19 @@
       ]
     },
     {
+      "name": "EvtSwap2",
+      "discriminator": [
+        189,
+        66,
+        51,
+        168,
+        38,
+        80,
+        117,
+        153
+      ]
+    },
+    {
       "name": "EvtUpdatePoolCreator",
       "discriminator": [
         107,
@@ -3943,6 +4106,26 @@
       "code": 6044,
       "name": "InvalidMigratedPoolFee",
       "msg": "Invalid migrated pool fee params"
+    },
+    {
+      "code": 6045,
+      "name": "UndeterminedError",
+      "msg": "Undertermined error"
+    },
+    {
+      "code": 6046,
+      "name": "RateLimiterNotSupported",
+      "msg": "Rate limiter not supported"
+    },
+    {
+      "code": 6047,
+      "name": "AmountLeftIsNotZero",
+      "msg": "Amount left is not zero"
+    },
+    {
+      "code": 6048,
+      "name": "NextSqrtPriceIsSmallerThanStartSqrtPrice",
+      "msg": "Next sqrt price is smaller than start sqrt price"
     }
   ],
   "types": [
@@ -4827,6 +5010,58 @@
           },
           {
             "name": "amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "current_timestamp",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvtSwap2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "trade_direction",
+            "type": "u8"
+          },
+          {
+            "name": "has_referral",
+            "type": "bool"
+          },
+          {
+            "name": "swap_parameters",
+            "type": {
+              "defined": {
+                "name": "SwapParameters2"
+              }
+            }
+          },
+          {
+            "name": "swap_result",
+            "type": {
+              "defined": {
+                "name": "SwapResult2"
+              }
+            }
+          },
+          {
+            "name": "quote_reserve_amount",
+            "type": "u64"
+          },
+          {
+            "name": "migration_threshold",
             "type": "u64"
           },
           {
@@ -5791,6 +6026,35 @@
       }
     },
     {
+      "name": "SwapParameters2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount_0",
+            "docs": [
+              "When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "amount_1",
+            "docs": [
+              "When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "swap_mode",
+            "docs": [
+              "Swap mode, refer [SwapMode]"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
       "name": "SwapResult",
       "docs": [
         "Encodes all results of swapping"
@@ -5800,6 +6064,46 @@
         "fields": [
           {
             "name": "actual_input_amount",
+            "type": "u64"
+          },
+          {
+            "name": "output_amount",
+            "type": "u64"
+          },
+          {
+            "name": "next_sqrt_price",
+            "type": "u128"
+          },
+          {
+            "name": "trading_fee",
+            "type": "u64"
+          },
+          {
+            "name": "protocol_fee",
+            "type": "u64"
+          },
+          {
+            "name": "referral_fee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SwapResult2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "included_fee_input_amount",
+            "type": "u64"
+          },
+          {
+            "name": "excluded_fee_input_amount",
+            "type": "u64"
+          },
+          {
+            "name": "amount_left",
             "type": "u64"
           },
           {

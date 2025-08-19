@@ -2,6 +2,22 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.3.7] - 2025-08-14
+
+### Added
+
+- `swap2` function with `swapMode` parameter
+- `swapQuote2` function with `swapMode` parameter
+- `prepareSwapAmountParam` helper function
+- `getCurrentPoint` helper function
+
+### Changed
+
+- `swapQuote` function now returns `SwapResult` instead of `QuoteResult`
+- `getAccountData` function now requires a `commitment` parameter
+- Deprecated `swapQuoteExactIn` function
+- Deprecated `swapQuoteExactOut` function
+
 ## [1.3.6] - 2025-08-08
 
 ### Changed

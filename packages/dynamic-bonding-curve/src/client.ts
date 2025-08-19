@@ -1,9 +1,11 @@
 import { Commitment, Connection } from '@solana/web3.js'
-import { PoolService } from './services/pool'
-import { MigrationService } from './services/migration'
-import { PartnerService } from './services/partner'
-import { CreatorService } from './services/creator'
-import { StateService } from './services/state'
+import {
+    CreatorService,
+    MigrationService,
+    PartnerService,
+    PoolService,
+    StateService,
+} from './services'
 
 export class DynamicBondingCurveClient {
     public pool: PoolService

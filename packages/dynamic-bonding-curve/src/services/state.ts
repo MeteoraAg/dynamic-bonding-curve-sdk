@@ -33,7 +33,8 @@ export class StateService extends DynamicBondingCurveProgram {
         return getAccountData<PoolConfig>(
             configAddress,
             'poolConfig',
-            this.program
+            this.program,
+            this.commitment
         )
     }
 
@@ -66,7 +67,8 @@ export class StateService extends DynamicBondingCurveProgram {
         return getAccountData<VirtualPool>(
             poolAddress,
             'virtualPool',
-            this.program
+            this.program,
+            this.commitment
         )
     }
 
