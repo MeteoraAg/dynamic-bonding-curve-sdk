@@ -2290,7 +2290,7 @@ const transaction = await client.migration.migrateToDammV1({
         - virtual_pool must have matching base_vault and quote_vault
         - virtual_pool must have a matching config
         - migration_metadata must have a matching virtual_pool
-- You can get the dammConfig key from the [README.md](./README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
 
 ---
 
@@ -2333,7 +2333,7 @@ const transaction = await client.migration.lockDammV1LpToken({
 **Notes**
 
 - This function is called when the `creatorLockedLpPercentage` or `partnerLockedLpPercentage` is > 0.
-- You can get the dammConfig key from the [README.md](./README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
 
 ---
 
@@ -2376,7 +2376,7 @@ const transaction = await client.migration.claimDammV1LpToken({
 **Notes**
 
 - This function is called when the `creatorLpPercentage` or `partnerLpPercentage` is > 0.
-- You can get the dammConfig key from the [README.md](./README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
 
 ---
 
@@ -2473,7 +2473,7 @@ const transaction = await client.migration.migrateToDammV2({
         - migration_metadata must have a matching virtual_pool
         - first_position_nft_mint must not equal second_position_nft_mint
     7. Exactly one remaining account must be provided (for the DAMM V2 config)
-- You can get the dammConfig key from the [README.md](./README.md), or you can use `DAMM_V2_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V2_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
 
 ---
 
