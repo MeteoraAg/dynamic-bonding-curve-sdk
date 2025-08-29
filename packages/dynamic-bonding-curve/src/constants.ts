@@ -3,7 +3,9 @@ import { PublicKey } from '@solana/web3.js'
 
 // Curve + Math constants
 export const OFFSET: number = 64
+export const U128_MAX = new BN('340282366920938463463374607431768211455')
 export const U64_MAX: BN = new BN('18446744073709551615')
+export const U16_MAX = 65535
 export const MIN_SQRT_PRICE: BN = new BN('4295048016')
 export const MAX_SQRT_PRICE: BN = new BN('79226673521066979257578248091')
 
@@ -20,6 +22,7 @@ export const PARTNER_SURPLUS_SHARE = 80 // 80%
 export const SWAP_BUFFER_PERCENTAGE = 25 // 25%
 export const MAX_MIGRATION_FEE_PERCENTAGE = 50 // 50%
 export const MAX_CREATOR_MIGRATION_FEE_PERCENTAGE = 100 // 100%
+export const MAX_SWALLOW_PERCENTAGE = 20 // 20%
 
 export const MAX_RATE_LIMITER_DURATION_IN_SECONDS = 43200 // 12 hours
 export const MAX_RATE_LIMITER_DURATION_IN_SLOTS = 108000 // 12 hours
@@ -55,6 +58,8 @@ export const DYNAMIC_FEE_FILTER_PERIOD_DEFAULT = 10 // 10 seconds
 export const DYNAMIC_FEE_DECAY_PERIOD_DEFAULT = 120 // 120 seconds
 export const DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT = 5000 // 50%
 export const MAX_DYNAMIC_FEE_PERCENTAGE = 20 // 20% of base fee
+export const DYNAMIC_FEE_SCALING_FACTOR = new BN(100_000_000_000)
+export const DYNAMIC_FEE_ROUNDING_OFFSET = new BN(99_999_999_999)
 
 export const BIN_STEP_BPS_DEFAULT = 1
 //  bin_step << 64 / BASIS_POINT_MAX

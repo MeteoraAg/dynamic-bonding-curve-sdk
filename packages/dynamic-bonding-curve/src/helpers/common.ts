@@ -24,7 +24,6 @@ import {
     FEE_DENOMINATOR,
     MAX_FEE_BPS,
     MAX_FEE_NUMERATOR,
-    MAX_MIGRATION_FEE_PERCENTAGE,
     MAX_PRICE_CHANGE_BPS_DEFAULT,
     MAX_RATE_LIMITER_DURATION_IN_SECONDS,
     MAX_RATE_LIMITER_DURATION_IN_SLOTS,
@@ -36,15 +35,17 @@ import {
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
 import {
+    getDeltaAmountBaseUnsigned,
     getDeltaAmountQuoteUnsigned,
     getInitialLiquidityFromDeltaBase,
     getInitialLiquidityFromDeltaQuote,
     getNextSqrtPriceFromInput,
 } from '../math/curve'
-import { Connection, PublicKey } from '@solana/web3.js'
+import { Commitment, Connection, PublicKey } from '@solana/web3.js'
 import type { DynamicBondingCurve } from '../idl/dynamic-bonding-curve/idl'
 import { Program } from '@coral-xyz/anchor'
 import { bpsToFeeNumerator, convertToLamports, fromDecimalToBN } from './utils'
+import { getTokenDecimals } from './token'
 
 /**
  * Get the first key
@@ -82,19 +83,25 @@ export function getSecondKey(key1: PublicKey, key2: PublicKey) {
  * Generic account fetch helper
  * @param accountAddress - The address of the account to fetch
  * @param accountType - The type of account to fetch from program.account
+ * @param program - The program instance
+ * @param commitment - The commitment level
  * @returns The fetched account data
  */
 export async function getAccountData<T>(
     accountAddress: PublicKey | string,
     accountType: keyof Program<DynamicBondingCurve>['account'],
-    program: Program<DynamicBondingCurve>
+    program: Program<DynamicBondingCurve>,
+    commitment: Commitment
 ): Promise<T> {
     const address =
         accountAddress instanceof PublicKey
             ? accountAddress
             : new PublicKey(accountAddress)
 
-    return (await program.account[accountType].fetchNullable(address)) as T
+    return (await program.account[accountType].fetchNullable(
+        address,
+        commitment
+    )) as T
 }
 
 /**
@@ -268,45 +275,25 @@ export function getBaseTokenForSwap(
     for (let i = 0; i < curve.length; i++) {
         const lowerSqrtPrice = i == 0 ? sqrtStartPrice : curve[i - 1].sqrtPrice
         if (curve[i].sqrtPrice && curve[i].sqrtPrice.gt(sqrtMigrationPrice)) {
-            const deltaAmount = getDeltaAmountBase(
+            const deltaAmount = getDeltaAmountBaseUnsigned(
                 lowerSqrtPrice,
                 sqrtMigrationPrice,
-                curve[i].liquidity
+                curve[i].liquidity,
+                Rounding.Up
             )
             totalAmount = totalAmount.add(deltaAmount)
             break
         } else {
-            const deltaAmount = getDeltaAmountBase(
+            const deltaAmount = getDeltaAmountBaseUnsigned(
                 lowerSqrtPrice,
                 curve[i].sqrtPrice,
-                curve[i].liquidity
+                curve[i].liquidity,
+                Rounding.Up
             )
             totalAmount = totalAmount.add(deltaAmount)
         }
     }
     return totalAmount
-}
-
-/**
- * Calculates the amount of base token needed for a price range
- * @param lowerSqrtPrice - The lower sqrt price
- * @param upperSqrtPrice - The upper sqrt price
- * @param liquidity - The liquidity
- * @returns The delta amount base
- */
-export function getDeltaAmountBase(
-    lowerSqrtPrice: BN,
-    upperSqrtPrice: BN,
-    liquidity: BN
-): BN {
-    // Formula: Δx = L * (√Pb - √Pa) / (√Pa * √Pb)
-    // Where:
-    // - L is the liquidity
-    // - √Pa is the lower sqrt price
-    // - √Pb is the upper sqrt price
-    const numerator = liquidity.mul(upperSqrtPrice.sub(lowerSqrtPrice))
-    const denominator = lowerSqrtPrice.mul(upperSqrtPrice)
-    return numerator.add(denominator).sub(new BN(1)).div(denominator)
 }
 
 /**
@@ -369,10 +356,11 @@ export const getMigrationBaseToken = (
             sqrtMigrationPrice
         )
         // calculate base threshold
-        const baseAmount = getDeltaAmountBase(
+        const baseAmount = getDeltaAmountBaseUnsigned(
             sqrtMigrationPrice,
             MAX_SQRT_PRICE,
-            liquidity
+            liquidity,
+            Rounding.Up
         )
         return baseAmount
     } else {
@@ -437,7 +425,7 @@ export const getFirstCurve = (
     migrationQuoteThreshold: BN,
     migrationFeePercent: number
 ) => {
-    // Swap_amount = L *(1/Pmin - 1/Pmax) = L * (Pmax - Pmin) / (Pmax * Pmin)       (1)
+    // Swap_amount = L * (1/Pmin - 1/Pmax) = L * (Pmax - Pmin) / (Pmax * Pmin)      (1)
     // Quote_amount = L * (Pmax - Pmin)                                             (2)
     // (Quote_amount * (1-migrationFeePercent/100) / Migration_amount = Pmax ^ 2    (3)
     const migrationSqrPriceDecimal = new Decimal(migrationSqrtPrice.toString())
@@ -1317,4 +1305,41 @@ export function getMigratedPoolFeeParams(
     }
 
     return defaultFeeParams
+}
+
+/**
+ * Get the current point based on activation type
+ * @param connection - The Solana connection instance
+ * @param activationType - The activation type (Slot or Time)
+ * @returns The current point as a BN
+ */
+export async function getCurrentPoint(
+    connection: Connection,
+    activationType: ActivationType
+): Promise<BN> {
+    const currentSlot = await connection.getSlot()
+
+    if (activationType === ActivationType.Slot) {
+        return new BN(currentSlot)
+    } else {
+        const currentTime = await connection.getBlockTime(currentSlot)
+        return new BN(currentTime)
+    }
+}
+
+/**
+ * Prepare the swap amount param
+ * @param amount - The amount to swap
+ * @param mintAddress - The mint address
+ * @param connection - The Solana connection instance
+ * @returns The amount in lamports
+ */
+export async function prepareSwapAmountParam(
+    amount: number,
+    mintAddress: PublicKey,
+    connection: Connection
+): Promise<BN> {
+    const mintTokenDecimals = await getTokenDecimals(connection, mintAddress)
+
+    return convertToLamports(amount, mintTokenDecimals)
 }

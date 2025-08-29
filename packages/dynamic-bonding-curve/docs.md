@@ -3,7 +3,6 @@
 ## Table of Contents
 
 - [Partner Functions](#partner-functions)
-
     - [createConfig](#createConfig)
     - [createPartnerMetadata](#createPartnerMetadata)
     - [claimPartnerTradingFee](#claimPartnerTradingFee)
@@ -12,14 +11,12 @@
     - [partnerWithdrawMigrationFee](#partnerWithdrawMigrationFee)
 
 - [Build Curve Functions](#build-curve-functions)
-
     - [buildCurve](#buildCurve)
     - [buildCurveWithMarketCap](#buildCurveWithMarketCap)
     - [buildCurveWithTwoSegments](#buildCurveWithTwoSegments)
     - [buildCurveWithLiquidityWeights](#buildCurveWithLiquidityWeights)
 
 - [Pool Functions](#pool-functions)
-
     - [createPool](#createPool)
     - [createConfigAndPool](#createConfigAndPool)
     - [createConfigAndPoolWithFirstBuy](#createConfigAndPoolWithFirstBuy)
@@ -27,11 +24,10 @@
     - [createPoolWithPartnerAndCreatorFirstBuy](#createPoolWithPartnerAndCreatorFirstBuy)
     - [swap](#swap)
     - [swapQuote](#swapQuote)
-    - [swapQuoteExactIn](#swapQuoteExactIn)
-    - [swapQuoteExactOut](#swapQuoteExactOut)
+    - [swap2](#swap2)
+    - [swapQuote2](#swapQuote2)
 
 - [Migration Functions](#migration-functions)
-
     - [createLocker](#createLocker)
     - [withdrawLeftover](#withdrawLeftover)
     - [createDammV1MigrationMetadata](#createDammV1MigrationMetadata)
@@ -42,7 +38,6 @@
     - [migrateToDammV2](#migrateToDammV2)
 
 - [Creator Functions](#creator-functions)
-
     - [createPoolMetadata](#createPoolMetadata)
     - [claimCreatorTradingFee](#claimCreatorTradingFee)
     - [claimCreatorTradingFee2](#claimCreatorTradingFee2)
@@ -51,7 +46,6 @@
     - [transferPoolCreator](#transferPoolCreator)
 
 - [State Functions](#state-functions)
-
     - [getPoolConfig](#getPoolConfig)
     - [getPoolConfigs](#getPoolConfigs)
     - [getPoolConfigsByOwner](#getPoolConfigsByOwner)
@@ -71,14 +65,12 @@
     - [getDammV1MigrationMetadata](#getDammV1MigrationMetadata)
 
 - [Helper Functions](#helper-functions)
-
     - [deriveDbcPoolAddress](#deriveDbcPoolAddress)
     - [deriveDammV1PoolAddress](#deriveDammV1PoolAddress)
     - [deriveDammV2PoolAddress](#deriveDammV2PoolAddress)
     - [deriveDbcTokenVaultAddress](#deriveDbcTokenVaultAddress)
 
 - [Calculation Functions](#calculation-functions)
-
     - [getFeeSchedulerParams](#getFeeSchedulerParams)
     - [getRateLimiterParams](#getRateLimiterParams)
     - [getDynamicFeeParams](#getDynamicFeeParams)
@@ -93,13 +85,13 @@
 
 Creates a new config key that will dictate the behavior of all pools created with this key. This is where you set the pool fees, migration options, the bonding curve shape, and more.
 
-#### Function
+**Function**
 
 ```typescript
 async createConfig(createConfigParam: CreateConfigParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreateConfigParam {
@@ -146,7 +138,7 @@ interface CreateConfigParam {
         numberOfPeriod: BN // The number of periods of the vesting
         cliffUnlockAmount: BN // The amount of tokens that will be unlocked when vesting starts
     }
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenSupply: {
         // Optional token supply
         preMigrationTokenSupply: BN // The token supply before migration
@@ -174,11 +166,11 @@ interface CreateConfigParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.partner.createConfig({
@@ -253,7 +245,7 @@ const transaction = await client.partner.createConfig({
 })
 ```
 
-#### Notes
+**Notes**
 
 When creating a new configuration for a dynamic bonding curve, several validations are performed to ensure the parameters are valid:
 
@@ -340,13 +332,13 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 
 Creates a new partner metadata account. This partner metadata will be tagged to a wallet address that holds the config keys.
 
-#### Function
+**Function**
 
 ```typescript
 async createPartnerMetadata(createPartnerMetadataParam: CreatePartnerMetadataParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreatePartnerMetadataParam {
@@ -358,11 +350,11 @@ interface CreatePartnerMetadataParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.partner.createPartnerMetadata({
@@ -380,13 +372,13 @@ const transaction = await client.partner.createPartnerMetadata({
 
 Claims the trading fee for the partner. A partner is the `feeClaimer` in the config key.
 
-#### Function
+**Function**
 
 ```typescript
 async claimPartnerTradingFee(claimTradingFeeParam: ClaimTradingFeeParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface ClaimTradingFeeParam {
@@ -400,11 +392,11 @@ interface ClaimTradingFeeParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.partner.claimPartnerTradingFee({
@@ -420,7 +412,7 @@ const transaction = await client.partner.claimPartnerTradingFee({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The feeClaimer of the pool must be the same as the feeClaimer in the `ClaimTradingFeeParam` params.
 - You can indicate maxBaseAmount or maxQuoteAmount to be 0 to not claim Base or Quote tokens respectively.
@@ -432,13 +424,13 @@ const transaction = await client.partner.claimPartnerTradingFee({
 
 Claims the trading fee for the partner. A partner is the `feeClaimer` in the config key.
 
-#### Function
+**Function**
 
 ```typescript
 async claimPartnerTradingFee2(claimTradingFee2Param: ClaimTradingFee2Param): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface ClaimTradingFeeParam {
@@ -451,11 +443,11 @@ interface ClaimTradingFeeParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.partner.claimPartnerTradingFee2({
@@ -468,7 +460,7 @@ const transaction = await client.partner.claimPartnerTradingFee2({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The feeClaimer of the pool must be the same as the feeClaimer in the `ClaimTradingFee2Param` params.
 - You can indicate maxBaseAmount or maxQuoteAmount to be 0 to not claim Base or Quote tokens respectively.
@@ -480,13 +472,13 @@ const transaction = await client.partner.claimPartnerTradingFee2({
 
 Withdraws the partner's migration fee from the pool.
 
-#### Function
+**Function**
 
 ```typescript
 async partnerWithdrawMigrationFee(withdrawMigrationFeeParam: WithdrawMigrationFeeParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface WithdrawMigrationFeeParam {
@@ -496,11 +488,11 @@ interface WithdrawMigrationFeeParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.partner.partnerWithdrawMigrationFee({
@@ -510,7 +502,7 @@ const transaction = await client.partner.partnerWithdrawMigrationFee({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The sender of the pool must be the same as the partner (`feeClaimer`) in the config key.
 
@@ -520,13 +512,13 @@ const transaction = await client.partner.partnerWithdrawMigrationFee({
 
 Withdraws the partner's surplus from the pool.
 
-#### Function
+**Function**
 
 ```typescript
 async partnerWithdrawSurplus(partnerWithdrawSurplusParam: PartnerWithdrawSurplusParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface PartnerWithdrawSurplusParam {
@@ -535,11 +527,11 @@ interface PartnerWithdrawSurplusParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.partner.partnerWithdrawSurplus({
@@ -548,7 +540,7 @@ const transaction = await client.partner.partnerWithdrawSurplus({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The feeClaimer of the pool must be the same as the feeClaimer in the `PartnerWithdrawSurplusParam` params.
 
@@ -560,13 +552,13 @@ const transaction = await client.partner.partnerWithdrawSurplus({
 
 Builds a new constant product curve. This function does the math for you to create a curve structure based on percentage of supply on migration and migration quote threshold.
 
-#### Function
+**Function**
 
 ```typescript
 async buildCurve(buildCurveParam: BuildCurveParam): Promise<ConfigParameters>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface BuildCurveParam {
@@ -607,7 +599,7 @@ interface BuildCurveParam {
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
     creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
@@ -630,11 +622,11 @@ interface BuildCurveParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A `ConfigParameters` object.
 
-#### Example
+**Example**
 
 ```typescript
 const curveConfig = buildCurve({
@@ -693,7 +685,7 @@ const transaction = await client.partner.createConfig({
 })
 ```
 
-#### Notes
+**Notes**
 
 - `buildCurve` helps you to create a curve structure based on percentage of supply on migration and migration quote threshold.
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
@@ -708,13 +700,13 @@ const transaction = await client.partner.createConfig({
 
 Builds a new constant product curve with customisable parameters based on market cap. This function does the math for you to create a curve structure based on initial market cap and migration market cap.
 
-#### Function
+**Function**
 
 ```typescript
 async buildCurveWithMarketCap(buildCurveWithMarketCapParam: BuildCurveWithMarketCapParam): Promise<ConfigParameters>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface BuildCurveWithMarketCapParam {
@@ -755,7 +747,7 @@ interface BuildCurveWithMarketCapParam {
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
     creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
@@ -778,11 +770,11 @@ interface BuildCurveWithMarketCapParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A `ConfigParameters` object.
 
-#### Example
+**Example**
 
 ```typescript
 const curveConfig = buildCurveWithMarketCap({
@@ -841,7 +833,7 @@ const transaction = await client.partner.createConfig({
 })
 ```
 
-#### Notes
+**Notes**
 
 - `buildCurveWithMarketCap` helps you to create a curve structure based on initial market cap and migration market cap.
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
@@ -856,13 +848,13 @@ const transaction = await client.partner.createConfig({
 
 Builds a new constant product curve with two segments. This function does the math for you to create a curve structure based on initial market cap, migration market cap and percentage of supply on migration.
 
-#### Function
+**Function**
 
 ```typescript
 async buildCurveWithTwoSegments(buildCurveWithTwoSegmentsParam: BuildCurveWithTwoSegmentsParam): Promise<ConfigParameters>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface BuildCurveWithTwoSegmentsParam {
@@ -904,7 +896,7 @@ interface BuildCurveWithTwoSegmentsParam {
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
     creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
@@ -927,11 +919,11 @@ interface BuildCurveWithTwoSegmentsParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A `ConfigParameters` object.
 
-#### Example
+**Example**
 
 ```typescript
 const curveConfig = buildCurveWithTwoSegments({
@@ -991,7 +983,7 @@ const transaction = await client.partner.createConfig({
 })
 ```
 
-#### Notes
+**Notes**
 
 - `buildCurveWithTwoSegments` helps you to create a curve structure based on initial market cap, migration market cap and percentage of supply on migration.
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
@@ -1006,13 +998,13 @@ const transaction = await client.partner.createConfig({
 
 Builds a super customizable constant product curve graph configuration based on different liquidity weights. This function does the math for you to create a curve structure based on initial market cap, migration market cap and liquidity weights.
 
-#### Function
+**Function**
 
 ```typescript
 async buildCurveWithLiquidityWeights(buildCurveWithLiquidityWeightsParam: BuildCurveWithLiquidityWeightsParam): Promise<ConfigParameters>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface BuildCurveWithLiquidityWeightsParam {
@@ -1053,7 +1045,7 @@ interface BuildCurveWithLiquidityWeightsParam {
     dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
     activationType: number // 0: Slot, 1: Timestamp
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenType: number // 0: SPL, 1: Token2022
     partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
     creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
@@ -1077,11 +1069,11 @@ interface BuildCurveWithLiquidityWeightsParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A `ConfigParameters` object.
 
-#### Example
+**Example**
 
 ```typescript
 let liquidityWeights: number[] = []
@@ -1146,7 +1138,7 @@ const transaction = await client.partner.createConfig({
 })
 ```
 
-#### Notes
+**Notes**
 
 - `buildCurveWithLiquidityWeights` helps you to create a curve structure based on initial market cap, migration market cap and liquidity weights.
 - What does liquidity weights do?
@@ -1175,13 +1167,13 @@ const transaction = await client.partner.createConfig({
 
 Creates a new pool with the config key.
 
-#### Function
+**Function**
 
 ```typescript
 async createPool(createPoolParam: CreatePoolParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreatePoolParam {
@@ -1195,11 +1187,11 @@ interface CreatePoolParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that requires signatures from the payer, the baseMint keypair, and the poolCreator before being submitted to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.pool.createPool({
@@ -1213,7 +1205,7 @@ const transaction = await client.pool.createPool({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The payer must be the same as the payer in the `CreatePoolParam` params.
 - The poolCreator is required to sign when creating the pool.
@@ -1225,13 +1217,13 @@ const transaction = await client.pool.createPool({
 
 Creates a config key and a token pool in a single transaction.
 
-#### Function
+**Function**
 
 ```typescript
 async createConfigAndPool(createConfigAndPoolParam: CreateConfigAndPoolParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreateConfigAndPoolParam {
@@ -1278,7 +1270,7 @@ interface CreateConfigAndPoolParam {
         numberOfPeriod: BN // The number of periods
         cliffUnlockAmount: BN // The amount of tokens that will be unlocked at the cliff
     }
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenSupply: {
         // Optional token supply
         preMigrationTokenSupply: BN // The token supply before migration
@@ -1313,11 +1305,11 @@ interface CreateConfigAndPoolParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that requires signatures from the payer, the baseMint keypair, and the config keypair before being submitted to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.pool.createConfigAndPool({
@@ -1399,7 +1391,7 @@ const transaction = await client.pool.createConfigAndPool({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The payer must be the same as the payer in the `CreateConfigAndPoolParam` params.
 - The poolCreator is required to sign when creating the pool.
@@ -1412,7 +1404,7 @@ const transaction = await client.pool.createConfigAndPool({
 
 Creates a config key and a token pool and buys the token immediately in a single transaction.
 
-#### Function
+**Function**
 
 ```typescript
 async createConfigAndPoolWithFirstBuy(createConfigAndPoolWithFirstBuyParam: CreateConfigAndPoolWithFirstBuyParam): Promise<{
@@ -1422,7 +1414,7 @@ async createConfigAndPoolWithFirstBuy(createConfigAndPoolWithFirstBuyParam: Crea
 }>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreateConfigAndPoolWithFirstBuyParam {
@@ -1469,7 +1461,7 @@ interface CreateConfigAndPoolWithFirstBuyParam {
         numberOfPeriod: BN // The number of periods
         cliffUnlockAmount: BN // The amount of tokens that will be unlocked at the cliff
     }
-    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
     tokenSupply: {
         // Optional token supply
         preMigrationTokenSupply: BN // The token supply before migration
@@ -1512,13 +1504,15 @@ interface CreateConfigAndPoolWithFirstBuyParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 An object of transactions (containing createConfigTx, createPoolTx, and swapBuyTx) that requires signatures before being submitted to the network. Can be bundled together.
 
-#### Example
+**Example**
 
 ```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
 const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
     payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     config: new PublicKey('1234567890abcdefghijklmnopqrstuvwxyz'),
@@ -1597,14 +1591,14 @@ const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
     },
     firstBuyParam: {
         buyer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-        buyAmount: new BN(0.1 * 1e9),
+        buyAmount: amountIn,
         minimumAmountOut: new BN(1),
         referralTokenAccount: null,
     },
 })
 ```
 
-#### Notes
+**Notes**
 
 - The payer must be the same as the payer in the `CreateConfigAndPoolWithFirstBuyParam` params.
 - The `createConfigTx` requires the payer and config to sign the transaction.
@@ -1619,7 +1613,7 @@ const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
 
 Creates a new pool with the config key and buys the token immediately.
 
-#### Function
+**Function**
 
 ```typescript
 async createPoolWithFirstBuy(createPoolWithFirstBuyParam: CreatePoolWithFirstBuyParam): Promise<{
@@ -1628,7 +1622,7 @@ async createPoolWithFirstBuy(createPoolWithFirstBuyParam: CreatePoolWithFirstBuy
 }>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreatePoolWithFirstBuyParam {
@@ -1652,13 +1646,15 @@ interface CreatePoolWithFirstBuyParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 An object of transactions (containing createPoolTx and swapBuyTx) that requires signatures before being submitted to the network. Can be bundled together.
 
-#### Example
+**Example**
 
 ```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
 const transaction = await client.pool.createPoolWithFirstBuy({
     createPoolParam: {
         baseMint: new PublicKey('0987654321zyxwvutsrqponmlkjihgfedcba'),
@@ -1671,14 +1667,14 @@ const transaction = await client.pool.createPoolWithFirstBuy({
     },
     firstBuyParam: {
         buyer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-        buyAmount: new BN(0.1 * 1e9),
+        buyAmount: amountIn,
         minimumAmountOut: new BN(1),
         referralTokenAccount: null,
     },
 })
 ```
 
-#### Notes
+**Notes**
 
 - The `poolCreator` is required to sign when creating the pool.
 - The `buyer` is required to sign when buying the token.
@@ -1693,7 +1689,7 @@ const transaction = await client.pool.createPoolWithFirstBuy({
 
 Creates a new pool with the config key and buys the token immediately with partner and creator.
 
-#### Function
+**Function**
 
 ```typescript
 async createPoolWithPartnerAndCreatorFirstBuy(createPoolWithPartnerAndCreatorFirstBuyParam: CreatePoolWithPartnerAndCreatorFirstBuyParam): Promise<{
@@ -1703,7 +1699,7 @@ async createPoolWithPartnerAndCreatorFirstBuy(createPoolWithPartnerAndCreatorFir
 }>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreatePoolWithPartnerAndCreatorFirstBuyParam {
@@ -1735,13 +1731,24 @@ interface CreatePoolWithPartnerAndCreatorFirstBuyParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 An object of transactions (containing createPoolTx, partnerSwapBuyTx, and creatorSwapBuyTx) that requires signatures before being submitted to the network. Can be bundled together.
 
-#### Example
+**Example**
 
 ```typescript
+const creatorAmountIn = await prepareSwapAmountParam(
+    0.5,
+    NATIVE_MINT,
+    connection
+)
+const partnerAmountIn = await prepareSwapAmountParam(
+    0.1,
+    NATIVE_MINT,
+    connection
+)
+
 const transaction = await client.pool.createPoolWithPartnerAndCreatorFirstBuy({
     createPoolParam: {
         baseMint: new PublicKey('0987654321zyxwvutsrqponmlkjihgfedcba'),
@@ -1755,21 +1762,21 @@ const transaction = await client.pool.createPoolWithPartnerAndCreatorFirstBuy({
     partnerFirstBuyParam: {
         partner: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
         receiver: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-        buyAmount: new BN(0.1 * 1e9),
+        buyAmount: partnerAmountIn,
         minimumAmountOut: new BN(1),
         referralTokenAccount: null,
     },
     creatorFirstBuyParam: {
         creator: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
         receiver: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-        buyAmount: new BN(0.1 * 1e9),
+        buyAmount: creatorAmountIn,
         minimumAmountOut: new BN(1),
         referralTokenAccount: null,
     },
 })
 ```
 
-#### Notes
+**Notes**
 
 - The `poolCreator` is required to sign when creating the pool.
 - The `partner` is required to sign when buying the token.
@@ -1784,13 +1791,13 @@ const transaction = await client.pool.createPoolWithPartnerAndCreatorFirstBuy({
 
 Swaps between base and quote or quote and base on the Dynamic Bonding Curve.
 
-#### Function
+**Function**
 
 ```typescript
 async swap(swapParam: SwapParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface SwapParam {
@@ -1804,13 +1811,35 @@ interface SwapParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
+const virtualPoolState = await client.state.getPool(poolAddress)
+const poolConfigState = await client.state.getPoolConfig(
+    virtualPoolState.config
+)
+const currentPoint = await getCurrentPoint(
+    connection,
+    poolConfigState.activationType
+)
+
+const quote = await client.pool.swapQuote({
+    virtualPool: virtualPoolState.account,
+    config: poolConfigState,
+    swapBaseForQuote: false,
+    amountIn,
+    slippageBps: 50,
+    hasReferral: false,
+    currentPoint: new BN(currentTime),
+    swapMode: SwapMode.PartialFill,
+})
+
 const transaction = await client.pool.swap({
     owner: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     amountIn: new BN(1000000000),
@@ -1822,7 +1851,7 @@ const transaction = await client.pool.swap({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The owner must have sufficient balance for the swap.
 - For SOL swaps, the owner needs additional SOL for transaction fees (approximately 0.01 SOL).
@@ -1838,174 +1867,239 @@ const transaction = await client.pool.swap({
 
 ### swapQuote
 
-Gets the swap quotation between base and quote swaps or quote and base swaps.
+Gets the exact swap out quotation in between quote and base swaps (only ExactIn).
 
-#### Function
+**Function**
 
 ```typescript
-swapQuote(swapQuoteParam: SwapQuoteParam): Promise<QuoteResult>
+swapQuote(swapQuoteParam: SwapQuoteParam): Promise<SwapResult>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface SwapQuoteParam {
-    virtualPool: VirtualPool
-    config: PoolConfig
-    swapBaseForQuote: boolean
-    amountIn: BN
-    slippageBps?: number
-    hasReferral: boolean
-    currentPoint: BN
+    virtualPool: VirtualPool // The virtual pool address
+    config: PoolConfig // The pool config address
+    swapBaseForQuote: boolean // True for base->quote, false for quote->base
+    amountIn: BN // The amount of tokens to swap in
+    slippageBps?: number // The slippage in bps
+    hasReferral: boolean // Whether to include a referral fee
+    currentPoint: BN // The current point
 }
 ```
 
-#### Returns
+**Returns**
 
-The quote result of the swap.
+The exact swap out quotation in between quote and base swaps (only ExactIn).
 
-#### Example
+**Example**
 
 ```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
 const virtualPoolState = await client.state.getPool(poolAddress)
 const poolConfigState = await client.state.getPoolConfig(
     virtualPoolState.config
 )
-const currentSlot = await connection.getSlot()
+const currentPoint = await getCurrentPoint(
+    connection,
+    poolConfigState.activationType
+)
 
 const quote = await client.pool.swapQuote({
-    virtualPool: virtualPoolState, // The virtual pool state
-    config: poolConfigState, // The pool config state
-    swapBaseForQuote: false, // Whether to swap base for quote
-    amountIn: new BN(100000000), // The amount of tokens to swap
-    slippageBps: 100, // The slippage in basis points (optional)
-    hasReferral: false, // Whether to include a referral fee
-    currentPoint: new BN(currentSlot), // The current point
-})
-```
-
-#### Notes
-
-- The `swapBaseForQuote` parameter determines the direction of the swap:
-    - `true`: Swap base tokens for quote tokens
-    - `false`: Swap quote tokens for base tokens
-- The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
-- The `slippageBps` parameter is the slippage in basis points (optional). This will calculate the minimum amount out based on the slippage.
-- The `hasReferral` parameter indicates whether a referral fee should be included in the calculation.
-- The `currentPoint` parameter is typically used in cases where the config has applied a fee scheduler. If activationType == 0, then it is current slot. If activationType == 1, then it is the current block timestamp. You can fill in accordingly based on slot or timestamp.
-
----
-
-### swapQuoteExactIn
-
-Gets the exact swap quotation in between quote and base swaps.
-
-#### Function
-
-```typescript
-swapQuoteExactIn(swapQuoteExactInParam: SwapQuoteExactInParam): Promise<QuoteResult>
-```
-
-#### Parameters
-
-```typescript
-interface SwapQuoteExactInParam {
-    virtualPool: VirtualPool
-    config: PoolConfig
-    currentPoint: BN
-}
-```
-
-#### Returns
-
-The exact quote in result of the swap.
-
-#### Example
-
-```typescript
-const virtualPoolState = await client.state.getPool(poolAddress)
-const poolConfigState = await client.state.getPoolConfig(
-    virtualPoolState.config
-)
-const currentSlot = await connection.getSlot()
-
-const quote = await client.pool.swapQuoteExactIn({
-    virtualPool: virtualPoolState, // The virtual pool state
-    config: poolConfigState, // The pool config state
-    currentPoint: new BN(currentSlot), // The current point
-})
-```
-
-#### Notes
-
-- This function helps to get the exact number of quote tokens to swap to hit the `migrationQuoteThreshold` in the config key.
-- The `currentPoint` parameter is typically used in cases where the config has applied a fee scheduler. If activationType == 0, then it is current slot. If activationType == 1, then it is the current block timestamp. You can fill in accordingly based on slot or timestamp.
-
----
-
-### swapQuoteExactOut
-
-Gets the exact swap out quotation in between quote and base swaps.
-
-#### Function
-
-```typescript
-swapQuoteExactOut(swapQuoteExactOutParam: SwapQuoteExactOutParam): Promise<QuoteResult>
-```
-
-#### Parameters
-
-```typescript
-interface SwapQuoteExactOutParam {
-    virtualPool: VirtualPool
-    config: PoolConfig
-    swapBaseForQuote: boolean
-    outAmount: BN
-    slippageBps?: number
-    hasReferral: boolean
-    currentPoint: BN
-}
-```
-
-#### Returns
-
-The exact quote out result of the swap.
-
-#### Example
-
-```typescript
-const virtualPoolState = await client.state.getPool(poolAddress)
-const poolConfigState = await client.state.getPoolConfig(
-    virtualPoolState.config
-)
-
-let currentPoint: BN
-if (poolConfigState.activationType === 0) {
-    // Slot
-    const currentSlot = await connection.getSlot()
-    currentPoint = new BN(currentSlot)
-} else {
-    // Timestamp
-    const currentSlot = await connection.getSlot()
-    const currentTime = await connection.getBlockTime(currentSlot)
-    currentPoint = new BN(currentTime || 0)
-}
-
-const quote = await client.pool.swapQuoteExactOut({
     virtualPool: virtualPoolState,
     config: poolConfigState,
     swapBaseForQuote: false,
-    outAmount: new BN(100000000),
-    slippageBps: 0,
+    amountIn,
+    slippageBps: 50,
     hasReferral: false,
-    currentPoint,
+    currentPoint: new BN(currentTime),
 })
 ```
 
-#### Notes
+**Notes**
 
-- This function helps to get the exact number of input tokens to swap to get the exact output amount.
-- The `currentPoint` parameter is typically used in cases where the config has applied a fee scheduler. If activationType == 0, then it is current slot. If activationType == 1, then it is the current block timestamp. You can fill in accordingly based on slot or timestamp.
+- The `swapMode` parameter determines the type of swap:
+    - `SwapMode.ExactIn`: Swap exact input amount
+    - `SwapMode.PartialFill`: Allow partial fills
+    - `SwapMode.ExactOut`: Swap for exact output amount
+- The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
+- The `slippageBps` parameter protects against slippage. Set it to a value slightly lower than the expected output.
+- The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+
+---
+
+---
+
+### swap2
+
+Swaps between base and quote or quote and base on the Dynamic Bonding Curve with specific swap modes (ExactIn, ExactOut, PartialFill).
+
+**Function**
+
+```typescript
+swap2(swap2Param: Swap2Param): Promise<Transaction>
+```
+
+**Parameters**
+
+```typescript
+interface Swap2Param {
+    owner: PublicKey // The wallet performing the swap
+    pool: PublicKey // The pool address to swap on
+    swapBaseForQuote: boolean // True for base->quote, false for quote->base
+    referralTokenAccount: PublicKey | null // The referral token account (optional)
+    payer?: PublicKey // The payer of the transaction (optional)
+} & (
+    | {
+          swapMode: SwapMode.ExactIn // Swap exact input amount
+          amountIn: BN // The exact amount to swap in
+          minimumAmountOut: BN // Minimum amount expected out (slippage protection)
+      }
+    | {
+          swapMode: SwapMode.PartialFill // Allow partial fills
+          amountIn: BN // The amount to swap in
+          minimumAmountOut: BN // Minimum amount expected out (slippage protection)
+      }
+    | {
+          swapMode: SwapMode.ExactOut // Swap for exact output amount
+          amountOut: BN // The exact amount desired out
+          maximumAmountIn: BN // Maximum amount willing to pay in (slippage protection)
+      }
+)
+```
+
+**Returns**
+
+A transaction that can be signed and sent to the network.
+
+**Example**
+
+```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
+const virtualPoolState = await client.state.getPool(poolAddress)
+const poolConfigState = await client.state.getPoolConfig(
+    virtualPoolState.config
+)
+const currentPoint = await getCurrentPoint(
+    connection,
+    poolConfigState.activationType
+)
+
+const quote = await client.pool.swapQuote2({
+    virtualPool: virtualPoolState.account,
+    config: poolConfigState,
+    swapBaseForQuote: false,
+    amountIn,
+    slippageBps: 50,
+    hasReferral: false,
+    currentPoint: new BN(currentTime),
+    swapMode: SwapMode.PartialFill,
+})
+
+const transaction = await client.pool.swap2({
+    amountIn,
+    minimumAmountOut: quote.minimumAmountOut,
+    swapMode: SwapMode.PartialFill,
+    swapBaseForQuote: false,
+    owner: wallet.publicKey,
+    pool: poolAddress,
+    referralTokenAccount: null,
+    payer: payer.publicKey,
+})
+```
+
+**Notes**
+
+- The `swapMode` parameter determines the type of swap:
+    - `SwapMode.ExactIn`: Swap exact input amount
+    - `SwapMode.PartialFill`: Allow partial fills
+    - `SwapMode.ExactOut`: Swap for exact output amount
+- The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
+- The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
+- The `maximumAmountIn` parameter protects against slippage. Set it to a value slightly higher than the expected input.
+- The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+- The `payer` parameter is optional. If not provided, the owner will be used as the payer to fund ATA creation.
+
+---
+
+### swapQuote2
+
+Gets the exact swap out quotation in between quote and base swaps with specific swap modes (ExactIn, ExactOut, PartialFill).
+
+**Function**
+
+```typescript
+swapQuote2(swapQuote2Param: SwapQuote2Param): Promise<SwapResult2>
+```
+
+**Parameters**
+
+```typescript
+interface SwapQuote2Param {
+    virtualPool: VirtualPool // The virtual pool address
+    config: PoolConfig // The pool config address
+    swapBaseForQuote: boolean // True for base->quote, false for quote->base
+    hasReferral: boolean // Whether to include a referral fee
+    currentPoint: BN // The current point
+    slippageBps?: number // The slippage in bps
+} & (
+    | {
+          swapMode: SwapMode.ExactIn // Swap exact input amount
+          amountIn: BN // The exact amount to swap in
+      }
+    | {
+          swapMode: SwapMode.PartialFill // Allow partial fills
+          amountIn: BN // The amount to swap in
+      }
+    | {
+          swapMode: SwapMode.ExactOut // Swap for exact output amount
+          amountOut: BN // The exact amount to swap out
+      }
+)
+```
+
+**Returns**
+
+The exact swap out quotation in between quote and base swaps with specific swap modes (ExactIn, ExactOut, PartialFill).
+
+**Example**
+
+```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
+const virtualPoolState = await client.state.getPool(poolAddress)
+const poolConfigState = await client.state.getPoolConfig(
+    virtualPoolState.config
+)
+const currentPoint = await getCurrentPoint(
+    connection,
+    poolConfigState.activationType
+)
+
+const quote = await client.pool.swapQuote2({
+    virtualPool: virtualPoolState.account,
+    config: poolConfigState,
+    swapBaseForQuote: false,
+    amountIn,
+    slippageBps: 50,
+    hasReferral: false,
+    currentPoint: new BN(currentTime),
+    swapMode: SwapMode.PartialFill,
+})
+```
+
+**Notes**
+
+- The `swapMode` parameter determines the type of swap:
+    - `SwapMode.ExactIn`: Swap exact input amount
+    - `SwapMode.PartialFill`: Allow partial fills
+    - `SwapMode.ExactOut`: Swap for exact output amount
+- The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
+- The `slippageBps` parameter protects against slippage. Set it to a value slightly lower than the expected output.
+- The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
 
 ---
 
@@ -2033,13 +2127,13 @@ const quote = await client.pool.swapQuoteExactOut({
 
 Creates a new locker account when migrating from Dynamic Bonding Curve to DAMM V1 or DAMM V2. This function is called when `lockedVestingParam` is enabled in the config key.
 
-#### Function
+**Function**
 
 ```typescript
 async createLocker(createLockerParam: CreateLockerParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreateLockerParam {
@@ -2048,11 +2142,11 @@ interface CreateLockerParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.migration.createLocker({
@@ -2061,7 +2155,7 @@ const transaction = await client.migration.createLocker({
 })
 ```
 
-#### Notes
+**Notes**
 
 - This function is called when `lockedVesting` is enabled in the config key.
 
@@ -2071,13 +2165,13 @@ const transaction = await client.migration.createLocker({
 
 Withdraws leftover tokens from the Dynamic Bonding Curve pool.
 
-#### Function
+**Function**
 
 ```typescript
 async withdrawLeftover(withdrawLeftoverParam: WithdrawLeftoverParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface WithdrawLeftoverParam {
@@ -2086,11 +2180,11 @@ interface WithdrawLeftoverParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.migration.withdrawLeftover({
@@ -2099,7 +2193,7 @@ const transaction = await client.migration.withdrawLeftover({
 })
 ```
 
-#### Notes
+**Notes**
 
 - This function is called when there are leftover tokens in the Dynamic Bonding Curve pool after migration.
 - The leftover tokens will be sent to the `leftoverReceiver` that was specified in the config key.
@@ -2110,13 +2204,13 @@ const transaction = await client.migration.withdrawLeftover({
 
 Creates a new DAMM V1 migration metadata account.
 
-#### Function
+**Function**
 
 ```typescript
 async createDammV1MigrationMetadata(createDammV1MigrationMetadataParam: CreateDammV1MigrationMetadataParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreateDammV1MigrationMetadataParam {
@@ -2126,11 +2220,11 @@ interface CreateDammV1MigrationMetadataParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.migration.createDammV1MigrationMetadata({
@@ -2140,7 +2234,7 @@ const transaction = await client.migration.createDammV1MigrationMetadata({
 })
 ```
 
-#### Notes
+**Notes**
 
 - This function must be called before `migrateToDammV1`.
 
@@ -2150,13 +2244,13 @@ const transaction = await client.migration.createDammV1MigrationMetadata({
 
 Migrates the Dynamic Bonding Curve pool to DAMM V1.
 
-#### Function
+**Function**
 
 ```typescript
 async migrateToDammV1(migrateToDammV1Param: MigrateToDammV1Param): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface MigrateToDammV1Param {
@@ -2166,11 +2260,11 @@ interface MigrateToDammV1Param {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.migration.migrateToDammV1({
@@ -2180,7 +2274,7 @@ const transaction = await client.migration.migrateToDammV1({
 })
 ```
 
-#### Notes
+**Notes**
 
 - Ensure that when attempting to migrate the virtual pool, all these validation checks have already been met:
     1. The `MigrationFeeOption` must be a valid enum value with a valid base fee in basis points
@@ -2196,7 +2290,7 @@ const transaction = await client.migration.migrateToDammV1({
         - virtual_pool must have matching base_vault and quote_vault
         - virtual_pool must have a matching config
         - migration_metadata must have a matching virtual_pool
-- You can get the dammConfig key from the [README.md](./README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
 
 ---
 
@@ -2204,13 +2298,13 @@ const transaction = await client.migration.migrateToDammV1({
 
 Locks a DAMM V1 LP token for a partner or creator.
 
-#### Function
+**Function**
 
 ```typescript
 async lockDammV1LpToken(lockDammV1LpTokenParam: DammLpTokenParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface DammLpTokenParam {
@@ -2221,11 +2315,11 @@ interface DammLpTokenParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.migration.lockDammV1LpToken({
@@ -2236,10 +2330,10 @@ const transaction = await client.migration.lockDammV1LpToken({
 })
 ```
 
-#### Notes
+**Notes**
 
 - This function is called when the `creatorLockedLpPercentage` or `partnerLockedLpPercentage` is > 0.
-- You can get the dammConfig key from the [README.md](./README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
 
 ---
 
@@ -2247,13 +2341,13 @@ const transaction = await client.migration.lockDammV1LpToken({
 
 Claims a DAMM V1 LP token for a partner or creator.
 
-#### Function
+**Function**
 
 ```typescript
 async claimDammV1LpToken(claimDammV1LpTokenParam: DammLpTokenParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface DammLpTokenParam {
@@ -2264,11 +2358,11 @@ interface DammLpTokenParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.migration.claimDammV1LpToken({
@@ -2279,10 +2373,10 @@ const transaction = await client.migration.claimDammV1LpToken({
 })
 ```
 
-#### Notes
+**Notes**
 
 - This function is called when the `creatorLpPercentage` or `partnerLpPercentage` is > 0.
-- You can get the dammConfig key from the [README.md](./README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
 
 ---
 
@@ -2290,13 +2384,13 @@ const transaction = await client.migration.claimDammV1LpToken({
 
 Creates a new DAMM V2 migration metadata account.
 
-#### Function
+**Function**
 
 ```typescript
 async createDammV2MigrationMetadata(createDammV2MigrationMetadataParam: CreateDammV2MigrationMetadataParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreateDammV2MigrationMetadataParam {
@@ -2306,11 +2400,11 @@ interface CreateDammV2MigrationMetadataParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.migration.createDammV2MigrationMetadata({
@@ -2320,7 +2414,7 @@ const transaction = await client.migration.createDammV2MigrationMetadata({
 })
 ```
 
-#### Notes
+**Notes**
 
 - This function must be called before `migrateToDammV2`.
 
@@ -2330,13 +2424,13 @@ const transaction = await client.migration.createDammV2MigrationMetadata({
 
 Migrates the Dynamic Bonding Curve pool to DAMM V2.
 
-#### Function
+**Function**
 
 ```typescript
 async migrateToDammV2(migrateToDammV2Param: MigrateToDammV2Param): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface MigrateToDammV2Param {
@@ -2346,11 +2440,11 @@ interface MigrateToDammV2Param {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.migration.migrateToDammV2({
@@ -2360,7 +2454,7 @@ const transaction = await client.migration.migrateToDammV2({
 })
 ```
 
-#### Notes
+**Notes**
 
 - Ensure that when attempting to migrate the virtual pool, all these validation checks have already been met:
     1. The `MigrationFeeOption` must be a valid enum value with a valid base fee in basis points
@@ -2379,7 +2473,7 @@ const transaction = await client.migration.migrateToDammV2({
         - migration_metadata must have a matching virtual_pool
         - first_position_nft_mint must not equal second_position_nft_mint
     7. Exactly one remaining account must be provided (for the DAMM V2 config)
-- You can get the dammConfig key from the [README.md](./README.md), or you can use `DAMM_V2_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V2_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
 
 ---
 
@@ -2389,13 +2483,13 @@ const transaction = await client.migration.migrateToDammV2({
 
 Creates a new pool metadata account.
 
-#### Function
+**Function**
 
 ```typescript
 async createPoolMetadata(createVirtualPoolMetadataParam: CreateVirtualPoolMetadataParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreateVirtualPoolMetadataParam {
@@ -2408,11 +2502,11 @@ interface CreateVirtualPoolMetadataParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.creator.createPoolMetadata({
@@ -2432,13 +2526,13 @@ const transaction = await client.creator.createPoolMetadata({
 
 Claims a creator trading fee. If your pool's config key has `creatorTradingFeePercentage` > 0, you can use this function to claim the trading fee for the pool creator.
 
-#### Function
+**Function**
 
 ```typescript
 async claimCreatorTradingFee(claimCreatorTradingFeeParam: ClaimCreatorTradingFeeParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface ClaimCreatorTradingFeeParam {
@@ -2452,11 +2546,11 @@ interface ClaimCreatorTradingFeeParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.creator.claimCreatorTradingFee({
@@ -2472,7 +2566,7 @@ const transaction = await client.creator.claimCreatorTradingFee({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The creator of the pool must be the same as the creator in the `ClaimCreatorTradingFeeParam` params.
 - You can indicate maxBaseAmount or maxQuoteAmount to be 0 to not claim Base or Quote tokens respectively.
@@ -2484,13 +2578,13 @@ const transaction = await client.creator.claimCreatorTradingFee({
 
 Claims a creator trading fee. If your pool's config key has `creatorTradingFeePercentage` > 0, you can use this function to claim the trading fee for the pool creator.
 
-#### Function
+**Function**
 
 ```typescript
 async claimCreatorTradingFee2(claimCreatorTradingFee2Param: ClaimCreatorTradingFee2Param): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface ClaimCreatorTradingFeeParam {
@@ -2503,11 +2597,11 @@ interface ClaimCreatorTradingFeeParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.creator.claimCreatorTradingFee({
@@ -2520,7 +2614,7 @@ const transaction = await client.creator.claimCreatorTradingFee({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The creator of the pool must be the same as the creator in the `ClaimCreatorTradingFee2Param` params.
 - You can indicate maxBaseAmount or maxQuoteAmount to be 0 to not claim Base or Quote tokens respectively.
@@ -2532,13 +2626,13 @@ const transaction = await client.creator.claimCreatorTradingFee({
 
 Withdraws surplus tokens from the pool.
 
-#### Function
+**Function**
 
 ```typescript
 async creatorWithdrawSurplus(creatorWithdrawSurplusParam: CreatorWithdrawSurplusParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface CreatorWithdrawSurplusParam {
@@ -2547,11 +2641,11 @@ interface CreatorWithdrawSurplusParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.creator.creatorWithdrawSurplus({
@@ -2560,7 +2654,7 @@ const transaction = await client.creator.creatorWithdrawSurplus({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The creator of the pool must be the same as the creator in the `CreatorWithdrawSurplusParam` params.
 
@@ -2570,13 +2664,13 @@ const transaction = await client.creator.creatorWithdrawSurplus({
 
 Withdraws the creator's migration fee from the pool.
 
-#### Function
+**Function**
 
 ```typescript
 async creatorWithdrawMigrationFee(withdrawMigrationFeeParam: WithdrawMigrationFeeParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface WithdrawMigrationFeeParam {
@@ -2586,11 +2680,11 @@ interface WithdrawMigrationFeeParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.creator.creatorWithdrawMigrationFee({
@@ -2600,7 +2694,7 @@ const transaction = await client.creator.creatorWithdrawMigrationFee({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The sender of the pool must be the same as the creator (`poolCreator`) in the virtual pool.
 
@@ -2610,13 +2704,13 @@ const transaction = await client.creator.creatorWithdrawMigrationFee({
 
 Transfers the pool creator to a new wallet.
 
-#### Function
+**Function**
 
 ```typescript
 async transferPoolCreator(transferPoolCreatorParam: TransferPoolCreatorParam): Promise<Transaction>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 interface TransferPoolCreatorParam {
@@ -2626,11 +2720,11 @@ interface TransferPoolCreatorParam {
 }
 ```
 
-#### Returns
+**Returns**
 
 A transaction that can be signed and sent to the network.
 
-#### Example
+**Example**
 
 ```typescript
 const transaction = await client.creator.transferPoolCreator({
@@ -2640,7 +2734,7 @@ const transaction = await client.creator.transferPoolCreator({
 })
 ```
 
-#### Notes
+**Notes**
 
 - The creator of the pool must be the signer of the transaction.
 
@@ -2652,23 +2746,23 @@ const transaction = await client.creator.transferPoolCreator({
 
 Gets the config key details.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolConfig(configAddress: PublicKey | string): Promise<PoolConfig>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 configAddress: PublicKey | string // The address of the config key
 ```
 
-#### Returns
+**Returns**
 
 A `PoolConfig` object containing the config key details.
 
-#### Example
+**Example**
 
 ```typescript
 const config = await client.state.getPoolConfig(configAddress)
@@ -2680,17 +2774,17 @@ const config = await client.state.getPoolConfig(configAddress)
 
 Retrieves all config keys.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolConfigs(): Promise<ProgramAccount<PoolConfig>[]>
 ```
 
-#### Returns
+**Returns**
 
 An array of config keys.
 
-#### Example
+**Example**
 
 ```typescript
 const configs = await client.state.getPoolConfigs()
@@ -2702,23 +2796,23 @@ const configs = await client.state.getPoolConfigs()
 
 Retrieves all config keys owned by a specific wallet.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolConfigsByOwner(owner: PublicKey | string): Promise<ProgramAccount<PoolConfig>[]>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 owner: PublicKey | string // The owner's wallet address
 ```
 
-#### Returns
+**Returns**
 
 An array of config keys owned by the specified wallet.
 
-#### Example
+**Example**
 
 ```typescript
 const configs = await client.state.getPoolConfigsByOwner(wallet.publicKey)
@@ -2730,23 +2824,23 @@ const configs = await client.state.getPoolConfigsByOwner(wallet.publicKey)
 
 Gets the details of a specific pool.
 
-#### Function
+**Function**
 
 ```typescript
 async getPool(poolAddress: PublicKey | string): Promise<VirtualPool | null>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 poolAddress: PublicKey | string // The address of the pool
 ```
 
-#### Returns
+**Returns**
 
 A `VirtualPool` object containing the pool's details, or null if not found.
 
-#### Example
+**Example**
 
 ```typescript
 const pool = await client.state.getPool(poolAddress)
@@ -2758,17 +2852,17 @@ const pool = await client.state.getPool(poolAddress)
 
 Retrieves all pools.
 
-#### Function
+**Function**
 
 ```typescript
 async getPools(): Promise<ProgramAccount<VirtualPool>[]>
 ```
 
-#### Returns
+**Returns**
 
 An array of all pools.
 
-#### Example
+**Example**
 
 ```typescript
 const pools = await client.state.getPools()
@@ -2780,23 +2874,23 @@ const pools = await client.state.getPools()
 
 Retrieves all pools by config key address.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolsByConfig(configAddress: PublicKey | string): Promise<ProgramAccount<VirtualPool>[]>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 configAddress: PublicKey | string // The address of the config key
 ```
 
-#### Returns
+**Returns**
 
 An array of pools.
 
-#### Example
+**Example**
 
 ```typescript
 const pools = await client.state.getPoolsByConfig(configAddress)
@@ -2808,23 +2902,23 @@ const pools = await client.state.getPoolsByConfig(configAddress)
 
 Retrieves all pools by creator address.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolsByCreator(creatorAddress: PublicKey | string): Promise<ProgramAccount<VirtualPool>[]>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 creatorAddress: PublicKey | string // The address of the creator
 ```
 
-#### Returns
+**Returns**
 
 An array of pools.
 
-#### Example
+**Example**
 
 ```typescript
 const pools = await client.state.getPoolsByCreator(creatorAddress)
@@ -2836,23 +2930,23 @@ const pools = await client.state.getPoolsByCreator(creatorAddress)
 
 Gets the pool by base mint.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolByBaseMint(baseMint: PublicKey | string): Promise<ProgramAccount<VirtualPool> | null>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 baseMint: PublicKey | string // The address of the base mint
 ```
 
-#### Returns
+**Returns**
 
 A `VirtualPool` object containing the pool's details, or null if not found.
 
-#### Example
+**Example**
 
 ```typescript
 const pool = await client.state.getPoolByBaseMint(baseMint)
@@ -2864,23 +2958,23 @@ const pool = await client.state.getPoolByBaseMint(baseMint)
 
 Gets the migration quote threshold for a specific pool.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolMigrationQuoteThreshold(poolAddress: PublicKey | string): Promise<BN>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 poolAddress: PublicKey | string // The address of the pool
 ```
 
-#### Returns
+**Returns**
 
 A `BN` object representing the migration quote threshold.
 
-#### Example
+**Example**
 
 ```typescript
 const threshold = await client.state.getPoolMigrationQuoteThreshold(poolAddress)
@@ -2892,23 +2986,23 @@ const threshold = await client.state.getPoolMigrationQuoteThreshold(poolAddress)
 
 Gets the progress of the curve by comparing current quote reserve to migration threshold.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolCurveProgress(poolAddress: PublicKey | string): Promise<number>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 poolAddress: PublicKey | string // The address of the pool
 ```
 
-#### Returns
+**Returns**
 
 A number between 0 and 1 representing the curve progress.
 
-#### Example
+**Example**
 
 ```typescript
 const progress = await client.state.getPoolCurveProgress(poolAddress)
@@ -2920,23 +3014,23 @@ const progress = await client.state.getPoolCurveProgress(poolAddress)
 
 Gets the metadata for a specific pool.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolMetadata(poolAddress: PublicKey | string): Promise<VirtualPoolMetadata[]>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 poolAddress: PublicKey | string // The address of the pool
 ```
 
-#### Returns
+**Returns**
 
 An array of `VirtualPoolMetadata` objects containing the pool's metadata.
 
-#### Example
+**Example**
 
 ```typescript
 const metadata = await client.state.getPoolMetadata(poolAddress)
@@ -2948,23 +3042,23 @@ const metadata = await client.state.getPoolMetadata(poolAddress)
 
 Gets the metadata for a specific partner.
 
-#### Function
+**Function**
 
 ```typescript
 async getPartnerMetadata(walletAddress: PublicKey | string): Promise<PartnerMetadata[]>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 walletAddress: PublicKey | string // The partner's wallet address
 ```
 
-#### Returns
+**Returns**
 
 An array of `PartnerMetadata` objects containing the partner's metadata.
 
-#### Example
+**Example**
 
 ```typescript
 const metadata = await client.state.getPartnerMetadata(wallet.publicKey)
@@ -2976,23 +3070,23 @@ const metadata = await client.state.getPartnerMetadata(wallet.publicKey)
 
 Gets the lock escrow details for a DAMM V1 pool.
 
-#### Function
+**Function**
 
 ```typescript
 async getDammV1LockEscrow(lockEscrowAddress: PublicKey | string): Promise<LockEscrow>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 lockEscrowAddress: PublicKey | string // The address of the lock escrow
 ```
 
-#### Returns
+**Returns**
 
 A `LockEscrow` object containing the lock escrow details.
 
-#### Example
+**Example**
 
 ```typescript
 const escrow = await client.state.getDammV1LockEscrow(escrowAddress)
@@ -3004,7 +3098,7 @@ const escrow = await client.state.getDammV1LockEscrow(escrowAddress)
 
 Gets the fee metrics for a specific pool.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolFeeMetrics(poolAddress: PublicKey): Promise<{
@@ -3021,17 +3115,17 @@ async getPoolFeeMetrics(poolAddress: PublicKey): Promise<{
 }>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 poolAddress: PublicKey // The address of the pool
 ```
 
-#### Returns
+**Returns**
 
 An object containing current and total fee metrics for the pool.
 
-#### Example
+**Example**
 
 ```typescript
 const metrics = await client.state.getPoolFeeMetrics(poolAddress)
@@ -3043,7 +3137,7 @@ const metrics = await client.state.getPoolFeeMetrics(poolAddress)
 
 Gets all fees for pools linked to a specific config key.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolsFeesByConfig(configAddress: PublicKey): Promise<Array<{
@@ -3057,17 +3151,17 @@ async getPoolsFeesByConfig(configAddress: PublicKey): Promise<Array<{
 }>>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 configAddress: PublicKey // The address of the pool config
 ```
 
-#### Returns
+**Returns**
 
 An array of objects containing quote fee metrics for each pool.
 
-#### Example
+**Example**
 
 ```typescript
 const fees = await client.state.getPoolsFeesByConfig(configAddress)
@@ -3079,23 +3173,23 @@ const fees = await client.state.getPoolsFeesByConfig(configAddress)
 
 Gets the DAMM V1 migration metadata for a specific pool.
 
-#### Function
+**Function**
 
 ```typescript
 async getDammV1MigrationMetadata(poolAddress: PublicKey): Promise<MeteoraDammMigrationMetadata>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 poolAddress: PublicKey // The address of the DBC pool
 ```
 
-#### Returns
+**Returns**
 
 A `MeteoraDammMigrationMetadata` object containing the DAMM V1 migration metadata.
 
-#### Example
+**Example**
 
 ```typescript
 const metadata = await client.state.getDammV1MigrationMetadata(poolAddress)
@@ -3107,7 +3201,7 @@ const metadata = await client.state.getDammV1MigrationMetadata(poolAddress)
 
 Gets all fees for pools linked to a specific creator.
 
-#### Function
+**Function**
 
 ```typescript
 async getPoolsFeesByCreator(creatorAddress: PublicKey): Promise<Array<{
@@ -3121,17 +3215,17 @@ async getPoolsFeesByCreator(creatorAddress: PublicKey): Promise<Array<{
 }>>
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 creatorAddress: PublicKey // The address of the creator
 ```
 
-#### Returns
+**Returns**
 
 An array of objects containing quote fee metrics for each pool.
 
-#### Example
+**Example**
 
 ```typescript
 const fees = await client.state.getPoolsFeesByCreator(creatorAddress)
@@ -3145,7 +3239,7 @@ const fees = await client.state.getPoolsFeesByCreator(creatorAddress)
 
 Derives the address of a Dynamic Bonding Curve pool.
 
-#### Function
+**Function**
 
 ```typescript
 function deriveDbcPoolAddress(
@@ -3155,7 +3249,7 @@ function deriveDbcPoolAddress(
 ): PublicKey
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 quoteMint: PublicKey // The quote mint
@@ -3163,11 +3257,11 @@ baseMint: PublicKey // The base mint
 config: PublicKey // The config
 ```
 
-#### Returns
+**Returns**
 
 The address of the Dynamic Bonding Curve pool.
 
-#### Example
+**Example**
 
 ```typescript
 const dbcPoolAddress = deriveDbcPoolAddress(
@@ -3183,7 +3277,7 @@ const dbcPoolAddress = deriveDbcPoolAddress(
 
 Derives the address of a DAMM V1 pool.
 
-#### Function
+**Function**
 
 ```typescript
 function deriveDammV1PoolAddress(
@@ -3193,7 +3287,7 @@ function deriveDammV1PoolAddress(
 ): PublicKey
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 dammConfig: PublicKey // The DAMM V1 graduation config key (retrievable from the README.md)
@@ -3201,11 +3295,11 @@ tokenAMint: PublicKey // The A token mint
 tokenBMint: PublicKey // The B token mint
 ```
 
-#### Returns
+**Returns**
 
 The address of the DAMM V1 pool.
 
-#### Example
+**Example**
 
 ```typescript
 const poolConfig = await client.state.getPoolConfig(configAddress)
@@ -3223,7 +3317,7 @@ const dammV1PoolAddress = deriveDammV1PoolAddress(
 
 Derives the address of a DAMM V2 pool.
 
-#### Function
+**Function**
 
 ```typescript
 function deriveDammV2PoolAddress(
@@ -3233,7 +3327,7 @@ function deriveDammV2PoolAddress(
 ): PublicKey
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 dammConfig: PublicKey // The DAMM V2 graduation config key (retrievable from the README.md)
@@ -3241,11 +3335,11 @@ tokenAMint: PublicKey // The A token mint
 tokenBMint: PublicKey // The B token mint
 ```
 
-#### Returns
+**Returns**
 
 The address of the DAMM V2 pool.
 
-#### Example
+**Example**
 
 ```typescript
 const poolConfig = await client.state.getPoolConfig(configAddress)
@@ -3263,24 +3357,24 @@ const dammV2PoolAddress = deriveDammV2PoolAddress(
 
 Derives the address of a DBC token vault.
 
-#### Function
+**Function**
 
 ```typescript
 function deriveDbcTokenVaultAddress(pool: PublicKey, mint: PublicKey): PublicKey
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 pool: PublicKey // The pool address
 mint: PublicKey // The mint address
 ```
 
-#### Returns
+**Returns**
 
 The address of the DBC token vault.
 
-#### Example
+**Example**
 
 ```typescript
 const dbcTokenVaultAddress = deriveDbcTokenVaultAddress(
@@ -3297,7 +3391,7 @@ const dbcTokenVaultAddress = deriveDbcTokenVaultAddress(
 
 Gets the fee scheduler parameters for a specific pool config.
 
-#### Function
+**Function**
 
 ```typescript
 function getFeeSchedulerParams(
@@ -3309,7 +3403,7 @@ function getFeeSchedulerParams(
 ): BaseFeeParams
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 startingFeeBps: number // The starting fee in basis points
@@ -3319,11 +3413,11 @@ numberOfPeriod: number // The number of periods
 totalDuration: number // The total duration of the fee scheduler
 ```
 
-#### Returns
+**Returns**
 
 A `BaseFee` object containing the calculated fee scheduler parameters.
 
-#### Example
+**Example**
 
 ```typescript
 const baseFeeParams = getFeeSchedulerParams(
@@ -3335,7 +3429,7 @@ const baseFeeParams = getFeeSchedulerParams(
 )
 ```
 
-#### Notes
+**Notes**
 
 - The `totalDuration` is the total duration of the fee scheduler. It must be calculated based on your `activationType`. If you use `ActivationType.Slot`, the `totalDuration` is denominated in terms of 400ms (slot). If you use `ActivationType.Timestamp`, the `totalDuration` is denominated in terms of 1000ms (timestamp).
 - `startingFeeBps` must always be greater than or equal to `endingFeeBps`.
@@ -3347,7 +3441,7 @@ const baseFeeParams = getFeeSchedulerParams(
 
 Gets the fee scheduler parameters for a specific pool config.
 
-#### Function
+**Function**
 
 ```typescript
 function getRateLimiterParams(
@@ -3360,7 +3454,7 @@ function getRateLimiterParams(
 ): BaseFeeParams
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 baseFeeBps: number // The base fee in basis points
@@ -3371,11 +3465,11 @@ tokenQuoteDecimal: TokenDecimal // The token quote decimal
 activationType: ActivationType // The activation type
 ```
 
-#### Returns
+**Returns**
 
 A `BaseFee` object containing the calculated rate limiter parameters.
 
-#### Example
+**Example**
 
 ```typescript
 const baseFeeParams = getRateLimiterParams(
@@ -3388,7 +3482,7 @@ const baseFeeParams = getRateLimiterParams(
 )
 ```
 
-#### Notes
+**Notes**
 
 - The `maxLimiterDuration` is the max duration of the rate limiter. It must be calculated based on your `activationType`. If you use `ActivationType.Slot`, the `maxLimiterDuration` is denominated in terms of 400ms (slot). If you use `ActivationType.Timestamp`, the `maxLimiterDuration` is denominated in terms of 1000ms (timestamp).
 - `referenceAmount` must always be greater than 0. This parameter takes into account the quoteMint decimals. For example, if you use `TokenDecimal.NINE`, the `referenceAmount` must be 1 (1 SOL).
@@ -3403,7 +3497,7 @@ const baseFeeParams = getRateLimiterParams(
 
 Gets the dynamic fee parameters for a specific pool. Calculated the fee based on the minimum base fee (capped at 20% of base fee). Please note that the maxPriceChangeBps must be less than or equal to 1500 (15%).
 
-#### Function
+**Function**
 
 ```typescript
 function getDynamicFeeParams(
@@ -3412,18 +3506,18 @@ function getDynamicFeeParams(
 ): DynamicFeeParams
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 baseFeeBps: number // The base fee in basis points
 maxPriceChangeBps: number // The maximum price change in basis points
 ```
 
-#### Returns
+**Returns**
 
 A `DynamicFeeParams` object containing the calculated dynamic fee parameters.
 
-#### Example
+**Example**
 
 ```typescript
 const dynamicFeeParams = getDynamicFeeParams(
@@ -3438,7 +3532,7 @@ const dynamicFeeParams = getDynamicFeeParams(
 
 Gets the locked vesting parameters for a specific pool.
 
-#### Function
+**Function**
 
 ```typescript
 function getLockedVestingParams(
@@ -3451,7 +3545,7 @@ function getLockedVestingParams(
 ): LockedVestingParams
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 totalLockedVestingAmount: number // The total locked vesting amount
@@ -3462,11 +3556,11 @@ cliffDurationFromMigrationTime: number // The duration of the waiting time befor
 tokenBaseDecimal: TokenDecimal // The number of decimals for the base token
 ```
 
-#### Returns
+**Returns**
 
 A `LockedVestingParams` object containing the calculated locked vesting parameters.
 
-#### Example
+**Example**
 
 ```typescript
 const lockedVestingParams = getLockedVestingParams(
@@ -3479,7 +3573,7 @@ const lockedVestingParams = getLockedVestingParams(
 )
 ```
 
-#### Notes
+**Notes**
 
 - The `totalVestingDuration` is the total duration of the vesting. It must be calculated in terms of seconds => 1000ms (timestamp).
 
@@ -3489,7 +3583,7 @@ const lockedVestingParams = getLockedVestingParams(
 
 Gets the quote reserve from the next sqrt price instead of getting from the pool state.
 
-#### Function
+**Function**
 
 ```typescript
 function getQuoteReserveFromNextSqrtPrice(
@@ -3498,18 +3592,18 @@ function getQuoteReserveFromNextSqrtPrice(
 ): BN
 ```
 
-#### Parameters
+**Parameters**
 
 ```typescript
 nextSqrtPrice: BN // The next sqrt price that you can fetch from swap cpi logs
 config: PoolConfig // The pool config
 ```
 
-#### Returns
+**Returns**
 
 A `BN` object containing the calculated quote reserve.
 
-#### Example
+**Example**
 
 ```typescript
 const poolConfig = await client.state.getPoolConfig(configAddress)
@@ -3520,7 +3614,7 @@ const quoteReserve = getQuoteReserveFromNextSqrtPrice(
 )
 ```
 
-#### Notes
+**Notes**
 
 - The `nextSqrtPrice` is the next sqrt price that you can fetch from swap cpi logs.
 - The `config` is the pool config that the token pool used to launch.
