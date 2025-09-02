@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.3.8] - 2025-09-03
+
+### Changed
+
+- Remove `U64_MAX` check in `getDeltaAmountQuoteUnsigned` and `getDeltaAmountQuoteUnsigned256` functions
+
 ## [1.3.7] - 2025-08-14
 
 ### Added
