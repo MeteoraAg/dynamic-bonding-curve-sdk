@@ -1,7 +1,7 @@
 import BN from 'bn.js'
 import { SafeMath } from './safeMath'
 import { mulDiv } from './utilsMath'
-import { RESOLUTION, U128_MAX, U64_MAX } from '../constants'
+import { RESOLUTION, U128_MAX } from '../constants'
 import { Rounding } from '../types'
 
 /**
@@ -68,11 +68,6 @@ export function getDeltaAmountBaseUnsigned(
         round
     )
 
-    const maxValue = U64_MAX
-    if (result.gt(maxValue)) {
-        throw new Error('Math overflow')
-    }
-
     return result
 }
 
@@ -136,10 +131,14 @@ export function getDeltaAmountQuoteUnsigned(
         round
     )
 
-    const maxValue = U64_MAX
-    if (result.gt(maxValue)) {
-        throw new Error('Math overflow')
-    }
+    console.log(
+        lowerSqrtPrice.toString(),
+        upperSqrtPrice.toString(),
+        liquidity.toString(),
+        round
+    )
+
+    console.log(result.toString())
 
     return result
 }
