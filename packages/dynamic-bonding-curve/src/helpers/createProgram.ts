@@ -8,6 +8,8 @@ import DammV1IDL from '../idl/damm-v1/idl.json'
 import type { DynamicBondingCurve } from '../idl/dynamic-bonding-curve/idl'
 import { DammV2 } from '../idl/damm-v2/idl'
 import DammV2IDL from '../idl/damm-v2/idl.json'
+import type { Locker as MetLock } from '../idl/met-lock/idl'
+import MetLockIDL from '../idl/met-lock/idl.json'
 
 /**
  * Create a DBC program instance
@@ -78,5 +80,17 @@ export function createDammV2Program(
     })
 
     const program = new Program<DammV2>(DammV2IDL, provider)
+    return program
+}
+
+export function createMetLockProgram(
+    connection: Connection,
+    commitment: Commitment = 'confirmed'
+): Program<MetLock> {
+    const provider = new AnchorProvider(connection, null as unknown as Wallet, {
+        commitment,
+    })
+
+    const program = new Program<MetLock>(MetLockIDL, provider)
     return program
 }
