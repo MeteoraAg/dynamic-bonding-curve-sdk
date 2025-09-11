@@ -12,12 +12,14 @@ describe('getMinBaseFeeBps tests', () => {
         const cliffFeeNumerator =
             (baseFeeBps * FEE_DENOMINATOR) / BASIS_POINT_MAX
         const numberOfPeriod = 144
+        const periodFrequency = 60
         const reductionFactor = 3333333
         const baseFeeMode = BaseFeeMode.FeeSchedulerLinear
 
         const minBaseFeeBps = calculateFeeSchedulerEndingBaseFeeBps(
             cliffFeeNumerator,
             numberOfPeriod,
+            periodFrequency,
             reductionFactor,
             baseFeeMode
         )
@@ -42,12 +44,14 @@ describe('getMinBaseFeeBps tests', () => {
         const cliffFeeNumerator =
             (baseFeeBps * FEE_DENOMINATOR) / BASIS_POINT_MAX
         const numberOfPeriod = 37.5
+        const periodFrequency = 60
         const reductionFactor = 822.5
         const baseFeeMode = BaseFeeMode.FeeSchedulerExponential
 
         const minBaseFeeBps = calculateFeeSchedulerEndingBaseFeeBps(
             cliffFeeNumerator,
             numberOfPeriod,
+            periodFrequency,
             reductionFactor,
             baseFeeMode
         )

@@ -1836,7 +1836,7 @@ const quote = await client.pool.swapQuote({
     amountIn,
     slippageBps: 50,
     hasReferral: false,
-    currentPoint: new BN(currentTime),
+    currentPoint,
     swapMode: SwapMode.PartialFill,
 })
 
@@ -1914,7 +1914,7 @@ const quote = await client.pool.swapQuote({
     amountIn,
     slippageBps: 50,
     hasReferral: false,
-    currentPoint: new BN(currentTime),
+    currentPoint,
 })
 ```
 
@@ -1995,7 +1995,7 @@ const quote = await client.pool.swapQuote2({
     amountIn,
     slippageBps: 50,
     hasReferral: false,
-    currentPoint: new BN(currentTime),
+    currentPoint,
     swapMode: SwapMode.PartialFill,
 })
 
@@ -2086,7 +2086,7 @@ const quote = await client.pool.swapQuote2({
     amountIn,
     slippageBps: 50,
     hasReferral: false,
-    currentPoint: new BN(currentTime),
+    currentPoint,
     swapMode: SwapMode.PartialFill,
 })
 ```

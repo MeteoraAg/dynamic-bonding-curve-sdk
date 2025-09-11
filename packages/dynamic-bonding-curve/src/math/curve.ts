@@ -131,15 +131,6 @@ export function getDeltaAmountQuoteUnsigned(
         round
     )
 
-    console.log(
-        lowerSqrtPrice.toString(),
-        upperSqrtPrice.toString(),
-        liquidity.toString(),
-        round
-    )
-
-    console.log(result.toString())
-
     return result
 }
 

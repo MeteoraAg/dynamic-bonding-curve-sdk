@@ -758,9 +758,14 @@ export function getFeeSchedulerParams(
 export function calculateFeeSchedulerEndingBaseFeeBps(
     cliffFeeNumerator: number,
     numberOfPeriod: number,
+    periodFrequency: number,
     reductionFactor: number,
     baseFeeMode: BaseFeeMode
 ): number {
+    if (numberOfPeriod === 0 || periodFrequency === 0) {
+        return (cliffFeeNumerator / FEE_DENOMINATOR) * BASIS_POINT_MAX
+    }
+
     let baseFeeNumerator: number
     if (baseFeeMode == BaseFeeMode.FeeSchedulerLinear) {
         // linear mode
