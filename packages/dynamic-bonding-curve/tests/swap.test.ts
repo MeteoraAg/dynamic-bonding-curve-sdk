@@ -29,12 +29,12 @@ describe('Swap Tests', () => {
         partner = Keypair.generate()
         user = Keypair.generate()
         poolCreator = Keypair.generate()
-        config = new PublicKey('FwnwxVcnNdegNym3K2buLQWA4KTyL3jhNq3anc5fSvHd')
-        pool = new PublicKey('Bn4ezTWgjHzJZVLttsqhVZJRB16SfqJVJ42WRScrMc2d') // SOL <> FGN27LjGn4KC8rtLvHvYNCwHoDX2Lej9ZWDp3EBinMPw
+        config = new PublicKey('EjLfwVN7QqfwDFrfcHSPKvcNBYo6rsJ5qdxUzo62Tg7f')
+        pool = new PublicKey('GF9P4WxZQPni7fH8o5aqY2EsNSQeXb6x9Cgs5YdapeQ1') // SOL <> EDwo7umSsZ7mHKeGrpQ93jFEnMvrNim8bQrXCBKifkBs
         const receivers = [
+            user.publicKey,
             operator.publicKey,
             partner.publicKey,
-            user.publicKey,
             poolCreator.publicKey,
         ]
         await fundSol(context.banksClient, admin, receivers)
@@ -73,7 +73,7 @@ describe('Swap Tests', () => {
 
         const swapParam = {
             amountIn: new BN(1000000000),
-            minimumAmountOut: new BN(0),
+            minimumAmountOut: swapQuote.minimumAmountOut!,
             swapBaseForQuote: false,
             owner: user.publicKey,
             pool: pool,
@@ -83,7 +83,16 @@ describe('Swap Tests', () => {
 
         const swapTx = await dbcClient.pool.swap(swapParam)
 
-        executeTransaction(context.banksClient, swapTx, [user])
+        // Get recent blockhash from the banks client
+        const recentBlockhash = await context.banksClient.getLatestBlockhash()
+        if (recentBlockhash) {
+            swapTx.recentBlockhash = recentBlockhash[0]
+        }
+
+        // Set fee payer before signing
+        swapTx.feePayer = user.publicKey
+
+        await executeTransaction(context.banksClient, swapTx, [user])
     })
 
     test('swap2ExactIn', async () => {
@@ -108,7 +117,7 @@ describe('Swap Tests', () => {
         const swapQuote = await dbcClient.pool.swapQuote2({
             virtualPool: poolState,
             config: poolConfigState,
-            swapBaseForQuote: true,
+            swapBaseForQuote: false,
             amountIn: new BN(1000000000),
             slippageBps: 50,
             hasReferral: false,
@@ -131,7 +140,17 @@ describe('Swap Tests', () => {
 
         const swapTx = await dbcClient.pool.swap2(swap2Param)
 
-        executeTransaction(context.banksClient, swapTx, [user])
+        // Get recent blockhash from the banks client
+        const recentBlockhash = await context.banksClient.getLatestBlockhash()
+        if (recentBlockhash) {
+            swapTx.recentBlockhash = recentBlockhash[0]
+        }
+
+        // Set fee payer before signing
+        swapTx.feePayer = user.publicKey
+        swapTx.partialSign(user)
+
+        await executeTransaction(context.banksClient, swapTx, [user])
     })
 
     test('swap2PartialFill', async () => {
@@ -179,7 +198,17 @@ describe('Swap Tests', () => {
 
         const swapTx = await dbcClient.pool.swap2(swap2Param)
 
-        executeTransaction(context.banksClient, swapTx, [user])
+        // Get recent blockhash from the banks client
+        const recentBlockhash = await context.banksClient.getLatestBlockhash()
+        if (recentBlockhash) {
+            swapTx.recentBlockhash = recentBlockhash[0]
+        }
+
+        // Set fee payer before signing
+        swapTx.feePayer = user.publicKey
+        swapTx.partialSign(user)
+
+        await executeTransaction(context.banksClient, swapTx, [user])
     })
 
     test('swapVExactOut', async () => {
@@ -227,6 +256,16 @@ describe('Swap Tests', () => {
 
         const swapTx = await dbcClient.pool.swap2(swap2Param)
 
-        executeTransaction(context.banksClient, swapTx, [user])
+        // Get recent blockhash from the banks client
+        const recentBlockhash = await context.banksClient.getLatestBlockhash()
+        if (recentBlockhash) {
+            swapTx.recentBlockhash = recentBlockhash[0]
+        }
+
+        // Set fee payer before signing
+        swapTx.feePayer = user.publicKey
+        swapTx.partialSign(user)
+
+        await executeTransaction(context.banksClient, swapTx, [user])
     })
 })
