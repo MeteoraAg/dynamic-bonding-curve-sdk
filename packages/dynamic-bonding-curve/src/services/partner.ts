@@ -44,6 +44,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
     /**
      * Create a new config
      * @param createConfigParam - The config parameters
+     * @param config - The config address
      * @param feeClaimer - The partner's fee claimer address
      * @param leftoverReceiver - The leftover receiver address
      * @param quoteMint - The quote mint
@@ -114,13 +115,13 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * @param feeClaimer - The partner's fee claimer address
      * @param payer - The payer of the transaction
      * @param feeReceiver - The wallet that will receive the tokens
-     * @param tempWSolAcc - The temporary wallet that will receive the SOL
      * @param config - The config address
      * @param pool - The pool address
      * @param poolState - The pool state
      * @param poolConfigState - The pool config state
      * @param tokenBaseProgram - The token base program
      * @param tokenQuoteProgram - The token quote program
+     * @param tempWSolAcc - The temporary wallet that will receive the SOL
      * @returns A claim trading fee with quote mint SOL accounts, pre instructions and post instructions
      */
     private async claimWithQuoteMintSol(
@@ -504,8 +505,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
     /**
      * Partner withdraw surplus
-     * @param virtualPool - The virtual pool address
      * @param feeClaimer - The partner's fee claimer address
+     * @param virtualPool - The virtual pool address
      * @returns A partner withdraw surplus transaction
      */
     async partnerWithdrawSurplus(

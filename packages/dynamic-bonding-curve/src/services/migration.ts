@@ -92,8 +92,8 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
     /**
      * Create Locker (if there is lockedVesting)
-     * @param virtualPool - The virtual pool address
      * @param payer - The payer of the transaction
+     * @param virtualPool - The virtual pool address
      * @returns A create locker transaction
      */
     async createLocker(params: CreateLockerParam): Promise<Transaction> {
@@ -167,8 +167,8 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
     /**
      * Withdraw leftover
-     * @param virtualPool - The virtual pool address
      * @param payer - The payer of the transaction
+     * @param virtualPool - The virtual pool address
      * @returns A withdraw leftover transaction
      */
     async withdrawLeftover(
@@ -224,9 +224,9 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
     /**
      * Create metadata for the migration of Meteora DAMM V1
+     * @param payer - The payer of the transaction
      * @param virtualPool - The virtual pool address
      * @param config - The config address
-     * @param payer - The payer of the transaction
      * @returns A migration transaction
      */
     async createDammV1MigrationMetadata(
@@ -253,9 +253,9 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
     /**
      * Migrate to DAMM V1
+     * @param payer - The payer of the transaction
      * @param virtualPool - The virtual pool address
      * @param dammConfig - The damm config address
-     * @param payer - The payer of the transaction
      * @returns A migrate transaction
      */
     async migrateToDammV1(params: MigrateToDammV1Param): Promise<Transaction> {
@@ -406,9 +406,9 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
     /**
      * Lock DAMM V1 LP token for creator or partner
+     * @param payer - The payer of the transaction
      * @param virtualPool - The virtual pool address
      * @param dammConfig - The damm config address
-     * @param payer - The payer of the transaction
      * @param isPartner - Whether the partner is locking the LP token
      * @returns A lock transaction
      */
@@ -588,9 +588,9 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
     /**
      * Claim DAMM V1 LP token for creator or partner
+     * @param payer - The payer of the transaction
      * @param virtualPool - The virtual pool address
      * @param dammConfig - The damm config address
-     * @param payer - The payer of the transaction
      * @param isPartner - Whether the partner is claiming the LP token
      * @returns A claim transaction
      */
@@ -683,9 +683,9 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
     /**
      * Create metadata for the migration of Meteora DAMM V2
+     * @param payer - The payer of the transaction
      * @param virtualPool - The virtual pool address
      * @param config - The config address
-     * @param payer - The payer of the transaction
      * @returns A migration transaction
      */
     async createDammV2MigrationMetadata(

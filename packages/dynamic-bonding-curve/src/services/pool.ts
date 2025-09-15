@@ -71,11 +71,11 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param config - The config address
      * @param payer - The payer address
      * @param poolCreator - The pool creator address
-     * @param mintMetadata - The mint metadata address
      * @param baseMint - The base mint address
      * @param baseVault - The base vault address
      * @param quoteVault - The quote vault address
      * @param quoteMint - The quote mint address
+     * @param mintMetadata - The mint metadata address (Optional)
      * @returns A transaction that initializes the pool with SPL token
      */
     private async initializeSplPool(
@@ -129,11 +129,11 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param config - The config address
      * @param payer - The payer address
      * @param poolCreator - The pool creator address
-     * @param mintMetadata - The mint metadata address
      * @param baseMint - The base mint address
      * @param baseVault - The base vault address
      * @param quoteVault - The quote vault address
      * @param quoteMint - The quote mint address
+     * @param mintMetadata - The mint metadata address (Optional)
      * @returns A transaction that initializes the pool with Token2022
      */
     private async initializeToken2022Pool(
@@ -777,11 +777,11 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Swap between base and quote
+     * @param owner - The owner of the swap
      * @param pool - The pool address
      * @param amountIn - The amount in
      * @param minimumAmountOut - The minimum amount out
      * @param swapBaseForQuote - Whether to swap base for quote
-     * @param owner - The owner of the swap
      * @param referralTokenAccount - The referral token account (nullible)
      * @param payer - The payer of the swap (optional)
      * @returns A swap transaction
@@ -913,11 +913,11 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Swap V2 between base and quote (included SwapMode: ExactIn, PartialFill, ExactOut)
+     * @param owner - The owner of the swap
      * @param pool - The pool address
      * @param swapBaseForQuote - Whether to swap base for quote
-     * @param owner - The owner of the swap
-     * @param payer - The payer of the swap (optional)
      * @param referralTokenAccount - The referral token account (nullible)
+     * @param payer - The payer of the swap (optional)
      * @param swapMode - The swap mode (ExactIn: 0, PartialFill: 1, ExactOut: 2)
      * @param amountIn - The amount in (for ExactIn and PartialFill)
      * @param minimumAmountOut - The minimum amount out (for ExactIn and PartialFill)

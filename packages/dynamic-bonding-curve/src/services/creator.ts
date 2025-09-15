@@ -80,12 +80,12 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * @param creator - The creator of the pool
      * @param payer - The payer of the transaction
      * @param feeReceiver - The wallet that will receive the tokens
-     * @param tempWSolAcc - The temporary wallet that will receive the SOL
      * @param pool - The pool address
      * @param poolState - The pool state
      * @param poolConfigState - The pool config state
      * @param tokenBaseProgram - The token base program
      * @param tokenQuoteProgram - The token quote program
+     * @param tempWSolAcc - The temporary wallet that will receive the SOL
      * @returns A claim trading fee with quote mint SOL accounts, pre instructions and post instructions
      */
     private async claimWithQuoteMintSol(
@@ -250,11 +250,11 @@ export class CreatorService extends DynamicBondingCurveProgram {
     /**
      * Claim creator trading fee
      * @param creator - The creator of the pool
+     * @param payer - The payer of the transaction
      * @param pool - The pool address
      * @param maxBaseAmount - The maximum base amount
      * @param maxQuoteAmount - The maximum quote amount
-     * @param receiver - The wallet that will receive the tokens
-     * @param payer - The payer of the transaction (Optional)
+     * @param receiver - The wallet that will receive the tokens (Optional)
      * @param tempWSolAcc - The temporary wallet that will receive the SOL (Optional)
      * @returns A claim creator trading fee transaction
      */
@@ -339,11 +339,11 @@ export class CreatorService extends DynamicBondingCurveProgram {
     /**
      * Claim creator trading fee
      * @param creator - The creator of the pool
+     * @param payer - The payer of the transaction
      * @param pool - The pool address
      * @param maxBaseAmount - The maximum base amount
      * @param maxQuoteAmount - The maximum quote amount
      * @param receiver - The wallet that will receive the tokens
-     * @param payer - The payer of the transaction
      * @returns A claim creator trading fee transaction
      */
     async claimCreatorTradingFee2(
