@@ -29,6 +29,7 @@ export class DynamicBondingCurveClient {
     /**
      * Static method to create a client instance for a specific pool
      * @param connection - The connection to the Solana network
+     * @param commitment - The commitment to the Solana network
      * @returns A DynamicBondingCurveClient instance
      */
     static create(

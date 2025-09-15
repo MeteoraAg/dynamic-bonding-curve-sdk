@@ -641,7 +641,6 @@ export type TransferPoolCreatorParam = {
 export type WithdrawMigrationFeeParam = {
     virtualPool: PublicKey
     sender: PublicKey // sender is creator or partner
-    feePayer?: PublicKey
 }
 
 ////////////////

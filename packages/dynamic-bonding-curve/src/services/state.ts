@@ -179,9 +179,9 @@ export class StateService extends DynamicBondingCurveProgram {
      * @returns A partner metadata
      */
     async getPartnerMetadata(
-        walletAddress: PublicKey | string
+        partnerAddress: PublicKey | string
     ): Promise<PartnerMetadata[]> {
-        const filters = createProgramAccountFilter(walletAddress, 8)
+        const filters = createProgramAccountFilter(partnerAddress, 8)
         const accounts = await this.program.account.partnerMetadata.all(filters)
         return accounts.map((account) => account.account)
     }
