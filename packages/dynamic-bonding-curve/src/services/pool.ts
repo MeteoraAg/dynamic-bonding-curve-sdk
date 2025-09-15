@@ -64,11 +64,22 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Private method to initialize a pool with SPL token
-     * @param initializeSplPoolParams - The parameters for the initialize SPL pool
+     * @param name - The name of the token
+     * @param symbol - The symbol of the token
+     * @param uri - The URI of the token
+     * @param pool - The pool address
+     * @param config - The config address
+     * @param payer - The payer address
+     * @param poolCreator - The pool creator address
+     * @param mintMetadata - The mint metadata address
+     * @param baseMint - The base mint address
+     * @param baseVault - The base vault address
+     * @param quoteVault - The quote vault address
+     * @param quoteMint - The quote mint address
      * @returns A transaction that initializes the pool with SPL token
      */
     private async initializeSplPool(
-        initializeSplPoolParams: InitializePoolBaseParam
+        params: InitializePoolBaseParam
     ): Promise<Transaction> {
         const {
             name,
@@ -83,7 +94,8 @@ export class PoolService extends DynamicBondingCurveProgram {
             baseVault,
             quoteVault,
             quoteMint,
-        } = initializeSplPoolParams
+        } = params
+
         return this.program.methods
             .initializeVirtualPoolWithSplToken({
                 name,
@@ -110,11 +122,22 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Private method to initialize a pool with Token2022
-     * @param initializeToken2022PoolParams - The parameters for the initialize Token2022 pool
+     * @param name - The name of the token
+     * @param symbol - The symbol of the token
+     * @param uri - The URI of the token
+     * @param pool - The pool address
+     * @param config - The config address
+     * @param payer - The payer address
+     * @param poolCreator - The pool creator address
+     * @param mintMetadata - The mint metadata address
+     * @param baseMint - The base mint address
+     * @param baseVault - The base vault address
+     * @param quoteVault - The quote vault address
+     * @param quoteMint - The quote mint address
      * @returns A transaction that initializes the pool with Token2022
      */
     private async initializeToken2022Pool(
-        initializeToken2022PoolParams: InitializePoolBaseParam
+        params: InitializePoolBaseParam
     ): Promise<Transaction> {
         const {
             name,
@@ -128,7 +151,8 @@ export class PoolService extends DynamicBondingCurveProgram {
             baseVault,
             quoteVault,
             quoteMint,
-        } = initializeToken2022PoolParams
+        } = params
+
         return this.program.methods
             .initializeVirtualPoolWithToken2022({
                 name,
@@ -154,8 +178,8 @@ export class PoolService extends DynamicBondingCurveProgram {
     /**
      * Private method to prepare swap parameters
      * @param swapBaseForQuote - Whether to swap base for quote
-     * @param virtualPoolState - The virtual pool state
-     * @param poolConfigState - The pool config state
+     * @param virtualPoolState - The virtual pool state consisting of baseMint and poolType
+     * @param poolConfigState - The pool config state consisting of quoteMint and quoteTokenFlag
      * @returns The prepare swap parameters
      */
     private prepareSwapParams(
@@ -225,7 +249,7 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Private method to create pool transaction
-     * @param createPoolParam - The parameters for the pool
+     * @param createPoolParam - The parameters for the pool consisting of baseMint, name, symbol, uri, poolCreator, config, and payer
      * @param tokenType - The token type
      * @param quoteMint - The quote mint token
      * @returns A transaction that creates the pool
@@ -266,10 +290,12 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Private method to create first buy transaction
-     * @param firstBuyParam - The parameters for the first buy
+     * @param firstBuyParam - The parameters for the first buy consisting of buyer, receiver (optional), buyAmount, minimumAmountOut, and referralTokenAccount
      * @param baseMint - The base mint token
      * @param config - The config key
-     * @param baseFeeMode - The base fee mode
+     * @param baseFee - The base fee
+     * @param swapBaseForQuote - Whether to swap base for quote
+     * @param currentPoint - The current point
      * @param tokenType - The token type
      * @param quoteMint - The quote mint token
      * @returns Instructions for the first buy
@@ -415,14 +441,23 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Create a new pool
-     * @param createPoolParam - The parameters for the pool
+     * @param name - The name of the token
+     * @param symbol - The symbol of the token
+     * @param uri - The URI of the token
+     * @param config - The config address
+     * @param payer - The payer address
+     * @param poolCreator - The pool creator address
+     * @param baseMint - The base mint address
      * @returns A new pool
      */
-    async createPool(createPoolParam: CreatePoolParam): Promise<Transaction> {
+    async createPool(params: CreatePoolParam): Promise<Transaction> {
         const { baseMint, config, name, symbol, uri, payer, poolCreator } =
-            createPoolParam
+            params
 
         const poolConfigState = await this.state.getPoolConfig(config)
+        if (!poolConfigState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
 
         const { quoteMint, tokenType } = poolConfigState
 
@@ -454,11 +489,17 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Create a new config and pool
-     * @param createConfigAndPoolParam - The parameters for the config and pool
+     * @param config - The config address
+     * @param feeClaimer - The fee claimer address
+     * @param leftoverReceiver - The leftover receiver address
+     * @param quoteMint - The quote mint address
+     * @param payer - The payer address
+     * @param configParam - The parameters for the config
+     * @param preCreatePoolParam - The parameters for the pool
      * @returns A new config and pool
      */
     async createConfigAndPool(
-        createConfigAndPoolParam: CreateConfigAndPoolParam
+        params: CreateConfigAndPoolParam
     ): Promise<Transaction> {
         const {
             config,
@@ -467,7 +508,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             quoteMint,
             payer,
             ...configParam
-        } = createConfigAndPoolParam
+        } = params
 
         const configKey = new PublicKey(config)
         const quoteMintToken = new PublicKey(quoteMint)
@@ -492,11 +533,11 @@ export class PoolService extends DynamicBondingCurveProgram {
         // create pool transaction
         const createPoolTx = await this.createPoolTx(
             {
-                ...createConfigAndPoolParam.preCreatePoolParam,
+                ...params.preCreatePoolParam,
                 config: configKey,
                 payer: payerAddress,
             },
-            createConfigAndPoolParam.tokenType,
+            params.tokenType,
             quoteMintToken
         )
         tx.add(createPoolTx)
@@ -506,11 +547,18 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Create a new config and pool and buy tokens
-     * @param createConfigAndPoolWithFirstBuyParam - The parameters for the config and pool and buy
+     * @param config - The config address
+     * @param feeClaimer - The fee claimer address
+     * @param leftoverReceiver - The leftover receiver address
+     * @param quoteMint - The quote mint address
+     * @param payer - The payer address
+     * @param configParam - The parameters for the config
+     * @param preCreatePoolParam - The parameters for the pool
+     * @param firstBuyParam - The parameters for the first buy
      * @returns An object containing the new config transaction, new pool transaction, and first buy transaction
      */
     async createConfigAndPoolWithFirstBuy(
-        createConfigAndPoolWithFirstBuyParam: CreateConfigAndPoolWithFirstBuyParam
+        params: CreateConfigAndPoolWithFirstBuyParam
     ): Promise<{
         createConfigTx: Transaction
         createPoolTx: Transaction
@@ -523,7 +571,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             quoteMint,
             payer,
             ...configParam
-        } = createConfigAndPoolWithFirstBuyParam
+        } = params
 
         const configKey = new PublicKey(config)
         const quoteMintToken = new PublicKey(quoteMint)
@@ -544,11 +592,11 @@ export class PoolService extends DynamicBondingCurveProgram {
         // create pool transaction
         const createPoolTx = await this.createPoolTx(
             {
-                ...createConfigAndPoolWithFirstBuyParam.preCreatePoolParam,
+                ...params.preCreatePoolParam,
                 config: configKey,
                 payer: payerAddress,
             },
-            createConfigAndPoolWithFirstBuyParam.tokenType,
+            params.tokenType,
             quoteMintToken
         )
 
@@ -560,20 +608,17 @@ export class PoolService extends DynamicBondingCurveProgram {
         // create first buy transaction
         let swapBuyTx: Transaction | undefined
         if (
-            createConfigAndPoolWithFirstBuyParam.firstBuyParam &&
-            createConfigAndPoolWithFirstBuyParam.firstBuyParam.buyAmount.gt(
-                new BN(0)
-            )
+            params.firstBuyParam &&
+            params.firstBuyParam.buyAmount.gt(new BN(0))
         ) {
             swapBuyTx = await this.swapBuyTx(
-                createConfigAndPoolWithFirstBuyParam.firstBuyParam,
-                createConfigAndPoolWithFirstBuyParam.preCreatePoolParam
-                    .baseMint,
+                params.firstBuyParam,
+                params.preCreatePoolParam.baseMint,
                 configKey,
                 configParam.poolFees.baseFee,
                 false,
                 currentPoint,
-                createConfigAndPoolWithFirstBuyParam.tokenType,
+                params.tokenType,
                 quoteMintToken
             )
         }
@@ -587,24 +632,28 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Create a new pool and buy tokens
-     * @param createPoolWithFirstBuyParam - The parameters for the pool and buy
+     * @param createPoolParam - The parameters for the pool
+     * @param firstBuyParam - The parameters for the first buy
      * @returns An object containing the new pool transaction and swap buy transaction
      */
-    async createPoolWithFirstBuy(
-        createPoolWithFirstBuyParam: CreatePoolWithFirstBuyParam
-    ): Promise<{
+    async createPoolWithFirstBuy(params: CreatePoolWithFirstBuyParam): Promise<{
         createPoolTx: Transaction
         swapBuyTx: Transaction | undefined
     }> {
-        const { config } = createPoolWithFirstBuyParam.createPoolParam
+        const { createPoolParam, firstBuyParam } = params
+
+        const { config } = createPoolParam
 
         const poolConfigState = await this.state.getPoolConfig(config)
+        if (!poolConfigState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
 
         const { quoteMint, tokenType } = poolConfigState
 
         // create pool transaction
         const createPoolTx = await this.createPoolTx(
-            createPoolWithFirstBuyParam.createPoolParam,
+            createPoolParam,
             tokenType,
             quoteMint
         )
@@ -616,13 +665,10 @@ export class PoolService extends DynamicBondingCurveProgram {
 
         // create first buy transaction
         let swapBuyTx: Transaction | undefined
-        if (
-            createPoolWithFirstBuyParam.firstBuyParam &&
-            createPoolWithFirstBuyParam.firstBuyParam.buyAmount.gt(new BN(0))
-        ) {
+        if (firstBuyParam && firstBuyParam.buyAmount.gt(new BN(0))) {
             swapBuyTx = await this.swapBuyTx(
-                createPoolWithFirstBuyParam.firstBuyParam,
-                createPoolWithFirstBuyParam.createPoolParam.baseMint,
+                firstBuyParam,
+                createPoolParam.baseMint,
                 config,
                 poolConfigState.poolFees.baseFee,
                 false,
@@ -640,18 +686,21 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Create a new pool and buy tokens with partner and creator
-     * @param createPoolWithPartnerAndCreatorFirstBuyParam - The parameters for the pool and buy
-     * @returns An object containing the new pool transaction and swap buy transactions
+     * @param createPoolParam - The parameters for the pool
+     * @param partnerFirstBuyParam - The parameters for the partner first buy
+     * @param creatorFirstBuyParam - The parameters for the creator first buy
+     * @returns An object containing the new pool transaction and swap buy transactions for partner and creator
      */
     async createPoolWithPartnerAndCreatorFirstBuy(
-        createPoolWithPartnerAndCreatorFirstBuyParam: CreatePoolWithPartnerAndCreatorFirstBuyParam
+        params: CreatePoolWithPartnerAndCreatorFirstBuyParam
     ): Promise<{
         createPoolTx: Transaction
         partnerSwapBuyTx: Transaction | undefined
         creatorSwapBuyTx: Transaction | undefined
     }> {
-        const { config } =
-            createPoolWithPartnerAndCreatorFirstBuyParam.createPoolParam
+        const { createPoolParam, partnerFirstBuyParam, creatorFirstBuyParam } =
+            params
+        const { config } = createPoolParam
 
         const poolConfigState = await this.state.getPoolConfig(config)
 
@@ -659,7 +708,7 @@ export class PoolService extends DynamicBondingCurveProgram {
 
         // create pool transaction
         const createPoolTx = await this.createPoolTx(
-            createPoolWithPartnerAndCreatorFirstBuyParam.createPoolParam,
+            createPoolParam,
             tokenType,
             quoteMint
         )
@@ -672,30 +721,19 @@ export class PoolService extends DynamicBondingCurveProgram {
         // create partner first buy transaction
         let partnerSwapBuyTx: Transaction | undefined
         if (
-            createPoolWithPartnerAndCreatorFirstBuyParam.partnerFirstBuyParam &&
-            createPoolWithPartnerAndCreatorFirstBuyParam.partnerFirstBuyParam.buyAmount.gt(
-                new BN(0)
-            )
+            partnerFirstBuyParam &&
+            partnerFirstBuyParam.buyAmount.gt(new BN(0))
         ) {
             partnerSwapBuyTx = await this.swapBuyTx(
                 {
-                    buyer: createPoolWithPartnerAndCreatorFirstBuyParam
-                        .partnerFirstBuyParam.partner,
-                    receiver:
-                        createPoolWithPartnerAndCreatorFirstBuyParam
-                            .partnerFirstBuyParam.receiver,
-                    buyAmount:
-                        createPoolWithPartnerAndCreatorFirstBuyParam
-                            .partnerFirstBuyParam.buyAmount,
-                    minimumAmountOut:
-                        createPoolWithPartnerAndCreatorFirstBuyParam
-                            .partnerFirstBuyParam.minimumAmountOut,
+                    buyer: partnerFirstBuyParam.partner,
+                    receiver: partnerFirstBuyParam.receiver,
+                    buyAmount: partnerFirstBuyParam.buyAmount,
+                    minimumAmountOut: partnerFirstBuyParam.minimumAmountOut,
                     referralTokenAccount:
-                        createPoolWithPartnerAndCreatorFirstBuyParam
-                            .partnerFirstBuyParam.referralTokenAccount,
+                        partnerFirstBuyParam.referralTokenAccount,
                 },
-                createPoolWithPartnerAndCreatorFirstBuyParam.createPoolParam
-                    .baseMint,
+                createPoolParam.baseMint,
                 config,
                 poolConfigState.poolFees.baseFee,
                 false,
@@ -708,30 +746,19 @@ export class PoolService extends DynamicBondingCurveProgram {
         // create creator first buy transaction
         let creatorSwapBuyTx: Transaction | undefined
         if (
-            createPoolWithPartnerAndCreatorFirstBuyParam.creatorFirstBuyParam &&
-            createPoolWithPartnerAndCreatorFirstBuyParam.creatorFirstBuyParam.buyAmount.gt(
-                new BN(0)
-            )
+            creatorFirstBuyParam &&
+            creatorFirstBuyParam.buyAmount.gt(new BN(0))
         ) {
             creatorSwapBuyTx = await this.swapBuyTx(
                 {
-                    buyer: createPoolWithPartnerAndCreatorFirstBuyParam
-                        .creatorFirstBuyParam.creator,
-                    receiver:
-                        createPoolWithPartnerAndCreatorFirstBuyParam
-                            .creatorFirstBuyParam.receiver,
-                    buyAmount:
-                        createPoolWithPartnerAndCreatorFirstBuyParam
-                            .creatorFirstBuyParam.buyAmount,
-                    minimumAmountOut:
-                        createPoolWithPartnerAndCreatorFirstBuyParam
-                            .creatorFirstBuyParam.minimumAmountOut,
+                    buyer: creatorFirstBuyParam.creator,
+                    receiver: creatorFirstBuyParam.receiver,
+                    buyAmount: creatorFirstBuyParam.buyAmount,
+                    minimumAmountOut: creatorFirstBuyParam.minimumAmountOut,
                     referralTokenAccount:
-                        createPoolWithPartnerAndCreatorFirstBuyParam
-                            .creatorFirstBuyParam.referralTokenAccount,
+                        creatorFirstBuyParam.referralTokenAccount,
                 },
-                createPoolWithPartnerAndCreatorFirstBuyParam.createPoolParam
-                    .baseMint,
+                createPoolParam.baseMint,
                 config,
                 poolConfigState.poolFees.baseFee,
                 false,
@@ -751,20 +778,34 @@ export class PoolService extends DynamicBondingCurveProgram {
     /**
      * Swap between base and quote
      * @param pool - The pool address
-     * @param swapParam - The parameters for the swap
+     * @param amountIn - The amount in
+     * @param minimumAmountOut - The minimum amount out
+     * @param swapBaseForQuote - Whether to swap base for quote
+     * @param owner - The owner of the swap
+     * @param referralTokenAccount - The referral token account (nullible)
+     * @param payer - The payer of the swap (optional)
      * @returns A swap transaction
      */
-    async swap(swapParam: SwapParam): Promise<Transaction> {
-        const poolState = await this.state.getPool(swapParam.pool)
+    async swap(params: SwapParam): Promise<Transaction> {
+        const {
+            amountIn,
+            minimumAmountOut,
+            swapBaseForQuote,
+            owner,
+            payer,
+            pool,
+            referralTokenAccount,
+        } = params
 
+        const poolState = await this.state.getPool(pool)
         if (!poolState) {
-            throw new Error(`Pool not found: ${swapParam.pool.toString()}`)
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(poolState.config)
-
-        const { amountIn, minimumAmountOut, swapBaseForQuote, owner, payer } =
-            swapParam
+        if (!poolConfigState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
 
         // error checks
         validateSwapAmount(amountIn)
@@ -848,12 +889,12 @@ export class PoolService extends DynamicBondingCurveProgram {
             .accountsPartial({
                 baseMint: poolState.baseMint,
                 quoteMint: poolConfigState.quoteMint,
-                pool: swapParam.pool,
+                pool,
                 baseVault: poolState.baseVault,
                 quoteVault: poolState.quoteVault,
                 config: poolState.config,
                 poolAuthority: this.poolAuthority,
-                referralTokenAccount: swapParam.referralTokenAccount,
+                referralTokenAccount,
                 inputTokenAccount,
                 outputTokenAccount,
                 payer: owner,
@@ -872,10 +913,19 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Swap V2 between base and quote (included SwapMode: ExactIn, PartialFill, ExactOut)
-     * @param swap2Param - The parameters for the swap
+     * @param pool - The pool address
+     * @param swapBaseForQuote - Whether to swap base for quote
+     * @param owner - The owner of the swap
+     * @param payer - The payer of the swap (optional)
+     * @param referralTokenAccount - The referral token account (nullible)
+     * @param swapMode - The swap mode (ExactIn: 0, PartialFill: 1, ExactOut: 2)
+     * @param amountIn - The amount in (for ExactIn and PartialFill)
+     * @param minimumAmountOut - The minimum amount out (for ExactIn and PartialFill)
+     * @param amountOut - The amount out (for ExactOut)
+     * @param maximumAmountIn - The maximum amount in (for ExactOut)
      * @returns A swap transaction
      */
-    async swap2(swap2Param: Swap2Param): Promise<Transaction> {
+    async swap2(params: Swap2Param): Promise<Transaction> {
         const {
             pool,
             swapBaseForQuote,
@@ -883,17 +933,17 @@ export class PoolService extends DynamicBondingCurveProgram {
             owner,
             payer,
             referralTokenAccount,
-        } = swap2Param
+        } = params
 
         let amount0: BN
         let amount1: BN
 
         if (swapMode === SwapMode.ExactOut) {
-            amount0 = swap2Param.amountOut
-            amount1 = swap2Param.maximumAmountIn
+            amount0 = params.amountOut
+            amount1 = params.maximumAmountIn
         } else {
-            amount0 = swap2Param.amountIn
-            amount1 = swap2Param.minimumAmountOut
+            amount0 = params.amountIn
+            amount1 = params.minimumAmountOut
         }
 
         // error checks
@@ -906,6 +956,9 @@ export class PoolService extends DynamicBondingCurveProgram {
         }
 
         const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        if (!poolConfigState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
 
         const currentPoint = await getCurrentPoint(
             this.connection,
@@ -1020,12 +1073,12 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param config - The config
      * @param swapBaseForQuote - Whether to swap base for quote
      * @param amountIn - The amount in
-     * @param slippageBps - Slippage tolerance in basis points (100 = 1%)
+     * @param slippageBps - Slippage tolerance in basis points (100 = 1%) (optional)
      * @param hasReferral - Whether the referral is enabled
      * @param currentPoint - The current point
      * @returns The swap quote result
      */
-    swapQuote(swapQuoteParam: SwapQuoteParam): SwapQuoteResult {
+    swapQuote(params: SwapQuoteParam): SwapQuoteResult {
         const {
             virtualPool,
             config,
@@ -1034,7 +1087,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             slippageBps,
             hasReferral,
             currentPoint,
-        } = swapQuoteParam
+        } = params
 
         return swapQuote(
             virtualPool,
@@ -1049,10 +1102,18 @@ export class PoolService extends DynamicBondingCurveProgram {
 
     /**
      * Calculate the amount out for a swap (quote) based on swap mode (for swap2)
-     * @param swapQuoteParam - The unified parameters for the swap quote
+     * @param virtualPool - The virtual pool
+     * @param config - The config
+     * @param swapBaseForQuote - Whether to swap base for quote
+     * @param hasReferral - Whether the referral is enabled
+     * @param currentPoint - The current point
+     * @param slippageBps - Slippage tolerance in basis points (100 = 1%) (optional)
+     * @param swapMode - The swap mode (ExactIn: 0, PartialFill: 1, ExactOut: 2)
+     * @param amountIn - The amount in (for ExactIn and PartialFill)
+     * @param amountOut - The amount out (for ExactOut)
      * @returns The swap quote result
      */
-    swapQuote2(swapQuote2Param: SwapQuote2Param): SwapQuote2Result {
+    swapQuote2(params: SwapQuote2Param): SwapQuote2Result {
         const {
             virtualPool,
             config,
@@ -1061,16 +1122,16 @@ export class PoolService extends DynamicBondingCurveProgram {
             hasReferral,
             currentPoint,
             slippageBps,
-        } = swapQuote2Param
+        } = params
 
         switch (swapMode) {
             case SwapMode.ExactIn:
-                if ('amountIn' in swapQuote2Param) {
+                if ('amountIn' in params) {
                     return swapQuoteExactIn(
                         virtualPool,
                         config,
                         swapBaseForQuote,
-                        swapQuote2Param.amountIn,
+                        params.amountIn,
                         slippageBps,
                         hasReferral,
                         currentPoint
@@ -1079,12 +1140,12 @@ export class PoolService extends DynamicBondingCurveProgram {
                 throw new Error('amountIn is required for ExactIn swap mode')
 
             case SwapMode.ExactOut:
-                if ('amountOut' in swapQuote2Param) {
+                if ('amountOut' in params) {
                     return swapQuoteExactOut(
                         virtualPool,
                         config,
                         swapBaseForQuote,
-                        swapQuote2Param.amountOut,
+                        params.amountOut,
                         slippageBps,
                         hasReferral,
                         currentPoint
@@ -1093,12 +1154,12 @@ export class PoolService extends DynamicBondingCurveProgram {
                 throw new Error('outAmount is required for ExactOut swap mode')
 
             case SwapMode.PartialFill:
-                if ('amountIn' in swapQuote2Param) {
+                if ('amountIn' in params) {
                     return swapQuotePartialFill(
                         virtualPool,
                         config,
                         swapBaseForQuote,
-                        swapQuote2Param.amountIn,
+                        params.amountIn,
                         slippageBps,
                         hasReferral,
                         currentPoint

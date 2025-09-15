@@ -43,12 +43,14 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
     /**
      * Create a new config
-     * @param createConfigParam - The parameters for the config
+     * @param createConfigParam - The config parameters
+     * @param feeClaimer - The partner's fee claimer address
+     * @param leftoverReceiver - The leftover receiver address
+     * @param quoteMint - The quote mint
+     * @param payer - The payer of the transaction
      * @returns A new config
      */
-    async createConfig(
-        createConfigParam: CreateConfigParam
-    ): Promise<Transaction> {
+    async createConfig(params: CreateConfigParam): Promise<Transaction> {
         const {
             config,
             feeClaimer,
@@ -56,7 +58,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             quoteMint,
             payer,
             ...configParam
-        } = createConfigParam
+        } = params
 
         // error checks
         validateConfigParameters({ ...configParam, leftoverReceiver })
@@ -75,29 +77,33 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
     /**
      * Create partner metadata
-     * @param createPartnerMetadataParam - The parameters for the partner metadata
+     * @param name - The name of the partner
+     * @param website - The website of the partner
+     * @param logo - The logo of the partner
+     * @param feeClaimer - The partner's fee claimer address
+     * @param payer - The payer of the transaction
      * @returns A create partner metadata transaction
      */
     async createPartnerMetadata(
-        createPartnerMetadataParam: CreatePartnerMetadataParam
+        params: CreatePartnerMetadataParam
     ): Promise<Transaction> {
-        const partnerMetadata = derivePartnerMetadata(
-            createPartnerMetadataParam.feeClaimer
-        )
+        const { name, website, logo, feeClaimer, payer } = params
+
+        const partnerMetadata = derivePartnerMetadata(feeClaimer)
 
         const partnerMetadataParam: CreatePartnerMetadataParameters = {
             padding: new Array(96).fill(0),
-            name: createPartnerMetadataParam.name,
-            website: createPartnerMetadataParam.website,
-            logo: createPartnerMetadataParam.logo,
+            name,
+            website,
+            logo,
         }
 
         return this.program.methods
             .createPartnerMetadata(partnerMetadataParam)
             .accountsPartial({
                 partnerMetadata,
-                payer: createPartnerMetadataParam.payer,
-                feeClaimer: createPartnerMetadataParam.feeClaimer,
+                payer,
+                feeClaimer,
                 systemProgram: SystemProgram.programId,
             })
             .transaction()
@@ -105,11 +111,20 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
     /**
      * Private method to claim trading fee with quote mint SOL
-     * @param claimWithQuoteMintSolParam - The parameters for the claim with quote mint SOL
+     * @param feeClaimer - The partner's fee claimer address
+     * @param payer - The payer of the transaction
+     * @param feeReceiver - The wallet that will receive the tokens
+     * @param tempWSolAcc - The temporary wallet that will receive the SOL
+     * @param config - The config address
+     * @param pool - The pool address
+     * @param poolState - The pool state
+     * @param poolConfigState - The pool config state
+     * @param tokenBaseProgram - The token base program
+     * @param tokenQuoteProgram - The token quote program
      * @returns A claim trading fee with quote mint SOL accounts, pre instructions and post instructions
      */
     private async claimWithQuoteMintSol(
-        claimWithQuoteMintSolParam: ClaimPartnerTradingFeeWithQuoteMintSolParam
+        params: ClaimPartnerTradingFeeWithQuoteMintSolParam
     ): Promise<{
         accounts: {
             poolAuthority: PublicKey
@@ -139,7 +154,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             poolConfigState,
             tokenBaseProgram,
             tokenQuoteProgram,
-        } = claimWithQuoteMintSolParam
+        } = params
 
         const preInstructions: TransactionInstruction[] = []
         const postInstructions: TransactionInstruction[] = []
@@ -201,11 +216,19 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
     /**
      * Private method to claim trading fee with quote mint not SOL
-     * @param claimWithQuoteMintNotSolParam - The parameters for the claim with quote mint not SOL
+     * @param feeClaimer - The partner's fee claimer address
+     * @param payer - The payer of the transaction
+     * @param feeReceiver - The wallet that will receive the tokens
+     * @param config - The config address
+     * @param pool - The pool address
+     * @param poolState - The pool state
+     * @param poolConfigState - The pool config state
+     * @param tokenBaseProgram - The token base program
+     * @param tokenQuoteProgram - The token quote program
      * @returns A claim trading fee with quote mint not SOL accounts and pre instructions
      */
     private async claimWithQuoteMintNotSol(
-        claimWithQuoteMintNotSolParam: ClaimPartnerTradingFeeWithQuoteMintNotSolParam
+        params: ClaimPartnerTradingFeeWithQuoteMintNotSolParam
     ): Promise<{
         accounts: {
             poolAuthority: PublicKey
@@ -233,7 +256,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             poolConfigState,
             tokenBaseProgram,
             tokenQuoteProgram,
-        } = claimWithQuoteMintNotSolParam
+        } = params
 
         const {
             ataTokenA: tokenBaseAccount,
@@ -268,11 +291,17 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
     /**
      * Claim partner trading fee
-     * @param claimTradingFeeParam - The parameters for the claim trading fee
+     * @param feeClaimer - The partner's fee claimer address
+     * @param payer - The payer of the transaction
+     * @param pool - The pool address
+     * @param maxBaseAmount - The maximum base amount
+     * @param maxQuoteAmount - The maximum quote amount
+     * @param receiver - The wallet that will receive the tokens (Optional)
+     * @param tempWSolAcc - The temporary wallet that will receive the SOL (Optional)
      * @returns A claim trading fee transaction
      */
     async claimPartnerTradingFee(
-        claimTradingFeeParam: ClaimTradingFeeParam
+        params: ClaimTradingFeeParam
     ): Promise<Transaction> {
         const {
             feeClaimer,
@@ -282,18 +311,16 @@ export class PartnerService extends DynamicBondingCurveProgram {
             maxQuoteAmount,
             receiver,
             tempWSolAcc,
-        } = claimTradingFeeParam
+        } = params
 
         const poolState = await this.state.getPool(pool)
-
         if (!poolState) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(poolState.config)
-
         if (!poolConfigState) {
-            throw new Error(`Pool config not found: ${pool.toString()}`)
+            throw new Error(`Pool config not found for virtual pool`)
         }
 
         const tokenBaseProgram = getTokenProgram(poolConfigState.tokenType)
@@ -356,11 +383,16 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
     /**
      * Claim partner trading fee
-     * @param claimTradingFee2Param - The parameters for the claim trading fee
+     * @param feeClaimer - The partner's fee claimer address
+     * @param payer - The payer of the transaction
+     * @param pool - The pool address
+     * @param maxBaseAmount - The maximum base amount
+     * @param maxQuoteAmount - The maximum quote amount
+     * @param receiver - The wallet that will receive the tokens
      * @returns A claim trading fee transaction
      */
     async claimPartnerTradingFee2(
-        claimTradingFee2Param: ClaimTradingFee2Param
+        params: ClaimTradingFee2Param
     ): Promise<Transaction> {
         const {
             feeClaimer,
@@ -369,16 +401,14 @@ export class PartnerService extends DynamicBondingCurveProgram {
             maxBaseAmount,
             maxQuoteAmount,
             receiver,
-        } = claimTradingFee2Param
+        } = params
 
         const poolState = await this.state.getPool(pool)
-
         if (!poolState) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(poolState.config)
-
         if (!poolConfigState) {
             throw new Error(`Pool config not found: ${pool.toString()}`)
         }
@@ -474,22 +504,24 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
     /**
      * Partner withdraw surplus
-     * @param partnerWithdrawSurplusParam - The parameters for the partner withdraw surplus
+     * @param virtualPool - The virtual pool address
+     * @param feeClaimer - The partner's fee claimer address
      * @returns A partner withdraw surplus transaction
      */
     async partnerWithdrawSurplus(
-        partnerWithdrawSurplusParam: PartnerWithdrawSurplusParam
+        params: PartnerWithdrawSurplusParam
     ): Promise<Transaction> {
-        const poolState = await this.state.getPool(
-            partnerWithdrawSurplusParam.virtualPool
-        )
+        const { virtualPool, feeClaimer } = params
+
+        const poolState = await this.state.getPool(virtualPool)
         if (!poolState) {
-            throw new Error(
-                `Pool not found: ${partnerWithdrawSurplusParam.virtualPool.toString()}`
-            )
+            throw new Error(`Pool not found: ${virtualPool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        if (!poolConfigState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
 
         const tokenQuoteProgram = getTokenProgram(
             poolConfigState.quoteTokenFlag
@@ -502,8 +534,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
             await getOrCreateATAInstruction(
                 this.connection,
                 poolConfigState.quoteMint,
-                partnerWithdrawSurplusParam.feeClaimer,
-                partnerWithdrawSurplusParam.feeClaimer,
+                feeClaimer,
+                feeClaimer,
                 true,
                 tokenQuoteProgram
             )
@@ -512,10 +544,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             preInstructions.push(createQuoteTokenAccountIx)
 
         if (poolConfigState.quoteMint.equals(NATIVE_MINT)) {
-            const unwrapSolIx = unwrapSOLInstruction(
-                partnerWithdrawSurplusParam.feeClaimer,
-                partnerWithdrawSurplusParam.feeClaimer
-            )
+            const unwrapSolIx = unwrapSOLInstruction(feeClaimer, feeClaimer)
             unwrapSolIx && postInstructions.push(unwrapSolIx)
         }
         return this.program.methods
@@ -523,11 +552,11 @@ export class PartnerService extends DynamicBondingCurveProgram {
             .accountsPartial({
                 poolAuthority: this.poolAuthority,
                 config: poolState.config,
-                virtualPool: partnerWithdrawSurplusParam.virtualPool,
+                virtualPool,
                 tokenQuoteAccount,
                 quoteVault: poolState.quoteVault,
                 quoteMint: poolConfigState.quoteMint,
-                feeClaimer: partnerWithdrawSurplusParam.feeClaimer,
+                feeClaimer,
                 tokenQuoteProgram,
             })
             .preInstructions(preInstructions)
@@ -537,31 +566,45 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
     /**
      * Partner withdraw migration fee
-     * @param withdrawMigrationFeeParams - The parameters for the partner withdraw migration fee
+     * @param virtualPool - The virtual pool address
+     * @param sender - The sender of the pool
      * @returns A partner withdraw migration fee transaction
      */
     async partnerWithdrawMigrationFee(
-        withdrawMigrationFeeParams: WithdrawMigrationFeeParam
+        params: WithdrawMigrationFeeParam
     ): Promise<Transaction> {
-        const { virtualPool, sender, feePayer } = withdrawMigrationFeeParams
+        const { virtualPool, sender } = params
+
         const virtualPoolState = await this.state.getPool(virtualPool)
+        if (!virtualPoolState) {
+            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        }
+
         const configState = await this.state.getPoolConfig(
             virtualPoolState.config
         )
-        const { ataPubkey: tokenQuoteAccount, ix: preInstruction } =
+        if (!configState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
+
+        const preInstructions: TransactionInstruction[] = []
+        const postInstructions: TransactionInstruction[] = []
+
+        const { ataPubkey: tokenQuoteAccount, ix: createTokenQuoteAccountIx } =
             await getOrCreateATAInstruction(
                 this.program.provider.connection,
                 configState.quoteMint,
                 sender,
-                feePayer ?? sender,
+                sender,
                 true,
                 getTokenProgram(configState.quoteTokenFlag)
             )
+        createTokenQuoteAccountIx &&
+            preInstructions.push(createTokenQuoteAccountIx)
 
-        const postInstruction: TransactionInstruction[] = []
         if (configState.quoteMint.equals(NATIVE_MINT)) {
-            const unwarpSOLIx = unwrapSOLInstruction(sender, sender)
-            unwarpSOLIx && postInstruction.push(unwarpSOLIx)
+            const unwrapSolIx = unwrapSOLInstruction(sender, sender)
+            unwrapSolIx && postInstructions.push(unwrapSolIx)
         }
 
         const transaction = await this.program.methods
@@ -576,8 +619,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 sender,
                 tokenQuoteProgram: getTokenProgram(configState.quoteTokenFlag),
             })
-            .preInstructions([preInstruction])
-            .postInstructions(postInstruction)
+            .preInstructions(preInstructions)
+            .postInstructions(postInstructions)
             .transaction()
 
         return transaction

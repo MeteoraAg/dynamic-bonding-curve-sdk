@@ -43,27 +43,33 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
     /**
      * Create virtual pool metadata
-     * @param createVirtualPoolMetadataParam - The parameters for the virtual pool metadata
+     * @param virtualPool - The virtual pool address
+     * @param name - The name of the pool
+     * @param website - The website of the pool
+     * @param logo - The logo of the pool
+     * @param creator - The creator of the pool
+     * @param payer - The payer of the transaction
      * @returns A create virtual pool metadata transaction
      */
     async createPoolMetadata(
-        createVirtualPoolMetadataParam: CreateVirtualPoolMetadataParam
+        params: CreateVirtualPoolMetadataParam
     ): Promise<Transaction> {
-        const virtualPoolMetadata = deriveDbcPoolMetadata(
-            createVirtualPoolMetadataParam.virtualPool
-        )
+        const { virtualPool, name, website, logo, creator, payer } = params
+
+        const virtualPoolMetadata = deriveDbcPoolMetadata(virtualPool)
+
         return this.program.methods
             .createVirtualPoolMetadata({
                 padding: new Array(96).fill(0),
-                name: createVirtualPoolMetadataParam.name,
-                website: createVirtualPoolMetadataParam.website,
-                logo: createVirtualPoolMetadataParam.logo,
+                name,
+                website,
+                logo,
             })
             .accountsPartial({
-                virtualPool: createVirtualPoolMetadataParam.virtualPool,
+                virtualPool,
                 virtualPoolMetadata,
-                creator: createVirtualPoolMetadataParam.creator,
-                payer: createVirtualPoolMetadataParam.payer,
+                creator,
+                payer,
                 systemProgram: SystemProgram.programId,
             })
             .transaction()
@@ -71,11 +77,19 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
     /**
      * Private method to claim trading fee with quote mint SOL
-     * @param claimWithQuoteMintSolParam - The parameters for the claim with quote mint SOL
+     * @param creator - The creator of the pool
+     * @param payer - The payer of the transaction
+     * @param feeReceiver - The wallet that will receive the tokens
+     * @param tempWSolAcc - The temporary wallet that will receive the SOL
+     * @param pool - The pool address
+     * @param poolState - The pool state
+     * @param poolConfigState - The pool config state
+     * @param tokenBaseProgram - The token base program
+     * @param tokenQuoteProgram - The token quote program
      * @returns A claim trading fee with quote mint SOL accounts, pre instructions and post instructions
      */
     private async claimWithQuoteMintSol(
-        claimWithQuoteMintSolParam: ClaimCreatorTradingFeeWithQuoteMintSolParam
+        params: ClaimCreatorTradingFeeWithQuoteMintSolParam
     ): Promise<{
         accounts: {
             poolAuthority: PublicKey
@@ -103,7 +117,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             poolConfigState,
             tokenBaseProgram,
             tokenQuoteProgram,
-        } = claimWithQuoteMintSolParam
+        } = params
 
         const preInstructions: TransactionInstruction[] = []
         const postInstructions: TransactionInstruction[] = []
@@ -164,11 +178,18 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
     /**
      * Private method to claim trading fee with quote mint not SOL
-     * @param claimWithQuoteMintNotSolParam - The parameters for the claim with quote mint not SOL
+     * @param creator - The creator of the pool
+     * @param payer - The payer of the transaction
+     * @param feeReceiver - The wallet that will receive the tokens
+     * @param pool - The pool address
+     * @param poolState - The pool state
+     * @param poolConfigState - The pool config state
+     * @param tokenBaseProgram - The token base program
+     * @param tokenQuoteProgram - The token quote program
      * @returns A claim trading fee with quote mint not SOL accounts and pre instructions
      */
     private async claimWithQuoteMintNotSol(
-        claimWithQuoteMintNotSolParam: ClaimCreatorTradingFeeWithQuoteMintNotSolParam
+        params: ClaimCreatorTradingFeeWithQuoteMintNotSolParam
     ): Promise<{
         accounts: {
             poolAuthority: PublicKey
@@ -194,7 +215,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             poolConfigState,
             tokenBaseProgram,
             tokenQuoteProgram,
-        } = claimWithQuoteMintNotSolParam
+        } = params
 
         const {
             ataTokenA: tokenBaseAccount,
@@ -228,11 +249,17 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
     /**
      * Claim creator trading fee
-     * @param claimCreatorTradingFeeParam - The parameters for the claim creator trading fee
+     * @param creator - The creator of the pool
+     * @param pool - The pool address
+     * @param maxBaseAmount - The maximum base amount
+     * @param maxQuoteAmount - The maximum quote amount
+     * @param receiver - The wallet that will receive the tokens
+     * @param payer - The payer of the transaction (Optional)
+     * @param tempWSolAcc - The temporary wallet that will receive the SOL (Optional)
      * @returns A claim creator trading fee transaction
      */
     async claimCreatorTradingFee(
-        claimCreatorTradingFeeParam: ClaimCreatorTradingFeeParam
+        params: ClaimCreatorTradingFeeParam
     ): Promise<Transaction> {
         const {
             creator,
@@ -242,18 +269,16 @@ export class CreatorService extends DynamicBondingCurveProgram {
             receiver,
             payer,
             tempWSolAcc,
-        } = claimCreatorTradingFeeParam
+        } = params
 
         const poolState = await this.state.getPool(pool)
-
         if (!poolState) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(poolState.config)
-
         if (!poolConfigState) {
-            throw new Error(`Pool config not found: ${pool.toString()}`)
+            throw new Error(`Pool config not found for virtual pool`)
         }
 
         const tokenBaseProgram = getTokenProgram(poolConfigState.tokenType)
@@ -313,11 +338,16 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
     /**
      * Claim creator trading fee
-     * @param claimCreatorTradingFeeParam - The parameters for the claim creator trading fee
+     * @param creator - The creator of the pool
+     * @param pool - The pool address
+     * @param maxBaseAmount - The maximum base amount
+     * @param maxQuoteAmount - The maximum quote amount
+     * @param receiver - The wallet that will receive the tokens
+     * @param payer - The payer of the transaction
      * @returns A claim creator trading fee transaction
      */
     async claimCreatorTradingFee2(
-        claimCreatorTradingFee2Param: ClaimCreatorTradingFee2Param
+        params: ClaimCreatorTradingFee2Param
     ): Promise<Transaction> {
         const {
             creator,
@@ -326,18 +356,16 @@ export class CreatorService extends DynamicBondingCurveProgram {
             maxQuoteAmount,
             receiver,
             payer,
-        } = claimCreatorTradingFee2Param
+        } = params
 
         const poolState = await this.state.getPool(pool)
-
         if (!poolState) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(poolState.config)
-
         if (!poolConfigState) {
-            throw new Error(`Pool config not found: ${pool.toString()}`)
+            throw new Error(`Pool config not found for virtual pool`)
         }
 
         const tokenBaseProgram = getTokenProgram(poolConfigState.tokenType)
@@ -430,24 +458,23 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
     /**
      * Withdraw creator surplus
-     * @param creatorWithdrawSurplusParam - The parameters for the creator withdraw surplus
+     * @param creator - The creator of the pool
+     * @param virtualPool - The virtual pool address
      * @returns A creator withdraw surplus transaction
      */
     async creatorWithdrawSurplus(
-        creatorWithdrawSurplusParam: CreatorWithdrawSurplusParam
+        params: CreatorWithdrawSurplusParam
     ): Promise<Transaction> {
-        const { creator, virtualPool } = creatorWithdrawSurplusParam
+        const { creator, virtualPool } = params
 
         const poolState = await this.state.getPool(virtualPool)
-
         if (!poolState) {
             throw new Error(`Pool not found: ${virtualPool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(poolState.config)
-
         if (!poolConfigState) {
-            throw new Error(`Pool config not found: ${virtualPool.toString()}`)
+            throw new Error(`Pool config not found for virtual pool`)
         }
 
         const preInstructions: TransactionInstruction[] = []
@@ -502,14 +529,21 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
     /**
      * Transfer pool creator
-     * @param transferPoolCreatorParams - The parameters for the transfer pool creator
+     * @param virtualPool - The virtual pool address
+     * @param creator - The creator of the pool
+     * @param newCreator - The new creator of the pool
      * @returns A transfer pool creator transaction
      */
     async transferPoolCreator(
-        transferPoolCreatorParams: TransferPoolCreatorParam
+        params: TransferPoolCreatorParam
     ): Promise<Transaction> {
-        const { virtualPool, creator, newCreator } = transferPoolCreatorParams
+        const { virtualPool, creator, newCreator } = params
+
         const virtualPoolState = await this.state.getPool(virtualPool)
+        if (!virtualPoolState) {
+            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        }
+
         const migrationMetadata =
             deriveDammV1MigrationMetadataAddress(virtualPool)
         const transaction = await this.program.methods
@@ -534,30 +568,45 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
     /**
      * Creator withdraw migration fee
-     * @param withdrawMigrationFeeParams - The parameters for the creator withdraw migration fee
+     * @param virtualPool - The virtual pool address
+     * @param sender - The sender of the pool
      * @returns A creator withdraw migration fee transaction
      */
     async creatorWithdrawMigrationFee(
-        withdrawMigrationFeeParams: WithdrawMigrationFeeParam
+        params: WithdrawMigrationFeeParam
     ): Promise<Transaction> {
-        const { virtualPool, sender, feePayer } = withdrawMigrationFeeParams
+        const { virtualPool, sender } = params
+
         const virtualPoolState = await this.state.getPool(virtualPool)
+        if (!virtualPoolState) {
+            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        }
+
         const configState = await this.state.getPoolConfig(
             virtualPoolState.config
         )
-        const { ataPubkey: tokenQuoteAccount, ix: preInstruction } =
+        if (!configState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
+
+        const preInstructions: TransactionInstruction[] = []
+        const postInstructions: TransactionInstruction[] = []
+
+        const { ataPubkey: tokenQuoteAccount, ix: createTokenQuoteAccountIx } =
             await getOrCreateATAInstruction(
                 this.program.provider.connection,
                 configState.quoteMint,
                 sender,
-                feePayer ?? sender,
+                sender,
                 true,
                 getTokenProgram(configState.quoteTokenFlag)
             )
-        const postInstruction: TransactionInstruction[] = []
+        createTokenQuoteAccountIx &&
+            preInstructions.push(createTokenQuoteAccountIx)
+
         if (configState.quoteMint.equals(NATIVE_MINT)) {
-            const unwarpSOLIx = unwrapSOLInstruction(sender, sender)
-            unwarpSOLIx && postInstruction.push(unwarpSOLIx)
+            const unwrapSolIx = unwrapSOLInstruction(sender, sender)
+            unwrapSolIx && postInstructions.push(unwrapSolIx)
         }
 
         const transaction = await this.program.methods
@@ -572,8 +621,8 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 sender,
                 tokenQuoteProgram: getTokenProgram(configState.quoteTokenFlag),
             })
-            .preInstructions([preInstruction])
-            .postInstructions(postInstruction)
+            .preInstructions(preInstructions)
+            .postInstructions(postInstructions)
             .transaction()
 
         return transaction
