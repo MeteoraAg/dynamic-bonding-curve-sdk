@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.4.1] - 2025-09-15
+
+### Changed
+
+- Removed `feePayer` parameter from `creatorWithdrawMigrationFee` and `partnerWithdrawMigrationFee` functions ++ Fixed functions
+
 ## [1.4.0] - 2025-09-09
 
 ### Changed

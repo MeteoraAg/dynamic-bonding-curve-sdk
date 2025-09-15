@@ -168,7 +168,7 @@ interface CreateConfigParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -352,7 +352,7 @@ interface CreatePartnerMetadataParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -394,7 +394,7 @@ interface ClaimTradingFeeParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -445,7 +445,7 @@ interface ClaimTradingFeeParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -484,13 +484,12 @@ async partnerWithdrawMigrationFee(withdrawMigrationFeeParam: WithdrawMigrationFe
 interface WithdrawMigrationFeeParam {
     virtualPool: PublicKey // The virtual pool address
     sender: PublicKey // The wallet that will claim the fee
-    feePayer?: PublicKey // The wallet that will pay for the transaction
 }
 ```
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -498,7 +497,6 @@ A transaction that can be signed and sent to the network.
 const transaction = await client.partner.partnerWithdrawMigrationFee({
     virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     sender: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    feePayer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
 })
 ```
 
@@ -529,7 +527,7 @@ interface PartnerWithdrawSurplusParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -624,7 +622,7 @@ interface BuildCurveParam {
 
 **Returns**
 
-A `ConfigParameters` object.
+- A `ConfigParameters` object.
 
 **Example**
 
@@ -772,7 +770,7 @@ interface BuildCurveWithMarketCapParam {
 
 **Returns**
 
-A `ConfigParameters` object.
+- A `ConfigParameters` object.
 
 **Example**
 
@@ -921,7 +919,7 @@ interface BuildCurveWithTwoSegmentsParam {
 
 **Returns**
 
-A `ConfigParameters` object.
+- A `ConfigParameters` object.
 
 **Example**
 
@@ -1071,7 +1069,7 @@ interface BuildCurveWithLiquidityWeightsParam {
 
 **Returns**
 
-A `ConfigParameters` object.
+- A `ConfigParameters` object.
 
 **Example**
 
@@ -1189,7 +1187,7 @@ interface CreatePoolParam {
 
 **Returns**
 
-A transaction that requires signatures from the payer, the baseMint keypair, and the poolCreator before being submitted to the network.
+- A transaction that requires signatures from the payer, the baseMint keypair, and the poolCreator before being submitted to the network.
 
 **Example**
 
@@ -1307,7 +1305,7 @@ interface CreateConfigAndPoolParam {
 
 **Returns**
 
-A transaction that requires signatures from the payer, the baseMint keypair, and the config keypair before being submitted to the network.
+- A transaction that requires signatures from the payer, the baseMint keypair, and the config keypair before being submitted to the network.
 
 **Example**
 
@@ -1813,7 +1811,7 @@ interface SwapParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -1972,7 +1970,7 @@ interface Swap2Param {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2144,7 +2142,7 @@ interface CreateLockerParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2182,7 +2180,7 @@ interface WithdrawLeftoverParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2222,7 +2220,7 @@ interface CreateDammV1MigrationMetadataParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2262,7 +2260,7 @@ interface MigrateToDammV1Param {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2317,7 +2315,7 @@ interface DammLpTokenParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2360,7 +2358,7 @@ interface DammLpTokenParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2402,7 +2400,7 @@ interface CreateDammV2MigrationMetadataParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2442,7 +2440,7 @@ interface MigrateToDammV2Param {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2504,7 +2502,7 @@ interface CreateVirtualPoolMetadataParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2548,7 +2546,7 @@ interface ClaimCreatorTradingFeeParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2599,7 +2597,7 @@ interface ClaimCreatorTradingFeeParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2643,7 +2641,7 @@ interface CreatorWithdrawSurplusParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2676,13 +2674,12 @@ async creatorWithdrawMigrationFee(withdrawMigrationFeeParam: WithdrawMigrationFe
 interface WithdrawMigrationFeeParam {
     virtualPool: PublicKey // The virtual pool address
     sender: PublicKey // The wallet that will claim the fee
-    feePayer?: PublicKey // The wallet that will pay for the transaction
 }
 ```
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2690,7 +2687,6 @@ A transaction that can be signed and sent to the network.
 const transaction = await client.creator.creatorWithdrawMigrationFee({
     virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     sender: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    feePayer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
 })
 ```
 
@@ -2722,7 +2718,7 @@ interface TransferPoolCreatorParam {
 
 **Returns**
 
-A transaction that can be signed and sent to the network.
+- A transaction that can be signed and sent to the network.
 
 **Example**
 
@@ -2744,7 +2740,7 @@ const transaction = await client.creator.transferPoolCreator({
 
 ### getPoolConfig
 
-Gets the config key details.
+Gets all details about the config.
 
 **Function**
 
@@ -2760,7 +2756,68 @@ configAddress: PublicKey | string // The address of the config key
 
 **Returns**
 
-A `PoolConfig` object containing the config key details.
+- A `PoolConfig` object containing the config key details.
+
+```typescript
+type PoolFees = {
+  baseFee: any; // Replace 'any' with the actual type if known
+  dynamicFee: any; // Replace 'any' with the actual type if known
+  padding0: number[];
+  padding1: number[];
+  protocolFeePercent: number;
+  referralFeePercent: number;
+}
+
+type LockedVestingConfig = {
+  amountPerPeriod: BN;
+  cliffDurationFromMigrationTime: BN;
+  frequency: BN;
+  numberOfPeriod: BN;
+  cliffUnlockAmount: BN;
+  padding: BN;
+}
+
+type PoolConfig = {
+  quoteMint: PublicKey;
+  feeClaimer: PublicKey;
+  leftoverReceiver: PublicKey;
+  poolFees: PoolFees;
+  collectFeeMode: number;
+  migrationOption: number;
+  activationType: number;
+  tokenDecimal: number;
+  version: number;
+  tokenType: number;
+  quoteTokenFlag: number;
+  partnerLockedLpPercentage: number;
+  partnerLpPercentage: number;
+  creatorLockedLpPercentage: number;
+  creatorLpPercentage: number;
+  migrationFeeOption: number;
+  fixedTokenSupplyFlag: number;
+  creatorTradingFeePercentage: number;
+  tokenUpdateAuthority: number;
+  migrationFeePercentage: number;
+  creatorMigrationFeePercentage: number;
+  padding0: number[];
+  swapBaseAmount: BN;
+  migrationQuoteThreshold: BN;
+  migrationBaseThreshold: BN;
+  migrationSqrtPrice: BN;
+  lockedVestingConfig: LockedVestingConfig;
+  preMigrationTokenSupply: BN;
+  postMigrationTokenSupply: BN;
+  migratedCollectFeeMode: number;
+  migratedDynamicFee: number;
+  migratedPoolFeeBps: number;
+  padding1: number[];
+  padding2: BN;
+  sqrtStartPrice: BN;
+  curve: [{
+    sqrtPrice: BN, liquidity: BN: 0
+  }];
+}
+```
 
 **Example**
 
@@ -2772,7 +2829,7 @@ const config = await client.state.getPoolConfig(configAddress)
 
 ### getPoolConfigs
 
-Retrieves all config keys.
+Retrieves all configs.
 
 **Function**
 
@@ -2782,7 +2839,8 @@ async getPoolConfigs(): Promise<ProgramAccount<PoolConfig>[]>
 
 **Returns**
 
-An array of config keys.
+- An array of configs created by various users.
+- Check return type <a href ="https://docs.meteora.ag/developer-guide/guides/dbc/typescript-sdk/sdk-functions#getpoolconfig">here</a>.
 
 **Example**
 
@@ -2794,7 +2852,7 @@ const configs = await client.state.getPoolConfigs()
 
 ### getPoolConfigsByOwner
 
-Retrieves all config keys owned by a specific wallet.
+Retrieves all configs owned by a specific wallet.
 
 **Function**
 
@@ -2810,7 +2868,8 @@ owner: PublicKey | string // The owner's wallet address
 
 **Returns**
 
-An array of config keys owned by the specified wallet.
+- An array of configs owned by the specified wallet.
+- Check return type <a href ="https://docs.meteora.ag/developer-guide/guides/dbc/typescript-sdk/sdk-functions#getpoolconfig">here</a>.
 
 **Example**
 
@@ -2838,7 +2897,54 @@ poolAddress: PublicKey | string // The address of the pool
 
 **Returns**
 
-A `VirtualPool` object containing the pool's details, or null if not found.
+- A `VirtualPool` object containing the pool's details, or null if not found.
+
+```typescript
+type VolatilityTracker = {
+    lastUpdateTimestamp: BN
+    padding: number[]
+    sqrtPriceReference: BN
+    volatilityAccumulator: BN
+    volatilityReference: BN
+}
+
+type Metrics = {
+    totalProtocolBaseFee: BN
+    totalProtocolQuoteFee: BN
+    totalTradingBaseFee: BN
+    totalTradingQuoteFee: BN
+}
+
+type VirtualPool = {
+    volatilityTracker: VolatilityTracker
+    config: PublicKey
+    creator: PublicKey
+    baseMint: PublicKey
+    baseVault: PublicKey
+    quoteVault: PublicKey
+    baseReserve: BN
+    quoteReserve: BN
+    protocolBaseFee: BN
+    protocolQuoteFee: BN
+    partnerBaseFee: BN
+    partnerQuoteFee: BN
+    sqrtPrice: BN
+    activationPoint: BN
+    poolType: number
+    isMigrated: number
+    isPartnerWithdrawSurplus: number
+    isProtocolWithdrawSurplus: number
+    migrationProgress: number
+    isWithdrawLeftover: number
+    isCreatorWithdrawSurplus: number
+    migrationFeeWithdrawStatus: number
+    metrics: Metrics
+    finishCurveTimestamp: BN
+    creatorBaseFee: BN
+    creatorQuoteFee: BN
+    padding1: BN[]
+}
+```
 
 **Example**
 
@@ -2860,7 +2966,8 @@ async getPools(): Promise<ProgramAccount<VirtualPool>[]>
 
 **Returns**
 
-An array of all pools.
+- An array of all virtual pools created through DBC.
+- Check return type of VirtualPool <a href="https://docs.meteora.ag/developer-guide/guides/dbc/typescript-sdk/sdk-functions#getpool">here</a>.
 
 **Example**
 
@@ -2888,7 +2995,8 @@ configAddress: PublicKey | string // The address of the config key
 
 **Returns**
 
-An array of pools.
+- It give all `virtual pools` created with a specific config key.
+- Check return type of VirtualPool <a href="https://docs.meteora.ag/developer-guide/guides/dbc/typescript-sdk/sdk-functions#getpool">here</a>.
 
 **Example**
 
@@ -2916,7 +3024,8 @@ creatorAddress: PublicKey | string // The address of the creator
 
 **Returns**
 
-An array of pools.
+- It give all `virtual pools` created with a specific wallet address.
+- Check return type of VirtualPool <a href="https://docs.meteora.ag/developer-guide/guides/dbc/typescript-sdk/sdk-functions#getpool">here</a>.
 
 **Example**
 
@@ -2944,7 +3053,8 @@ baseMint: PublicKey | string // The address of the base mint
 
 **Returns**
 
-A `VirtualPool` object containing the pool's details, or null if not found.
+- A `VirtualPool` object containing the pool's details, or null if not found.
+- Check return type of VirtualPool <a href="https://docs.meteora.ag/developer-guide/guides/dbc/typescript-sdk/sdk-functions#getpool">here</a>.
 
 **Example**
 
@@ -2972,7 +3082,7 @@ poolAddress: PublicKey | string // The address of the pool
 
 **Returns**
 
-A `BN` object representing the migration quote threshold.
+- A `BN` object representing the migration quote threshold.
 
 **Example**
 
@@ -3000,7 +3110,7 @@ poolAddress: PublicKey | string // The address of the pool
 
 **Returns**
 
-A number between 0 and 1 representing the curve progress.
+- A number between 0 and 1 representing the curve progress.
 
 **Example**
 
@@ -3012,7 +3122,8 @@ const progress = await client.state.getPoolCurveProgress(poolAddress)
 
 ### getPoolMetadata
 
-Gets the metadata for a specific pool.
+- Gets the metadata for a specific pool.
+- Can only be used if metadata is set using <a href ="https://docs.meteora.ag/developer-guide/guides/dbc/typescript-sdk/sdk-functions#createpoolmetadata">createPoolMetadata</a> function.
 
 **Function**
 
@@ -3028,7 +3139,17 @@ poolAddress: PublicKey | string // The address of the pool
 
 **Returns**
 
-An array of `VirtualPoolMetadata` objects containing the pool's metadata.
+- An array of `VirtualPoolMetadata` objects containing the pool's metadata.
+
+```typescript
+type VirtualPoolMetadata = {
+    virtualPool: PublicKey
+    padding: BN[]
+    name: string
+    website: string
+    logo: string
+}
+```
 
 **Example**
 
@@ -3056,7 +3177,17 @@ walletAddress: PublicKey | string // The partner's wallet address
 
 **Returns**
 
-An array of `PartnerMetadata` objects containing the partner's metadata.
+- An array of `PartnerMetadata` objects containing the partner's metadata.
+
+```typescript
+type partnerMetadata = {
+    feeClaimer: PublicKey
+    padding: BN[]
+    name: string
+    website: string
+    logo: string
+}
+```
 
 **Example**
 
@@ -3084,87 +3215,26 @@ lockEscrowAddress: PublicKey | string // The address of the lock escrow
 
 **Returns**
 
-A `LockEscrow` object containing the lock escrow details.
+- A `LockEscrow` object containing the lock escrow details.
+
+```typescript
+type lockEscrow = {
+    pool: PublicKey
+    owner: PublicKey
+    escrowVault: PublicKey
+    bump: number
+    totalLockedAmount: BN
+    lpPerToken: BN
+    unclaimedFeePending: BN
+    aFee: BN
+    bFee: BN
+}
+```
 
 **Example**
 
 ```typescript
 const escrow = await client.state.getDammV1LockEscrow(escrowAddress)
-```
-
----
-
-### getPoolFeeMetrics
-
-Gets the fee metrics for a specific pool.
-
-**Function**
-
-```typescript
-async getPoolFeeMetrics(poolAddress: PublicKey): Promise<{
-    current: {
-        partnerBaseFee: BN
-        partnerQuoteFee: BN
-        creatorBaseFee: BN
-        creatorQuoteFee: BN
-    }
-    total: {
-        totalTradingBaseFee: BN
-        totalTradingQuoteFee: BN
-    }
-}>
-```
-
-**Parameters**
-
-```typescript
-poolAddress: PublicKey // The address of the pool
-```
-
-**Returns**
-
-An object containing current and total fee metrics for the pool.
-
-**Example**
-
-```typescript
-const metrics = await client.state.getPoolFeeMetrics(poolAddress)
-```
-
----
-
-### getPoolsFeesByConfig
-
-Gets all fees for pools linked to a specific config key.
-
-**Function**
-
-```typescript
-async getPoolsFeesByConfig(configAddress: PublicKey): Promise<Array<{
-    poolAddress: PublicKey
-    partnerBaseFee: BN
-    partnerQuoteFee: BN
-    creatorBaseFee: BN
-    creatorQuoteFee: BN
-    totalTradingBaseFee: BN
-    totalTradingQuoteFee: BN
-}>>
-```
-
-**Parameters**
-
-```typescript
-configAddress: PublicKey // The address of the pool config
-```
-
-**Returns**
-
-An array of objects containing quote fee metrics for each pool.
-
-**Example**
-
-```typescript
-const fees = await client.state.getPoolsFeesByConfig(configAddress)
 ```
 
 ---
@@ -3189,10 +3259,111 @@ poolAddress: PublicKey // The address of the DBC pool
 
 A `MeteoraDammMigrationMetadata` object containing the DAMM V1 migration metadata.
 
+```typescript
+type meteoraDammMigrationMetadata = {
+    virtualPool: PublicKey
+    padding0: number | number[]
+    partner: PublicKey
+    lpMint: PublicKey
+    partnerLockedLp: BN
+    partnerLp: BN
+    creatorLockedLp: BN
+    creatorLp: BN
+    creatorLockedStatus: number
+    partnerLockedStatus: number
+    creatorClaimStatus: number
+    partnerClaimStatus: number
+    padding: number[]
+}
+```
+
 **Example**
 
 ```typescript
 const metadata = await client.state.getDammV1MigrationMetadata(poolAddress)
+```
+
+---
+
+### getPoolFeeMetrics
+
+Gets the fee metrics for a specific pool.
+
+**Function**
+
+```typescript
+async getPoolFeeMetrics(poolAddress: PublicKey): Promise<FeeMetrics>
+```
+
+**Parameters**
+
+```typescript
+poolAddress: PublicKey // The address of the pool
+```
+
+**Returns**
+
+- An object containing current and total fee metrics for the pool.
+
+```typescript
+type FeeMetrics = {
+    current: {
+        partnerBaseFee: BN
+        partnerQuoteFee: BN
+        creatorBaseFee: BN
+        creatorQuoteFee: BN
+    }
+    total: {
+        totalTradingBaseFee: BN
+        totalTradingQuoteFee: BN
+    }
+}
+```
+
+**Example**
+
+```typescript
+const metrics = await client.state.getPoolFeeMetrics(poolAddress)
+```
+
+---
+
+### getPoolsFeesByConfig
+
+Gets all fees for pools linked to a specific config key.
+
+**Function**
+
+```typescript
+async getPoolsFeesByConfig(configAddress: PublicKey): Promise<Array<FeeMetrics>>
+```
+
+**Parameters**
+
+```typescript
+configAddress: PublicKey // The address of the pool config
+```
+
+**Returns**
+
+- An array of objects containing quote fee metrics for each pool.
+
+```typescript
+type FeeMetrics = {
+    poolAddress: PublicKey
+    partnerBaseFee: BN
+    partnerQuoteFee: BN
+    creatorBaseFee: BN
+    creatorQuoteFee: BN
+    totalTradingBaseFee: BN
+    totalTradingQuoteFee: BN
+}
+```
+
+**Example**
+
+```typescript
+const fees = await client.state.getPoolsFeesByConfig(configAddress)
 ```
 
 ---
@@ -3204,15 +3375,7 @@ Gets all fees for pools linked to a specific creator.
 **Function**
 
 ```typescript
-async getPoolsFeesByCreator(creatorAddress: PublicKey): Promise<Array<{
-    poolAddress: PublicKey
-    partnerBaseFee: BN
-    partnerQuoteFee: BN
-    creatorBaseFee: BN
-    creatorQuoteFee: BN
-    totalTradingBaseFee: BN
-    totalTradingQuoteFee: BN
-}>>
+async getPoolsFeesByCreator(creatorAddress: PublicKey): Promise<Array<FeeMetrics>>
 ```
 
 **Parameters**
@@ -3223,7 +3386,19 @@ creatorAddress: PublicKey // The address of the creator
 
 **Returns**
 
-An array of objects containing quote fee metrics for each pool.
+- An array of objects containing quote fee metrics for each pool.
+
+```typescript
+type FeeMetrics = {
+    poolAddress: PublicKey
+    partnerBaseFee: BN
+    partnerQuoteFee: BN
+    creatorBaseFee: BN
+    creatorQuoteFee: BN
+    totalTradingBaseFee: BN
+    totalTradingQuoteFee: BN
+}
+```
 
 **Example**
 
@@ -3259,7 +3434,7 @@ config: PublicKey // The config
 
 **Returns**
 
-The address of the Dynamic Bonding Curve pool.
+- The address of the Dynamic Bonding Curve pool.
 
 **Example**
 
@@ -3297,7 +3472,7 @@ tokenBMint: PublicKey // The B token mint
 
 **Returns**
 
-The address of the DAMM V1 pool.
+- The address of the DAMM V1 pool.
 
 **Example**
 
@@ -3337,7 +3512,7 @@ tokenBMint: PublicKey // The B token mint
 
 **Returns**
 
-The address of the DAMM V2 pool.
+- The address of the DAMM V2 pool.
 
 **Example**
 
@@ -3372,7 +3547,7 @@ mint: PublicKey // The mint address
 
 **Returns**
 
-The address of the DBC token vault.
+- The address of the DBC token vault.
 
 **Example**
 
@@ -3415,7 +3590,17 @@ totalDuration: number // The total duration of the fee scheduler
 
 **Returns**
 
-A `BaseFee` object containing the calculated fee scheduler parameters.
+- A `BaseFee` object containing the calculated fee scheduler parameters.
+
+```typescript
+type BaseFee = {
+    cliffFeeNumerator: BN
+    firstFactor: number
+    secondFactor: BN
+    thirdFactor: BN
+    baseFeeMode: BaseFeeMode
+}
+```
 
 **Example**
 
@@ -3467,7 +3652,17 @@ activationType: ActivationType // The activation type
 
 **Returns**
 
-A `BaseFee` object containing the calculated rate limiter parameters.
+- A `BaseFee` object containing the calculated rate limiter parameters.
+
+```typescript
+type BaseFeeParams = {
+    cliffFeeNumerator: BN
+    firstFactor: number
+    secondFactor: BN
+    thirdFactor: BN
+    baseFeeMode: BaseFeeMode
+}
+```
 
 **Example**
 
@@ -3515,7 +3710,19 @@ maxPriceChangeBps: number // The maximum price change in basis points
 
 **Returns**
 
-A `DynamicFeeParams` object containing the calculated dynamic fee parameters.
+- A `DynamicFeeParams` object containing the calculated dynamic fee parameters.
+
+```typescript
+type dynamicFeeParameters = {
+    binStep: number
+    binStepU128: BN
+    filterPeriod: number
+    decayPeriod: number
+    reductionFactor: number
+    maxVolatilityAccumulator: number
+    variableFeeControl: number
+}
+```
 
 **Example**
 
@@ -3558,7 +3765,17 @@ tokenBaseDecimal: TokenDecimal // The number of decimals for the base token
 
 **Returns**
 
-A `LockedVestingParams` object containing the calculated locked vesting parameters.
+- A `LockedVestingParams` object containing the calculated locked vesting parameters.
+
+```typescript
+type LockedVestingParams = {
+    amountPerPeriod: BN
+    cliffDurationFromMigrationTime: BN
+    frequency: BN
+    numberOfPeriod: BN
+    cliffUnlockAmount: BN
+}
+```
 
 **Example**
 
@@ -3601,7 +3818,7 @@ config: PoolConfig // The pool config
 
 **Returns**
 
-A `BN` object containing the calculated quote reserve.
+- A `BN` object containing the calculated quote reserve.
 
 **Example**
 
