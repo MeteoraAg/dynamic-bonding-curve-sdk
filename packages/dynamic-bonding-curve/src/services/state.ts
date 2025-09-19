@@ -239,6 +239,96 @@ export class StateService extends DynamicBondingCurveProgram {
         }
     }
 
+    async getPoolFeeBreakdown(poolAddress: PublicKey | string): Promise<{
+        creator: {
+            unclaimedBaseFee: BN
+            unclaimedQuoteFee: BN
+            claimedBaseFee: BN
+            claimedQuoteFee: BN
+            totalBaseFee: BN
+            totalQuoteFee: BN
+        }
+        partner: {
+            unclaimedBaseFee: BN
+            unclaimedQuoteFee: BN
+            claimedBaseFee: BN
+            claimedQuoteFee: BN
+            totalBaseFee: BN
+            totalQuoteFee: BN
+        }
+    }> {
+        // totalTradingFee * creatorTradingFeePercentage / 100 = creatorTotalTradingFee
+        // partnerTotalTradingFee = totalTradingFee - creatorTotalTradingFee
+
+        const pool = await this.getPool(poolAddress)
+        if (!pool) {
+            throw new Error(`Pool not found: ${poolAddress.toString()}`)
+        }
+
+        const config = await this.getPoolConfig(pool.config)
+        if (!config) {
+            throw new Error(`Config not found: ${pool.config.toString()}`)
+        }
+
+        const creatorTradingFeePercentage = config.creatorTradingFeePercentage
+
+        const totalTradingBaseFee = pool.metrics.totalTradingBaseFee
+        const totalTradingQuoteFee = pool.metrics.totalTradingQuoteFee
+
+        const creatorUnclaimedBaseFee = pool.creatorBaseFee
+        const creatorUnclaimedQuoteFee = pool.creatorQuoteFee
+
+        const partnerUnclaimedBaseFee = pool.partnerBaseFee
+        const partnerUnclaimedQuoteFee = pool.partnerQuoteFee
+
+        const totalClaimedBaseFee = totalTradingBaseFee
+            .sub(creatorUnclaimedBaseFee)
+            .sub(partnerUnclaimedBaseFee)
+
+        const totalClaimedQuoteFee = totalTradingQuoteFee
+            .sub(creatorUnclaimedQuoteFee)
+            .sub(partnerUnclaimedQuoteFee)
+
+        let creatorClaimedBaseFee = new BN(0)
+        let creatorClaimedQuoteFee = new BN(0)
+        let partnerClaimedBaseFee = new BN(0)
+        let partnerClaimedQuoteFee = new BN(0)
+
+        if (creatorTradingFeePercentage > 0) {
+            creatorClaimedBaseFee = totalClaimedBaseFee
+                .mul(new BN(creatorTradingFeePercentage))
+                .div(new BN(100))
+            creatorClaimedQuoteFee = totalClaimedQuoteFee
+                .mul(new BN(creatorTradingFeePercentage))
+                .div(new BN(100))
+            partnerClaimedBaseFee = totalClaimedBaseFee.sub(
+                creatorClaimedBaseFee
+            )
+            partnerClaimedQuoteFee = totalClaimedQuoteFee.sub(
+                creatorClaimedQuoteFee
+            )
+        }
+
+        return {
+            creator: {
+                unclaimedBaseFee: creatorUnclaimedBaseFee,
+                unclaimedQuoteFee: creatorUnclaimedQuoteFee,
+                claimedBaseFee: creatorClaimedBaseFee,
+                claimedQuoteFee: creatorClaimedQuoteFee,
+                totalBaseFee: totalClaimedBaseFee,
+                totalQuoteFee: totalClaimedQuoteFee,
+            },
+            partner: {
+                unclaimedBaseFee: partnerUnclaimedBaseFee,
+                unclaimedQuoteFee: partnerUnclaimedQuoteFee,
+                claimedBaseFee: partnerClaimedBaseFee,
+                claimedQuoteFee: partnerClaimedQuoteFee,
+                totalBaseFee: totalClaimedBaseFee,
+                totalQuoteFee: totalClaimedQuoteFee,
+            },
+        }
+    }
+
     /**
      * Get all fees for pools linked to a specific config key
      * @param configAddress - The address of the pool config
