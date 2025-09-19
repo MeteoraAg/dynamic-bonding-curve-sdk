@@ -60,6 +60,7 @@
     - [getPartnerMetadata](#getPartnerMetadata)
     - [getDammV1LockEscrow](#getDammV1LockEscrow)
     - [getPoolFeeMetrics](#getPoolFeeMetrics)
+    - [getPoolFeeBreakdown](#getPoolFeeBreakdown)
     - [getPoolsFeesByConfig](#getPoolsFeesByConfig)
     - [getPoolsFeesByCreator](#getPoolsFeesByCreator)
     - [getDammV1MigrationMetadata](#getDammV1MigrationMetadata)
@@ -3292,7 +3293,18 @@ Gets the fee metrics for a specific pool.
 **Function**
 
 ```typescript
-async getPoolFeeMetrics(poolAddress: PublicKey): Promise<FeeMetrics>
+async getPoolFeeMetrics(poolAddress: PublicKey): Promise<{
+    current: {
+        partnerBaseFee: BN
+        partnerQuoteFee: BN
+        creatorBaseFee: BN
+        creatorQuoteFee: BN
+    }
+    total: {
+        totalTradingBaseFee: BN
+        totalTradingQuoteFee: BN
+    }
+}>
 ```
 
 **Parameters**
@@ -3306,7 +3318,7 @@ poolAddress: PublicKey // The address of the pool
 - An object containing current and total fee metrics for the pool.
 
 ```typescript
-type FeeMetrics = {
+{
     current: {
         partnerBaseFee: BN
         partnerQuoteFee: BN
@@ -3324,6 +3336,73 @@ type FeeMetrics = {
 
 ```typescript
 const metrics = await client.state.getPoolFeeMetrics(poolAddress)
+```
+
+---
+
+### getPoolFeeBreakdown
+
+Gets the fee breakdown for a specific pool.
+
+**Function**
+
+```typescript
+async getPoolFeeBreakdown(poolAddress: PublicKey): Promise<
+{
+    creator: {
+        unclaimedBaseFee: BN
+        unclaimedQuoteFee: BN
+        claimedBaseFee: BN
+        claimedQuoteFee: BN
+        totalBaseFee: BN
+        totalQuoteFee: BN
+    }
+    partner: {
+        unclaimedBaseFee: BN
+        unclaimedQuoteFee: BN
+        claimedBaseFee: BN
+        claimedQuoteFee: BN
+        totalBaseFee: BN
+        totalQuoteFee: BN
+    }
+}>
+```
+
+**Parameters**
+
+```typescript
+poolAddress: PublicKey // The address of the pool
+```
+
+**Returns**
+
+- An object containing current and total fee breakdown for the pool.
+
+```typescript
+{
+    creator: {
+        unclaimedBaseFee: BN
+        unclaimedQuoteFee: BN
+        claimedBaseFee: BN
+        claimedQuoteFee: BN
+        totalBaseFee: BN
+        totalQuoteFee: BN
+    }
+    partner: {
+        unclaimedBaseFee: BN
+        unclaimedQuoteFee: BN
+        claimedBaseFee: BN
+        claimedQuoteFee: BN
+        totalBaseFee: BN
+        totalQuoteFee: BN
+    }
+}
+```
+
+**Example**
+
+```typescript
+const breakdown = await client.state.getPoolFeeBreakdown(poolAddress)
 ```
 
 ---

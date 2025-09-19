@@ -1,6 +1,6 @@
 {
   "name": "@meteora-ag/dynamic-bonding-curve-sdk",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "source": "src/index.ts",
