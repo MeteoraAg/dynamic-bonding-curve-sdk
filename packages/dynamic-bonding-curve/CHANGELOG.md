@@ -4,6 +4,12 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 
 ## [1.4.2] - 2025-09-19
 
+### Changed
+
+- Fixed `getPoolFeeBreakdown` function to correctly calculate the fee breakdown for a token pool
+
+## [1.4.2] - 2025-09-19
+
 ### Added
 
 - `getPoolFeeBreakdown` function to get the fee breakdown for a token pool

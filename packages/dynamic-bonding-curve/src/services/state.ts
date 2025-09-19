@@ -280,39 +280,44 @@ export class StateService extends DynamicBondingCurveProgram {
         const totalTradingBaseFee = pool.metrics.totalTradingBaseFee
         const totalTradingQuoteFee = pool.metrics.totalTradingQuoteFee
 
+        let creatorTotalTradingBaseFee = new BN(0)
+        let creatorTotalTradingQuoteFee = new BN(0)
+        let partnerTotalTradingBaseFee = totalTradingBaseFee
+        let partnerTotalTradingQuoteFee = totalTradingQuoteFee
+
+        if (creatorTradingFeePercentage > 0) {
+            creatorTotalTradingBaseFee = totalTradingBaseFee
+                .mul(new BN(creatorTradingFeePercentage))
+                .div(new BN(100))
+            creatorTotalTradingQuoteFee = totalTradingQuoteFee
+                .mul(new BN(creatorTradingFeePercentage))
+                .div(new BN(100))
+            partnerTotalTradingBaseFee = totalTradingBaseFee.sub(
+                creatorTotalTradingBaseFee
+            )
+            partnerTotalTradingQuoteFee = totalTradingQuoteFee.sub(
+                creatorTotalTradingQuoteFee
+            )
+        }
+
         const creatorUnclaimedBaseFee = pool.creatorBaseFee
         const creatorUnclaimedQuoteFee = pool.creatorQuoteFee
 
         const partnerUnclaimedBaseFee = pool.partnerBaseFee
         const partnerUnclaimedQuoteFee = pool.partnerQuoteFee
 
-        const totalClaimedBaseFee = totalTradingBaseFee
-            .sub(creatorUnclaimedBaseFee)
-            .sub(partnerUnclaimedBaseFee)
-
-        const totalClaimedQuoteFee = totalTradingQuoteFee
-            .sub(creatorUnclaimedQuoteFee)
-            .sub(partnerUnclaimedQuoteFee)
-
-        let creatorClaimedBaseFee = new BN(0)
-        let creatorClaimedQuoteFee = new BN(0)
-        let partnerClaimedBaseFee = new BN(0)
-        let partnerClaimedQuoteFee = new BN(0)
-
-        if (creatorTradingFeePercentage > 0) {
-            creatorClaimedBaseFee = totalClaimedBaseFee
-                .mul(new BN(creatorTradingFeePercentage))
-                .div(new BN(100))
-            creatorClaimedQuoteFee = totalClaimedQuoteFee
-                .mul(new BN(creatorTradingFeePercentage))
-                .div(new BN(100))
-            partnerClaimedBaseFee = totalClaimedBaseFee.sub(
-                creatorClaimedBaseFee
-            )
-            partnerClaimedQuoteFee = totalClaimedQuoteFee.sub(
-                creatorClaimedQuoteFee
-            )
-        }
+        const creatorClaimedBaseFee = creatorTotalTradingBaseFee.sub(
+            creatorUnclaimedBaseFee
+        )
+        const creatorClaimedQuoteFee = creatorTotalTradingQuoteFee.sub(
+            creatorUnclaimedQuoteFee
+        )
+        const partnerClaimedBaseFee = partnerTotalTradingBaseFee.sub(
+            partnerUnclaimedBaseFee
+        )
+        const partnerClaimedQuoteFee = partnerTotalTradingQuoteFee.sub(
+            partnerUnclaimedQuoteFee
+        )
 
         return {
             creator: {
@@ -320,16 +325,16 @@ export class StateService extends DynamicBondingCurveProgram {
                 unclaimedQuoteFee: creatorUnclaimedQuoteFee,
                 claimedBaseFee: creatorClaimedBaseFee,
                 claimedQuoteFee: creatorClaimedQuoteFee,
-                totalBaseFee: totalClaimedBaseFee,
-                totalQuoteFee: totalClaimedQuoteFee,
+                totalBaseFee: creatorTotalTradingBaseFee,
+                totalQuoteFee: creatorTotalTradingQuoteFee,
             },
             partner: {
                 unclaimedBaseFee: partnerUnclaimedBaseFee,
                 unclaimedQuoteFee: partnerUnclaimedQuoteFee,
                 claimedBaseFee: partnerClaimedBaseFee,
                 claimedQuoteFee: partnerClaimedQuoteFee,
-                totalBaseFee: totalClaimedBaseFee,
-                totalQuoteFee: totalClaimedQuoteFee,
+                totalBaseFee: partnerTotalTradingBaseFee,
+                totalQuoteFee: partnerTotalTradingQuoteFee,
             },
         }
     }
