@@ -239,6 +239,11 @@ export class StateService extends DynamicBondingCurveProgram {
         }
     }
 
+    /**
+     * Get fee breakdown for a specific pool
+     * @param poolAddress - The address of the pool
+     * @returns Object containing fee breakdown
+     */
     async getPoolFeeBreakdown(poolAddress: PublicKey | string): Promise<{
         creator: {
             unclaimedBaseFee: BN
