@@ -4,7 +4,7 @@ A Typescript SDK for interacting with the Dynamic Bonding Curve on Meteora.
 
 ## Overview
 
-This SDK provides a set of tools and methods to interact with the [Meteora Dynamic Bonding Curve](https://github.com/MeteoraAg/ts-sdk/tree/main/packages/dynamic-bonding-curve). It enables developers to easily create and manage dynamic bonding curves, with support for custom configurations and fee structures.
+This SDK provides a set of tools and methods to interact with the [Meteora Dynamic Bonding Curve](https://github.com/MeteoraAg/dynamic-bonding-curve). It enables developers to easily create and manage dynamic bonding curves, with support for custom configurations and fee structures.
 
 ## Installation
 
