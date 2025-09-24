@@ -4,11 +4,11 @@
  * Note that this is only a type helper and is not the actual IDL. The original
  * IDL can be found at `target/idl/cp_amm.json`.
  */
-export type DammV2 = {
+export type CpAmm = {
     address: 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG'
     metadata: {
         name: 'cpAmm'
-        version: '0.1.0'
+        version: '0.1.3'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -125,29 +125,7 @@ export type DammV2 = {
             accounts: [
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -248,29 +226,7 @@ export type DammV2 = {
             accounts: [
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -370,29 +326,7 @@ export type DammV2 = {
             accounts: [
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -429,38 +363,38 @@ export type DammV2 = {
                             {
                                 kind: 'const'
                                 value: [
-                                    153,
-                                    10,
-                                    107,
-                                    154,
-                                    255,
-                                    249,
-                                    210,
+                                    48,
+                                    9,
+                                    89,
+                                    123,
+                                    106,
+                                    114,
+                                    131,
+                                    251,
+                                    50,
                                     173,
-                                    176,
-                                    67,
-                                    220,
-                                    214,
-                                    152,
-                                    71,
-                                    46,
-                                    146,
-                                    161,
-                                    33,
-                                    81,
-                                    148,
-                                    166,
-                                    119,
-                                    5,
-                                    189,
-                                    142,
-                                    11,
-                                    57,
-                                    68,
-                                    162,
-                                    70,
-                                    126,
+                                    254,
+                                    250,
+                                    10,
+                                    80,
+                                    160,
+                                    84,
+                                    143,
                                     100,
+                                    81,
+                                    249,
+                                    134,
+                                    112,
+                                    30,
+                                    213,
+                                    50,
+                                    166,
+                                    239,
+                                    78,
+                                    53,
+                                    175,
+                                    188,
+                                    85,
                                 ]
                             },
                             {
@@ -520,38 +454,38 @@ export type DammV2 = {
                             {
                                 kind: 'const'
                                 value: [
-                                    153,
-                                    10,
-                                    107,
-                                    154,
-                                    255,
-                                    249,
-                                    210,
+                                    48,
+                                    9,
+                                    89,
+                                    123,
+                                    106,
+                                    114,
+                                    131,
+                                    251,
+                                    50,
                                     173,
-                                    176,
-                                    67,
-                                    220,
-                                    214,
-                                    152,
-                                    71,
-                                    46,
-                                    146,
-                                    161,
-                                    33,
-                                    81,
-                                    148,
-                                    166,
-                                    119,
-                                    5,
-                                    189,
-                                    142,
-                                    11,
-                                    57,
-                                    68,
-                                    162,
-                                    70,
-                                    126,
+                                    254,
+                                    250,
+                                    10,
+                                    80,
+                                    160,
+                                    84,
+                                    143,
                                     100,
+                                    81,
+                                    249,
+                                    134,
+                                    112,
+                                    30,
+                                    213,
+                                    50,
+                                    166,
+                                    239,
+                                    78,
+                                    53,
+                                    175,
+                                    188,
+                                    85,
                                 ]
                             },
                             {
@@ -653,7 +587,16 @@ export type DammV2 = {
                     name: 'program'
                 },
             ]
-            args: []
+            args: [
+                {
+                    name: 'maxAmountA'
+                    type: 'u64'
+                },
+                {
+                    name: 'maxAmountB'
+                    type: 'u64'
+                },
+            ]
         },
         {
             name: 'claimReward'
@@ -661,29 +604,7 @@ export type DammV2 = {
             accounts: [
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -754,6 +675,10 @@ export type DammV2 = {
             args: [
                 {
                     name: 'rewardIndex'
+                    type: 'u8'
+                },
+                {
+                    name: 'skipReward'
                     type: 'u8'
                 },
             ]
@@ -886,29 +811,7 @@ export type DammV2 = {
                 },
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'rentReceiver'
@@ -925,6 +828,58 @@ export type DammV2 = {
                         'Program to create NFT mint/token account and transfer for token22 account',
                     ]
                     address: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: []
+        },
+        {
+            name: 'closeTokenBadge'
+            discriminator: [108, 146, 86, 110, 179, 254, 10, 104]
+            accounts: [
+                {
+                    name: 'tokenBadge'
+                    writable: true
+                },
+                {
+                    name: 'admin'
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'rentReceiver'
+                    writable: true
                 },
                 {
                     name: 'eventAuthority'
@@ -1056,7 +1011,7 @@ export type DammV2 = {
                             },
                             {
                                 kind: 'arg'
-                                path: 'config_parameters.index'
+                                path: 'index'
                             },
                         ]
                     }
@@ -1105,10 +1060,91 @@ export type DammV2 = {
             ]
             args: [
                 {
+                    name: 'index'
+                    type: 'u64'
+                },
+                {
                     name: 'configParameters'
                     type: {
                         defined: {
-                            name: 'configParameters'
+                            name: 'staticConfigParameters'
+                        }
+                    }
+                },
+            ]
+        },
+        {
+            name: 'createDynamicConfig'
+            discriminator: [81, 251, 122, 78, 66, 57, 208, 82]
+            accounts: [
+                {
+                    name: 'config'
+                    writable: true
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [99, 111, 110, 102, 105, 103]
+                            },
+                            {
+                                kind: 'arg'
+                                path: 'index'
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'admin'
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'systemProgram'
+                    address: '11111111111111111111111111111111'
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'index'
+                    type: 'u64'
+                },
+                {
+                    name: 'configParameters'
+                    type: {
+                        defined: {
+                            name: 'dynamicConfigParameters'
                         }
                     }
                 },
@@ -1187,29 +1223,7 @@ export type DammV2 = {
                 },
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'payer'
@@ -1477,29 +1491,7 @@ export type DammV2 = {
                 },
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -1733,29 +1725,7 @@ export type DammV2 = {
                 },
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -1926,11 +1896,22 @@ export type DammV2 = {
             ]
         },
         {
-            name: 'initializeReward'
-            discriminator: [95, 135, 192, 196, 242, 129, 230, 68]
+            name: 'initializePoolWithDynamicConfig'
+            discriminator: [149, 82, 72, 197, 253, 252, 68, 15]
             accounts: [
                 {
-                    name: 'poolAuthority'
+                    name: 'creator'
+                },
+                {
+                    name: 'positionNftMint'
+                    docs: ['positionNftMint']
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'positionNftAccount'
+                    docs: ['position nft account']
+                    writable: true
                     pda: {
                         seeds: [
                             {
@@ -1938,8 +1919,190 @@ export type DammV2 = {
                                 value: [
                                     112,
                                     111,
+                                    115,
+                                    105,
+                                    116,
+                                    105,
                                     111,
+                                    110,
+                                    95,
+                                    110,
+                                    102,
+                                    116,
+                                    95,
+                                    97,
+                                    99,
+                                    99,
+                                    111,
+                                    117,
+                                    110,
+                                    116,
+                                ]
+                            },
+                            {
+                                kind: 'account'
+                                path: 'positionNftMint'
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'payer'
+                    docs: ['Address paying to create the pool. Can be anyone']
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'poolCreatorAuthority'
+                    signer: true
+                    relations: ['config']
+                },
+                {
+                    name: 'config'
+                    docs: ['Which config the pool belongs to.']
+                },
+                {
+                    name: 'poolAuthority'
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
+                },
+                {
+                    name: 'pool'
+                    docs: ['Initialize an account to store the pool state']
+                    writable: true
+                },
+                {
+                    name: 'position'
+                    writable: true
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [112, 111, 115, 105, 116, 105, 111, 110]
+                            },
+                            {
+                                kind: 'account'
+                                path: 'positionNftMint'
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'tokenAMint'
+                    docs: ['Token a mint']
+                },
+                {
+                    name: 'tokenBMint'
+                    docs: ['Token b mint']
+                },
+                {
+                    name: 'tokenAVault'
+                    docs: ['Token a vault for the pool']
+                    writable: true
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110,
+                                    95,
+                                    118,
+                                    97,
+                                    117,
                                     108,
+                                    116,
+                                ]
+                            },
+                            {
+                                kind: 'account'
+                                path: 'tokenAMint'
+                            },
+                            {
+                                kind: 'account'
+                                path: 'pool'
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'tokenBVault'
+                    docs: ['Token b vault for the pool']
+                    writable: true
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110,
+                                    95,
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                ]
+                            },
+                            {
+                                kind: 'account'
+                                path: 'tokenBMint'
+                            },
+                            {
+                                kind: 'account'
+                                path: 'pool'
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'payerTokenA'
+                    docs: ['payer token a account']
+                    writable: true
+                },
+                {
+                    name: 'payerTokenB'
+                    docs: ['creator token b account']
+                    writable: true
+                },
+                {
+                    name: 'tokenAProgram'
+                    docs: ['Program to create mint account and mint tokens']
+                },
+                {
+                    name: 'tokenBProgram'
+                    docs: ['Program to create mint account and mint tokens']
+                },
+                {
+                    name: 'token2022Program'
+                    docs: [
+                        'Program to create NFT mint/token account and transfer for token22 account',
+                    ]
+                    address: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
+                },
+                {
+                    name: 'systemProgram'
+                    address: '11111111111111111111111111111111'
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
                                     95,
                                     97,
                                     117,
@@ -1954,6 +2117,29 @@ export type DammV2 = {
                             },
                         ]
                     }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'params'
+                    type: {
+                        defined: {
+                            name: 'initializeCustomizablePoolParameters'
+                        }
+                    }
+                },
+            ]
+        },
+        {
+            name: 'initializeReward'
+            discriminator: [95, 135, 192, 196, 242, 129, 230, 68]
+            accounts: [
+                {
+                    name: 'poolAuthority'
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -1996,7 +2182,11 @@ export type DammV2 = {
                     name: 'rewardMint'
                 },
                 {
-                    name: 'admin'
+                    name: 'signer'
+                    signer: true
+                },
+                {
+                    name: 'payer'
                     writable: true
                     signer: true
                 },
@@ -2224,29 +2414,7 @@ export type DammV2 = {
             accounts: [
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -2356,29 +2524,7 @@ export type DammV2 = {
             accounts: [
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -2535,20 +2681,56 @@ export type DammV2 = {
             ]
         },
         {
-            name: 'swap'
-            discriminator: [248, 198, 158, 145, 225, 117, 135, 200]
+            name: 'splitPosition'
+            discriminator: [172, 241, 221, 138, 161, 29, 253, 42]
             accounts: [
                 {
-                    name: 'poolAuthority'
+                    name: 'pool'
+                    writable: true
+                    relations: ['firstPosition', 'secondPosition']
+                },
+                {
+                    name: 'firstPosition'
+                    docs: ['The first position']
+                    writable: true
+                },
+                {
+                    name: 'firstPositionNftAccount'
+                    docs: ['The token account for position nft']
+                },
+                {
+                    name: 'secondPosition'
+                    docs: ['The second position']
+                    writable: true
+                },
+                {
+                    name: 'secondPositionNftAccount'
+                    docs: ['The token account for position nft']
+                },
+                {
+                    name: 'firstOwner'
+                    docs: ['Owner of first position']
+                    signer: true
+                },
+                {
+                    name: 'secondOwner'
+                    docs: ['Owner of second position']
+                    signer: true
+                },
+                {
+                    name: 'eventAuthority'
                     pda: {
                         seeds: [
                             {
                                 kind: 'const'
                                 value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
                                     95,
                                     97,
                                     117,
@@ -2563,6 +2745,29 @@ export type DammV2 = {
                             },
                         ]
                     }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'params'
+                    type: {
+                        defined: {
+                            name: 'splitPositionParameters'
+                        }
+                    }
+                },
+            ]
+        },
+        {
+            name: 'swap'
+            discriminator: [248, 198, 158, 145, 225, 117, 135, 200]
+            accounts: [
+                {
+                    name: 'poolAuthority'
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -2671,7 +2876,7 @@ export type DammV2 = {
                     writable: true
                 },
                 {
-                    name: 'admin'
+                    name: 'signer'
                     signer: true
                 },
                 {
@@ -2727,7 +2932,7 @@ export type DammV2 = {
                     writable: true
                 },
                 {
-                    name: 'admin'
+                    name: 'signer'
                     signer: true
                 },
                 {
@@ -2780,29 +2985,7 @@ export type DammV2 = {
             accounts: [
                 {
                     name: 'poolAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    112,
-                                    111,
-                                    111,
-                                    108,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
                 },
                 {
                     name: 'pool'
@@ -2935,6 +3118,10 @@ export type DammV2 = {
             discriminator: [131, 207, 180, 174, 180, 73, 165, 54]
         },
         {
+            name: 'evtCreateDynamicConfig'
+            discriminator: [231, 197, 13, 164, 248, 213, 133, 152]
+        },
+        {
             name: 'evtCreatePosition'
             discriminator: [156, 15, 119, 198, 29, 181, 221, 55]
         },
@@ -2969,6 +3156,10 @@ export type DammV2 = {
         {
             name: 'evtSetPoolStatus'
             discriminator: [100, 213, 74, 3, 95, 91, 228, 146]
+        },
+        {
+            name: 'evtSplitPosition'
+            discriminator: [182, 138, 42, 254, 27, 94, 82, 221]
         },
         {
             name: 'evtSwap'
@@ -3188,6 +3379,41 @@ export type DammV2 = {
             name: 'positionIsNotEmpty'
             msg: 'Position is not empty'
         },
+        {
+            code: 6040
+            name: 'invalidPoolCreatorAuthority'
+            msg: 'Invalid pool creator authority'
+        },
+        {
+            code: 6041
+            name: 'invalidConfigType'
+            msg: 'Invalid config type'
+        },
+        {
+            code: 6042
+            name: 'invalidPoolCreator'
+            msg: 'Invalid pool creator'
+        },
+        {
+            code: 6043
+            name: 'rewardVaultFrozenSkipRequired'
+            msg: 'Reward vault is frozen, must skip reward to proceed'
+        },
+        {
+            code: 6044
+            name: 'invalidSplitPositionParameters'
+            msg: 'Invalid parameters for split position'
+        },
+        {
+            code: 6045
+            name: 'unsupportPositionHasVestingLock'
+            msg: 'Unsupported split position has vesting lock'
+        },
+        {
+            code: 6046
+            name: 'samePosition'
+            msg: 'Same position'
+        },
     ]
     types: [
         {
@@ -3387,10 +3613,15 @@ export type DammV2 = {
                         type: 'u8'
                     },
                     {
+                        name: 'configType'
+                        docs: ['Config type mode, 0 for static, 1 for dynamic']
+                        type: 'u8'
+                    },
+                    {
                         name: 'padding0'
                         docs: ['padding 0']
                         type: {
-                            array: ['u8', 6]
+                            array: ['u8', 5]
                         }
                     },
                     {
@@ -3419,45 +3650,13 @@ export type DammV2 = {
             }
         },
         {
-            name: 'configParameters'
+            name: 'dynamicConfigParameters'
             type: {
                 kind: 'struct'
                 fields: [
                     {
-                        name: 'poolFees'
-                        type: {
-                            defined: {
-                                name: 'poolFeeParameters'
-                            }
-                        }
-                    },
-                    {
-                        name: 'sqrtMinPrice'
-                        type: 'u128'
-                    },
-                    {
-                        name: 'sqrtMaxPrice'
-                        type: 'u128'
-                    },
-                    {
-                        name: 'vaultConfigKey'
-                        type: 'pubkey'
-                    },
-                    {
                         name: 'poolCreatorAuthority'
                         type: 'pubkey'
-                    },
-                    {
-                        name: 'activationType'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'collectFeeMode'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'index'
-                        type: 'u64'
                     },
                 ]
             }
@@ -3839,7 +4038,7 @@ export type DammV2 = {
         },
         {
             name: 'evtCreateConfig'
-            docs: ['Create config']
+            docs: ['Create static config']
             type: {
                 kind: 'struct'
                 fields: [
@@ -3882,6 +4081,27 @@ export type DammV2 = {
                     {
                         name: 'config'
                         type: 'pubkey'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtCreateDynamicConfig'
+            docs: ['Create dynamic config']
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'poolCreatorAuthority'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'index'
+                        type: 'u64'
                     },
                 ]
             }
@@ -3951,6 +4171,18 @@ export type DammV2 = {
                     {
                         name: 'transferFeeExcludedAmountIn'
                         type: 'u64'
+                    },
+                    {
+                        name: 'rewardDurationEnd'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'preRewardRate'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'postRewardRate'
+                        type: 'u128'
                     },
                 ]
             }
@@ -4066,6 +4298,10 @@ export type DammV2 = {
                     },
                     {
                         name: 'funder'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'creator'
                         type: 'pubkey'
                     },
                     {
@@ -4195,6 +4431,70 @@ export type DammV2 = {
                     {
                         name: 'status'
                         type: 'u8'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtSplitPosition'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'firstOwner'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'secondOwner'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'firstPosition'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'secondPosition'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'currentSqrtPrice'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'amountSplits'
+                        type: {
+                            defined: {
+                                name: 'splitAmountInfo'
+                            }
+                        }
+                    },
+                    {
+                        name: 'firstPositionInfo'
+                        type: {
+                            defined: {
+                                name: 'splitPositionInfo'
+                            }
+                        }
+                    },
+                    {
+                        name: 'secondPositionInfo'
+                        type: {
+                            defined: {
+                                name: 'splitPositionInfo'
+                            }
+                        }
+                    },
+                    {
+                        name: 'splitPositionParameters'
+                        type: {
+                            defined: {
+                                name: 'splitPositionParameters'
+                            }
+                        }
                     },
                 ]
             }
@@ -4455,14 +4755,11 @@ export type DammV2 = {
                         type: 'u128'
                     },
                     {
-                        name: 'tokenAReserve'
-                        docs: ['token a reserve']
-                        type: 'u64'
-                    },
-                    {
-                        name: 'tokenBReserve'
-                        docs: ['token b reserve']
-                        type: 'u64'
+                        name: 'padding'
+                        docs: [
+                            'padding, previous reserve amount, be careful to use that field',
+                        ]
+                        type: 'u128'
                     },
                     {
                         name: 'protocolAFee'
@@ -4573,10 +4870,15 @@ export type DammV2 = {
                         }
                     },
                     {
+                        name: 'creator'
+                        docs: ['pool creator']
+                        type: 'pubkey'
+                    },
+                    {
                         name: 'padding1'
                         docs: ['Padding for further use']
                         type: {
-                            array: ['u64', 10]
+                            array: ['u64', 6]
                         }
                     },
                     {
@@ -4612,19 +4914,11 @@ export type DammV2 = {
                         }
                     },
                     {
-                        name: 'protocolFeePercent'
-                        docs: ['Protocol trade fee percent']
-                        type: 'u8'
-                    },
-                    {
-                        name: 'partnerFeePercent'
-                        docs: ['partner fee percent']
-                        type: 'u8'
-                    },
-                    {
-                        name: 'referralFeePercent'
-                        docs: ['referral fee percent']
-                        type: 'u8'
+                        name: 'padding'
+                        docs: ['padding']
+                        type: {
+                            array: ['u8', 3]
+                        }
                     },
                     {
                         name: 'dynamicFee'
@@ -5031,6 +5325,163 @@ export type DammV2 = {
                             'These rewards will be carried over to the next reward time window.',
                         ]
                         type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'splitAmountInfo'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'permanentLockedLiquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'unlockedLiquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'feeA'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'feeB'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reward0'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reward1'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'splitPositionInfo'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'liquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'feeA'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'feeB'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reward0'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reward1'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'splitPositionParameters'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'unlockedLiquidityPercentage'
+                        docs: [
+                            'Percentage of unlocked liquidity to split to the second position',
+                        ]
+                        type: 'u8'
+                    },
+                    {
+                        name: 'permanentLockedLiquidityPercentage'
+                        docs: [
+                            'Percentage of permanent locked liquidity to split to the second position',
+                        ]
+                        type: 'u8'
+                    },
+                    {
+                        name: 'feeAPercentage'
+                        docs: [
+                            'Percentage of fee A pending to split to the second position',
+                        ]
+                        type: 'u8'
+                    },
+                    {
+                        name: 'feeBPercentage'
+                        docs: [
+                            'Percentage of fee B pending to split to the second position',
+                        ]
+                        type: 'u8'
+                    },
+                    {
+                        name: 'reward0Percentage'
+                        docs: [
+                            'Percentage of reward 0 pending to split to the second position',
+                        ]
+                        type: 'u8'
+                    },
+                    {
+                        name: 'reward1Percentage'
+                        docs: [
+                            'Percentage of reward 1 pending to split to the second position',
+                        ]
+                        type: 'u8'
+                    },
+                    {
+                        name: 'padding'
+                        docs: ['padding for future']
+                        type: {
+                            array: ['u8', 16]
+                        }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'staticConfigParameters'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'poolFees'
+                        type: {
+                            defined: {
+                                name: 'poolFeeParameters'
+                            }
+                        }
+                    },
+                    {
+                        name: 'sqrtMinPrice'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'sqrtMaxPrice'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'vaultConfigKey'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'poolCreatorAuthority'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'activationType'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'collectFeeMode'
+                        type: 'u8'
                     },
                 ]
             }

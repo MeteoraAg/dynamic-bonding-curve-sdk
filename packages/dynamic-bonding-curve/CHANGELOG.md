@@ -2,7 +2,13 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
-## [1.4.2] - 2025-09-19
+## [1.4.4] - 2025-09-24
+
+### Changed
+
+- Bumped DAMM v2 IDL
+
+## [1.4.3] - 2025-09-19
 
 ### Changed
 
