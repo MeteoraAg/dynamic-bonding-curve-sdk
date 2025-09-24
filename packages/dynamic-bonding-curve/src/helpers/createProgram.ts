@@ -6,7 +6,7 @@ import DynamicVaultIDL from '../idl/dynamic-vault/idl.json'
 import type { DammV1 } from '../idl/damm-v1/idl'
 import DammV1IDL from '../idl/damm-v1/idl.json'
 import type { DynamicBondingCurve } from '../idl/dynamic-bonding-curve/idl'
-import { DammV2 } from '../idl/damm-v2/idl'
+import { CpAmm } from '../idl/damm-v2/idl'
 import DammV2IDL from '../idl/damm-v2/idl.json'
 
 /**
@@ -72,11 +72,11 @@ export function createDammV1Program(
 export function createDammV2Program(
     connection: Connection,
     commitment: Commitment = 'confirmed'
-): Program<DammV2> {
+): Program<CpAmm> {
     const provider = new AnchorProvider(connection, null as unknown as Wallet, {
         commitment,
     })
 
-    const program = new Program<DammV2>(DammV2IDL, provider)
+    const program = new Program<CpAmm>(DammV2IDL, provider)
     return program
 }
