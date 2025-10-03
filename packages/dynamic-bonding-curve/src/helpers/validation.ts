@@ -10,7 +10,6 @@ import {
 } from '../constants'
 import {
     ActivationType,
-    BaseFee,
     BaseFeeMode,
     CollectFeeMode,
     DammV2DynamicFeeMode,

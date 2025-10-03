@@ -95,10 +95,6 @@ export function getFeeNumeratorOnLinearFeeScheduler(
 ): BN {
     const reduction = SafeMath.mul(new BN(period), reductionFactor)
 
-    if (reduction.gt(cliffFeeNumerator)) {
-        return new BN(0)
-    }
-
     return SafeMath.sub(cliffFeeNumerator, reduction)
 }
 
@@ -118,11 +114,9 @@ export function getFeeNumeratorOnExponentialFeeScheduler(
         return cliffFeeNumerator
     }
 
-    // Match Rust implementation exactly
-    // Make reduction_factor into Q64x64, and divided by BASIS_POINT_MAX
+    // make reduction_factor into Q64x64, and divided by BASIS_POINT_MAX
     const basisPointMax = new BN(BASIS_POINT_MAX)
     const ONE_Q64 = new BN(1).shln(64)
-
     const bps = SafeMath.div(SafeMath.shl(reductionFactor, 64), basisPointMax)
 
     // base = ONE_Q64 - bps (equivalent to 1 - reduction_factor/10_000 in Q64.64)
@@ -154,7 +148,7 @@ export function getBaseFeeNumerator(
     currentPoint: BN,
     activationPoint: BN
 ): BN {
-    if (periodFrequency.eq(new BN(0))) {
+    if (periodFrequency.isZero()) {
         return cliffFeeNumerator
     }
 
