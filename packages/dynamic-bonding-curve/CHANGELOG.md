@@ -2,6 +2,13 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.4.5] - 2025-10-11
+
+### Changed
+
+- Fixed `validateFeeScheduler` function to correctly validate the fee scheduler parameters
+- Fixed `getMinBaseFeeNumerator` function to correctly calculate the min base fee numerator
+
 ## [1.4.4] - 2025-09-24
 
 ### Changed

@@ -114,7 +114,8 @@ export class FeeScheduler implements BaseFeeHandler {
             this.numberOfPeriod,
             this.periodFrequency,
             this.reductionFactor,
-            this.cliffFeeNumerator
+            this.cliffFeeNumerator,
+            this.feeSchedulerMode
         )
     }
 

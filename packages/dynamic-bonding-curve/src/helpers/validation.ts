@@ -46,7 +46,6 @@ import {
     MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     MIN_FEE_NUMERATOR,
 } from '../constants'
-import { bpsToFeeNumerator } from './utils'
 import {
     getFeeNumeratorFromIncludedAmount,
     getMaxBaseFeeNumerator,
@@ -84,7 +83,8 @@ export function validatePoolFees(
                     poolFees.baseFee.firstFactor,
                     new BN(poolFees.baseFee.secondFactor),
                     new BN(poolFees.baseFee.thirdFactor),
-                    poolFees.baseFee.cliffFeeNumerator
+                    poolFees.baseFee.cliffFeeNumerator,
+                    poolFees.baseFee.baseFeeMode
                 )
             ) {
                 return false
@@ -123,7 +123,8 @@ export function validateFeeScheduler(
     numberOfPeriod: number,
     periodFrequency: BN,
     reductionFactor: BN,
-    cliffFeeNumerator: BN
+    cliffFeeNumerator: BN,
+    baseFeeMode: BaseFeeMode
 ): boolean {
     if (
         !periodFrequency.eq(new BN(0)) ||
@@ -142,9 +143,8 @@ export function validateFeeScheduler(
     const minFeeNumerator = getMinBaseFeeNumerator(
         cliffFeeNumerator,
         numberOfPeriod,
-        periodFrequency,
         reductionFactor,
-        BaseFeeMode.FeeSchedulerLinear // Use linear for validation
+        baseFeeMode
     )
     const maxFeeNumerator = getMaxBaseFeeNumerator(cliffFeeNumerator)
 

@@ -24,14 +24,13 @@ export function getMaxBaseFeeNumerator(cliffFeeNumerator: BN): BN {
 export function getMinBaseFeeNumerator(
     cliffFeeNumerator: BN,
     numberOfPeriod: number,
-    periodFrequency: BN,
     reductionFactor: BN,
     feeSchedulerMode: BaseFeeMode
 ): BN {
     return getBaseFeeNumeratorByPeriod(
         cliffFeeNumerator,
         numberOfPeriod,
-        periodFrequency,
+        new BN(numberOfPeriod),
         reductionFactor,
         feeSchedulerMode
     )
