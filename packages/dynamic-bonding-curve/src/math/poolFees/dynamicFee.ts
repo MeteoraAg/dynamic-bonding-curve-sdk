@@ -19,6 +19,7 @@ export function isDynamicFeeEnabled(dynamicFee: DynamicFeeConfig): boolean {
  * Get variable fee numerator from dynamic fee
  * @param dynamicFee Dynamic fee parameters
  * @param volatilityTracker Volatility tracker
+ * formula: dynamic_fee_numerator = ((volatility_accumulator * bin_step)^2 * variable_fee_control + 99_999_999_999) / 100_000_000_000
  * @returns Variable fee numerator
  */
 export function getVariableFeeNumerator(
