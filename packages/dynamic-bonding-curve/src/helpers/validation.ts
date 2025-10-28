@@ -21,7 +21,7 @@ import {
     TokenDecimal,
     TokenType,
     TokenUpdateAuthorityOption,
-    type CreateConfigParam,
+    type CreateConfigParams,
     type PoolConfig,
 } from '../types'
 import { Connection, PublicKey } from '@solana/web3.js'
@@ -217,7 +217,6 @@ export function validateFeeRateLimiter(
         return false
     }
 
-    // That condition is redundant, but it is safe to add this
     if (
         cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
         cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
@@ -533,7 +532,7 @@ export function validateMigratedPoolFee(
  */
 export function validateConfigParameters(
     configParam: Omit<
-        CreateConfigParam,
+    CreateConfigParams,
         'config' | 'feeClaimer' | 'quoteMint' | 'payer'
     >
 ) {

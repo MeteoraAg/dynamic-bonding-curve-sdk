@@ -13,7 +13,6 @@ import {
     splitFees,
     getFeeOnAmount,
     getFeeMode,
-    getMaxSwallowQuoteAmount,
 } from './feeMath'
 import {
     Rounding,
@@ -971,12 +970,6 @@ export function swapQuoteExactIn(
         tradeDirection,
         currentPoint
     )
-
-    // check amount left threshold for exact in
-    const maxSwallowQuoteAmount = getMaxSwallowQuoteAmount(config)
-    if (result.amountLeft.gt(maxSwallowQuoteAmount)) {
-        throw new Error('Amount left is over a threshold')
-    }
 
     // calculate minimum amount out
     let minimumAmountOut: BN

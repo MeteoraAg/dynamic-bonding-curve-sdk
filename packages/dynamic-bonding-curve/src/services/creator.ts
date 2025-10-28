@@ -7,14 +7,14 @@ import {
     type Connection,
 } from '@solana/web3.js'
 import {
-    ClaimCreatorTradingFee2Param,
-    ClaimCreatorTradingFeeParam,
-    ClaimCreatorTradingFeeWithQuoteMintNotSolParam,
-    ClaimCreatorTradingFeeWithQuoteMintSolParam,
-    CreateVirtualPoolMetadataParam,
-    CreatorWithdrawSurplusParam,
-    TransferPoolCreatorParam,
-    WithdrawMigrationFeeParam,
+    ClaimCreatorTradingFee2Params,
+    ClaimCreatorTradingFeeParams,
+    ClaimCreatorTradingFeeWithQuoteMintNotSolParams,
+    ClaimCreatorTradingFeeWithQuoteMintSolParams,
+    CreateVirtualPoolMetadataParams,
+    CreatorWithdrawSurplusParams,
+    TransferPoolCreatorParams,
+    WithdrawMigrationFeeParams,
 } from '../types'
 import {
     createAssociatedTokenAccountIdempotentInstruction,
@@ -52,7 +52,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * @returns A create virtual pool metadata transaction
      */
     async createPoolMetadata(
-        params: CreateVirtualPoolMetadataParam
+        params: CreateVirtualPoolMetadataParams
     ): Promise<Transaction> {
         const { virtualPool, name, website, logo, creator, payer } = params
 
@@ -89,7 +89,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * @returns A claim trading fee with quote mint SOL accounts, pre instructions and post instructions
      */
     private async claimWithQuoteMintSol(
-        params: ClaimCreatorTradingFeeWithQuoteMintSolParam
+        params: ClaimCreatorTradingFeeWithQuoteMintSolParams
     ): Promise<{
         accounts: {
             poolAuthority: PublicKey
@@ -189,7 +189,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * @returns A claim trading fee with quote mint not SOL accounts and pre instructions
      */
     private async claimWithQuoteMintNotSol(
-        params: ClaimCreatorTradingFeeWithQuoteMintNotSolParam
+        params: ClaimCreatorTradingFeeWithQuoteMintNotSolParams
     ): Promise<{
         accounts: {
             poolAuthority: PublicKey
@@ -259,7 +259,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * @returns A claim creator trading fee transaction
      */
     async claimCreatorTradingFee(
-        params: ClaimCreatorTradingFeeParam
+        params: ClaimCreatorTradingFeeParams
     ): Promise<Transaction> {
         const {
             creator,
@@ -347,7 +347,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * @returns A claim creator trading fee transaction
      */
     async claimCreatorTradingFee2(
-        params: ClaimCreatorTradingFee2Param
+        params: ClaimCreatorTradingFee2Params
     ): Promise<Transaction> {
         const {
             creator,
@@ -463,7 +463,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * @returns A creator withdraw surplus transaction
      */
     async creatorWithdrawSurplus(
-        params: CreatorWithdrawSurplusParam
+        params: CreatorWithdrawSurplusParams
     ): Promise<Transaction> {
         const { creator, virtualPool } = params
 
@@ -535,7 +535,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * @returns A transfer pool creator transaction
      */
     async transferPoolCreator(
-        params: TransferPoolCreatorParam
+        params: TransferPoolCreatorParams
     ): Promise<Transaction> {
         const { virtualPool, creator, newCreator } = params
 
@@ -573,7 +573,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * @returns A creator withdraw migration fee transaction
      */
     async creatorWithdrawMigrationFee(
-        params: WithdrawMigrationFeeParam
+        params: WithdrawMigrationFeeParams
     ): Promise<Transaction> {
         const { virtualPool, sender } = params
 
