@@ -148,7 +148,7 @@ interface CreateConfigParams {
     tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
-        feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
+        feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
     migratedPoolFee: {
@@ -278,10 +278,14 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 
 - Must be either Slot (0) or Timestamp (1)
 
-**Migration Fee**
+**Graduated DAMM V1/V2 Pool Fee**
 
 - Must be a valid option: FixedBps25 (0), FixedBps30 (1), FixedBps100 (2), FixedBps200 (3), FixedBps400 (4), FixedBps600 (5)
-- Migration fee percentage must be between 0 and 50
+- Customizable (6) is only allowed for DAMM V2 migration
+
+**Migration Fee**
+
+- Migration fee percentage must be between 0 and 99
 - Creator fee percentage must be between 0 and 100
 
 **Token Decimals**
@@ -608,7 +612,7 @@ interface BuildCurveParams {
     tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
-        feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
+        feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
     migratedPoolFee?: {
@@ -756,7 +760,7 @@ interface BuildCurveWithMarketCapParams {
     tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
-        feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
+        feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
     migratedPoolFee?: {
@@ -905,7 +909,7 @@ interface BuildCurveWithTwoSegmentsParams {
     tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
-        feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
+        feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
     migratedPoolFee?: {
@@ -1055,7 +1059,7 @@ interface BuildCurveWithLiquidityWeightsParams {
     tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
-        feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
+        feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
     migratedPoolFee?: {
@@ -1278,7 +1282,7 @@ interface CreateConfigAndPoolParams {
     tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
-        feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
+        feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
     migratedPoolFee: {
@@ -1469,7 +1473,7 @@ interface CreateConfigAndPoolWithFirstBuyParams {
     tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
-        feePercentage: number // The percentage of fee taken from migration quote threshold (0-50)
+        feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
         creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
     }
     migratedPoolFee: {
