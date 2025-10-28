@@ -5,7 +5,7 @@ import { expect, test, describe, beforeEach } from 'bun:test'
 import {
     DynamicBondingCurveClient,
     getCurrentPoint,
-    Swap2Param,
+    Swap2Params,
     SwapMode,
 } from '../src'
 import { BN } from 'bn.js'
@@ -127,7 +127,7 @@ describe('Swap Tests', () => {
 
         console.log(swapQuote.outputAmount.toString())
 
-        const swap2Param: Swap2Param = {
+        const swap2Param: Swap2Params = {
             swapMode: SwapMode.ExactIn,
             swapBaseForQuote: false,
             amountIn: new BN(1000000000),
@@ -185,7 +185,7 @@ describe('Swap Tests', () => {
 
         console.log(swapQuote.outputAmount.toString())
 
-        const swap2Param: Swap2Param = {
+        const swap2Param: Swap2Params = {
             amountIn: new BN(1000000000),
             minimumAmountOut: swapQuote.minimumAmountOut!,
             swapBaseForQuote: false,
@@ -243,7 +243,7 @@ describe('Swap Tests', () => {
 
         console.log(swapQuote.outputAmount.toString())
 
-        const swap2Param: Swap2Param = {
+        const swap2Param: Swap2Params = {
             amountOut: new BN(1000000000),
             maximumAmountIn: swapQuote.maximumAmountIn!,
             swapBaseForQuote: false,

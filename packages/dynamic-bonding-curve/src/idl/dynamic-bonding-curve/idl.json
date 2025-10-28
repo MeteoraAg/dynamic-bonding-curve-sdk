@@ -2,7 +2,7 @@
   "address": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
   "metadata": {
     "name": "dynamic_bonding_curve",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -139,6 +139,83 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "claim_pool_creation_fee",
+      "discriminator": [
+        246,
+        51,
+        18,
+        222,
+        80,
+        42,
+        236,
+        205
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "claim_fee_operator",
+          "docs": [
+            "Claim fee operator"
+          ]
+        },
+        {
+          "name": "operator",
+          "docs": [
+            "Operator"
+          ],
+          "signer": true,
+          "relations": [
+            "claim_fee_operator"
+          ]
+        },
+        {
+          "name": "treasury",
+          "writable": true,
+          "address": "4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
     },
     {
       "name": "claim_protocol_fee",
@@ -952,7 +1029,7 @@
     {
       "name": "create_partner_metadata",
       "docs": [
-        "PARTNER FUNCTIONS ////"
+        "PARTNER FUNCTIONS ///"
       ],
       "discriminator": [
         192,
@@ -2259,16 +2336,10 @@
           "docs": [
             "virtual pool"
           ],
-          "writable": true,
-          "relations": [
-            "migration_metadata"
-          ]
+          "writable": true
         },
         {
-          "name": "migration_metadata",
-          "docs": [
-            "migration metadata"
-          ]
+          "name": "migration_metadata"
         },
         {
           "name": "config",
@@ -2396,43 +2467,16 @@
           "name": "virtual_pool"
         },
         {
-          "name": "config",
-          "relations": [
-            "virtual_pool"
-          ]
+          "name": "config"
         },
         {
-          "name": "migration_metadata",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  100,
-                  97,
-                  109,
-                  109,
-                  95,
-                  118,
-                  50
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "virtual_pool"
-              }
-            ]
-          }
+          "name": "migration_metadata"
         },
         {
-          "name": "payer",
-          "writable": true,
-          "signer": true
+          "name": "payer"
         },
         {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "name": "system_program"
         },
         {
           "name": "event_authority",
@@ -3215,6 +3259,36 @@
       "args": []
     },
     {
+      "name": "withdraw_lamports_from_pool_authority",
+      "discriminator": [
+        20,
+        185,
+        242,
+        240,
+        129,
+        24,
+        212,
+        194
+      ],
+      "accounts": [
+        {
+          "name": "pool_authority",
+          "writable": true,
+          "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
+        },
+        {
+          "name": "receiver",
+          "writable": true,
+          "address": "4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "withdraw_leftover",
       "discriminator": [
         20,
@@ -3528,19 +3602,6 @@
       ]
     },
     {
-      "name": "MeteoraDammV2Metadata",
-      "discriminator": [
-        104,
-        221,
-        219,
-        203,
-        10,
-        142,
-        250,
-        163
-      ]
-    },
-    {
       "name": "PartnerMetadata",
       "discriminator": [
         68,
@@ -3605,6 +3666,19 @@
         155,
         214,
         138
+      ]
+    },
+    {
+      "name": "EvtClaimPoolCreationFee",
+      "discriminator": [
+        149,
+        111,
+        149,
+        44,
+        136,
+        64,
+        175,
+        62
       ]
     },
     {
@@ -3683,19 +3757,6 @@
         195,
         26,
         144
-      ]
-    },
-    {
-      "name": "EvtCreateDammV2MigrationMetadata",
-      "discriminator": [
-        103,
-        111,
-        132,
-        168,
-        140,
-        253,
-        150,
-        114
       ]
     },
     {
@@ -4126,6 +4187,16 @@
       "code": 6048,
       "name": "NextSqrtPriceIsSmallerThanStartSqrtPrice",
       "msg": "Next sqrt price is smaller than start sqrt price"
+    },
+    {
+      "code": 6049,
+      "name": "InvalidMinBaseFee",
+      "msg": "Invalid min base fee"
+    },
+    {
+      "code": 6050,
+      "name": "AccountInvariantViolation",
+      "msg": "Account invariant violation"
     }
   ],
   "types": [
@@ -4582,6 +4653,26 @@
       }
     },
     {
+      "name": "EvtClaimPoolCreationFee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "creation_fee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "EvtClaimProtocolFee",
       "type": {
         "kind": "struct",
@@ -4804,18 +4895,6 @@
                 "name": "ConfigParameters"
               }
             }
-          }
-        ]
-      }
-    },
-    {
-      "name": "EvtCreateDammV2MigrationMetadata",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "virtual_pool",
-            "type": "pubkey"
           }
         ]
       }
@@ -5431,56 +5510,6 @@
               "array": [
                 "u8",
                 107
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "MeteoraDammV2Metadata",
-      "serialization": "bytemuck",
-      "repr": {
-        "kind": "c"
-      },
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "virtual_pool",
-            "docs": [
-              "pool"
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "padding_0",
-            "docs": [
-              "!!! BE CAREFUL to use tomestone field, previous is pool creator"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "partner",
-            "docs": [
-              "partner"
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "_padding",
-            "docs": [
-              "Reserve"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                126
               ]
             }
           }
@@ -6353,6 +6382,19 @@
             "type": "u64"
           },
           {
+            "name": "creation_fee_bits",
+            "type": "u8"
+          },
+          {
+            "name": "_padding_0",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          },
+          {
             "name": "_padding_1",
             "docs": [
               "Padding for further use"
@@ -6360,7 +6402,7 @@
             "type": {
               "array": [
                 "u64",
-                7
+                6
               ]
             }
           }

@@ -2,6 +2,21 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.4.6] - 2025-10-28
+
+### Added
+
+- Added validation checks for migration fee percentages
+
+### Deprecated
+
+- Endpoint `createDammV2MigrationMetadata` is deprecated as it is no longer needed when migrating a DAMM v2 pool.
+
+### Changed
+
+- Minimum base fee increased from 1bp (0.01%) to 25 bps (0.25%). Affected endpoints: `createConfig`, `createPool`, `createConfigAndPool`, `createConfigAndPoolWithFirstBuy`, `createPoolWithFirstBuy`, `createPoolWithPartnerAndCreatorFirstBuy`
+- Migration fee increased from 50% to 99%.
+
 ## [1.4.5] - 2025-10-11
 
 ### Changed

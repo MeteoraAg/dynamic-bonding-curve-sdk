@@ -5,7 +5,6 @@ import {
     BASIS_POINT_MAX,
     FEE_DENOMINATOR,
     MAX_FEE_NUMERATOR,
-    MAX_SWALLOW_PERCENTAGE,
 } from '../constants'
 import {
     CollectFeeMode,
@@ -42,21 +41,6 @@ export function toNumerator(bps: BN, feeDenominator: BN): BN {
             'Type cast failed or calculation overflow in toNumerator'
         )
     }
-}
-
-/**
- * Get maximum swallow quote amount
- * @param config Pool config state
- * @returns Maximum swallow quote amount
- */
-export function getMaxSwallowQuoteAmount(config: PoolConfig): BN {
-    const maxSwallowAmount = mulDiv(
-        config.migrationQuoteThreshold,
-        new BN(MAX_SWALLOW_PERCENTAGE),
-        new BN(100),
-        Rounding.Down
-    )
-    return maxSwallowAmount
 }
 
 /**

@@ -8,7 +8,7 @@ export type DynamicBondingCurve = {
     address: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
     metadata: {
         name: 'dynamicBondingCurve'
-        version: '0.1.6'
+        version: '0.1.7'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -112,6 +112,68 @@ export type DynamicBondingCurve = {
                     type: 'u64'
                 },
             ]
+        },
+        {
+            name: 'claimPoolCreationFee'
+            discriminator: [246, 51, 18, 222, 80, 42, 236, 205]
+            accounts: [
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'claimFeeOperator'
+                    docs: ['Claim fee operator']
+                },
+                {
+                    name: 'operator'
+                    docs: ['Operator']
+                    signer: true
+                    relations: ['claimFeeOperator']
+                },
+                {
+                    name: 'treasury'
+                    writable: true
+                    address: '4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv'
+                },
+                {
+                    name: 'systemProgram'
+                    address: '11111111111111111111111111111111'
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: []
         },
         {
             name: 'claimProtocolFee'
@@ -789,7 +851,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'createPartnerMetadata'
-            docs: ['PARTNER FUNCTIONS ////']
+            docs: ['PARTNER FUNCTIONS ///']
             discriminator: [192, 168, 234, 191, 188, 226, 227, 255]
             accounts: [
                 {
@@ -1913,11 +1975,9 @@ export type DynamicBondingCurve = {
                     name: 'virtualPool'
                     docs: ['virtual pool']
                     writable: true
-                    relations: ['migrationMetadata']
                 },
                 {
                     name: 'migrationMetadata'
-                    docs: ['migration metadata']
                 },
                 {
                     name: 'config'
@@ -2027,32 +2087,15 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'config'
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'migrationMetadata'
-                    writable: true
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [100, 97, 109, 109, 95, 118, 50]
-                            },
-                            {
-                                kind: 'account'
-                                path: 'virtualPool'
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'payer'
-                    writable: true
-                    signer: true
                 },
                 {
                     name: 'systemProgram'
-                    address: '11111111111111111111111111111111'
                 },
                 {
                     name: 'eventAuthority'
@@ -2673,6 +2716,27 @@ export type DynamicBondingCurve = {
             args: []
         },
         {
+            name: 'withdrawLamportsFromPoolAuthority'
+            discriminator: [20, 185, 242, 240, 129, 24, 212, 194]
+            accounts: [
+                {
+                    name: 'poolAuthority'
+                    writable: true
+                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
+                },
+                {
+                    name: 'receiver'
+                    writable: true
+                    address: '4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv'
+                },
+                {
+                    name: 'systemProgram'
+                    address: '11111111111111111111111111111111'
+                },
+            ]
+            args: []
+        },
+        {
             name: 'withdrawLeftover'
             discriminator: [20, 198, 202, 237, 235, 243, 183, 66]
             accounts: [
@@ -2900,10 +2964,6 @@ export type DynamicBondingCurve = {
             discriminator: [17, 155, 141, 215, 207, 4, 133, 156]
         },
         {
-            name: 'meteoraDammV2Metadata'
-            discriminator: [104, 221, 219, 203, 10, 142, 250, 163]
-        },
-        {
             name: 'partnerMetadata'
             discriminator: [68, 68, 130, 19, 16, 209, 98, 156]
         },
@@ -2924,6 +2984,10 @@ export type DynamicBondingCurve = {
         {
             name: 'evtClaimCreatorTradingFee'
             discriminator: [154, 228, 215, 202, 133, 155, 214, 138]
+        },
+        {
+            name: 'evtClaimPoolCreationFee'
+            discriminator: [149, 111, 149, 44, 136, 64, 175, 62]
         },
         {
             name: 'evtClaimProtocolFee'
@@ -2948,10 +3012,6 @@ export type DynamicBondingCurve = {
         {
             name: 'evtCreateConfigV2'
             discriminator: [163, 74, 66, 187, 119, 195, 26, 144]
-        },
-        {
-            name: 'evtCreateDammV2MigrationMetadata'
-            discriminator: [103, 111, 132, 168, 140, 253, 150, 114]
         },
         {
             name: 'evtCreateMeteoraMigrationMetadata'
@@ -3255,6 +3315,16 @@ export type DynamicBondingCurve = {
             code: 6048
             name: 'nextSqrtPriceIsSmallerThanStartSqrtPrice'
             msg: 'Next sqrt price is smaller than start sqrt price'
+        },
+        {
+            code: 6049
+            name: 'invalidMinBaseFee'
+            msg: 'Invalid min base fee'
+        },
+        {
+            code: 6050
+            name: 'accountInvariantViolation'
+            msg: 'Account invariant violation'
         },
     ]
     types: [
@@ -3679,6 +3749,26 @@ export type DynamicBondingCurve = {
             }
         },
         {
+            name: 'evtClaimPoolCreationFee'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'treasury'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'creationFee'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
             name: 'evtClaimProtocolFee'
             type: {
                 kind: 'struct'
@@ -3895,18 +3985,6 @@ export type DynamicBondingCurve = {
                                 name: 'configParameters'
                             }
                         }
-                    },
-                ]
-            }
-        },
-        {
-            name: 'evtCreateDammV2MigrationMetadata'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'virtualPool'
-                        type: 'pubkey'
                     },
                 ]
             }
@@ -4489,44 +4567,6 @@ export type DynamicBondingCurve = {
                         docs: ['Reserve']
                         type: {
                             array: ['u8', 107]
-                        }
-                    },
-                ]
-            }
-        },
-        {
-            name: 'meteoraDammV2Metadata'
-            serialization: 'bytemuck'
-            repr: {
-                kind: 'c'
-            }
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'virtualPool'
-                        docs: ['pool']
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'padding0'
-                        docs: [
-                            '!!! BE CAREFUL to use tomestone field, previous is pool creator',
-                        ]
-                        type: {
-                            array: ['u8', 32]
-                        }
-                    },
-                    {
-                        name: 'partner'
-                        docs: ['partner']
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'padding'
-                        docs: ['Reserve']
-                        type: {
-                            array: ['u8', 126]
                         }
                     },
                 ]
@@ -5241,10 +5281,20 @@ export type DynamicBondingCurve = {
                         type: 'u64'
                     },
                     {
+                        name: 'creationFeeBits'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'padding0'
+                        type: {
+                            array: ['u8', 7]
+                        }
+                    },
+                    {
                         name: 'padding1'
                         docs: ['Padding for further use']
                         type: {
-                            array: ['u64', 7]
+                            array: ['u64', 6]
                         }
                     },
                 ]

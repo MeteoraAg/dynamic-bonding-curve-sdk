@@ -9,20 +9,20 @@ import {
 import { DynamicBondingCurveProgram } from './program'
 import {
     ConfigParameters,
-    CreateConfigAndPoolParam,
-    CreateConfigAndPoolWithFirstBuyParam,
-    CreatePoolWithFirstBuyParam,
-    CreatePoolWithPartnerAndCreatorFirstBuyParam,
-    FirstBuyParam,
-    InitializePoolBaseParam,
+    CreateConfigAndPoolParams,
+    CreateConfigAndPoolWithFirstBuyParams,
+    CreatePoolWithFirstBuyParams,
+    CreatePoolWithPartnerAndCreatorFirstBuyParams,
+    FirstBuyParams,
+    InitializePoolBaseParams,
     PrepareSwapParams,
     SwapMode,
-    SwapQuote2Param,
-    SwapQuoteParam,
-    Swap2Param,
+    SwapQuote2Params,
+    SwapQuoteParams,
+    Swap2Params,
     TokenType,
-    type CreatePoolParam,
-    type SwapParam,
+    type CreatePoolParams,
+    type SwapParams,
     SwapQuoteResult,
     SwapQuote2Result,
     TradeDirection,
@@ -79,7 +79,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @returns A transaction that initializes the pool with SPL token
      */
     private async initializeSplPool(
-        params: InitializePoolBaseParam
+        params: InitializePoolBaseParams
     ): Promise<Transaction> {
         const {
             name,
@@ -137,7 +137,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @returns A transaction that initializes the pool with Token2022
      */
     private async initializeToken2022Pool(
-        params: InitializePoolBaseParam
+        params: InitializePoolBaseParams
     ): Promise<Transaction> {
         const {
             name,
@@ -255,7 +255,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @returns A transaction that creates the pool
      */
     private async createPoolTx(
-        createPoolParam: CreatePoolParam,
+        createPoolParam: CreatePoolParams,
         tokenType: TokenType,
         quoteMint: PublicKey
     ): Promise<Transaction> {
@@ -266,7 +266,7 @@ export class PoolService extends DynamicBondingCurveProgram {
         const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
         const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
 
-        const baseParams: InitializePoolBaseParam = {
+        const baseParams: InitializePoolBaseParams = {
             name,
             symbol,
             uri,
@@ -301,7 +301,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @returns Instructions for the first buy
      */
     private async swapBuyTx(
-        firstBuyParam: FirstBuyParam,
+        firstBuyParam: FirstBuyParams,
         baseMint: PublicKey,
         config: PublicKey,
         baseFee: BaseFee,
@@ -450,7 +450,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param baseMint - The base mint address
      * @returns A new pool
      */
-    async createPool(params: CreatePoolParam): Promise<Transaction> {
+    async createPool(params: CreatePoolParams): Promise<Transaction> {
         const { baseMint, config, name, symbol, uri, payer, poolCreator } =
             params
 
@@ -465,7 +465,7 @@ export class PoolService extends DynamicBondingCurveProgram {
         const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
         const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
 
-        const baseParams: InitializePoolBaseParam = {
+        const baseParams: InitializePoolBaseParams = {
             name,
             symbol,
             uri,
@@ -499,7 +499,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @returns A new config and pool
      */
     async createConfigAndPool(
-        params: CreateConfigAndPoolParam
+        params: CreateConfigAndPoolParams
     ): Promise<Transaction> {
         const {
             config,
@@ -558,7 +558,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @returns An object containing the new config transaction, new pool transaction, and first buy transaction
      */
     async createConfigAndPoolWithFirstBuy(
-        params: CreateConfigAndPoolWithFirstBuyParam
+        params: CreateConfigAndPoolWithFirstBuyParams
     ): Promise<{
         createConfigTx: Transaction
         createPoolTx: Transaction
@@ -636,7 +636,9 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param firstBuyParam - The parameters for the first buy
      * @returns An object containing the new pool transaction and swap buy transaction
      */
-    async createPoolWithFirstBuy(params: CreatePoolWithFirstBuyParam): Promise<{
+    async createPoolWithFirstBuy(
+        params: CreatePoolWithFirstBuyParams
+    ): Promise<{
         createPoolTx: Transaction
         swapBuyTx: Transaction | undefined
     }> {
@@ -692,7 +694,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @returns An object containing the new pool transaction and swap buy transactions for partner and creator
      */
     async createPoolWithPartnerAndCreatorFirstBuy(
-        params: CreatePoolWithPartnerAndCreatorFirstBuyParam
+        params: CreatePoolWithPartnerAndCreatorFirstBuyParams
     ): Promise<{
         createPoolTx: Transaction
         partnerSwapBuyTx: Transaction | undefined
@@ -786,7 +788,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param payer - The payer of the swap (optional)
      * @returns A swap transaction
      */
-    async swap(params: SwapParam): Promise<Transaction> {
+    async swap(params: SwapParams): Promise<Transaction> {
         const {
             amountIn,
             minimumAmountOut,
@@ -925,7 +927,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param maximumAmountIn - The maximum amount in (for ExactOut)
      * @returns A swap transaction
      */
-    async swap2(params: Swap2Param): Promise<Transaction> {
+    async swap2(params: Swap2Params): Promise<Transaction> {
         const {
             pool,
             swapBaseForQuote,
@@ -1078,7 +1080,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param currentPoint - The current point
      * @returns The swap quote result
      */
-    swapQuote(params: SwapQuoteParam): SwapQuoteResult {
+    swapQuote(params: SwapQuoteParams): SwapQuoteResult {
         const {
             virtualPool,
             config,
@@ -1113,7 +1115,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param amountOut - The amount out (for ExactOut)
      * @returns The swap quote result
      */
-    swapQuote2(params: SwapQuote2Param): SwapQuote2Result {
+    swapQuote2(params: SwapQuote2Params): SwapQuote2Result {
         const {
             virtualPool,
             config,

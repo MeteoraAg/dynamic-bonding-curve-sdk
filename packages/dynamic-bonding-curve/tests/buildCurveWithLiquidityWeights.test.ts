@@ -3,7 +3,7 @@ import { buildCurveWithLiquidityWeights } from '../src/helpers'
 import BN from 'bn.js'
 import {
     ActivationType,
-    BuildCurveBaseParam,
+    BuildCurveBaseParams,
     CollectFeeMode,
     BaseFeeMode,
     MigrationFeeOption,
@@ -15,7 +15,7 @@ import Decimal from 'decimal.js'
 import { convertBNToDecimal } from './utils/common'
 
 describe('buildCurveWithLiquidityWeights tests', () => {
-    const baseParams: BuildCurveBaseParam = {
+    const baseParams: BuildCurveBaseParams = {
         totalTokenSupply: 1000000000,
         migrationOption: MigrationOption.MET_DAMM_V2,
         tokenBaseDecimal: TokenDecimal.SIX,

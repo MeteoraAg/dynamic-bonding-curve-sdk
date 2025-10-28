@@ -31,6 +31,7 @@ import {
     MIN_FEE_NUMERATOR,
     MIN_SQRT_PRICE,
     ONE_Q64,
+    SWAP_BUFFER_PERCENTAGE,
 } from '../constants'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
@@ -599,7 +600,7 @@ export const getSwapAmountWithBuffer = (
     curve: Array<LiquidityDistributionParameters>
 ): BN => {
     const swapAmountBuffer = swapBaseAmount.add(
-        swapBaseAmount.mul(new BN(25)).div(new BN(100))
+        swapBaseAmount.mul(new BN(SWAP_BUFFER_PERCENTAGE)).div(new BN(100))
     )
     const maxBaseAmountOnCurve = getBaseTokenForSwap(
         sqrtStartPrice,

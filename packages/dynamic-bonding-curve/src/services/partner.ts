@@ -8,15 +8,15 @@ import {
 } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
 import {
-    type ClaimTradingFeeParam,
-    type CreateConfigParam,
-    type CreatePartnerMetadataParam,
+    type ClaimTradingFeeParams,
+    type CreateConfigParams,
+    type CreatePartnerMetadataParams,
     type CreatePartnerMetadataParameters,
-    type PartnerWithdrawSurplusParam,
-    ClaimPartnerTradingFeeWithQuoteMintNotSolParam,
-    ClaimPartnerTradingFeeWithQuoteMintSolParam,
-    ClaimTradingFee2Param,
-    WithdrawMigrationFeeParam,
+    type PartnerWithdrawSurplusParams,
+    ClaimPartnerTradingFeeWithQuoteMintNotSolParams,
+    ClaimPartnerTradingFeeWithQuoteMintSolParams,
+    ClaimTradingFee2Params,
+    WithdrawMigrationFeeParams,
 } from '../types'
 import {
     derivePartnerMetadata,
@@ -51,7 +51,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * @param payer - The payer of the transaction
      * @returns A new config
      */
-    async createConfig(params: CreateConfigParam): Promise<Transaction> {
+    async createConfig(params: CreateConfigParams): Promise<Transaction> {
         const {
             config,
             feeClaimer,
@@ -86,7 +86,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * @returns A create partner metadata transaction
      */
     async createPartnerMetadata(
-        params: CreatePartnerMetadataParam
+        params: CreatePartnerMetadataParams
     ): Promise<Transaction> {
         const { name, website, logo, feeClaimer, payer } = params
 
@@ -125,7 +125,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * @returns A claim trading fee with quote mint SOL accounts, pre instructions and post instructions
      */
     private async claimWithQuoteMintSol(
-        params: ClaimPartnerTradingFeeWithQuoteMintSolParam
+        params: ClaimPartnerTradingFeeWithQuoteMintSolParams
     ): Promise<{
         accounts: {
             poolAuthority: PublicKey
@@ -229,7 +229,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * @returns A claim trading fee with quote mint not SOL accounts and pre instructions
      */
     private async claimWithQuoteMintNotSol(
-        params: ClaimPartnerTradingFeeWithQuoteMintNotSolParam
+        params: ClaimPartnerTradingFeeWithQuoteMintNotSolParams
     ): Promise<{
         accounts: {
             poolAuthority: PublicKey
@@ -302,7 +302,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * @returns A claim trading fee transaction
      */
     async claimPartnerTradingFee(
-        params: ClaimTradingFeeParam
+        params: ClaimTradingFeeParams
     ): Promise<Transaction> {
         const {
             feeClaimer,
@@ -393,7 +393,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * @returns A claim trading fee transaction
      */
     async claimPartnerTradingFee2(
-        params: ClaimTradingFee2Param
+        params: ClaimTradingFee2Params
     ): Promise<Transaction> {
         const {
             feeClaimer,
@@ -510,7 +510,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * @returns A partner withdraw surplus transaction
      */
     async partnerWithdrawSurplus(
-        params: PartnerWithdrawSurplusParam
+        params: PartnerWithdrawSurplusParams
     ): Promise<Transaction> {
         const { virtualPool, feeClaimer } = params
 
@@ -572,7 +572,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * @returns A partner withdraw migration fee transaction
      */
     async partnerWithdrawMigrationFee(
-        params: WithdrawMigrationFeeParam
+        params: WithdrawMigrationFeeParams
     ): Promise<Transaction> {
         const { virtualPool, sender } = params
 
