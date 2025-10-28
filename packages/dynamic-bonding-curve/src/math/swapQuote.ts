@@ -249,10 +249,14 @@ export function getSwapResultFromExactInput(
                   config,
                   virtualPool.sqrtPrice,
                   actualAmountIn,
-                  U128_MAX
+                  config.migrationSqrtPrice
               )
 
     const { outputAmount, nextSqrtPrice, amountLeft } = swapAmountFromInput
+
+    if (!amountLeft.isZero()) {
+        throw new Error('Swap amount is over a threshold')
+    }
 
     const actualAmountOut = feeMode.feesOnInput
         ? outputAmount
@@ -703,6 +707,10 @@ export function getSwapResultFromExactOutput(
     })()
 
     const { outputAmount: amountIn, nextSqrtPrice } = swapAmountFromOutput
+
+    if (nextSqrtPrice.gt(config.migrationSqrtPrice)) {
+        throw new Error('Swap amount is over a threshold')
+    }
 
     const [excludedFeeInputAmount, includedFeeInputAmount] = feeMode.feesOnInput
         ? (() => {
