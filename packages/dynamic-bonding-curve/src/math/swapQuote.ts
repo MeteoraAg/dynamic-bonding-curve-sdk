@@ -26,7 +26,6 @@ import {
     type VirtualPool,
     SwapQuote2Result,
 } from '../types'
-import { U128_MAX } from '../constants'
 
 // SwapQuote V1 //
 
@@ -89,7 +88,7 @@ export function getSwapResult(
                   configState,
                   poolState.sqrtPrice,
                   actualAmountIn,
-                  U128_MAX
+                  configState.migrationSqrtPrice
               )
 
     const { outputAmount, nextSqrtPrice } = swapAmountFromInput
