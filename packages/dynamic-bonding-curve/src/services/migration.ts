@@ -41,14 +41,13 @@ import {
 } from '../helpers'
 import type { DammV1 } from '../idl/damm-v1/idl'
 import type {
-    CreateDammV1MigrationMetadataParam,
-    CreateDammV2MigrationMetadataParam,
-    CreateLockerParam,
-    DammLpTokenParam,
-    MigrateToDammV1Param,
-    MigrateToDammV2Param,
+    CreateDammV1MigrationMetadataParams,
+    CreateLockerParams,
+    DammLpTokenParams,
+    MigrateToDammV1Params,
+    MigrateToDammV2Params,
     MigrateToDammV2Response,
-    WithdrawLeftoverParam,
+    WithdrawLeftoverParams,
 } from '../types'
 import {
     ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -96,7 +95,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @param virtualPool - The virtual pool address
      * @returns A create locker transaction
      */
-    async createLocker(params: CreateLockerParam): Promise<Transaction> {
+    async createLocker(params: CreateLockerParams): Promise<Transaction> {
         const { virtualPool, payer } = params
 
         const lockerEventAuthority = deriveLockerEventAuthority()
@@ -172,7 +171,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @returns A withdraw leftover transaction
      */
     async withdrawLeftover(
-        params: WithdrawLeftoverParam
+        params: WithdrawLeftoverParams
     ): Promise<Transaction> {
         const { virtualPool, payer } = params
 
@@ -230,7 +229,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @returns A migration transaction
      */
     async createDammV1MigrationMetadata(
-        params: CreateDammV1MigrationMetadataParam
+        params: CreateDammV1MigrationMetadataParams
     ): Promise<Transaction> {
         const { virtualPool, config, payer } = params
 
@@ -258,7 +257,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @param dammConfig - The damm config address
      * @returns A migrate transaction
      */
-    async migrateToDammV1(params: MigrateToDammV1Param): Promise<Transaction> {
+    async migrateToDammV1(params: MigrateToDammV1Params): Promise<Transaction> {
         const { virtualPool, dammConfig, payer } = params
 
         const poolState = await this.state.getPool(virtualPool)
@@ -412,7 +411,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @param isPartner - Whether the partner is locking the LP token
      * @returns A lock transaction
      */
-    async lockDammV1LpToken(params: DammLpTokenParam): Promise<Transaction> {
+    async lockDammV1LpToken(params: DammLpTokenParams): Promise<Transaction> {
         const { virtualPool, dammConfig, payer, isPartner } = params
 
         const poolState = await this.state.getPool(params.virtualPool)
@@ -594,7 +593,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @param isPartner - Whether the partner is claiming the LP token
      * @returns A claim transaction
      */
-    async claimDammV1LpToken(params: DammLpTokenParam): Promise<Transaction> {
+    async claimDammV1LpToken(params: DammLpTokenParams): Promise<Transaction> {
         const { virtualPool, dammConfig, payer, isPartner } = params
 
         const virtualPoolState = await this.state.getPool(virtualPool)
@@ -682,35 +681,6 @@ export class MigrationService extends DynamicBondingCurveProgram {
     ///////////////////////
 
     /**
-     * Create metadata for the migration of Meteora DAMM V2
-     * @param payer - The payer of the transaction
-     * @param virtualPool - The virtual pool address
-     * @param config - The config address
-     * @returns A migration transaction
-     */
-    async createDammV2MigrationMetadata(
-        params: CreateDammV2MigrationMetadataParam
-    ): Promise<Transaction> {
-        const { virtualPool, config, payer } = params
-
-        const migrationMetadata =
-            deriveDammV2MigrationMetadataAddress(virtualPool)
-
-        const accounts = {
-            virtualPool,
-            config,
-            migrationMetadata: migrationMetadata,
-            payer,
-            systemProgram: SystemProgram.programId,
-        }
-
-        return this.program.methods
-            .migrationDammV2CreateMetadata()
-            .accountsPartial(accounts)
-            .transaction()
-    }
-
-    /**
      * Migrate to DAMM V2
      * @param payer - The payer of the transaction
      * @param virtualPool - The virtual pool address
@@ -718,7 +688,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @returns A migrate transaction
      */
     async migrateToDammV2(
-        params: MigrateToDammV2Param
+        params: MigrateToDammV2Params
     ): Promise<MigrateToDammV2Response> {
         const { virtualPool, dammConfig, payer } = params
 

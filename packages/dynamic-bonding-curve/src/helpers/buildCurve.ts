@@ -2,10 +2,10 @@ import Decimal from 'decimal.js'
 import BN from 'bn.js'
 import {
     type ConfigParameters,
-    type BuildCurveParam,
-    BuildCurveWithMarketCapParam,
-    BuildCurveWithLiquidityWeightsParam,
-    BuildCurveWithTwoSegmentsParam,
+    type BuildCurveParams,
+    BuildCurveWithMarketCapParams,
+    BuildCurveWithLiquidityWeightsParams,
+    BuildCurveWithTwoSegmentsParams,
     BaseFeeMode,
 } from '../types'
 import { MAX_SQRT_PRICE } from '../constants'
@@ -36,7 +36,9 @@ import { convertDecimalToBN, convertToLamports, fromDecimalToBN } from './utils'
  * @param buildCurveParam - The parameters for the custom constant product curve
  * @returns The build custom constant product curve
  */
-export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
+export function buildCurve(
+    buildCurveParam: BuildCurveParams
+): ConfigParameters {
     let {
         totalTokenSupply,
         percentageSupplyOnMigration,
@@ -219,7 +221,7 @@ export function buildCurve(buildCurveParam: BuildCurveParam): ConfigParameters {
  * @returns The build custom constant product curve by market cap
  */
 export function buildCurveWithMarketCap(
-    buildCurveWithMarketCapParam: BuildCurveWithMarketCapParam
+    buildCurveWithMarketCapParam: BuildCurveWithMarketCapParams
 ): ConfigParameters {
     const {
         initialMarketCap,
@@ -282,7 +284,7 @@ export function buildCurveWithMarketCap(
  * @returns The build custom constant product curve by market cap
  */
 export function buildCurveWithTwoSegments(
-    buildCurveWithTwoSegmentsParam: BuildCurveWithTwoSegmentsParam
+    buildCurveWithTwoSegmentsParam: BuildCurveWithTwoSegmentsParams
 ): ConfigParameters {
     const {
         totalTokenSupply,
@@ -500,7 +502,7 @@ export function buildCurveWithTwoSegments(
  * @returns The build custom constant product curve with liquidity weights
  */
 export function buildCurveWithLiquidityWeights(
-    buildCurveWithLiquidityWeightsParam: BuildCurveWithLiquidityWeightsParam
+    buildCurveWithLiquidityWeightsParam: BuildCurveWithLiquidityWeightsParams
 ): ConfigParameters {
     let {
         totalTokenSupply,

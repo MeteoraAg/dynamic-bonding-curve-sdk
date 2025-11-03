@@ -21,7 +21,7 @@ import {
     TokenDecimal,
     TokenType,
     TokenUpdateAuthorityOption,
-    type CreateConfigParam,
+    type CreateConfigParams,
     type PoolConfig,
 } from '../types'
 import { Connection, PublicKey } from '@solana/web3.js'
@@ -217,7 +217,6 @@ export function validateFeeRateLimiter(
         return false
     }
 
-    // That condition is redundant, but it is safe to add this
     if (
         cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
         cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
@@ -533,7 +532,7 @@ export function validateMigratedPoolFee(
  */
 export function validateConfigParameters(
     configParam: Omit<
-        CreateConfigParam,
+        CreateConfigParams,
         'config' | 'feeClaimer' | 'quoteMint' | 'payer'
     >
 ) {
@@ -589,22 +588,8 @@ export function validateConfigParameters(
     }
 
     // Migration fee percentages validation
-    if (
-        configParam.migrationFee.feePercentage < 0 ||
-        configParam.migrationFee.feePercentage > MAX_MIGRATION_FEE_PERCENTAGE
-    ) {
-        throw new Error(
-            `Migration fee percentage must be between 0 and ${MAX_MIGRATION_FEE_PERCENTAGE}`
-        )
-    }
-    if (
-        configParam.migrationFee.creatorFeePercentage < 0 ||
-        configParam.migrationFee.creatorFeePercentage >
-            MAX_CREATOR_MIGRATION_FEE_PERCENTAGE
-    ) {
-        throw new Error(
-            `Creator fee percentage must be between 0 and ${MAX_CREATOR_MIGRATION_FEE_PERCENTAGE}`
-        )
+    if (!validateMigrationFee(configParam.migrationFee)) {
+        throw new Error('Invalid migration fee')
     }
 
     // Token decimals validation
@@ -789,6 +774,39 @@ export async function validateBalance(
 export function validateSwapAmount(amountIn: BN): boolean {
     if (amountIn.lte(new BN(0))) {
         throw new Error('Swap amount must be greater than 0')
+    }
+    return true
+}
+
+export function validateMigrationFee(migrationFee: {
+    feePercentage: number
+    creatorFeePercentage: number
+}): boolean {
+    // check integer-ness (rust u8 types are whole numbers)
+    if (
+        !Number.isInteger(migrationFee.feePercentage) ||
+        !Number.isInteger(migrationFee.creatorFeePercentage)
+    ) {
+        throw new Error(
+            'Migration fee percentage and creator fee percentage must be whole numbers (no decimals allowed)'
+        )
+    }
+    // Check u8 boundaries
+    if (
+        migrationFee.feePercentage < 0 ||
+        migrationFee.feePercentage > MAX_MIGRATION_FEE_PERCENTAGE
+    ) {
+        throw new Error(
+            `Migration fee percentage must be between 0 and ${MAX_MIGRATION_FEE_PERCENTAGE}`
+        )
+    }
+    if (
+        migrationFee.creatorFeePercentage < 0 ||
+        migrationFee.creatorFeePercentage > MAX_CREATOR_MIGRATION_FEE_PERCENTAGE
+    ) {
+        throw new Error(
+            `Migration creator fee percentage must be between 0 and ${MAX_CREATOR_MIGRATION_FEE_PERCENTAGE}`
+        )
     }
     return true
 }

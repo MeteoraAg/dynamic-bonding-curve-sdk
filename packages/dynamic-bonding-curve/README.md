@@ -40,6 +40,21 @@ The generic flow of how Dynamic Bonding Curve works is as follows:
 4. Meteora's migrator service migrates the pool to either DAMM V1 or DAMM V2 based on the config key once the migration quote threshold is met.
 5. The graduated pool is tradeable on either DAMM V1 or DAMM V2.
 
+## Flow of migration
+
+### DAMM V1
+
+1. `createDammV1MigrationMetadata`
+2. `createLocker` (if the token has locked vesting)
+3. `migrateToDammV1`
+4. `lockDammV1LpToken` (if `creatorLockedLpPercentage` or `partnerLockedLpPercentage` is >0)
+5. `claimDammV1LpToken` (if `creatorLpPercentage` or `partnerLpPercentage` is >0)
+
+### DAMM V2
+
+1. `createLocker` (if the token has locked vesting)
+2. `migrateToDammV2`
+
 ### Test
 
 ```bash
@@ -58,8 +73,6 @@ We have created a [Manual Migrator UI](https://migrator.meteora.ag) that allows 
 
 ### Graduated DAMM Pool Config Keys
 
-#### DAMM V1:
-
 Accessible via `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` in the SDK.
 
 - MigrationFeeOption.FixedBps25 == 0: 8f848CEy8eY6PhJ3VcemtBDzPPSD4Vq7aJczLZ3o8MmX
@@ -68,8 +81,6 @@ Accessible via `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` in the SDK.
 - MigrationFeeOption.FixedBps200 == 3: EkvP7d5yKxovj884d2DwmBQbrHUWRLGK6bympzrkXGja
 - MigrationFeeOption.FixedBps400 == 4: 9EZYAJrcqNWNQzP2trzZesP7XKMHA1jEomHzbRsdX8R2
 - MigrationFeeOption.FixedBps600 == 5: 8cdKo87jZU2R12KY1BUjjRPwyjgdNjLGqSGQyrDshhud
-
-#### DAMM V2:
 
 Accessible via `DAMM_V2_MIGRATION_FEE_ADDRESS[i]` in the SDK.
 

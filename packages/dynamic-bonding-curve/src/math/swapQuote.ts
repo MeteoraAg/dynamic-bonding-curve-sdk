@@ -13,7 +13,6 @@ import {
     splitFees,
     getFeeOnAmount,
     getFeeMode,
-    getMaxSwallowQuoteAmount,
 } from './feeMath'
 import {
     Rounding,
@@ -27,7 +26,6 @@ import {
     type VirtualPool,
     SwapQuote2Result,
 } from '../types'
-import { U128_MAX } from '../constants'
 
 // SwapQuote V1 //
 
@@ -90,7 +88,7 @@ export function getSwapResult(
                   configState,
                   poolState.sqrtPrice,
                   actualAmountIn,
-                  U128_MAX
+                  configState.migrationSqrtPrice
               )
 
     const { outputAmount, nextSqrtPrice } = swapAmountFromInput
@@ -250,10 +248,14 @@ export function getSwapResultFromExactInput(
                   config,
                   virtualPool.sqrtPrice,
                   actualAmountIn,
-                  U128_MAX
+                  config.migrationSqrtPrice
               )
 
     const { outputAmount, nextSqrtPrice, amountLeft } = swapAmountFromInput
+
+    if (!amountLeft.isZero()) {
+        throw new Error('Swap amount is over a threshold')
+    }
 
     const actualAmountOut = feeMode.feesOnInput
         ? outputAmount
@@ -705,6 +707,10 @@ export function getSwapResultFromExactOutput(
 
     const { outputAmount: amountIn, nextSqrtPrice } = swapAmountFromOutput
 
+    if (nextSqrtPrice.gt(config.migrationSqrtPrice)) {
+        throw new Error('Swap amount is over a threshold')
+    }
+
     const [excludedFeeInputAmount, includedFeeInputAmount] = feeMode.feesOnInput
         ? (() => {
               const tradeFeeNumerator =
@@ -971,12 +977,6 @@ export function swapQuoteExactIn(
         tradeDirection,
         currentPoint
     )
-
-    // check amount left threshold for exact in
-    const maxSwallowQuoteAmount = getMaxSwallowQuoteAmount(config)
-    if (result.amountLeft.gt(maxSwallowQuoteAmount)) {
-        throw new Error('Amount left is over a threshold')
-    }
 
     // calculate minimum amount out
     let minimumAmountOut: BN

@@ -7,7 +7,7 @@ import {
 import BN from 'bn.js'
 import {
     ActivationType,
-    BuildCurveBaseParam,
+    BuildCurveBaseParams,
     CollectFeeMode,
     BaseFeeMode,
     MigrationFeeOption,
@@ -19,7 +19,7 @@ import {
 import { convertBNToDecimal } from './utils/common'
 
 describe('buildCurveWithMarketCap tests', () => {
-    const baseParams: BuildCurveBaseParam = {
+    const baseParams: BuildCurveBaseParams = {
         totalTokenSupply: 1000000000,
         migrationOption: MigrationOption.MET_DAMM_V2,
         tokenBaseDecimal: TokenDecimal.SIX,
