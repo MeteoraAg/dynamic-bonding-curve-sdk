@@ -7,6 +7,7 @@ import {
     BuildCurveWithLiquidityWeightsParams,
     BuildCurveWithTwoSegmentsParams,
     BaseFeeMode,
+    BuildCurveWithMidPriceParams,
 } from '../types'
 import { MAX_SQRT_PRICE } from '../constants'
 import {
@@ -395,7 +396,7 @@ export function buildCurveWithTwoSegments(
         tokenQuoteDecimal
     )
 
-    // instantiate midSqrtPriceDecimal1
+    // mid_price1 = sqrt(p1 * p2)
     let midSqrtPriceDecimal1 = new Decimal(migrateSqrtPrice.toString())
         .mul(new Decimal(initialSqrtPrice.toString()))
         .sqrt()
@@ -415,7 +416,7 @@ export function buildCurveWithTwoSegments(
     let midSqrtPriceDecimal3 = Decimal.pow(product2, 0.25)
     let midSqrtPrice3 = new BN(midSqrtPriceDecimal3.floor().toFixed())
 
-    let midPrices = [midSqrtPrice1, midSqrtPrice2, midSqrtPrice3]
+    let midPrices = [midSqrtPrice3, midSqrtPrice2, midSqrtPrice1]
     let sqrtStartPrice = new BN(0)
     let curve: { sqrtPrice: BN; liquidity: BN }[] = []
 
@@ -433,6 +434,205 @@ export function buildCurveWithTwoSegments(
             break
         }
     }
+
+    let totalDynamicSupply = getTotalSupplyFromCurve(
+        migrationQuoteThresholdInLamport,
+        sqrtStartPrice,
+        curve,
+        lockedVesting,
+        migrationOption,
+        totalLeftover,
+        migrationFee.feePercentage
+    )
+
+    if (totalDynamicSupply.gt(totalSupply)) {
+        // precision loss is used for leftover
+        let leftOverDelta = totalDynamicSupply.sub(totalSupply)
+        if (!leftOverDelta.lt(totalLeftover)) {
+            throw new Error('leftOverDelta must be less than totalLeftover')
+        }
+    }
+
+    const instructionParams: ConfigParameters = {
+        poolFees: {
+            baseFee: {
+                ...baseFee,
+            },
+            dynamicFee: dynamicFeeEnabled
+                ? getDynamicFeeParams(
+                      baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
+                          ? baseFeeParams.rateLimiterParam.baseFeeBps
+                          : baseFeeParams.feeSchedulerParam.endingFeeBps
+                  )
+                : null,
+        },
+        activationType,
+        collectFeeMode,
+        migrationOption,
+        tokenType,
+        tokenDecimal: tokenBaseDecimal,
+        migrationQuoteThreshold: migrationQuoteThresholdInLamport,
+        partnerLpPercentage,
+        creatorLpPercentage,
+        partnerLockedLpPercentage,
+        creatorLockedLpPercentage,
+        sqrtStartPrice,
+        lockedVesting,
+        migrationFeeOption,
+        tokenSupply: {
+            preMigrationTokenSupply: totalSupply,
+            postMigrationTokenSupply: totalSupply,
+        },
+        creatorTradingFeePercentage,
+        migratedPoolFee: {
+            collectFeeMode: migratedPoolFeeParams.collectFeeMode,
+            dynamicFee: migratedPoolFeeParams.dynamicFee,
+            poolFeeBps: migratedPoolFeeParams.poolFeeBps,
+        },
+        padding: [],
+        curve,
+        tokenUpdateAuthority,
+        migrationFee,
+    }
+    return instructionParams
+}
+
+/**
+ * Build a custom constant product curve with a mid price. This will create a two segment curve with a start price -> mid price, and a mid price -> migration price.
+ * @param buildCurveWithMidPriceParam - The parameters for the custom constant product curve with a mid price
+ * @returns The build custom constant product curve by mid price
+ */
+export function buildCurveWithMidPrice(
+    buildCurveWithMidPriceParam: BuildCurveWithMidPriceParams
+): ConfigParameters {
+    const {
+        totalTokenSupply,
+        initialMarketCap,
+        migrationMarketCap,
+        midPrice,
+        percentageSupplyOnMigration,
+        migrationOption,
+        tokenBaseDecimal,
+        tokenQuoteDecimal,
+        creatorTradingFeePercentage,
+        collectFeeMode,
+        leftover,
+        tokenType,
+        partnerLpPercentage,
+        creatorLpPercentage,
+        partnerLockedLpPercentage,
+        creatorLockedLpPercentage,
+        activationType,
+        dynamicFeeEnabled,
+        migrationFeeOption,
+        migrationFee,
+        tokenUpdateAuthority,
+        baseFeeParams,
+        migratedPoolFee,
+    } = buildCurveWithMidPriceParam
+
+    const baseFee = getBaseFeeParams(
+        baseFeeParams,
+        tokenQuoteDecimal,
+        activationType
+    )
+
+    const {
+        totalLockedVestingAmount,
+        numberOfVestingPeriod,
+        cliffUnlockAmount,
+        totalVestingDuration,
+        cliffDurationFromMigrationTime,
+    } = buildCurveWithMidPriceParam.lockedVestingParam
+
+    const lockedVesting = getLockedVestingParams(
+        totalLockedVestingAmount,
+        numberOfVestingPeriod,
+        cliffUnlockAmount,
+        totalVestingDuration,
+        cliffDurationFromMigrationTime,
+        tokenBaseDecimal
+    )
+
+    const migratedPoolFeeParams = getMigratedPoolFeeParams(
+        migrationOption,
+        migrationFeeOption,
+        migratedPoolFee
+    )
+
+    let migrationBaseSupply = new BN(totalTokenSupply)
+        .mul(new BN(percentageSupplyOnMigration))
+        .div(new BN(100))
+
+    let totalSupply = convertToLamports(totalTokenSupply, tokenBaseDecimal)
+    let migrationQuoteAmount = getMigrationQuoteAmount(
+        new Decimal(migrationMarketCap),
+        new Decimal(percentageSupplyOnMigration)
+    )
+    let migrationQuoteThreshold =
+        getMigrationQuoteThresholdFromMigrationQuoteAmount(
+            migrationQuoteAmount,
+            new Decimal(migrationFee.feePercentage)
+        )
+
+    let migrationPrice = migrationQuoteAmount.div(
+        new Decimal(migrationBaseSupply.toString())
+    )
+
+    let migrationQuoteThresholdInLamport = fromDecimalToBN(
+        migrationQuoteThreshold.mul(new Decimal(10 ** tokenQuoteDecimal))
+    )
+
+    let migrationQuoteAmountInLamport = fromDecimalToBN(
+        migrationQuoteAmount.mul(new Decimal(10 ** tokenQuoteDecimal))
+    )
+
+    let migrateSqrtPrice = getSqrtPriceFromPrice(
+        migrationPrice.toString(),
+        tokenBaseDecimal,
+        tokenQuoteDecimal
+    )
+
+    let migrationBaseAmount = getMigrationBaseToken(
+        migrationQuoteAmountInLamport,
+        migrateSqrtPrice,
+        migrationOption
+    )
+
+    let totalVestingAmount = getTotalVestingAmount(lockedVesting)
+
+    let totalLeftover = convertToLamports(leftover, tokenBaseDecimal)
+
+    let swapAmount = totalSupply
+        .sub(migrationBaseAmount)
+        .sub(totalVestingAmount)
+        .sub(totalLeftover)
+
+    let initialSqrtPrice = getSqrtPriceFromMarketCap(
+        initialMarketCap,
+        totalTokenSupply,
+        tokenBaseDecimal,
+        tokenQuoteDecimal
+    )
+
+    const midSqrtPrice = getSqrtPriceFromPrice(
+        midPrice.toString(),
+        tokenBaseDecimal,
+        tokenQuoteDecimal
+    )
+
+    let sqrtStartPrice = new BN(0)
+    let curve: { sqrtPrice: BN; liquidity: BN }[] = []
+
+    const result = getTwoCurve(
+        migrateSqrtPrice,
+        midSqrtPrice,
+        initialSqrtPrice,
+        swapAmount,
+        migrationQuoteThresholdInLamport
+    )
+    curve = result.curve
+    sqrtStartPrice = result.sqrtStartPrice
 
     let totalDynamicSupply = getTotalSupplyFromCurve(
         migrationQuoteThresholdInLamport,

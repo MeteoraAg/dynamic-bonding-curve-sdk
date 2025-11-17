@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.4.7] - 2025-11-17
+
+### Added
+
+- Added `buildCurveWithMidPrice` function to build a custom constant product curve with a mid price option.
+
 ## [1.4.6] - 2025-10-28
 
 ### Added
