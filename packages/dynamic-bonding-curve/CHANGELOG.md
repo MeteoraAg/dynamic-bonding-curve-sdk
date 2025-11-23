@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.4.8] - 2025-11-23
+
+### Changed
+
+- Moved `getCurrentPoint` in `if` statement to reduce unnecessary RPC calls
+
 ## [1.4.7] - 2025-11-23
 
 ### Added
