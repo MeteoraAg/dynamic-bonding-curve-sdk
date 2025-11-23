@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.4.7] - 2025-11-23
+
+### Added
+
+- Added an `if` statement to check if the `baseFeeMode` is `RateLimiter` in `swap` and `swap2` endpoints
+
 ## [1.4.6] - 2025-10-28
 
 ### Added
