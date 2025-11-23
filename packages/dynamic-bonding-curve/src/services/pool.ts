@@ -27,6 +27,7 @@ import {
     SwapQuote2Result,
     TradeDirection,
     BaseFee,
+    BaseFeeMode,
 } from '../types'
 import {
     deriveDbcPoolAddress,
@@ -324,16 +325,19 @@ export class PoolService extends DynamicBondingCurveProgram {
         // check if rate limiter is applied
         // this swapBuyTx is only QuoteToBase direction
         // this swapBuyTx does not check poolState, so there is no check for activation point
-        const rateLimiterApplied = isRateLimiterApplied(
-            currentPoint,
-            new BN(0),
-            swapBaseForQuote
-                ? TradeDirection.BaseToQuote
-                : TradeDirection.QuoteToBase,
-            baseFee.secondFactor,
-            baseFee.thirdFactor,
-            new BN(baseFee.firstFactor)
-        )
+        let rateLimiterApplied = false
+        if (baseFee.baseFeeMode === BaseFeeMode.RateLimiter) {
+            rateLimiterApplied = isRateLimiterApplied(
+                currentPoint,
+                new BN(0),
+                swapBaseForQuote
+                    ? TradeDirection.BaseToQuote
+                    : TradeDirection.QuoteToBase,
+                baseFee.secondFactor,
+                baseFee.thirdFactor,
+                new BN(baseFee.firstFactor)
+            )
+        }
 
         const quoteTokenFlag = await getTokenType(this.connection, quoteMint)
 
@@ -822,16 +826,22 @@ export class PoolService extends DynamicBondingCurveProgram {
         // 2. swap direction is QuoteToBase
         // 3. current point is greater than activation point
         // 4. current point is less than activation point + maxLimiterDuration
-        const rateLimiterApplied = isRateLimiterApplied(
-            currentPoint,
-            poolState.activationPoint,
-            swapBaseForQuote
-                ? TradeDirection.BaseToQuote
-                : TradeDirection.QuoteToBase,
-            poolConfigState.poolFees.baseFee.secondFactor,
-            poolConfigState.poolFees.baseFee.thirdFactor,
-            new BN(poolConfigState.poolFees.baseFee.firstFactor)
-        )
+        let rateLimiterApplied = false
+        if (
+            poolConfigState.poolFees.baseFee.baseFeeMode ===
+            BaseFeeMode.RateLimiter
+        ) {
+            rateLimiterApplied = isRateLimiterApplied(
+                currentPoint,
+                poolState.activationPoint,
+                swapBaseForQuote
+                    ? TradeDirection.BaseToQuote
+                    : TradeDirection.QuoteToBase,
+                poolConfigState.poolFees.baseFee.secondFactor,
+                poolConfigState.poolFees.baseFee.thirdFactor,
+                new BN(poolConfigState.poolFees.baseFee.firstFactor)
+            )
+        }
 
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
             this.prepareSwapParams(swapBaseForQuote, poolState, poolConfigState)
@@ -972,16 +982,22 @@ export class PoolService extends DynamicBondingCurveProgram {
         // 2. swap direction is QuoteToBase
         // 3. current point is greater than activation point
         // 4. current point is less than activation point + maxLimiterDuration
-        const rateLimiterApplied = isRateLimiterApplied(
-            currentPoint,
-            poolState.activationPoint,
-            swapBaseForQuote
-                ? TradeDirection.BaseToQuote
-                : TradeDirection.QuoteToBase,
-            poolConfigState.poolFees.baseFee.secondFactor,
-            poolConfigState.poolFees.baseFee.thirdFactor,
-            new BN(poolConfigState.poolFees.baseFee.firstFactor)
-        )
+        let rateLimiterApplied = false
+        if (
+            poolConfigState.poolFees.baseFee.baseFeeMode ===
+            BaseFeeMode.RateLimiter
+        ) {
+            rateLimiterApplied = isRateLimiterApplied(
+                currentPoint,
+                poolState.activationPoint,
+                swapBaseForQuote
+                    ? TradeDirection.BaseToQuote
+                    : TradeDirection.QuoteToBase,
+                poolConfigState.poolFees.baseFee.secondFactor,
+                poolConfigState.poolFees.baseFee.thirdFactor,
+                new BN(poolConfigState.poolFees.baseFee.firstFactor)
+            )
+        }
 
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
             this.prepareSwapParams(swapBaseForQuote, poolState, poolConfigState)
