@@ -1,5 +1,6 @@
 import { Commitment, Connection } from '@solana/web3.js'
 import {
+    AdminService,
     CreatorService,
     MigrationService,
     PartnerService,
@@ -13,6 +14,7 @@ export class DynamicBondingCurveClient {
     public creator: CreatorService
     public migration: MigrationService
     public state: StateService
+    public admin: AdminService
     public commitment: Commitment
     public connection: Connection
 
@@ -22,6 +24,7 @@ export class DynamicBondingCurveClient {
         this.creator = new CreatorService(connection, commitment)
         this.migration = new MigrationService(connection, commitment)
         this.state = new StateService(connection, commitment)
+        this.admin = new AdminService(connection, commitment)
         this.commitment = commitment
         this.connection = connection
     }
