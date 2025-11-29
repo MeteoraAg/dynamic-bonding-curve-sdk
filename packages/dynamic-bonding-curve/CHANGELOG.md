@@ -2,11 +2,25 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
-## [1.4.7] - 2025-11-17
+
+## [1.4.9] - 2025-11-29
 
 ### Added
 
 - Added `buildCurveWithMidPrice` function to build a custom constant product curve with a mid price option.
+- Added `getCurveBreakdown` helper function
+
+## [1.4.8] - 2025-11-23
+
+### Changed
+
+- Moved `getCurrentPoint` in `if` statement to reduce unnecessary RPC calls
+
+## [1.4.7] - 2025-11-23
+
+### Added
+
+- Added an `if` statement to check if the `baseFeeMode` is `RateLimiter` in `swap` and `swap2` endpoints
 
 ## [1.4.6] - 2025-10-28
 

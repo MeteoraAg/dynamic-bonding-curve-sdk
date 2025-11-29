@@ -27,6 +27,8 @@ import {
     SwapQuote2Result,
     TradeDirection,
     BaseFee,
+    BaseFeeMode,
+    ActivationType,
 } from '../types'
 import {
     deriveDbcPoolAddress,
@@ -306,7 +308,7 @@ export class PoolService extends DynamicBondingCurveProgram {
         config: PublicKey,
         baseFee: BaseFee,
         swapBaseForQuote: boolean,
-        currentPoint: BN,
+        activationType: ActivationType,
         tokenType: TokenType,
         quoteMint: PublicKey
     ): Promise<Transaction> {
@@ -324,16 +326,24 @@ export class PoolService extends DynamicBondingCurveProgram {
         // check if rate limiter is applied
         // this swapBuyTx is only QuoteToBase direction
         // this swapBuyTx does not check poolState, so there is no check for activation point
-        const rateLimiterApplied = isRateLimiterApplied(
-            currentPoint,
-            new BN(0),
-            swapBaseForQuote
-                ? TradeDirection.BaseToQuote
-                : TradeDirection.QuoteToBase,
-            baseFee.secondFactor,
-            baseFee.thirdFactor,
-            new BN(baseFee.firstFactor)
-        )
+        let rateLimiterApplied = false
+        if (baseFee.baseFeeMode === BaseFeeMode.RateLimiter) {
+            const currentPoint = await getCurrentPoint(
+                this.connection,
+                activationType
+            )
+
+            rateLimiterApplied = isRateLimiterApplied(
+                currentPoint,
+                new BN(0),
+                swapBaseForQuote
+                    ? TradeDirection.BaseToQuote
+                    : TradeDirection.QuoteToBase,
+                baseFee.secondFactor,
+                baseFee.thirdFactor,
+                new BN(baseFee.firstFactor)
+            )
+        }
 
         const quoteTokenFlag = await getTokenType(this.connection, quoteMint)
 
@@ -600,11 +610,6 @@ export class PoolService extends DynamicBondingCurveProgram {
             quoteMintToken
         )
 
-        const currentPoint = await getCurrentPoint(
-            this.connection,
-            configParam.activationType
-        )
-
         // create first buy transaction
         let swapBuyTx: Transaction | undefined
         if (
@@ -617,7 +622,7 @@ export class PoolService extends DynamicBondingCurveProgram {
                 configKey,
                 configParam.poolFees.baseFee,
                 false,
-                currentPoint,
+                configParam.activationType,
                 params.tokenType,
                 quoteMintToken
             )
@@ -660,11 +665,6 @@ export class PoolService extends DynamicBondingCurveProgram {
             quoteMint
         )
 
-        const currentPoint = await getCurrentPoint(
-            this.connection,
-            poolConfigState.activationType
-        )
-
         // create first buy transaction
         let swapBuyTx: Transaction | undefined
         if (firstBuyParam && firstBuyParam.buyAmount.gt(new BN(0))) {
@@ -674,7 +674,7 @@ export class PoolService extends DynamicBondingCurveProgram {
                 config,
                 poolConfigState.poolFees.baseFee,
                 false,
-                currentPoint,
+                poolConfigState.activationType,
                 tokenType,
                 quoteMint
             )
@@ -715,11 +715,6 @@ export class PoolService extends DynamicBondingCurveProgram {
             quoteMint
         )
 
-        const currentPoint = await getCurrentPoint(
-            this.connection,
-            poolConfigState.activationType
-        )
-
         // create partner first buy transaction
         let partnerSwapBuyTx: Transaction | undefined
         if (
@@ -739,7 +734,7 @@ export class PoolService extends DynamicBondingCurveProgram {
                 config,
                 poolConfigState.poolFees.baseFee,
                 false,
-                currentPoint,
+                poolConfigState.activationType,
                 tokenType,
                 quoteMint
             )
@@ -764,7 +759,7 @@ export class PoolService extends DynamicBondingCurveProgram {
                 config,
                 poolConfigState.poolFees.baseFee,
                 false,
-                currentPoint,
+                poolConfigState.activationType,
                 tokenType,
                 quoteMint
             )
@@ -812,26 +807,32 @@ export class PoolService extends DynamicBondingCurveProgram {
         // error checks
         validateSwapAmount(amountIn)
 
-        const currentPoint = await getCurrentPoint(
-            this.connection,
-            poolConfigState.activationType
-        )
-
         // check if rate limiter is applied if:
         // 1. rate limiter mode
         // 2. swap direction is QuoteToBase
         // 3. current point is greater than activation point
         // 4. current point is less than activation point + maxLimiterDuration
-        const rateLimiterApplied = isRateLimiterApplied(
-            currentPoint,
-            poolState.activationPoint,
-            swapBaseForQuote
-                ? TradeDirection.BaseToQuote
-                : TradeDirection.QuoteToBase,
-            poolConfigState.poolFees.baseFee.secondFactor,
-            poolConfigState.poolFees.baseFee.thirdFactor,
-            new BN(poolConfigState.poolFees.baseFee.firstFactor)
-        )
+        let rateLimiterApplied = false
+        if (
+            poolConfigState.poolFees.baseFee.baseFeeMode ===
+            BaseFeeMode.RateLimiter
+        ) {
+            const currentPoint = await getCurrentPoint(
+                this.connection,
+                poolConfigState.activationType
+            )
+
+            rateLimiterApplied = isRateLimiterApplied(
+                currentPoint,
+                poolState.activationPoint,
+                swapBaseForQuote
+                    ? TradeDirection.BaseToQuote
+                    : TradeDirection.QuoteToBase,
+                poolConfigState.poolFees.baseFee.secondFactor,
+                poolConfigState.poolFees.baseFee.thirdFactor,
+                new BN(poolConfigState.poolFees.baseFee.firstFactor)
+            )
+        }
 
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
             this.prepareSwapParams(swapBaseForQuote, poolState, poolConfigState)
@@ -962,26 +963,32 @@ export class PoolService extends DynamicBondingCurveProgram {
             throw new Error(`Pool config not found for virtual pool`)
         }
 
-        const currentPoint = await getCurrentPoint(
-            this.connection,
-            poolConfigState.activationType
-        )
-
         // check if rate limiter is applied if:
         // 1. rate limiter mode
         // 2. swap direction is QuoteToBase
         // 3. current point is greater than activation point
         // 4. current point is less than activation point + maxLimiterDuration
-        const rateLimiterApplied = isRateLimiterApplied(
-            currentPoint,
-            poolState.activationPoint,
-            swapBaseForQuote
-                ? TradeDirection.BaseToQuote
-                : TradeDirection.QuoteToBase,
-            poolConfigState.poolFees.baseFee.secondFactor,
-            poolConfigState.poolFees.baseFee.thirdFactor,
-            new BN(poolConfigState.poolFees.baseFee.firstFactor)
-        )
+        let rateLimiterApplied = false
+        if (
+            poolConfigState.poolFees.baseFee.baseFeeMode ===
+            BaseFeeMode.RateLimiter
+        ) {
+            const currentPoint = await getCurrentPoint(
+                this.connection,
+                poolConfigState.activationType
+            )
+
+            rateLimiterApplied = isRateLimiterApplied(
+                currentPoint,
+                poolState.activationPoint,
+                swapBaseForQuote
+                    ? TradeDirection.BaseToQuote
+                    : TradeDirection.QuoteToBase,
+                poolConfigState.poolFees.baseFee.secondFactor,
+                poolConfigState.poolFees.baseFee.thirdFactor,
+                new BN(poolConfigState.poolFees.baseFee.firstFactor)
+            )
+        }
 
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
             this.prepareSwapParams(swapBaseForQuote, poolState, poolConfigState)
