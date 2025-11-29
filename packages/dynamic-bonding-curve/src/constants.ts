@@ -86,3 +86,7 @@ export const DAMM_V2_MIGRATION_FEE_ADDRESS = [
     new PublicKey('DbCRBj8McvPYHJG1ukj8RE15h2dCNUdTAESG49XpQ44u'), // FixedBps600
     new PublicKey('A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck'), // Customizable
 ]
+
+export const TREASURY_ADDRESS = new PublicKey(
+    '4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv'
+)
