@@ -14,6 +14,7 @@
     - [buildCurve](#buildCurve)
     - [buildCurveWithMarketCap](#buildCurveWithMarketCap)
     - [buildCurveWithTwoSegments](#buildCurveWithTwoSegments)
+    - [buildCurveWithMidPrice](#buildCurveWithMidPrice)
     - [buildCurveWithLiquidityWeights](#buildCurveWithLiquidityWeights)
 
 - [Pool Functions](#pool-functions)
@@ -988,6 +989,161 @@ const transaction = await client.partner.createConfig({
 **Notes**
 
 - `buildCurveWithTwoSegments` helps you to create a curve structure based on initial market cap, migration market cap and percentage of supply on migration.
+- If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
+- `lockedVestingParam.totalVestingDuration` and `lockedVestingParam.cliffDurationFromMigrationTime` are calculated in terms of seconds.
+- `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`.
+- `migratedPoolFee` is only configurable when `migrationOption = MET_DAMM_V2 (1)` and `migrationFeeOption = Customizable (6)`.
+- Slot is 400ms, Timestamp is 1000ms.
+
+---
+
+### buildCurveWithMidPrice
+
+Builds a custom constant product curve with a mid price. This will create a two segment curve with a start price -> mid price, and a mid price -> migration price.
+
+**Function**
+
+```typescript
+async buildCurveWithMidPrice(params: BuildCurveWithMidPriceParams): Promise<ConfigParameters>
+```
+
+**Parameters**
+
+```typescript
+interface BuildCurveWithMidPriceParams {
+    totalTokenSupply: number // The total token supply
+    initialMarketCap: number // The initial market cap
+    migrationMarketCap: number // The migration market cap
+    midPrice: number // The mid price
+    percentageSupplyOnMigration: number // The percentage of the supply that will be migrated
+    migrationOption: number // 0: DAMM V1, 1: DAMM v2
+    tokenBaseDecimal: number // The number of decimals for the base token
+    tokenQuoteDecimal: number // The number of decimals for the quote token
+    lockedVestingParam: {
+        // Optional locked vesting (0 for all fields for no vesting)
+        totalLockedVestingAmount: number // The total locked vesting amount
+        numberOfVestingPeriod: number // The number of vesting periods
+        cliffUnlockAmount: number // The amount of tokens that will be unlocked when vesting starts
+        totalVestingDuration: number // The total vesting duration in seconds
+        cliffDurationFromMigrationTime: number // The duration of the waiting time before the vesting starts
+    }
+    // Either FeeSchedulerLinear/FeeSchedulerExponential mode
+    baseFeeParams: {
+        baseFeeMode: 0 | 1 // 0: FeeSchedulerLinear, 1: FeeSchedulerExponential
+        feeSchedulerParam: {
+            startingFeeBps: number // The starting fee in basis points
+            endingFeeBps: number // The ending fee in basis points
+            numberOfPeriod: number // The number of periods
+            totalDuration: number // The total duration of the fee scheduler
+        }
+    }
+    // OR RateLimiter mode
+    baseFeeParams: {
+        baseFeeMode: 2 // RateLimiter
+        rateLimiterParam: {
+            baseFeeBps: number // The base fee in basis points
+            feeIncrementBps: number // The fee increment in basis points
+            referenceAmount: number // The reference amount for rate limiting
+            maxLimiterDuration: number // The maximum duration for rate limiting
+        }
+    }
+    dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
+    activationType: number // 0: Slot, 1: Timestamp
+    collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
+    tokenType: number // 0: SPL, 1: Token2022
+    partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
+    creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
+    partnerLockedLpPercentage: number // The percentage of the pool that will be allocated to the partner locked
+    creatorLockedLpPercentage: number // The percentage of the pool that will be allocated to the creator locked
+    creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
+    leftover: number // The leftover amount that can be withdrawn by leftover receiver
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
+    migrationFee: {
+        // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
+        feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
+        creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
+    }
+    migratedPoolFee?: {
+        // Defaults to all 0. Configure only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        dynamicFee: number // 0: Disabled, 1: Enabled
+        poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+    }
+}
+```
+
+**Returns**
+
+- A `ConfigParameters` object.
+
+**Example**
+
+```typescript
+const curveConfig = buildCurveWithMidPrice({
+    totalTokenSupply: 1000000000,
+    initialMarketCap: 5000,
+    migrationMarketCap: 1000000,
+    midPrice: 141.75,
+    percentageSupplyOnMigration: 20,
+    migrationOption: MigrationOption.MET_DAMM_V2,
+    tokenBaseDecimal: TokenDecimal.SIX,
+    tokenQuoteDecimal: TokenDecimal.SIX,
+    lockedVestingParam: {
+        totalLockedVestingAmount: 0,
+        numberOfVestingPeriod: 0,
+        cliffUnlockAmount: 0,
+        totalVestingDuration: 0,
+        cliffDurationFromMigrationTime: 0,
+    },
+    baseFeeParams: {
+        baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+        feeSchedulerParam: {
+            startingFeeBps: 100,
+            endingFeeBps: 100,
+            numberOfPeriod: 0,
+            totalDuration: 0,
+        },
+    },
+    dynamicFeeEnabled: true,
+    activationType: ActivationType.Slot,
+    collectFeeMode: CollectFeeMode.QuoteToken,
+    migrationFeeOption: MigrationFeeOption.Customizable,
+    tokenType: TokenType.SPL,
+    partnerLpPercentage: 100,
+    creatorLpPercentage: 0,
+    partnerLockedLpPercentage: 0,
+    creatorLockedLpPercentage: 0,
+    creatorTradingFeePercentage: 0,
+    leftover: 1000,
+    tokenUpdateAuthority: 1,
+    migrationFee: {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+    },
+    migratedPoolFee: {
+        collectFeeMode: CollectFeeMode.QuoteToken,
+        dynamicFee: DammV2DynamicFeeMode.Disabled,
+        poolFeeBps: 125,
+    },
+})
+
+const transaction = await client.partner.createConfig({
+    config: new PublicKey('1234567890abcdefghijklmnopqrstuvwxyz'),
+    feeClaimer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    leftoverReceiver: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    quoteMint: new PublicKey('So11111111111111111111111111111111111111112'),
+    ...curveConfig,
+})
+```
+
+**Notes**
+
+- `buildCurveWithMidPrice` helps you to create a curve structure based on initial market cap, migration market cap and mid price.
+- What does mid price do?
+    - The `midPrice` is the price at which the curve will be segmented into two parts between the start price and the migration price.
+    - The `percentageSupplyOnMigration` is the percentage of the supply that will be migrated.
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVestingParam.totalVestingDuration` and `lockedVestingParam.cliffDurationFromMigrationTime` are calculated in terms of seconds.
 - `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`.
