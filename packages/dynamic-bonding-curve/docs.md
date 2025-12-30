@@ -17,6 +17,7 @@
     - [buildCurveWithMidPrice](#buildCurveWithMidPrice)
     - [buildCurveWithLiquidityWeights](#buildCurveWithLiquidityWeights)
     - [buildCurveWithCustomSqrtPrices](#buildCurveWithCustomSqrtPrices)
+    - [buildCurveWithThreePhases](#buildCurveWithThreePhases)
 
 - [Pool Functions](#pool-functions)
     - [createPool](#createPool)
@@ -1495,6 +1496,163 @@ const transaction = await client.partner.createConfig({
         - This means that the price will move more for a given trade at lower prices (less resistance), and price will move less for a given trade at higher prices (more resistance).
     3. `liquidityWeights[i] > liquidityWeights[i+1]`: Higher liquidity at lower prices.
         - This means that the price will move less for a given trade at lower prices (more resistance), and price will move more for a given trade at higher prices (less resistance).
+- If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
+- `lockedVestingParam.totalVestingDuration` and `lockedVestingParam.cliffDurationFromMigrationTime` are calculated in terms of seconds.
+- `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`.
+- `migratedPoolFee` is only configurable when `migrationOption = MET_DAMM_V2 (1)` and `migrationFeeOption = Customizable (6)`.
+- Slot is 400ms, Timestamp is 1000ms.
+
+---
+
+### buildCurveWithThreePhases
+
+Builds a 3-phase bonding curve configuration where you can control the token allocation across three distinct price phases. This function allows you to define specific price boundaries for each phase and specify what percentage of tokens are sold in each phase.
+
+**Function**
+
+```typescript
+function buildCurveWithThreePhases(
+    params: BuildCurveWithThreePhasesParams
+): ConfigParameters
+```
+
+**Parameters**
+
+```typescript
+interface BuildCurveWithThreePhasesParams {
+    totalTokenSupply: number // The total token supply
+    initialMarketCap: number // The initial market cap (determines start price P0)
+    migrationMarketCap: number // The migration market cap (determines final price P3)
+    phase1EndPrice: number // Price at end of phase 1 (P1) - must be > initial price
+    phase2EndPrice: number // Price at end of phase 2 (P2) - must be > phase1EndPrice
+    tokenAllocation: [number, number, number] // Token allocation percentages [phase1%, phase2%, phase3%] - must sum to 100%
+    migrationOption: number // 0: DAMM V1, 1: DAMM v2
+    tokenBaseDecimal: number // The number of decimals for the base token
+    tokenQuoteDecimal: number // The number of decimals for the quote token
+    lockedVestingParam: {
+        // Optional locked vesting (0 for all fields for no vesting)
+        totalLockedVestingAmount: number // The total locked vesting amount
+        numberOfVestingPeriod: number // The number of vesting periods
+        cliffUnlockAmount: number // The amount of tokens that will be unlocked when vesting starts
+        totalVestingDuration: number // The total vesting duration in seconds
+        cliffDurationFromMigrationTime: number // The duration of the waiting time before the vesting starts
+    }
+    // Either FeeSchedulerLinear/FeeSchedulerExponential mode
+    baseFeeParams: {
+        baseFeeMode: 0 | 1 // 0: FeeSchedulerLinear, 1: FeeSchedulerExponential
+        feeSchedulerParam: {
+            startingFeeBps: number // The starting fee in basis points
+            endingFeeBps: number // The ending fee in basis points
+            numberOfPeriod: number // The number of periods
+            totalDuration: number // The total duration of the fee scheduler
+        }
+    }
+    // OR RateLimiter mode
+    baseFeeParams: {
+        baseFeeMode: 2 // RateLimiter
+        rateLimiterParam: {
+            baseFeeBps: number // The base fee in basis points
+            feeIncrementBps: number // The fee increment in basis points
+            referenceAmount: number // The reference amount for rate limiting
+            maxLimiterDuration: number // The maximum duration for rate limiting
+        }
+    }
+    dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
+    activationType: number // 0: Slot, 1: Timestamp
+    collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
+    tokenType: number // 0: SPL, 1: Token2022
+    partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
+    creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
+    partnerLockedLpPercentage: number // The percentage of the pool that will be allocated to the partner locked
+    creatorLockedLpPercentage: number // The percentage of the pool that will be allocated to the creator locked
+    creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
+    leftover: number // The leftover amount that can be withdrawn by leftover receiver
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
+    migrationFee: {
+        // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
+        feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
+        creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
+    }
+    migratedPoolFee?: {
+        // Defaults to all 0. Configure only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        dynamicFee: number // 0: Disabled, 1: Enabled
+        poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+    }
+}
+```
+
+**Returns**
+
+- A `ConfigParameters` object.
+
+**Example**
+
+```typescript
+const curveConfig = buildCurveWithThreePhases({
+    totalTokenSupply: 1_000_000_000,
+    initialMarketCap: 30_000, // $30k initial MC -> initial price = 0.00003
+    migrationMarketCap: 500_000, // $500k migration MC -> migration price = 0.0005
+    phase1EndPrice: 0.0001, // Price at end of phase 1
+    phase2EndPrice: 0.0003, // Price at end of phase 2
+    tokenAllocation: [10, 10, 80], // 10% in phase 1, 10% in phase 2, 80% in phase 3
+    migrationOption: MigrationOption.MET_DAMM_V2,
+    tokenBaseDecimal: TokenDecimal.SIX,
+    tokenQuoteDecimal: TokenDecimal.NINE,
+    lockedVestingParam: {
+        totalLockedVestingAmount: 0,
+        numberOfVestingPeriod: 0,
+        cliffUnlockAmount: 0,
+        totalVestingDuration: 0,
+        cliffDurationFromMigrationTime: 0,
+    },
+    baseFeeParams: {
+        baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+        feeSchedulerParam: {
+            startingFeeBps: 100,
+            endingFeeBps: 100,
+            numberOfPeriod: 0,
+            totalDuration: 0,
+        },
+    },
+    dynamicFeeEnabled: false,
+    activationType: ActivationType.Slot,
+    collectFeeMode: CollectFeeMode.QuoteToken,
+    migrationFeeOption: MigrationFeeOption.FixedBps100,
+    tokenType: TokenType.SPL,
+    partnerLpPercentage: 0,
+    creatorLpPercentage: 0,
+    partnerLockedLpPercentage: 100,
+    creatorLockedLpPercentage: 0,
+    creatorTradingFeePercentage: 0,
+    leftover: 100_000_000, // 10% leftover helps with rounding
+    tokenUpdateAuthority: 1,
+    migrationFee: {
+        feePercentage: 10,
+        creatorFeePercentage: 50,
+    },
+})
+
+const transaction = await client.partner.createConfig({
+    config: new PublicKey('1234567890abcdefghijklmnopqrstuvwxyz'),
+    feeClaimer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    leftoverReceiver: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    quoteMint: new PublicKey('So11111111111111111111111111111111111111112'),
+    ...curveConfig,
+})
+```
+
+**Notes**
+- `buildCurveWithThreePhases` creates a 3-segment bonding curve where you explicitly define the price boundaries and token distribution for each phase.
+- **Price progression must be strictly increasing**: `initialPrice < phase1EndPrice < phase2EndPrice < migrationPrice`
+- **Token allocation must sum to 100**: `phase1% + phase2% + phase3% = 100%`
+- **Token allocation must have non-zero values**: All three phases must have a percentage greater than 0 (e.g., `[10, 10, 80]` is valid, `[50, 0, 50]` is invalid)
+- **Phase definitions**:
+    - **Phase 1**: From initial price (P0) to phase1EndPrice (P1) - sells `phase1%` of tokens
+    - **Phase 2**: From phase1EndPrice (P1) to phase2EndPrice (P2) - sells `phase2%` of tokens
+    - **Phase 3**: From phase2EndPrice (P2) to migration price (P3) - sells `phase3%` of tokens
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVestingParam.totalVestingDuration` and `lockedVestingParam.cliffDurationFromMigrationTime` are calculated in terms of seconds.
 - `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`.
