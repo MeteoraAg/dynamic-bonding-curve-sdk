@@ -1211,42 +1211,42 @@ export function buildCurveWithThreePhases(
         phase1EndPrice,
         phase2EndPrice,
         tokenAllocation,
-    } = buildCurveWithThreePhasesParam;
+    } = buildCurveWithThreePhasesParam
 
     // validate token allocation
-    const [phase1Percent, phase2Percent, phase3Percent] = tokenAllocation;
-    if(phase1Percent + phase2Percent + phase3Percent != 100) {
+    const [phase1Percent, phase2Percent, phase3Percent] = tokenAllocation
+    if (phase1Percent + phase2Percent + phase3Percent != 100) {
         throw new Error(
             `Token allocation must sum to 100, got ${phase1Percent + phase2Percent + phase3Percent}`
-        );
-    } 
+        )
+    }
 
     // validate price progression
-    const initialPrice = initialMarketCap / totalTokenSupply;
+    const initialPrice = initialMarketCap / totalTokenSupply
     if (phase1EndPrice <= initialPrice) {
         throw new Error(
             `phase1EndPrice (${phase1EndPrice}) must be greater than initial price (${initialPrice})`
-        );
-    } 
-    if(phase2EndPrice <= phase1EndPrice) {
+        )
+    }
+    if (phase2EndPrice <= phase1EndPrice) {
         throw new Error(
             `phase2EndPrice (${phase2EndPrice}) must be greater than phase1EndPrice (${phase1EndPrice})`
-        );
+        )
     }
 
     const baseFee = getBaseFeeParams(
         baseFeeParams,
         tokenQuoteDecimal,
         activationType
-    );
+    )
 
     const {
         totalLockedVestingAmount,
         numberOfVestingPeriod,
         cliffUnlockAmount,
         totalVestingDuration,
-        cliffDurationFromMigrationTime
-    } = buildCurveWithThreePhasesParam.lockedVestingParam;
+        cliffDurationFromMigrationTime,
+    } = buildCurveWithThreePhasesParam.lockedVestingParam
 
     const lockedVesting = getLockedVestingParams(
         totalLockedVestingAmount,
@@ -1255,18 +1255,18 @@ export function buildCurveWithThreePhases(
         totalVestingDuration,
         cliffDurationFromMigrationTime,
         tokenBaseDecimal
-    );
+    )
 
     const migratedPoolFeeParams = getMigratedPoolFeeParams(
         migrationOption,
         migrationFeeOption,
         migratedPoolFee
-    );
+    )
 
     // calculate total supply in lamports
-    const totalSupply = convertToLamports(totalTokenSupply, tokenBaseDecimal);
-    const totalLeftover = convertToLamports(leftover, tokenBaseDecimal);
-    const totalVestingAmount = getTotalVestingAmount(lockedVesting);
+    const totalSupply = convertToLamports(totalTokenSupply, tokenBaseDecimal)
+    const totalLeftover = convertToLamports(leftover, tokenBaseDecimal)
+    const totalVestingAmount = getTotalVestingAmount(lockedVesting)
 
     // calculate initial and migration sqrt prices from market cap
     const initialSqrtPrice = getSqrtPriceFromMarketCap(
@@ -1274,27 +1274,27 @@ export function buildCurveWithThreePhases(
         totalTokenSupply,
         tokenBaseDecimal,
         tokenQuoteDecimal
-    );
+    )
 
     const migrationSqrtPrice = getSqrtPriceFromMarketCap(
         migrationMarketCap,
         totalTokenSupply,
         tokenBaseDecimal,
         tokenQuoteDecimal
-    );
+    )
 
     // calculate phase boundary sqrt prices from explicit prices
     const phase1SqrtPrice = getSqrtPriceFromPrice(
         phase1EndPrice.toString(),
         tokenBaseDecimal,
         tokenQuoteDecimal
-    );
+    )
 
     const phase2SqrtPrice = getSqrtPriceFromPrice(
         phase2EndPrice.toString(),
         tokenBaseDecimal,
         tokenQuoteDecimal
-    );
+    )
 
     const percentageSupplyOnMigration = getPercentageSupplyOnMigration(
         new Decimal(initialMarketCap),
@@ -1302,25 +1302,26 @@ export function buildCurveWithThreePhases(
         lockedVesting,
         totalLeftover,
         totalSupply
-    );
+    )
 
     const migrationQuoteAmount = getMigrationQuoteAmount(
         new Decimal(migrationMarketCap),
         new Decimal(percentageSupplyOnMigration)
-    );
+    )
 
-    const migrationQuoteThreshold = getMigrationQuoteThresholdFromMigrationQuoteAmount(
-        migrationQuoteAmount,
-        new Decimal(migrationFee.feePercentage)
-    );
+    const migrationQuoteThreshold =
+        getMigrationQuoteThresholdFromMigrationQuoteAmount(
+            migrationQuoteAmount,
+            new Decimal(migrationFee.feePercentage)
+        )
 
     const migrationQuoteThresholdInLamport = fromDecimalToBN(
         migrationQuoteThreshold.mul(new Decimal(10 ** tokenQuoteDecimal))
-    );
+    )
 
     const migrationQuoteAmountInLamport = fromDecimalToBN(
         migrationQuoteAmount.mul(new Decimal(10 ** tokenQuoteDecimal))
-    );
+    )
 
     // calculate migration base amount
     const migrationBaseAmount = getMigrationBaseToken(
@@ -1333,7 +1334,7 @@ export function buildCurveWithThreePhases(
     const swapAmount = totalSupply
         .sub(migrationBaseAmount)
         .sub(totalVestingAmount)
-        .sub(totalLeftover);
+        .sub(totalLeftover)
 
     // use getThreeCurve to solve the 3 liquidities
     // Parameters: P0 (initial) < P1 (phase1End) < P2 (phase2End) < P3 (migration)
@@ -1344,15 +1345,15 @@ export function buildCurveWithThreePhases(
         migrationSqrtPrice,
         swapAmount,
         tokenAllocation
-    );
+    )
 
-    if(!result.isOk) {
+    if (!result.isOk) {
         throw new Error(
             `Failed to build 3-phase curve ${result.error || 'Invalid configuration'}`
         )
     }
 
-    const { curve, sqrtStartPrice } = result;
+    const { curve, sqrtStartPrice } = result
 
     // verify total supply from curve
     const totalDynamicSupply = getTotalSupplyFromCurve(
@@ -1363,14 +1364,14 @@ export function buildCurveWithThreePhases(
         migrationOption,
         totalLeftover,
         migrationFee.feePercentage
-    );
+    )
 
-    if(totalDynamicSupply.gt(totalSupply)) {
-        const leftOverDelta = totalDynamicSupply.sub(totalSupply);
+    if (totalDynamicSupply.gt(totalSupply)) {
+        const leftOverDelta = totalDynamicSupply.sub(totalSupply)
         if (!leftOverDelta.lt(totalLeftover)) {
             throw new Error(
                 `Calculated supply exceeds total supply. leftOverDelta: ${leftOverDelta.toString()}, totalLeftover: ${totalLeftover.toString()}`
-            );
+            )
         }
     }
 
@@ -1381,10 +1382,11 @@ export function buildCurveWithThreePhases(
             },
             dynamicFee: dynamicFeeEnabled
                 ? getDynamicFeeParams(
-                    baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
-                        ? baseFeeParams.rateLimiterParam.baseFeeBps
-                        : baseFeeParams.feeSchedulerParam.endingFeeBps
-                ) : null,
+                      baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
+                          ? baseFeeParams.rateLimiterParam.baseFeeBps
+                          : baseFeeParams.feeSchedulerParam.endingFeeBps
+                  )
+                : null,
         },
         activationType,
         collectFeeMode,
@@ -1415,5 +1417,5 @@ export function buildCurveWithThreePhases(
         migrationFee,
     }
 
-    return instructionParams;
+    return instructionParams
 }

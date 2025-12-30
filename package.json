@@ -8,7 +8,7 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "bun@1.2.8",
+  "packageManager": "pnpm@9.15.0",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -16,7 +16,9 @@
     "lint": "turbo run lint",
     "link": "turbo run link",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test"
   },
   "workspaces": [
     "apps/*",

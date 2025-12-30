@@ -64,12 +64,12 @@ describe('buildCurveWithThreePhases tests', () => {
         phase1EndPrice: 0.0001, // Price at end of phase 1 = 0.0001 (P1)
         phase2EndPrice: 0.0003, // Price at end of phase 2 = 0.0003 (P2)
         migrationMarketCap: 500_000, // $500k migration MC -> migration price = 0.0005 (P3)
-        tokenAllocation: [10, 10, 80], // 10% (phase1) + 10% (phase2 )+ 80% (phase3) = 100% 
+        tokenAllocation: [10, 10, 80], // 10% (phase1) + 10% (phase2 )+ 80% (phase3) = 100%
         leftover: 100_000_000, // 10% leftover helps with rounding
         ...overrides,
     })
 
-    //  VALID CONFIGURATION TESTS 
+    //  VALID CONFIGURATION TESTS
     describe('Valid Configurations', () => {
         test('should build curve with default allocation (10/10/80)', () => {
             console.log('\n Testing default allocation (10/10/80)')
@@ -106,7 +106,7 @@ describe('buildCurveWithThreePhases tests', () => {
         })
     })
 
-    //  TOKEN ALLOCATION ERROR TESTS 
+    //  TOKEN ALLOCATION ERROR TESTS
     describe('Token Allocation Validation', () => {
         test('should throw error when allocation sums to less than 100', () => {
             console.log('\n Testing allocation sum < 100')
@@ -169,7 +169,7 @@ describe('buildCurveWithThreePhases tests', () => {
         })
     })
 
-    //  PRICE PROGRESSION ERROR TESTS 
+    //  PRICE PROGRESSION ERROR TESTS
     describe('Price Progression Validation', () => {
         test('should throw error when phase1EndPrice <= initial price', () => {
             console.log('\n Testing phase1EndPrice <= initial price')
@@ -226,14 +226,12 @@ describe('buildCurveWithThreePhases tests', () => {
         })
     })
 
-    //  CURVE OUTPUT VALIDATION TESTS 
+    //  CURVE OUTPUT VALIDATION TESTS
     describe('Curve Output Validation', () => {
         test('should have 3 curve segments', () => {
             console.log('\n Testing curve has 3 segments')
 
-            const config = buildCurveWithThreePhases(
-                createThreePhaseParams({})
-            )
+            const config = buildCurveWithThreePhases(createThreePhaseParams({}))
 
             expect(config.curve).toBeDefined()
             expect(config.curve.length).toBe(3)
@@ -242,16 +240,14 @@ describe('buildCurveWithThreePhases tests', () => {
         test('should have increasing sqrt prices in curve', () => {
             console.log('\n Testing increasing sqrt prices')
 
-            const config = buildCurveWithThreePhases(
-                createThreePhaseParams({})
-            )
+            const config = buildCurveWithThreePhases(createThreePhaseParams({}))
 
             expect(config.curve.length).toBe(3)
 
             // sqrtStartPrice < curve[0].sqrtPrice < curve[1].sqrtPrice < curve[2].sqrtPrice
-            expect(
-                config.sqrtStartPrice.lt(config.curve[0].sqrtPrice)
-            ).toBe(true)
+            expect(config.sqrtStartPrice.lt(config.curve[0].sqrtPrice)).toBe(
+                true
+            )
             expect(
                 config.curve[0].sqrtPrice.lt(config.curve[1].sqrtPrice)
             ).toBe(true)
@@ -260,17 +256,24 @@ describe('buildCurveWithThreePhases tests', () => {
             ).toBe(true)
 
             console.log('sqrtStartPrice:', config.sqrtStartPrice.toString())
-            console.log('curve[0].sqrtPrice:', config.curve[0].sqrtPrice.toString())
-            console.log('curve[1].sqrtPrice:', config.curve[1].sqrtPrice.toString())
-            console.log('curve[2].sqrtPrice:', config.curve[2].sqrtPrice.toString())
+            console.log(
+                'curve[0].sqrtPrice:',
+                config.curve[0].sqrtPrice.toString()
+            )
+            console.log(
+                'curve[1].sqrtPrice:',
+                config.curve[1].sqrtPrice.toString()
+            )
+            console.log(
+                'curve[2].sqrtPrice:',
+                config.curve[2].sqrtPrice.toString()
+            )
         })
 
         test('should have positive liquidity in all curve segments', () => {
             console.log('\n Testing positive liquidity')
 
-            const config = buildCurveWithThreePhases(
-                createThreePhaseParams({})
-            )
+            const config = buildCurveWithThreePhases(createThreePhaseParams({}))
 
             expect(config.curve.length).toBe(3)
 
@@ -286,9 +289,7 @@ describe('buildCurveWithThreePhases tests', () => {
         test('should have valid migration quote threshold', () => {
             console.log('\n Testing migration quote threshold')
 
-            const config = buildCurveWithThreePhases(
-                createThreePhaseParams({})
-            )
+            const config = buildCurveWithThreePhases(createThreePhaseParams({}))
 
             expect(config.migrationQuoteThreshold).toBeDefined()
             expect(config.migrationQuoteThreshold.gt(new BN(0))).toBe(true)
@@ -298,6 +299,5 @@ describe('buildCurveWithThreePhases tests', () => {
                 config.migrationQuoteThreshold.toString()
             )
         })
-
     })
 })
