@@ -2,7 +2,6 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
-
 ## [1.4.9] - 2025-11-29
 
 ### Added

@@ -77,7 +77,7 @@ describe('Swap Tests', () => {
             swapBaseForQuote: false,
             owner: user.publicKey,
             pool: pool,
-            referralTokenAccount: null,
+            referralTokenAccount: null as PublicKey | null,
             payer: user.publicKey,
         }
 
@@ -134,7 +134,7 @@ describe('Swap Tests', () => {
             minimumAmountOut: swapQuote.minimumAmountOut!,
             owner: user.publicKey,
             pool: pool,
-            referralTokenAccount: null,
+            referralTokenAccount: null as PublicKey | null,
             payer: user.publicKey,
         }
 
@@ -192,7 +192,7 @@ describe('Swap Tests', () => {
             swapMode: SwapMode.PartialFill,
             owner: user.publicKey,
             pool: pool,
-            referralTokenAccount: null,
+            referralTokenAccount: null as PublicKey | null,
             payer: user.publicKey,
         }
 
@@ -250,7 +250,7 @@ describe('Swap Tests', () => {
             swapMode: SwapMode.ExactOut,
             owner: user.publicKey,
             pool: pool,
-            referralTokenAccount: null,
+            referralTokenAccount: null as PublicKey | null,
             payer: user.publicKey,
         }
 
