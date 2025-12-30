@@ -9,6 +9,7 @@ import {
     BaseFeeMode,
     BuildCurveWithMidPriceParams,
     BuildCurveWithCustomSqrtPricesParams,
+    BuildCurveWithThreePhasesParams,
 } from '../types'
 import { MAX_SQRT_PRICE } from '../constants'
 import {
@@ -23,6 +24,7 @@ import {
     getSwapAmountWithBuffer,
     getDynamicFeeParams,
     getTwoCurve,
+    getThreeCurve,
     getLockedVestingParams,
     getMigrationQuoteAmountFromMigrationQuoteThreshold,
     getMigrationQuoteAmount,
@@ -1158,4 +1160,260 @@ export function buildCurveWithCustomSqrtPrices(
         tokenUpdateAuthority,
     }
     return instructionParams
+}
+
+/* Build a 3-phase bonding curve with custom price points and token allocation
+ *
+ * This creates a curve with 3 distinct phases, each with its own price range
+ * and token allocation.
+ *
+ * @param buildCurveWithThreePhasesParam - The parameters for the 3-phase curve
+ * @returns The ConfigParameters for DBC pool creation
+ *
+ * @example
+ * ```typescript
+ * const config = buildCurveWithThreePhases({
+ *   totalTokenSupply: 1_000_000_000,
+ *   initialMarketCap: 1_000_000,      // $1M initial
+ *   migrationMarketCap: 1_000_000_000, // $1B migration
+ *   phase1EndPrice: 1.05,              // End of phase 1 at $1.05
+ *   phase2EndPrice: 2.00,              // End of phase 2 at $2.00
+ *   tokenAllocation: [50, 25, 25],     // 50% phase 1, 25% phase 2, 25% phase 3
+ *   // ... other base params
+ * })
+ * ```
+ */
+export function buildCurveWithThreePhases(
+    buildCurveWithThreePhasesParam: BuildCurveWithThreePhasesParams
+): ConfigParameters {
+    const {
+        totalTokenSupply,
+        tokenBaseDecimal,
+        tokenQuoteDecimal,
+        tokenType,
+        tokenUpdateAuthority,
+        initialMarketCap,
+        migrationMarketCap,
+        leftover,
+        migrationOption,
+        migrationFeeOption,
+        migrationFee,
+        migratedPoolFee,
+        partnerLpPercentage,
+        creatorLpPercentage,
+        partnerLockedLpPercentage,
+        creatorLockedLpPercentage,
+        creatorTradingFeePercentage,
+        activationType,
+        collectFeeMode,
+        dynamicFeeEnabled,
+        baseFeeParams,
+        phase1EndPrice,
+        phase2EndPrice,
+        tokenAllocation,
+    } = buildCurveWithThreePhasesParam;
+
+    // validate token allocation
+    const [phase1Percent, phase2Percent, phase3Percent] = tokenAllocation;
+    if(phase1Percent + phase2Percent + phase3Percent != 100) {
+        throw new Error(
+            `Token allocation must sum to 100, got ${phase1Percent + phase2Percent + phase3Percent}`
+        );
+    } 
+
+    // validate price progression
+    const initialPrice = initialMarketCap / totalTokenSupply;
+    if (phase1EndPrice <= initialPrice) {
+        throw new Error(
+            `phase1EndPrice (${phase1EndPrice}) must be greater than initial price (${initialPrice})`
+        );
+    } 
+    if(phase2EndPrice <= phase1EndPrice) {
+        throw new Error(
+            `phase2EndPrice (${phase2EndPrice}) must be greater than phase1EndPrice (${phase1EndPrice})`
+        );
+    }
+
+    const baseFee = getBaseFeeParams(
+        baseFeeParams,
+        tokenQuoteDecimal,
+        activationType
+    );
+
+    const {
+        totalLockedVestingAmount,
+        numberOfVestingPeriod,
+        cliffUnlockAmount,
+        totalVestingDuration,
+        cliffDurationFromMigrationTime
+    } = buildCurveWithThreePhasesParam.lockedVestingParam;
+
+    const lockedVesting = getLockedVestingParams(
+        totalLockedVestingAmount,
+        numberOfVestingPeriod,
+        cliffUnlockAmount,
+        totalVestingDuration,
+        cliffDurationFromMigrationTime,
+        tokenBaseDecimal
+    );
+
+    const migratedPoolFeeParams = getMigratedPoolFeeParams(
+        migrationOption,
+        migrationFeeOption,
+        migratedPoolFee
+    );
+
+    // calculate total supply in lamports
+    const totalSupply = convertToLamports(totalTokenSupply, tokenBaseDecimal);
+    const totalLeftover = convertToLamports(leftover, tokenBaseDecimal);
+    const totalVestingAmount = getTotalVestingAmount(lockedVesting);
+
+    // calculate initial and migration sqrt prices from market cap
+    const initialSqrtPrice = getSqrtPriceFromMarketCap(
+        initialMarketCap,
+        totalTokenSupply,
+        tokenBaseDecimal,
+        tokenQuoteDecimal
+    );
+
+    const migrationSqrtPrice = getSqrtPriceFromMarketCap(
+        migrationMarketCap,
+        totalTokenSupply,
+        tokenBaseDecimal,
+        tokenQuoteDecimal
+    );
+
+    // calculate phase boundary sqrt prices from explicit prices
+    const phase1SqrtPrice = getSqrtPriceFromPrice(
+        phase1EndPrice.toString(),
+        tokenBaseDecimal,
+        tokenQuoteDecimal
+    );
+
+    const phase2SqrtPrice = getSqrtPriceFromPrice(
+        phase2EndPrice.toString(),
+        tokenBaseDecimal,
+        tokenQuoteDecimal
+    );
+
+    const percentageSupplyOnMigration = getPercentageSupplyOnMigration(
+        new Decimal(initialMarketCap),
+        new Decimal(migrationMarketCap),
+        lockedVesting,
+        totalLeftover,
+        totalSupply
+    );
+
+    const migrationQuoteAmount = getMigrationQuoteAmount(
+        new Decimal(migrationMarketCap),
+        new Decimal(percentageSupplyOnMigration)
+    );
+
+    const migrationQuoteThreshold = getMigrationQuoteThresholdFromMigrationQuoteAmount(
+        migrationQuoteAmount,
+        new Decimal(migrationFee.feePercentage)
+    );
+
+    const migrationQuoteThresholdInLamport = fromDecimalToBN(
+        migrationQuoteThreshold.mul(new Decimal(10 ** tokenQuoteDecimal))
+    );
+
+    const migrationQuoteAmountInLamport = fromDecimalToBN(
+        migrationQuoteAmount.mul(new Decimal(10 ** tokenQuoteDecimal))
+    );
+
+    // calculate migration base amount
+    const migrationBaseAmount = getMigrationBaseToken(
+        migrationQuoteAmountInLamport,
+        migrationSqrtPrice,
+        migrationOption
+    )
+
+    // calculate swap amount (tokens available on curve)
+    const swapAmount = totalSupply
+        .sub(migrationBaseAmount)
+        .sub(totalVestingAmount)
+        .sub(totalLeftover);
+
+    // use getThreeCurve to solve the 3 liquidities
+    // Parameters: P0 (initial) < P1 (phase1End) < P2 (phase2End) < P3 (migration)
+    const result = getThreeCurve(
+        initialSqrtPrice,
+        phase1SqrtPrice,
+        phase2SqrtPrice,
+        migrationSqrtPrice,
+        swapAmount,
+        tokenAllocation
+    );
+
+    if(!result.isOk) {
+        throw new Error(
+            `Failed to build 3-phase curve ${result.error || 'Invalid configuration'}`
+        )
+    }
+
+    const { curve, sqrtStartPrice } = result;
+
+    // verify total supply from curve
+    const totalDynamicSupply = getTotalSupplyFromCurve(
+        migrationQuoteThresholdInLamport,
+        sqrtStartPrice,
+        curve,
+        lockedVesting,
+        migrationOption,
+        totalLeftover,
+        migrationFee.feePercentage
+    );
+
+    if(totalDynamicSupply.gt(totalSupply)) {
+        const leftOverDelta = totalDynamicSupply.sub(totalSupply);
+        if (!leftOverDelta.lt(totalLeftover)) {
+            throw new Error(
+                `Calculated supply exceeds total supply. leftOverDelta: ${leftOverDelta.toString()}, totalLeftover: ${totalLeftover.toString()}`
+            );
+        }
+    }
+
+    const instructionParams: ConfigParameters = {
+        poolFees: {
+            baseFee: {
+                ...baseFee,
+            },
+            dynamicFee: dynamicFeeEnabled
+                ? getDynamicFeeParams(
+                    baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
+                        ? baseFeeParams.rateLimiterParam.baseFeeBps
+                        : baseFeeParams.feeSchedulerParam.endingFeeBps
+                ) : null,
+        },
+        activationType,
+        collectFeeMode,
+        migrationOption,
+        tokenType,
+        tokenDecimal: tokenBaseDecimal,
+        migrationQuoteThreshold: migrationQuoteThresholdInLamport,
+        partnerLpPercentage,
+        creatorLpPercentage,
+        partnerLockedLpPercentage,
+        creatorLockedLpPercentage,
+        sqrtStartPrice,
+        lockedVesting,
+        migrationFeeOption,
+        tokenSupply: {
+            preMigrationTokenSupply: totalSupply,
+            postMigrationTokenSupply: totalSupply,
+        },
+        creatorTradingFeePercentage,
+        migratedPoolFee: {
+            collectFeeMode: migratedPoolFeeParams.collectFeeMode,
+            dynamicFee: migratedPoolFeeParams.dynamicFee,
+            poolFeeBps: migratedPoolFeeParams.poolFeeBps,
+        },
+        padding: [],
+        curve,
+        tokenUpdateAuthority,
+        migrationFee,
+    }
+
+    return instructionParams;
 }

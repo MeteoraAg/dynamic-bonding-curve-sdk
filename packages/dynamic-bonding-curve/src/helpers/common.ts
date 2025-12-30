@@ -1185,6 +1185,136 @@ export const getTwoCurve = (
 }
 
 /**
+ * Get the three curve - solves for 3 liquidities given 4 price points and token allocation percentages
+ *
+ * This creates a 3-segment bonding curve where you can specify:
+ * - 4 price points: start, phase1End, phase2End, migration
+ * - Token allocation percentages for each phase
+ *
+ * @param initialSqrtPrice - The initial sqrt price (P0)
+ * @param phase1SqrtPrice - The phase 1 end sqrt price (P1)
+ * @param phase2SqrtPrice - The phase 2 end sqrt price (P2)
+ * @param migrationSqrtPrice - The migration sqrt price (P3)
+ * @param swapAmount - The total swap amount (base tokens on curve)
+ * @param tokenAllocation - Token allocation percentages [phase1%, phase2%, phase3%] must sum to 100
+ * @returns The three curve with liquidities for each segment
+ */
+export const getThreeCurve = (
+    initialSqrtPrice: BN,
+    phase1SqrtPrice: BN,
+    phase2SqrtPrice: BN,
+    migrationSqrtPrice: BN,
+    swapAmount: BN,
+    tokenAllocation: [number, number, number]
+) => {
+    const [phase1Percent, phase2Percent, phase3Percent] = tokenAllocation;
+
+    // validate all allocation percentages are non-zero
+    if (phase1Percent <= 0 || phase2Percent <= 0 || phase3Percent <= 0) {
+        return {
+            isOk: false,
+            sqrtStartPrice: new BN(0),
+            curve: [] as { sqrtPrice: BN; liquidity: BN }[],
+            error: 'Token allocation percentages must all be greater than 0'
+        }
+    }
+
+    // validate token allocation sums to 100
+    if(phase1Percent + phase2Percent + phase3Percent !== 100) {
+        return {
+            isOk: false,
+            sqrtStartPrice: new BN(0),
+            curve: [] as { sqrtPrice: BN; liquidity: BN }[],
+            error: 'Token allocation percentages must sum to 100'
+        }
+    }
+
+    // convert to decimal for percision
+    const p0 = new Decimal(initialSqrtPrice.toString());
+    const p1 = new Decimal(phase1SqrtPrice.toString());
+    const p2 = new Decimal(phase2SqrtPrice.toString());
+    const p3 = new Decimal(migrationSqrtPrice.toString());
+
+    // calculate base token coefficient
+    // formula: a_i = (1/P_i) - (1/P_{i+1})
+    const a0 = new Decimal(1).div(p0).sub(new Decimal(1).div(p1)); // Phase 1
+    const a1 = new Decimal(1).div(p1).sub(new Decimal(1).div(p2)); // Phase 2
+    const a2 = new Decimal(1).div(p2).sub(new Decimal(1).div(p3)); // Phase 3 
+
+    // calculate quote token coefficient
+    // formula: b_i = (P_{i+1}) - (P_i)
+    const b0 = p1.sub(p0); // Phase 1
+    const b1 = p2.sub(p1); // Phase 2
+    const b2 = p3.sub(p2); // Phase 3
+
+    // use token allocation to express L1 & L2 in terms of L0
+    // (L0*a0) : (L1*a1) : (L2*a2) = phase1% : phase2% : phase3%
+    const ratio1 = new Decimal(phase2Percent).div(phase1Percent);
+    const ratio2 = new Decimal(phase3Percent).div(phase1Percent);
+
+    // calcualte total ration for normalization
+    // L0*a0 * (1 + ratio1 + ratio2) = totalSwapTokens
+    const totalRatio = new Decimal(1).add(ratio1).add(ratio2);
+    const totalSwapTokens = new Decimal(swapAmount.toString());
+
+    // Solve for L0
+    const l0 = totalSwapTokens.div(a0.mul(totalRatio));
+
+    // calculate L1 
+    // formula: L1 = (L0 * a0 * ratio1) / a1
+    const l1 = l0.mul(a0).mul(ratio1).div(a1);
+    
+    // calculate L2
+    // formula: L2 - (L0 * a0 * ratio2) / a2
+    const l2 = l0.mul(a0).mul(ratio2).div(a2);
+
+    // validate liquidities are positive
+    if(l0.isNeg() || l1.isNeg() || l2.isNeg()) {
+        return {
+            isOk: false,
+            sqrtStartPrice: new BN(0),
+            curve: [] as { sqrtPrice: BN; liquidity: BN }[],
+            error: 'Calculated liquidities are negative - invalid configuration',
+        }
+    }
+
+    // verify token distribution
+    const tokenPhase1 = l0.mul(a0); // amount should be equal phase1Percent * totalSwapToken
+    const tokenPhase2 = l1.mul(a1); // amount should be equal phase2Percent * totalSwapToken
+    const tokenPhase3 = l2.mul(a2); // amount should be equal phase3Percent * totalSwapToken
+    const totalActual = tokenPhase1.add(tokenPhase2).add(tokenPhase3);
+
+    // calculate actual quote amount for verification
+    // formula: (L0*b0) + (L1*b1) + (L2*b2)
+    const actualQuote = l0.mul(b0).add(l1.mul(b1)).add(l2.mul(b2));
+
+    return {
+        isOk: true,
+        sqrtStartPrice: initialSqrtPrice,
+        curve: [
+            {
+                sqrtPrice: phase1SqrtPrice,
+                liquidity: new BN(l0.floor().toFixed()),
+            },
+            {
+                sqrtPrice: phase2SqrtPrice,
+                liquidity: new BN(l1.floor().toFixed()),
+            },
+            {
+                sqrtPrice: migrationSqrtPrice,
+                liquidity: new BN(l2.floor().toFixed()),
+            },
+        ],
+        tokenDistibution: {
+            phase1Percent: tokenPhase1.div(totalActual).mul(100).toFixed(2),
+            phase2Percent: tokenPhase2.div(totalActual).mul(100).toFixed(2),
+            phase3Percent: tokenPhase3.div(totalActual).mul(100).toFixed(2),
+        },
+        actualQuoteAmount: actualQuote.floor().toFixed(),
+    }
+}
+
+/**
  * Check if rate limiter should be applied based on pool configuration and state
  * @param baseFeeMode - The base fee mode
  * @param swapBaseForQuote - Whether the swap is from base to quote
