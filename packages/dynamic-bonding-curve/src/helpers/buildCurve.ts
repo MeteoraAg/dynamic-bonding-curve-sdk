@@ -797,12 +797,12 @@ export function buildCurveWithLiquidityWeights(
         .sub(totalVestingAmount)
         .sub(totalLeftover)
 
-    // Swap_Amount = sum(li * (1/p(i-1) - 1/pi))
-    // Quote_Amount = sum(li * (pi-p(i-1)))
-    // Quote_Amount * (1-migrationFee/100) / Base_Amount = Pmax ^ 2
+    // Swap_Amount = sum(li * (1/p(i-1) - 1/pi)) [1]
+    // Quote_Amount = sum(li * (pi-p(i-1))) [2]
+    // Quote_Amount * (1-migrationFee/100) / Base_Amount = Pmax ^ 2 [3]
 
-    // -> Base_Amount = Quote_Amount * (1-migrationFee) / Pmax ^ 2
-    // -> Swap_Amount + Base_Amount = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2
+    // -> Base_Amount = Quote_Amount * (1-migrationFee) / Pmax ^ 2 [migration amount]
+    // -> Swap_Amount + Base_Amount = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2 [total swap and migration amount]
     // l0 * sum_factor = Swap_Amount + Base_Amount
     // => l0 * sum_factor = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2
     // => l0 = (Swap_Amount + Base_Amount ) / sum_factor
@@ -971,19 +971,18 @@ export function buildCurveWithCustomSqrtPrices(
         migratedPoolFee,
     } = buildCurveWithCustomSqrtPricesParam
 
-    // Validation
     if (sqrtPrices.length < 2) {
         throw new Error('sqrtPrices array must have at least 2 elements')
     }
 
-    // Validate sqrtPrices are in ascending order
+    // validate sqrtPrices are in ascending order
     for (let i = 1; i < sqrtPrices.length; i++) {
         if (sqrtPrices[i].lte(sqrtPrices[i - 1])) {
             throw new Error('sqrtPrices must be in ascending order')
         }
     }
 
-    // If liquidity weights not provided, use equal distribution
+    // if liquidity weights not provided, use equal distribution
     if (!liquidityWeights) {
         const numSegments = sqrtPrices.length - 1
         liquidityWeights = Array(numSegments).fill(1)
@@ -1034,8 +1033,7 @@ export function buildCurveWithCustomSqrtPrices(
         .sub(totalVestingAmount)
         .sub(totalLeftover)
 
-    // Calculate the sum factor for liquidity distribution
-    // This follows the same math as buildCurveWithLiquidityWeights:
+    // calculate the sum factor for liquidity distribution
     // l0 * sum_factor = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2
     let sumFactor = new Decimal(0)
     let pmaxWeight = new Decimal(pMax.toString())
@@ -1063,10 +1061,10 @@ export function buildCurveWithCustomSqrtPrices(
         sumFactor = sumFactor.add(weight)
     }
 
-    // Calculate base liquidity l1
+    // calculate base liquidity l1
     let l1 = new Decimal(totalSwapAndMigrationAmount.toString()).div(sumFactor)
 
-    // Construct curve
+    // construct curve
     let curve = []
     for (let i = 0; i < numSegments; i++) {
         let k = new Decimal(liquidityWeights[i])
@@ -1078,7 +1076,7 @@ export function buildCurveWithCustomSqrtPrices(
         })
     }
 
-    // Calculate migration amounts
+    // calculate migration amounts
     let swapBaseAmount = getBaseTokenForSwap(pMin, pMax, curve)
     let swapBaseAmountBuffer = getSwapAmountWithBuffer(
         swapBaseAmount,
@@ -1098,7 +1096,7 @@ export function buildCurveWithCustomSqrtPrices(
         migrationQuoteThreshold
     )
 
-    // Sanity check
+    // sanity check
     let totalDynamicSupply = getTotalSupplyFromCurve(
         migrationQuoteThresholdInLamport,
         pMin,
