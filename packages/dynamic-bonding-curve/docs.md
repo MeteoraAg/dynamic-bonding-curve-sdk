@@ -16,6 +16,7 @@
     - [buildCurveWithTwoSegments](#buildCurveWithTwoSegments)
     - [buildCurveWithMidPrice](#buildCurveWithMidPrice)
     - [buildCurveWithLiquidityWeights](#buildCurveWithLiquidityWeights)
+    - [buildCurveWithCustomSqrtPrices](#buildCurveWithCustomSqrtPrices)
 
 - [Pool Functions](#pool-functions)
     - [createPool](#createPool)
@@ -1305,6 +1306,189 @@ const transaction = await client.partner.createConfig({
     - Each element in the array represents the liquidity weight for a specific curve segment (total `16` curve segments).
     - For each segment of the curve, the liquidity is scaled by liquidityWeights[i] (where `i` is the liquidityWeight index).
     - This means that as you move along the curve (from lower to higher price ranges), the liquidity in each curve segment can be controlled.
+- Effects of changing liquidity weights
+    1. `All liquidityWeights[i] === 1`: All segments have the same liquidity. The curve is linear.
+    2. `liquidityWeights[i] < liquidityWeights[i+1]`: Lower liquidity at lower prices.
+        - This means that the price will move more for a given trade at lower prices (less resistance), and price will move less for a given trade at higher prices (more resistance).
+    3. `liquidityWeights[i] > liquidityWeights[i+1]`: Higher liquidity at lower prices.
+        - This means that the price will move less for a given trade at lower prices (more resistance), and price will move more for a given trade at higher prices (less resistance).
+- If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
+- `lockedVestingParam.totalVestingDuration` and `lockedVestingParam.cliffDurationFromMigrationTime` are calculated in terms of seconds.
+- `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`.
+- `migratedPoolFee` is only configurable when `migrationOption = MET_DAMM_V2 (1)` and `migrationFeeOption = Customizable (6)`.
+- Slot is 400ms, Timestamp is 1000ms.
+
+---
+
+### buildCurveWithCustomSqrtPrices
+
+Builds a super customizable constant product curve graph configuration based on custom sqrt prices. This function does the math for you to create a curve structure based on custom sqrt prices and optional liquidity weights.
+
+**Function**
+
+```typescript
+async buildCurveWithCustomSqrtPrices(params: BuildCurveWithCustomSqrtPricesParams): Promise<ConfigParameters>
+```
+
+**Parameters**
+
+```typescript
+interface BuildCurveWithCustomSqrtPricesParams {
+    totalTokenSupply: number // The total token supply
+    migrationOption: number // 0: DAMM V1, 1: DAMM v2
+    tokenBaseDecimal: number // The number of decimals for the base token
+    tokenQuoteDecimal: number // The number of decimals for the quote token
+    lockedVestingParam: {
+        // Optional locked vesting (0 for all fields for no vesting)
+        totalLockedVestingAmount: number // The total locked vesting amount
+        numberOfVestingPeriod: number // The number of vesting periods
+        cliffUnlockAmount: number // The amount of tokens that will be unlocked when vesting starts
+        totalVestingDuration: number // The total vesting duration in seconds
+        cliffDurationFromMigrationTime: number // The duration of the waiting time before the vesting starts
+    }
+    // Either FeeSchedulerLinear/FeeSchedulerExponential mode
+    baseFeeParams: {
+        baseFeeMode: 0 | 1 // 0: FeeSchedulerLinear, 1: FeeSchedulerExponential
+        feeSchedulerParam: {
+            startingFeeBps: number // The starting fee in basis points
+            endingFeeBps: number // The ending fee in basis points
+            numberOfPeriod: number // The number of periods
+            totalDuration: number // The total duration of the fee scheduler
+        }
+    }
+    // OR RateLimiter mode
+    baseFeeParams: {
+        baseFeeMode: 2 // RateLimiter
+        rateLimiterParam: {
+            baseFeeBps: number // The base fee in basis points
+            feeIncrementBps: number // The fee increment in basis points
+            referenceAmount: number // The reference amount for rate limiting
+            maxLimiterDuration: number // The maximum duration for rate limiting
+        }
+    }
+    dynamicFeeEnabled: boolean // Whether dynamic fee is enabled (true: enabled, false: disabled)
+    activationType: number // 0: Slot, 1: Timestamp
+    collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+    migrationFeeOption: number // 0: Fixed 25bps, 1: Fixed 30bps, 2: Fixed 100bps, 3: Fixed 200bps, 4: Fixed 400bps, 5: Fixed 600bps, 6: Customizable (only for DAMM v2)
+    tokenType: number // 0: SPL, 1: Token2022
+    partnerLpPercentage: number // The percentage of the pool that will be allocated to the partner
+    creatorLpPercentage: number // The percentage of the pool that will be allocated to the creator
+    partnerLockedLpPercentage: number // The percentage of the pool that will be allocated to the partner locked
+    creatorLockedLpPercentage: number // The percentage of the pool that will be allocated to the creator locked
+    creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
+    leftover: number // The leftover amount that can be withdrawn by leftover receiver
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
+    migrationFee: {
+        // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
+        feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
+        creatorFeePercentage: number // The fee share percentage for the creator from the migration fee (0-100)
+    }
+    sqrtPrices: BN[] // Array of custom sqrt prices (must be in ascending order)
+    liquidityWeights?: number[] // Optional weights for each segment. If not provided, liquidity is distributed evenly (length = sqrtPrices.length - 1)
+    migratedPoolFee?: {
+        // Defaults to all 0. Configure only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        dynamicFee: number // 0: Disabled, 1: Enabled
+        poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+    }
+}
+```
+
+**Returns**
+
+- A `ConfigParameters` object.
+
+**Example**
+
+```typescript
+const customPrices = [
+    0.000001,
+    0.00000105,
+    0.000002,
+    0.001,
+]
+const tokenBaseDecimal = TokenDecimal.SIX
+const tokenQuoteDecimal = TokenDecimal.SIX
+
+// convert prices to sqrtPrices
+const sqrtPrices = createSqrtPrices(customPrices, tokenBaseDecimal, tokenQuoteDecimal)
+
+// define custom liquidity weights for custom segments (optional)
+// length must be sqrtPrices.length - 1, or leave undefined for even
+const liquidityWeights = [2, 1, 1]
+
+const curveConfig = buildCurveWithCustomSqrtPrices({
+    totalTokenSupply: 1_000_000_000,
+    leftover: 10,
+    sqrtPrices,
+    liquidityWeights,
+    tokenBaseDecimal: tokenBaseDecimal,
+    tokenQuoteDecimal: tokenQuoteDecimal,
+    tokenType: TokenType.SPL,
+    migrationOption: MigrationOption.MET_DAMM_V2,
+    migrationFeeOption: MigrationFeeOption.Customizable,
+    migrationFee: {
+        feePercentage: 0,
+        creatorFeePercentage: 0,
+    },
+    migratedPoolFee: {
+        collectFeeMode: CollectFeeMode.QuoteToken,
+        dynamicFee: DammV2DynamicFeeMode.Enabled,
+        poolFeeBps: 120,
+    },
+    partnerLpPercentage: 30,
+    creatorLpPercentage: 70,
+    partnerLockedLpPercentage: 0,
+    creatorLockedLpPercentage: 0,
+    creatorTradingFeePercentage: 0,
+    lockedVestingParam: {
+        totalLockedVestingAmount: 0,
+        numberOfVestingPeriod: 0,
+        cliffUnlockAmount: 0,
+        totalVestingDuration: 0,
+        cliffDurationFromMigrationTime: 0,
+    },
+    baseFeeParams: {
+        baseFeeMode: BaseFeeMode.FeeSchedulerExponential,
+        feeSchedulerParam: {
+            startingFeeBps: 9000,
+            endingFeeBps: 120,
+            numberOfPeriod: 60,
+            totalDuration: 60,
+        },
+    },
+    dynamicFeeEnabled: true,
+    activationType: ActivationType.Timestamp,
+    collectFeeMode: CollectFeeMode.QuoteToken,
+    tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+})
+
+const transaction = await client.partner.createConfig({
+    config: new PublicKey('1234567890abcdefghijklmnopqrstuvwxyz'),
+    feeClaimer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    leftoverReceiver: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    quoteMint: new PublicKey('So11111111111111111111111111111111111111112'),
+    ...curveConfig,
+})
+```
+
+**Notes**
+
+- `buildCurveWithCustomSqrtPrices` helps you to create a curve structure based on custom sqrt prices and optional liquidity weights.
+- What does sqrt prices do?
+    - The `sqrtPrices` is an array of numbers that represents the sqrt prices of the curve segments.
+    - The length of the `sqrtPrices` array must be at least 2.
+    - The first price will be the starting price (pMin) and the last price will be the migration price (pMax).
+    - The prices must be in ascending order.
+- What does liquidity weights do?
+    - The `liquidityWeights` is an array of numbers that determines how liquidity is distributed across the curve's price ranges.
+    - The maximum number of liquidity weights[i] is `16`.
+    - Each element in the array represents the liquidity weight for a specific curve segment (total `16` curve segments).
+    - For each segment of the curve, the liquidity is scaled by liquidityWeights[i] (where `i` is the liquidityWeight index).
+    - This means that as you move along the curve (from lower to higher price ranges), the liquidity in each curve segment can be controlled.
+    - If not provided, liquidity is distributed evenly across all segments.
+    - The length of the `liquidityWeights` array must be `sqrtPrices.length - 1`.
 - Effects of changing liquidity weights
     1. `All liquidityWeights[i] === 1`: All segments have the same liquidity. The curve is linear.
     2. `liquidityWeights[i] < liquidityWeights[i+1]`: Lower liquidity at lower prices.
