@@ -61,11 +61,6 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -73,9 +68,8 @@ jobs:
         run: pnpm build
 
       - name: Run tests
-        run: bun test
+        run: pnpm test
         working-directory: packages/dynamic-bonding-curve
-        continue-on-error: true
 
   lint:
     name: Lint & Format

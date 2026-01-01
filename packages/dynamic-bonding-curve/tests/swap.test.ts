@@ -1,7 +1,7 @@
 import { clusterApiUrl, Connection, Keypair, PublicKey } from '@solana/web3.js'
 import { ProgramTestContext } from 'solana-bankrun'
 import { fundSol, startTest } from './utils/bankrun'
-import { expect, test, describe, beforeEach } from 'bun:test'
+import { expect, test, describe, beforeEach } from 'vitest'
 import {
     DynamicBondingCurveClient,
     getCurrentPoint,

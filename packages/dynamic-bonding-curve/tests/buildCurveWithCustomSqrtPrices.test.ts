@@ -1,4 +1,4 @@
-import { describe, test as it, expect } from 'bun:test'
+import { describe, test as it, expect } from 'vitest'
 import {
     buildCurveWithCustomSqrtPrices,
     getSqrtPriceFromPrice,
