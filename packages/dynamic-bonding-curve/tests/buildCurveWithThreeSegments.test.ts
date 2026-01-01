@@ -1,11 +1,11 @@
 import { expect, test, describe } from 'bun:test'
-import { buildCurveWithThreePhases } from '../src/helpers'
+import { buildCurveWithThreeSegments } from '../src/helpers'
 import BN from 'bn.js'
 import {
     ActivationType,
     BaseFeeMode,
     BuildCurveBaseParams,
-    BuildCurveWithThreePhasesParams,
+    BuildCurveWithThreeSegmentsParams,
     CollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
@@ -14,7 +14,7 @@ import {
 } from '../src'
 import { convertBNToDecimal } from './utils/common'
 
-describe('buildCurveWithThreePhases tests', () => {
+describe('buildCurveWithThreeSegments tests', () => {
     // Base parameters used across tests
     const getBaseParams = (): BuildCurveBaseParams => ({
         totalTokenSupply: 1_000_000_000,
@@ -57,8 +57,8 @@ describe('buildCurveWithThreePhases tests', () => {
 
     // Helper to create valid three phase params
     const createThreePhaseParams = (
-        overrides: Partial<BuildCurveWithThreePhasesParams> = {}
-    ): BuildCurveWithThreePhasesParams => ({
+        overrides: Partial<BuildCurveWithThreeSegmentsParams> = {}
+    ): BuildCurveWithThreeSegmentsParams => ({
         ...getBaseParams(),
         initialMarketCap: 30_000, // $30k initial MC -> initial price = 0.00003 (P0)
         phase1EndPrice: 0.0001, // Price at end of phase 1 = 0.0001 (P1)
@@ -74,7 +74,7 @@ describe('buildCurveWithThreePhases tests', () => {
         test('should build curve with default allocation (10/10/80)', () => {
             console.log('\n Testing default allocation (10/10/80)')
 
-            const config = buildCurveWithThreePhases(createThreePhaseParams())
+            const config = buildCurveWithThreeSegments(createThreePhaseParams())
 
             expect(config).toBeDefined()
             expect(config.curve).toBeDefined()
@@ -92,7 +92,7 @@ describe('buildCurveWithThreePhases tests', () => {
         test('should build curve with stable, growth, moon allocation (50/25/25)', () => {
             console.log('\n Testing stable, growth, moon allocation (50/25/25)')
 
-            const config = buildCurveWithThreePhases(
+            const config = buildCurveWithThreeSegments(
                 createThreePhaseParams({
                     tokenAllocation: [50, 25, 25],
                 })
@@ -112,7 +112,7 @@ describe('buildCurveWithThreePhases tests', () => {
             console.log('\n Testing allocation sum < 100')
 
             expect(() => {
-                buildCurveWithThreePhases(
+                buildCurveWithThreeSegments(
                     createThreePhaseParams({
                         tokenAllocation: [30, 30, 30], // sums to 90
                     })
@@ -124,7 +124,7 @@ describe('buildCurveWithThreePhases tests', () => {
             console.log('\n Testing allocation sum > 100')
 
             expect(() => {
-                buildCurveWithThreePhases(
+                buildCurveWithThreeSegments(
                     createThreePhaseParams({
                         tokenAllocation: [40, 40, 40], // sums to 120
                     })
@@ -136,7 +136,7 @@ describe('buildCurveWithThreePhases tests', () => {
             console.log('\n Testing zero allocation in phase 1')
 
             expect(() => {
-                buildCurveWithThreePhases(
+                buildCurveWithThreeSegments(
                     createThreePhaseParams({
                         tokenAllocation: [0, 50, 50],
                     })
@@ -148,7 +148,7 @@ describe('buildCurveWithThreePhases tests', () => {
             console.log('\n Testing zero allocation in phase 2')
 
             expect(() => {
-                buildCurveWithThreePhases(
+                buildCurveWithThreeSegments(
                     createThreePhaseParams({
                         tokenAllocation: [50, 0, 50],
                     })
@@ -160,7 +160,7 @@ describe('buildCurveWithThreePhases tests', () => {
             console.log('\n Testing zero allocation in phase 3')
 
             expect(() => {
-                buildCurveWithThreePhases(
+                buildCurveWithThreeSegments(
                     createThreePhaseParams({
                         tokenAllocation: [50, 50, 0],
                     })
@@ -177,7 +177,7 @@ describe('buildCurveWithThreePhases tests', () => {
             // initialMarketCap = 30,000, totalTokenSupply = 1,000,000,000
             // initial price = 30,000 / 1,000,000,000 = 0.00003
             expect(() => {
-                buildCurveWithThreePhases(
+                buildCurveWithThreeSegments(
                     createThreePhaseParams({
                         initialMarketCap: 30_000,
                         phase1EndPrice: 0.00002, // Less than initial price of 0.00003
@@ -190,7 +190,7 @@ describe('buildCurveWithThreePhases tests', () => {
             console.log('\n Testing phase1EndPrice == initial price')
 
             expect(() => {
-                buildCurveWithThreePhases(
+                buildCurveWithThreeSegments(
                     createThreePhaseParams({
                         initialMarketCap: 30_000,
                         phase1EndPrice: 0.00003, // Equal to initial price
@@ -203,7 +203,7 @@ describe('buildCurveWithThreePhases tests', () => {
             console.log('\n Testing phase2EndPrice <= phase1EndPrice')
 
             expect(() => {
-                buildCurveWithThreePhases(
+                buildCurveWithThreeSegments(
                     createThreePhaseParams({
                         phase1EndPrice: 0.0001,
                         phase2EndPrice: 0.00005, // Less than phase1EndPrice
@@ -216,7 +216,7 @@ describe('buildCurveWithThreePhases tests', () => {
             console.log('\n Testing phase2EndPrice == phase1EndPrice')
 
             expect(() => {
-                buildCurveWithThreePhases(
+                buildCurveWithThreeSegments(
                     createThreePhaseParams({
                         phase1EndPrice: 0.0001,
                         phase2EndPrice: 0.0001, // Equal to phase1EndPrice
@@ -231,7 +231,7 @@ describe('buildCurveWithThreePhases tests', () => {
         test('should have 3 curve segments', () => {
             console.log('\n Testing curve has 3 segments')
 
-            const config = buildCurveWithThreePhases(createThreePhaseParams({}))
+            const config = buildCurveWithThreeSegments(createThreePhaseParams({}))
 
             expect(config.curve).toBeDefined()
             expect(config.curve.length).toBe(3)
@@ -240,7 +240,7 @@ describe('buildCurveWithThreePhases tests', () => {
         test('should have increasing sqrt prices in curve', () => {
             console.log('\n Testing increasing sqrt prices')
 
-            const config = buildCurveWithThreePhases(createThreePhaseParams({}))
+            const config = buildCurveWithThreeSegments(createThreePhaseParams({}))
 
             expect(config.curve.length).toBe(3)
 
@@ -273,7 +273,7 @@ describe('buildCurveWithThreePhases tests', () => {
         test('should have positive liquidity in all curve segments', () => {
             console.log('\n Testing positive liquidity')
 
-            const config = buildCurveWithThreePhases(createThreePhaseParams({}))
+            const config = buildCurveWithThreeSegments(createThreePhaseParams({}))
 
             expect(config.curve.length).toBe(3)
 
@@ -289,7 +289,7 @@ describe('buildCurveWithThreePhases tests', () => {
         test('should have valid migration quote threshold', () => {
             console.log('\n Testing migration quote threshold')
 
-            const config = buildCurveWithThreePhases(createThreePhaseParams({}))
+            const config = buildCurveWithThreeSegments(createThreePhaseParams({}))
 
             expect(config.migrationQuoteThreshold).toBeDefined()
             expect(config.migrationQuoteThreshold.gt(new BN(0))).toBe(true)

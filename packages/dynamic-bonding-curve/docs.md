@@ -17,7 +17,7 @@
     - [buildCurveWithMidPrice](#buildCurveWithMidPrice)
     - [buildCurveWithLiquidityWeights](#buildCurveWithLiquidityWeights)
     - [buildCurveWithCustomSqrtPrices](#buildCurveWithCustomSqrtPrices)
-    - [buildCurveWithThreePhases](#buildCurveWithThreePhases)
+    - [buildCurveWithThreeSegments](#buildCurveWithThreeSegments)
 
 - [Pool Functions](#pool-functions)
     - [createPool](#createPool)
@@ -1504,22 +1504,22 @@ const transaction = await client.partner.createConfig({
 
 ---
 
-### buildCurveWithThreePhases
+### buildCurveWithThreeSegments
 
 Builds a 3-phase bonding curve configuration where you can control the token allocation across three distinct price phases. This function allows you to define specific price boundaries for each phase and specify what percentage of tokens are sold in each phase.
 
 **Function**
 
 ```typescript
-function buildCurveWithThreePhases(
-    params: BuildCurveWithThreePhasesParams
+function buildCurveWithThreeSegments(
+    params: BuildCurveWithThreeSegmentsParams
 ): ConfigParameters
 ```
 
 **Parameters**
 
 ```typescript
-interface BuildCurveWithThreePhasesParams {
+interface BuildCurveWithThreeSegmentsParams {
     totalTokenSupply: number // The total token supply
     initialMarketCap: number // The initial market cap (determines start price P0)
     migrationMarketCap: number // The migration market cap (determines final price P3)
@@ -1590,7 +1590,7 @@ interface BuildCurveWithThreePhasesParams {
 **Example**
 
 ```typescript
-const curveConfig = buildCurveWithThreePhases({
+const curveConfig = buildCurveWithThreeSegments({
     totalTokenSupply: 1_000_000_000,
     initialMarketCap: 30_000, // $30k initial MC -> initial price = 0.00003
     migrationMarketCap: 500_000, // $500k migration MC -> migration price = 0.0005
@@ -1645,7 +1645,8 @@ const transaction = await client.partner.createConfig({
 ```
 
 **Notes**
-- `buildCurveWithThreePhases` creates a 3-segment bonding curve where you explicitly define the price boundaries and token distribution for each phase.
+
+- `buildCurveWithThreeSegments` creates a 3-segment bonding curve where you explicitly define the price boundaries and token distribution for each phase.
 - **Price progression must be strictly increasing**: `initialPrice < phase1EndPrice < phase2EndPrice < migrationPrice`
 - **Token allocation must sum to 100**: `phase1% + phase2% + phase3% = 100%`
 - **Token allocation must have non-zero values**: All three phases must have a percentage greater than 0 (e.g., `[10, 10, 80]` is valid, `[50, 0, 50]` is invalid)

@@ -9,7 +9,7 @@ import {
     BaseFeeMode,
     BuildCurveWithMidPriceParams,
     BuildCurveWithCustomSqrtPricesParams,
-    BuildCurveWithThreePhasesParams,
+    BuildCurveWithThreeSegmentsParams,
 } from '../types'
 import { MAX_SQRT_PRICE } from '../constants'
 import {
@@ -1167,12 +1167,12 @@ export function buildCurveWithCustomSqrtPrices(
  * This creates a curve with 3 distinct phases, each with its own price range
  * and token allocation.
  *
- * @param buildCurveWithThreePhasesParam - The parameters for the 3-phase curve
+ * @param buildCurveWithThreeSegmentsParam - The parameters for the 3-phase curve
  * @returns The ConfigParameters for DBC pool creation
  *
  * @example
  * ```typescript
- * const config = buildCurveWithThreePhases({
+ * const config = buildCurveWithThreeSegments({
  *   totalTokenSupply: 1_000_000_000,
  *   initialMarketCap: 1_000_000,      // $1M initial
  *   migrationMarketCap: 1_000_000_000, // $1B migration
@@ -1183,8 +1183,8 @@ export function buildCurveWithCustomSqrtPrices(
  * })
  * ```
  */
-export function buildCurveWithThreePhases(
-    buildCurveWithThreePhasesParam: BuildCurveWithThreePhasesParams
+export function buildCurveWithThreeSegments(
+    buildCurveWithThreeSegmentsParam: BuildCurveWithThreeSegmentsParams
 ): ConfigParameters {
     const {
         totalTokenSupply,
@@ -1211,7 +1211,7 @@ export function buildCurveWithThreePhases(
         phase1EndPrice,
         phase2EndPrice,
         tokenAllocation,
-    } = buildCurveWithThreePhasesParam
+    } = buildCurveWithThreeSegmentsParam
 
     // validate token allocation
     const [phase1Percent, phase2Percent, phase3Percent] = tokenAllocation
@@ -1223,6 +1223,7 @@ export function buildCurveWithThreePhases(
 
     // validate price progression
     const initialPrice = initialMarketCap / totalTokenSupply
+    const migrationPrice = migrationMarketCap / totalTokenSupply
     if (phase1EndPrice <= initialPrice) {
         throw new Error(
             `phase1EndPrice (${phase1EndPrice}) must be greater than initial price (${initialPrice})`
@@ -1231,6 +1232,12 @@ export function buildCurveWithThreePhases(
     if (phase2EndPrice <= phase1EndPrice) {
         throw new Error(
             `phase2EndPrice (${phase2EndPrice}) must be greater than phase1EndPrice (${phase1EndPrice})`
+        )
+    }
+    if (phase2EndPrice >= migrationPrice) {
+        throw new Error(
+            `phase2EndPrice (${phase2EndPrice}) must be less than migration price (${migrationPrice}). ` +
+            `Increase migrationMarketCap or decrease phase2EndPrice.`
         )
     }
 
@@ -1246,7 +1253,7 @@ export function buildCurveWithThreePhases(
         cliffUnlockAmount,
         totalVestingDuration,
         cliffDurationFromMigrationTime,
-    } = buildCurveWithThreePhasesParam.lockedVestingParam
+    } = buildCurveWithThreeSegmentsParam.lockedVestingParam
 
     const lockedVesting = getLockedVestingParams(
         totalLockedVestingAmount,
@@ -1354,26 +1361,6 @@ export function buildCurveWithThreePhases(
     }
 
     const { curve, sqrtStartPrice } = result
-
-    // verify total supply from curve
-    const totalDynamicSupply = getTotalSupplyFromCurve(
-        migrationQuoteThresholdInLamport,
-        sqrtStartPrice,
-        curve,
-        lockedVesting,
-        migrationOption,
-        totalLeftover,
-        migrationFee.feePercentage
-    )
-
-    if (totalDynamicSupply.gt(totalSupply)) {
-        const leftOverDelta = totalDynamicSupply.sub(totalSupply)
-        if (!leftOverDelta.lt(totalLeftover)) {
-            throw new Error(
-                `Calculated supply exceeds total supply. leftOverDelta: ${leftOverDelta.toString()}, totalLeftover: ${totalLeftover.toString()}`
-            )
-        }
-    }
 
     const instructionParams: ConfigParameters = {
         poolFees: {

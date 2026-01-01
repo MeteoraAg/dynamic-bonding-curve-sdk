@@ -282,7 +282,7 @@ export type BuildCurveWithCustomSqrtPricesParams = BuildCurveBaseParams & {
     liquidityWeights?: number[] // Optional weights for each segment. If not provided, liquidity is distributed evenly
 }
 
-export type BuildCurveWithThreePhasesParams = BuildCurveBaseParams & {
+export type BuildCurveWithThreeSegmentsParams = BuildCurveBaseParams & {
     /** Initial market cap (determines start price) */
     initialMarketCap: number
     /** Migration market cap (determines final/migration price) */
