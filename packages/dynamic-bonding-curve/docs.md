@@ -1402,17 +1402,16 @@ interface BuildCurveWithCustomSqrtPricesParams {
 **Example**
 
 ```typescript
-const customPrices = [
-    0.000001,
-    0.00000105,
-    0.000002,
-    0.001,
-]
+const customPrices = [0.000001, 0.00000105, 0.000002, 0.001]
 const tokenBaseDecimal = TokenDecimal.SIX
 const tokenQuoteDecimal = TokenDecimal.SIX
 
 // convert prices to sqrtPrices
-const sqrtPrices = createSqrtPrices(customPrices, tokenBaseDecimal, tokenQuoteDecimal)
+const sqrtPrices = createSqrtPrices(
+    customPrices,
+    tokenBaseDecimal,
+    tokenQuoteDecimal
+)
 
 // define custom liquidity weights for custom segments (optional)
 // length must be sqrtPrices.length - 1, or leave undefined for even

@@ -54,10 +54,13 @@ describe('buildCurveWithCustomSqrtPrices', () => {
         tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
     }
 
-
     it('should create a curve with custom sqrt prices', () => {
         const prices = [0.001, 0.005, 0.01]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         const config = buildCurveWithCustomSqrtPrices({
             ...baseParams,
@@ -73,7 +76,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should distribute liquidity evenly when weights not provided', () => {
         const prices = [0.001, 0.005, 0.01]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         const config = buildCurveWithCustomSqrtPrices({
             ...baseParams,
@@ -92,7 +99,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should respect custom liquidity weights', () => {
         const prices = [0.001, 0.005, 0.01]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
         const liquidityWeights = [2, 1] // First segment has 2x liquidity
 
         const config = buildCurveWithCustomSqrtPrices({
@@ -113,7 +124,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should handle many price points', () => {
         const prices = [0.0001, 0.0005, 0.001, 0.002, 0.004, 0.006, 0.008, 0.01]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         const config = buildCurveWithCustomSqrtPrices({
             ...baseParams,
@@ -125,7 +140,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should validate minimum price points', () => {
         const prices = [0.001] // Only 1 price
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         expect(() => {
             buildCurveWithCustomSqrtPrices({
@@ -137,7 +156,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should validate ascending order', () => {
         const prices = [0.01, 0.005, 0.001] // Descending order
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         expect(() => {
             buildCurveWithCustomSqrtPrices({
@@ -149,7 +172,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should validate liquidity weights length', () => {
         const prices = [0.001, 0.005, 0.01]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
         const liquidityWeights = [1] // Should be 2 weights for 3 prices
 
         expect(() => {
@@ -163,7 +190,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should handle duplicate prices', () => {
         const prices = [0.001, 0.001, 0.01] // Duplicate price
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         expect(() => {
             buildCurveWithCustomSqrtPrices({
@@ -175,7 +206,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should produce valid migration quote threshold', () => {
         const prices = [0.001, 0.005, 0.01]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         const config = buildCurveWithCustomSqrtPrices({
             ...baseParams,
@@ -187,7 +222,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should respect percentage supply on migration', () => {
         const prices = [0.001, 0.01]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         const config80 = buildCurveWithCustomSqrtPrices({
             ...baseParams,
@@ -210,7 +249,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
     it('should handle non-uniform price spacing', () => {
         // Prices with varying gaps
         const prices = [0.001, 0.002, 0.005, 0.01]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         const config = buildCurveWithCustomSqrtPrices({
             ...baseParams,
@@ -226,7 +269,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should work with very small prices', () => {
         const prices = [0.00001, 0.0001, 0.001]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         const config = buildCurveWithCustomSqrtPrices({
             ...baseParams,
@@ -239,7 +286,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should work with larger prices', () => {
         const prices = [0.1, 0.5, 1.0]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         const config = buildCurveWithCustomSqrtPrices({
             ...baseParams,
@@ -252,7 +303,11 @@ describe('buildCurveWithCustomSqrtPrices', () => {
 
     it('should have consistent total supply calculation', () => {
         const prices = [0.001, 0.005, 0.01]
-        const sqrtPrices = createSqrtPrices(prices, TokenDecimal.NINE, TokenDecimal.NINE)
+        const sqrtPrices = createSqrtPrices(
+            prices,
+            TokenDecimal.NINE,
+            TokenDecimal.NINE
+        )
 
         const config = buildCurveWithCustomSqrtPrices({
             ...baseParams,

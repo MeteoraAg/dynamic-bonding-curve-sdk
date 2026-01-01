@@ -243,7 +243,11 @@ export const getSqrtPriceFromPrice = (
  * @param prices - The prices
  * @returns The sqrt prices
  */
-export const createSqrtPrices = (prices: number[], tokenBaseDecimal: TokenDecimal, tokenQuoteDecimal: TokenDecimal) => {
+export const createSqrtPrices = (
+    prices: number[],
+    tokenBaseDecimal: TokenDecimal,
+    tokenQuoteDecimal: TokenDecimal
+) => {
     return prices.map((price) =>
         getSqrtPriceFromPrice(
             price.toString(),
@@ -1579,4 +1583,3 @@ export async function prepareSwapAmountParam(
 
     return convertToLamports(amount, mintTokenDecimals)
 }
-

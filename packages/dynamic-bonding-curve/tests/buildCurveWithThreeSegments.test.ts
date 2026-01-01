@@ -231,7 +231,9 @@ describe('buildCurveWithThreeSegments tests', () => {
         test('should have 3 curve segments', () => {
             console.log('\n Testing curve has 3 segments')
 
-            const config = buildCurveWithThreeSegments(createThreePhaseParams({}))
+            const config = buildCurveWithThreeSegments(
+                createThreePhaseParams({})
+            )
 
             expect(config.curve).toBeDefined()
             expect(config.curve.length).toBe(3)
@@ -240,7 +242,9 @@ describe('buildCurveWithThreeSegments tests', () => {
         test('should have increasing sqrt prices in curve', () => {
             console.log('\n Testing increasing sqrt prices')
 
-            const config = buildCurveWithThreeSegments(createThreePhaseParams({}))
+            const config = buildCurveWithThreeSegments(
+                createThreePhaseParams({})
+            )
 
             expect(config.curve.length).toBe(3)
 
@@ -273,7 +277,9 @@ describe('buildCurveWithThreeSegments tests', () => {
         test('should have positive liquidity in all curve segments', () => {
             console.log('\n Testing positive liquidity')
 
-            const config = buildCurveWithThreeSegments(createThreePhaseParams({}))
+            const config = buildCurveWithThreeSegments(
+                createThreePhaseParams({})
+            )
 
             expect(config.curve.length).toBe(3)
 
@@ -289,7 +295,9 @@ describe('buildCurveWithThreeSegments tests', () => {
         test('should have valid migration quote threshold', () => {
             console.log('\n Testing migration quote threshold')
 
-            const config = buildCurveWithThreeSegments(createThreePhaseParams({}))
+            const config = buildCurveWithThreeSegments(
+                createThreePhaseParams({})
+            )
 
             expect(config.migrationQuoteThreshold).toBeDefined()
             expect(config.migrationQuoteThreshold.gt(new BN(0))).toBe(true)

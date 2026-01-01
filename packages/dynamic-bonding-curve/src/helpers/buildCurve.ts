@@ -799,15 +799,15 @@ export function buildCurveWithLiquidityWeights(
         .sub(totalVestingAmount)
         .sub(totalLeftover)
 
-    // Swap_Amount = sum(li * (1/p(i-1) - 1/pi)) 
-    // Quote_Amount = sum(li * (pi-p(i-1))) 
-    // Quote_Amount * (1-migrationFee/100) / Base_Amount = Pmax ^ 2 
+    // Swap_Amount = sum(li * (1/p(i-1) - 1/pi))
+    // Quote_Amount = sum(li * (pi-p(i-1)))
+    // Quote_Amount * (1-migrationFee/100) / Base_Amount = Pmax ^ 2
 
-    // -> Base_Amount = Quote_Amount * (1-migrationFee) / Pmax ^ 2 
-    // -> Swap_Amount + Base_Amount = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2 
+    // -> Base_Amount = Quote_Amount * (1-migrationFee) / Pmax ^ 2
+    // -> Swap_Amount + Base_Amount = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2
     // l0 * sum_factor = Swap_Amount + Base_Amount
     // => l0 * sum_factor = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2
-    // => l0 = (Swap_Amount + Base_Amount ) / sum_factor 
+    // => l0 = (Swap_Amount + Base_Amount ) / sum_factor
     let sumFactor = new Decimal(0)
     let pmaxWeight = new Decimal(pMax.toString())
     let migrationFeeFactor = new Decimal(100)
@@ -1237,7 +1237,7 @@ export function buildCurveWithThreeSegments(
     if (phase2EndPrice >= migrationPrice) {
         throw new Error(
             `phase2EndPrice (${phase2EndPrice}) must be less than migration price (${migrationPrice}). ` +
-            `Increase migrationMarketCap or decrease phase2EndPrice.`
+                `Increase migrationMarketCap or decrease phase2EndPrice.`
         )
     }
 
