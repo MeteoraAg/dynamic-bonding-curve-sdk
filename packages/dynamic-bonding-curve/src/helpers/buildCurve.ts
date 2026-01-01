@@ -797,30 +797,31 @@ export function buildCurveWithLiquidityWeights(
         .sub(totalVestingAmount)
         .sub(totalLeftover)
 
-    // Swap_Amount = sum(li * (1/p(i-1) - 1/pi)) [1]
-    // Quote_Amount = sum(li * (pi-p(i-1))) [2]
-    // Quote_Amount * (1-migrationFee/100) / Base_Amount = Pmax ^ 2 [3]
+    // Swap_Amount = sum(li * (1/p(i-1) - 1/pi)) 
+    // Quote_Amount = sum(li * (pi-p(i-1))) 
+    // Quote_Amount * (1-migrationFee/100) / Base_Amount = Pmax ^ 2 
 
-    // -> Base_Amount = Quote_Amount * (1-migrationFee) / Pmax ^ 2 [migration amount]
-    // -> Swap_Amount + Base_Amount = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2 [total swap and migration amount]
+    // -> Base_Amount = Quote_Amount * (1-migrationFee) / Pmax ^ 2 
+    // -> Swap_Amount + Base_Amount = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2 
     // l0 * sum_factor = Swap_Amount + Base_Amount
     // => l0 * sum_factor = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2
-    // => l0 = (Swap_Amount + Base_Amount ) / sum_factor
+    // => l0 = (Swap_Amount + Base_Amount ) / sum_factor 
     let sumFactor = new Decimal(0)
     let pmaxWeight = new Decimal(pMax.toString())
     let migrationFeeFactor = new Decimal(100)
         .sub(new Decimal(migrationFee.feePercentage))
         .div(new Decimal(100))
+
     for (let i = 1; i < 17; i++) {
         let pi = new Decimal(sqrtPrices[i].toString())
         let piMinus = new Decimal(sqrtPrices[i - 1].toString())
         let k = new Decimal(liquidityWeights[i - 1])
-        let w1 = pi.sub(piMinus).div(pi.mul(piMinus))
+        let w1 = pi.sub(piMinus).div(pi.mul(piMinus)) // 1/piMinus - 1/pi
         let w2 = pi
-            .sub(piMinus)
-            .mul(migrationFeeFactor)
-            .div(pmaxWeight.mul(pmaxWeight))
-        let weight = k.mul(w1.add(w2))
+            .sub(piMinus) // pi - piMinus
+            .mul(migrationFeeFactor) // (1-migrationFee/100)
+            .div(pmaxWeight.mul(pmaxWeight)) // pmax^2
+        let weight = k.mul(w1.add(w2)) // k x (w1 + w2)
         sumFactor = sumFactor.add(weight)
     }
     let l1 = new Decimal(totalSwapAndMigrationAmount.toString()).div(sumFactor)
