@@ -277,6 +277,11 @@ export type BuildCurveWithLiquidityWeightsParams = BuildCurveBaseParams & {
     liquidityWeights: number[]
 }
 
+export type BuildCurveWithCustomSqrtPricesParams = BuildCurveBaseParams & {
+    sqrtPrices: BN[] // Array of custom sqrt prices (must be in ascending order)
+    liquidityWeights?: number[] // Optional weights for each segment. If not provided, liquidity is distributed evenly
+}
+
 export type InitializePoolBaseParams = {
     name: string
     symbol: string
