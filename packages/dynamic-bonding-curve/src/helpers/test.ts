@@ -1,5 +1,8 @@
 import BN from 'bn.js'
-import { getDeltaAmountBaseUnsigned, getDeltaAmountQuoteUnsigned } from '../math/curve'
+import {
+    getDeltaAmountBaseUnsigned,
+    getDeltaAmountQuoteUnsigned,
+} from '../math/curve'
 import { Rounding } from '../types'
 
 const P0 = new BN('10312044770285001')

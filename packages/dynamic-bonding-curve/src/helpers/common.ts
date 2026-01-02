@@ -243,7 +243,11 @@ export const getSqrtPriceFromPrice = (
  * @param prices - The prices
  * @returns The sqrt prices
  */
-export const createSqrtPrices = (prices: number[], tokenBaseDecimal: TokenDecimal, tokenQuoteDecimal: TokenDecimal) => {
+export const createSqrtPrices = (
+    prices: number[],
+    tokenBaseDecimal: TokenDecimal,
+    tokenQuoteDecimal: TokenDecimal
+) => {
     return prices.map((price) =>
         getSqrtPriceFromPrice(
             price.toString(),
@@ -752,6 +756,59 @@ export const getPercentageSupplyOnMigration = (
 }
 
 /**
+ * Calculate the adjusted percentageSupplyOnMigration that accounts for migrationFee
+ * to ensure the resulting sqrtStartPrice matches the target initialMarketCap
+ *
+ * Formula:
+ * - D = desiredMarketCap (initialMarketCap parameter - the target actual starting market cap)
+ * - M = migrationMarketCap
+ * - f = migrationFee (as decimal, e.g., 0.49 for 49%)
+ * - V = vesting percentage
+ * - L = leftover percentage
+ *
+ * requiredRatio = sqrt(D / M)
+ * percentageSupplyOnMigration = (requiredRatio * (1 - f) * (100 - V - L)) / (1 + requiredRatio * (1 - f))
+ * This accounts for vesting and leftover similar to getPercentageSupplyOnMigration
+ */
+export function calculateAdjustedPercentageSupplyOnMigration(
+    initialMarketCap: number,
+    migrationMarketCap: number,
+    migrationFee: { feePercentage: number },
+    lockedVesting: LockedVestingParameters,
+    totalLeftover: BN,
+    totalTokenSupply: BN
+): number {
+    // D = desiredMarketCap (the target actual starting market cap)
+    const D = new Decimal(initialMarketCap)
+    // M = migrationMarketCap
+    const M = new Decimal(migrationMarketCap)
+    // f = migrationFee (as decimal)
+    const f = new Decimal(migrationFee.feePercentage).div(100)
+
+    // calculate vesting and leftover percentages
+    const totalVestingAmount = getTotalVestingAmount(lockedVesting)
+    const V = new Decimal(totalVestingAmount.toString())
+        .mul(100)
+        .div(new Decimal(totalTokenSupply.toString()))
+    const L = new Decimal(totalLeftover.toString())
+        .mul(100)
+        .div(new Decimal(totalTokenSupply.toString()))
+
+    // requiredRatio = sqrt(D / M)
+    const requiredRatio = Decimal.sqrt(D.div(M))
+
+    // percentageSupplyOnMigration = (requiredRatio * (1 - f) * (100 - V - L)) / (1 + requiredRatio * (1 - f))
+    // This accounts for vesting and leftover similar to getPercentageSupplyOnMigration
+    const oneMinusF = new Decimal(1).sub(f)
+    const availablePercentage = new Decimal(100).sub(V).sub(L)
+    const numerator = requiredRatio.mul(oneMinusF).mul(availablePercentage)
+    const denominator = new Decimal(1).add(requiredRatio.mul(oneMinusF))
+    const percentageSupplyOnMigration = numerator.div(denominator).toNumber()
+
+    return percentageSupplyOnMigration
+}
+
+/**
  * Get the migration quote amount
  * @param migrationMarketCap - The migration market cap
  * @param percentageSupplyOnMigration - The percentage of supply on migration
@@ -1185,6 +1242,122 @@ export const getTwoCurve = (
 }
 
 /**
+ * Get the three curve - solves for 3 liquidities given 4 price points and token allocation percentages
+ *
+ * This creates a 3-segment bonding curve where you can specify:
+ * - 4 price points: start, phase1End, phase2End, migration
+ * - Token allocation percentages for each phase
+ *
+ * @param initialSqrtPrice - The initial sqrt price (P0)
+ * @param phase1SqrtPrice - The phase 1 end sqrt price (P1)
+ * @param phase2SqrtPrice - The phase 2 end sqrt price (P2)
+ * @param migrationSqrtPrice - The migration sqrt price (P3)
+ * @param swapAmount - The total swap amount (base tokens on curve)
+ * @param liquidityWeights - Liquidity weights for each phase [weight1, weight2, weight3]
+ * @returns The three curve with liquidities for each segment
+ */
+export const getThreeCurve = (
+    initialSqrtPrice: BN,
+    phase1SqrtPrice: BN,
+    phase2SqrtPrice: BN,
+    migrationSqrtPrice: BN,
+    swapAmount: BN,
+    liquidityWeights: [number, number, number]
+) => {
+    const [weight1, weight2, weight3] = liquidityWeights
+
+    // validate all weights are positive
+    if (weight1 <= 0 || weight2 <= 0 || weight3 <= 0) {
+        return {
+            isOk: false,
+            sqrtStartPrice: new BN(0),
+            curve: [] as { sqrtPrice: BN; liquidity: BN }[],
+            error: 'Liquidity weights must all be greater than 0',
+        }
+    }
+
+    // convert to decimal for precision
+    const p0 = new Decimal(initialSqrtPrice.toString())
+    const p1 = new Decimal(phase1SqrtPrice.toString())
+    const p2 = new Decimal(phase2SqrtPrice.toString())
+    const p3 = new Decimal(migrationSqrtPrice.toString())
+
+    // calculate base token coefficient
+    // formula: a_i = (1/P_i) - (1/P_{i+1})
+    const a0 = new Decimal(1).div(p0).sub(new Decimal(1).div(p1)) // Phase 1
+    const a1 = new Decimal(1).div(p1).sub(new Decimal(1).div(p2)) // Phase 2
+    const a2 = new Decimal(1).div(p2).sub(new Decimal(1).div(p3)) // Phase 3
+
+    // calculate quote token coefficient
+    // formula: b_i = (P_{i+1}) - (P_i)
+    const b0 = p1.sub(p0) // Phase 1
+    const b1 = p2.sub(p1) // Phase 2
+    const b2 = p3.sub(p2) // Phase 3
+
+    // convert weights to Decimal
+    const w0 = new Decimal(weight1)
+    const w1 = new Decimal(weight2)
+    const w2 = new Decimal(weight3)
+
+    // use liquidity weights: L0 : L1 : L2 = w0 : w1 : w2
+    // swapAmount = L0*a0 + L1*a1 + L2*a2 = k*(w0*a0 + w1*a1 + w2*a2)
+    // solve for k = swapAmount / (w0*a0 + w1*a1 + w2*a2)
+    const totalSwapTokens = new Decimal(swapAmount.toString())
+    const sumFactor = w0.mul(a0).add(w1.mul(a1)).add(w2.mul(a2))
+    const k = totalSwapTokens.div(sumFactor)
+
+    // calculate liquidities: L_i = k * w_i
+    const l0 = k.mul(w0)
+    const l1 = k.mul(w1)
+    const l2 = k.mul(w2)
+
+    // validate liquidities are positive
+    if (l0.isNeg() || l1.isNeg() || l2.isNeg()) {
+        return {
+            isOk: false,
+            sqrtStartPrice: new BN(0),
+            curve: [] as { sqrtPrice: BN; liquidity: BN }[],
+            error: 'Calculated liquidities are negative - invalid configuration',
+        }
+    }
+
+    // verify token distribution
+    const tokenPhase1 = l0.mul(a0) // amount should be equal phase1Percent * totalSwapToken
+    const tokenPhase2 = l1.mul(a1) // amount should be equal phase2Percent * totalSwapToken
+    const tokenPhase3 = l2.mul(a2) // amount should be equal phase3Percent * totalSwapToken
+    const totalActual = tokenPhase1.add(tokenPhase2).add(tokenPhase3)
+
+    // calculate actual quote amount for verification
+    // formula: (L0*b0) + (L1*b1) + (L2*b2)
+    const actualQuote = l0.mul(b0).add(l1.mul(b1)).add(l2.mul(b2))
+
+    return {
+        isOk: true,
+        sqrtStartPrice: initialSqrtPrice,
+        curve: [
+            {
+                sqrtPrice: phase1SqrtPrice,
+                liquidity: new BN(l0.floor().toFixed()),
+            },
+            {
+                sqrtPrice: phase2SqrtPrice,
+                liquidity: new BN(l1.floor().toFixed()),
+            },
+            {
+                sqrtPrice: migrationSqrtPrice,
+                liquidity: new BN(l2.floor().toFixed()),
+            },
+        ],
+        tokenDistibution: {
+            phase1Percent: tokenPhase1.div(totalActual).mul(100).toFixed(2),
+            phase2Percent: tokenPhase2.div(totalActual).mul(100).toFixed(2),
+            phase3Percent: tokenPhase3.div(totalActual).mul(100).toFixed(2),
+        },
+        actualQuoteAmount: actualQuote.floor().toFixed(),
+    }
+}
+
+/**
  * Check if rate limiter should be applied based on pool configuration and state
  * @param baseFeeMode - The base fee mode
  * @param swapBaseForQuote - Whether the swap is from base to quote
@@ -1449,4 +1622,3 @@ export async function prepareSwapAmountParam(
 
     return convertToLamports(amount, mintTokenDecimals)
 }
-

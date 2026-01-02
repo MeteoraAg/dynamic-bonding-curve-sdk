@@ -1,4 +1,4 @@
-import { expect, test, describe } from 'bun:test'
+import { expect, test, describe } from 'vitest'
 import { buildCurveWithLiquidityWeights } from '../src/helpers'
 import BN from 'bn.js'
 import {

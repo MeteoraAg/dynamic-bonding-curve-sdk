@@ -282,6 +282,23 @@ export type BuildCurveWithCustomSqrtPricesParams = BuildCurveBaseParams & {
     liquidityWeights?: number[] // Optional weights for each segment. If not provided, liquidity is distributed evenly
 }
 
+export type BuildCurveWithThreeSegmentsParams = BuildCurveBaseParams & {
+    /** Initial market cap (determines start price) */
+    initialMarketCap: number
+    /** Migration market cap (determines final/migration price) */
+    migrationMarketCap: number
+    /** Price at end of phase 1 */
+    phase1EndPrice: number
+    /** Price at end of phase 2 */
+    phase2EndPrice: number
+    /**
+     * Liquidity weights for each phase [phase1Weight, phase2Weight, phase3Weight]
+     * Controls the liquidity distribution across segments (higher weight = more liquidity)
+     * Example: [2, 1, 1] means phase1 has 2x the liquidity of phase2 and phase3
+     */
+    liquidityWeights: [number, number, number]
+}
+
 export type InitializePoolBaseParams = {
     name: string
     symbol: string
