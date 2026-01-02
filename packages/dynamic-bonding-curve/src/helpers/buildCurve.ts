@@ -31,6 +31,7 @@ import {
     getMigrationQuoteThresholdFromMigrationQuoteAmount,
     getBaseFeeParams,
     getMigratedPoolFeeParams,
+    calculateAdjustedPercentageSupplyOnMigration,
 } from './common'
 import { getInitialLiquidityFromDeltaBase } from '../math/curve'
 import { convertDecimalToBN, convertToLamports, fromDecimalToBN } from './utils'
@@ -257,13 +258,23 @@ export function buildCurveWithMarketCap(
 
     const totalSupply = convertToLamports(totalTokenSupply, tokenBaseDecimal)
 
-    const percentageSupplyOnMigration = getPercentageSupplyOnMigration(
-        new Decimal(initialMarketCap),
-        new Decimal(migrationMarketCap),
-        lockedVesting,
-        totalLeftover,
-        totalSupply
-    )
+    const percentageSupplyOnMigration =
+        migrationFee.feePercentage > 0
+            ? calculateAdjustedPercentageSupplyOnMigration(
+                  initialMarketCap,
+                  migrationMarketCap,
+                  migrationFee,
+                  lockedVesting,
+                  totalLeftover,
+                  totalTokenSupply
+              )
+            : getPercentageSupplyOnMigration(
+                  new Decimal(initialMarketCap),
+                  new Decimal(migrationMarketCap),
+                  lockedVesting,
+                  totalLeftover,
+                  totalSupply
+              )
 
     const migrationQuoteAmount = getMigrationQuoteAmount(
         new Decimal(migrationMarketCap),
