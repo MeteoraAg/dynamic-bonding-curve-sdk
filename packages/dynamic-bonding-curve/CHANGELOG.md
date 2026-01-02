@@ -2,6 +2,14 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.4.10] - 2025-01-02
+
+### Added
+
+- Added `buildCurveWithThreeSegments` function to build a 3-phase bonding curve with custom price points and liquidity distribution
+- Added `buildCurveWithCustomSqrtPrices` function to build a curve with custom sqrt price points and optional liquidity weights
+- Added `getThreeCurve` helper function to calculate liquidities for 3-segment curves
+
 ## [1.4.9] - 2025-11-29
 
 ### Added
