@@ -266,7 +266,7 @@ export function buildCurveWithMarketCap(
                   migrationFee,
                   lockedVesting,
                   totalLeftover,
-                  totalTokenSupply
+                  totalSupply
               )
             : getPercentageSupplyOnMigration(
                   new Decimal(initialMarketCap),

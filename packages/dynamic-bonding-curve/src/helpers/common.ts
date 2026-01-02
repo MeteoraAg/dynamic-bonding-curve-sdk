@@ -767,7 +767,8 @@ export const getPercentageSupplyOnMigration = (
  * - L = leftover percentage
  *
  * requiredRatio = sqrt(D / M)
- * percentageSupplyOnMigration = (requiredRatio * (1 - f) * 100) / (1 + requiredRatio * (1 - f))
+ * percentageSupplyOnMigration = (requiredRatio * (1 - f) * (100 - V - L)) / (1 + requiredRatio * (1 - f))
+ * This accounts for vesting and leftover similar to getPercentageSupplyOnMigration
  */
 export function calculateAdjustedPercentageSupplyOnMigration(
     initialMarketCap: number,
@@ -775,7 +776,7 @@ export function calculateAdjustedPercentageSupplyOnMigration(
     migrationFee: { feePercentage: number },
     lockedVesting: LockedVestingParameters,
     totalLeftover: BN,
-    totalTokenSupply: number
+    totalTokenSupply: BN
 ): number {
     // D = desiredMarketCap (the target actual starting market cap)
     const D = new Decimal(initialMarketCap)
@@ -788,17 +789,19 @@ export function calculateAdjustedPercentageSupplyOnMigration(
     const totalVestingAmount = getTotalVestingAmount(lockedVesting)
     const V = new Decimal(totalVestingAmount.toString())
         .mul(100)
-        .div(new Decimal(totalTokenSupply))
+        .div(new Decimal(totalTokenSupply.toString()))
     const L = new Decimal(totalLeftover.toString())
         .mul(100)
-        .div(new Decimal(totalTokenSupply))
+        .div(new Decimal(totalTokenSupply.toString()))
 
     // requiredRatio = sqrt(D / M)
     const requiredRatio = Decimal.sqrt(D.div(M))
 
-    // percentageSupplyOnMigration = (requiredRatio * (1 - f) * 100) / (1 + requiredRatio * (1 - f))
+    // percentageSupplyOnMigration = (requiredRatio * (1 - f) * (100 - V - L)) / (1 + requiredRatio * (1 - f))
+    // This accounts for vesting and leftover similar to getPercentageSupplyOnMigration
     const oneMinusF = new Decimal(1).sub(f)
-    const numerator = requiredRatio.mul(oneMinusF).mul(100)
+    const availablePercentage = new Decimal(100).sub(V).sub(L)
+    const numerator = requiredRatio.mul(oneMinusF).mul(availablePercentage)
     const denominator = new Decimal(1).add(requiredRatio.mul(oneMinusF))
     const percentageSupplyOnMigration = numerator.div(denominator).toNumber()
 
