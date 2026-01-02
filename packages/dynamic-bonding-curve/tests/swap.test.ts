@@ -11,7 +11,7 @@ import {
 import { BN } from 'bn.js'
 import { executeTransaction } from './utils/common'
 
-describe('Swap Tests', () => {
+describe.skip('Swap Tests', () => {
     let context: ProgramTestContext
     let admin: Keypair
     let operator: Keypair

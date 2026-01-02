@@ -8,7 +8,7 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.27.0",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -21,7 +21,6 @@
     "test": "turbo run test"
   },
   "workspaces": [
-    "apps/*",
     "packages/*"
   ]
 }
