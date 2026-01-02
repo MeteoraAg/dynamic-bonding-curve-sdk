@@ -64,15 +64,15 @@ describe('buildCurveWithThreeSegments tests', () => {
         phase1EndPrice: 0.0001, // Price at end of phase 1 = 0.0001 (P1)
         phase2EndPrice: 0.0003, // Price at end of phase 2 = 0.0003 (P2)
         migrationMarketCap: 500_000, // $500k migration MC -> migration price = 0.0005 (P3)
-        tokenAllocation: [10, 10, 80], // 10% (phase1) + 10% (phase2 )+ 80% (phase3) = 100%
+        liquidityWeights: [2, 1, 1], // phase1 has 2x the liquidity of phase2 and phase3
         leftover: 100_000_000, // 10% leftover helps with rounding
         ...overrides,
     })
 
     //  VALID CONFIGURATION TESTS
     describe('Valid Configurations', () => {
-        test('should build curve with default allocation (10/10/80)', () => {
-            console.log('\n Testing default allocation (10/10/80)')
+        test('should build curve with default liquidity weights (2:1:1)', () => {
+            console.log('\n Testing default liquidity weights (2:1:1)')
 
             const config = buildCurveWithThreeSegments(createThreePhaseParams())
 
@@ -89,12 +89,12 @@ describe('buildCurveWithThreeSegments tests', () => {
             )
         })
 
-        test('should build curve with stable, growth, moon allocation (50/25/25)', () => {
-            console.log('\n Testing stable, growth, moon allocation (50/25/25)')
+        test('should build curve with equal liquidity weights (1:1:1)', () => {
+            console.log('\n Testing equal liquidity weights (1:1:1)')
 
             const config = buildCurveWithThreeSegments(
                 createThreePhaseParams({
-                    tokenAllocation: [50, 25, 25],
+                    liquidityWeights: [1, 1, 1],
                 })
             )
 
@@ -106,66 +106,64 @@ describe('buildCurveWithThreeSegments tests', () => {
         })
     })
 
-    //  TOKEN ALLOCATION ERROR TESTS
-    describe('Token Allocation Validation', () => {
-        test('should throw error when allocation sums to less than 100', () => {
-            console.log('\n Testing allocation sum < 100')
+    //  LIQUIDITY WEIGHTS VALIDATION TESTS
+    describe('Liquidity Weights Validation', () => {
+        test('should throw error when weight has zero in first phase', () => {
+            console.log('\n Testing zero weight in phase 1')
 
             expect(() => {
                 buildCurveWithThreeSegments(
                     createThreePhaseParams({
-                        tokenAllocation: [30, 30, 30], // sums to 90
+                        liquidityWeights: [0, 1, 1],
                     })
                 )
-            }).toThrow(/Token allocation must sum to 100/)
+            }).toThrow(/Liquidity weights must all be greater than 0/)
         })
 
-        test('should throw error when allocation sums to more than 100', () => {
-            console.log('\n Testing allocation sum > 100')
+        test('should throw error when weight has zero in middle phase', () => {
+            console.log('\n Testing zero weight in phase 2')
 
             expect(() => {
                 buildCurveWithThreeSegments(
                     createThreePhaseParams({
-                        tokenAllocation: [40, 40, 40], // sums to 120
+                        liquidityWeights: [1, 0, 1],
                     })
                 )
-            }).toThrow(/Token allocation must sum to 100/)
+            }).toThrow(/Liquidity weights must all be greater than 0/)
         })
 
-        test('should throw error when allocation has zero in first phase', () => {
-            console.log('\n Testing zero allocation in phase 1')
+        test('should throw error when weight has zero in last phase', () => {
+            console.log('\n Testing zero weight in phase 3')
 
             expect(() => {
                 buildCurveWithThreeSegments(
                     createThreePhaseParams({
-                        tokenAllocation: [0, 50, 50],
+                        liquidityWeights: [1, 1, 0],
                     })
                 )
-            }).toThrow(/allocation percentages must all be greater than 0/)
+            }).toThrow(/Liquidity weights must all be greater than 0/)
         })
 
-        test('should throw error when allocation has zero in middle phase', () => {
-            console.log('\n Testing zero allocation in phase 2')
+        test('should build curve with various weight ratios', () => {
+            console.log('\n Testing various weight ratios')
 
-            expect(() => {
-                buildCurveWithThreeSegments(
-                    createThreePhaseParams({
-                        tokenAllocation: [50, 0, 50],
-                    })
-                )
-            }).toThrow(/allocation percentages must all be greater than 0/)
-        })
+            // Test 3:2:1 ratio
+            const config1 = buildCurveWithThreeSegments(
+                createThreePhaseParams({
+                    liquidityWeights: [3, 2, 1],
+                })
+            )
+            expect(config1).toBeDefined()
+            expect(config1.curve.length).toBe(3)
 
-        test('should throw error when allocation has zero in last phase', () => {
-            console.log('\n Testing zero allocation in phase 3')
-
-            expect(() => {
-                buildCurveWithThreeSegments(
-                    createThreePhaseParams({
-                        tokenAllocation: [50, 50, 0],
-                    })
-                )
-            }).toThrow(/allocation percentages must all be greater than 0/)
+            // Test 1:2:3 ratio
+            const config2 = buildCurveWithThreeSegments(
+                createThreePhaseParams({
+                    liquidityWeights: [1, 2, 3],
+                })
+            )
+            expect(config2).toBeDefined()
+            expect(config2.curve.length).toBe(3)
         })
     })
 

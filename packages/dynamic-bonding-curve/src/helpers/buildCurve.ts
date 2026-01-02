@@ -1173,12 +1173,12 @@ export function buildCurveWithCustomSqrtPrices(
  * @example
  * ```typescript
  * const config = buildCurveWithThreeSegments({
- *   totalTokenSupply: 1_000_000_000,
- *   initialMarketCap: 1_000_000,      // $1M initial
- *   migrationMarketCap: 1_000_000_000, // $1B migration
- *   phase1EndPrice: 1.05,              // End of phase 1 at $1.05
- *   phase2EndPrice: 2.00,              // End of phase 2 at $2.00
- *   tokenAllocation: [50, 25, 25],     // 50% phase 1, 25% phase 2, 25% phase 3
+ *   totalTokenSupply: 1_000_000_000,   // 1 billion tokens
+ *   initialMarketCap: 30_000,          // $30K starting MC
+ *   migrationMarketCap: 10_000_000,    // $10M migration MC
+ *   phase1EndPrice: 0.00006,           // End of phase 1
+ *   phase2EndPrice: 0.0003,            // End of phase 2
+ *   liquidityWeights: [2, 1, 1],       // 50% phase 1 : 25% phase 2 : 25% phase 3
  *   // ... other base params
  * })
  * ```
@@ -1210,14 +1210,14 @@ export function buildCurveWithThreeSegments(
         baseFeeParams,
         phase1EndPrice,
         phase2EndPrice,
-        tokenAllocation,
+        liquidityWeights,
     } = buildCurveWithThreeSegmentsParam
 
-    // validate token allocation
-    const [phase1Percent, phase2Percent, phase3Percent] = tokenAllocation
-    if (phase1Percent + phase2Percent + phase3Percent != 100) {
+    // validate liquidity weights are positive
+    const [weight1, weight2, weight3] = liquidityWeights
+    if (weight1 <= 0 || weight2 <= 0 || weight3 <= 0) {
         throw new Error(
-            `Token allocation must sum to 100, got ${phase1Percent + phase2Percent + phase3Percent}`
+            `Liquidity weights must all be greater than 0, got [${weight1}, ${weight2}, ${weight3}]`
         )
     }
 
@@ -1351,7 +1351,7 @@ export function buildCurveWithThreeSegments(
         phase2SqrtPrice,
         migrationSqrtPrice,
         swapAmount,
-        tokenAllocation
+        liquidityWeights
     )
 
     if (!result.isOk) {

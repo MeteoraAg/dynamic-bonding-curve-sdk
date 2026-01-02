@@ -1200,7 +1200,7 @@ export const getTwoCurve = (
  * @param phase2SqrtPrice - The phase 2 end sqrt price (P2)
  * @param migrationSqrtPrice - The migration sqrt price (P3)
  * @param swapAmount - The total swap amount (base tokens on curve)
- * @param tokenAllocation - Token allocation percentages [phase1%, phase2%, phase3%] must sum to 100
+ * @param liquidityWeights - Liquidity weights for each phase [weight1, weight2, weight3]
  * @returns The three curve with liquidities for each segment
  */
 export const getThreeCurve = (
@@ -1209,31 +1209,21 @@ export const getThreeCurve = (
     phase2SqrtPrice: BN,
     migrationSqrtPrice: BN,
     swapAmount: BN,
-    tokenAllocation: [number, number, number]
+    liquidityWeights: [number, number, number]
 ) => {
-    const [phase1Percent, phase2Percent, phase3Percent] = tokenAllocation
+    const [weight1, weight2, weight3] = liquidityWeights
 
-    // validate all allocation percentages are non-zero
-    if (phase1Percent <= 0 || phase2Percent <= 0 || phase3Percent <= 0) {
+    // validate all weights are positive
+    if (weight1 <= 0 || weight2 <= 0 || weight3 <= 0) {
         return {
             isOk: false,
             sqrtStartPrice: new BN(0),
             curve: [] as { sqrtPrice: BN; liquidity: BN }[],
-            error: 'Token allocation percentages must all be greater than 0',
+            error: 'Liquidity weights must all be greater than 0',
         }
     }
 
-    // validate token allocation sums to 100
-    if (phase1Percent + phase2Percent + phase3Percent !== 100) {
-        return {
-            isOk: false,
-            sqrtStartPrice: new BN(0),
-            curve: [] as { sqrtPrice: BN; liquidity: BN }[],
-            error: 'Token allocation percentages must sum to 100',
-        }
-    }
-
-    // convert to decimal for percision
+    // convert to decimal for precision
     const p0 = new Decimal(initialSqrtPrice.toString())
     const p1 = new Decimal(phase1SqrtPrice.toString())
     const p2 = new Decimal(phase2SqrtPrice.toString())
@@ -1251,26 +1241,22 @@ export const getThreeCurve = (
     const b1 = p2.sub(p1) // Phase 2
     const b2 = p3.sub(p2) // Phase 3
 
-    // use token allocation to express L1 & L2 in terms of L0
-    // (L0*a0) : (L1*a1) : (L2*a2) = phase1% : phase2% : phase3%
-    const ratio1 = new Decimal(phase2Percent).div(phase1Percent)
-    const ratio2 = new Decimal(phase3Percent).div(phase1Percent)
+    // convert weights to Decimal
+    const w0 = new Decimal(weight1)
+    const w1 = new Decimal(weight2)
+    const w2 = new Decimal(weight3)
 
-    // calcualte total ration for normalization
-    // L0*a0 * (1 + ratio1 + ratio2) = totalSwapTokens
-    const totalRatio = new Decimal(1).add(ratio1).add(ratio2)
+    // use liquidity weights: L0 : L1 : L2 = w0 : w1 : w2
+    // swapAmount = L0*a0 + L1*a1 + L2*a2 = k*(w0*a0 + w1*a1 + w2*a2)
+    // solve for k = swapAmount / (w0*a0 + w1*a1 + w2*a2)
     const totalSwapTokens = new Decimal(swapAmount.toString())
+    const sumFactor = w0.mul(a0).add(w1.mul(a1)).add(w2.mul(a2))
+    const k = totalSwapTokens.div(sumFactor)
 
-    // Solve for L0
-    const l0 = totalSwapTokens.div(a0.mul(totalRatio))
-
-    // calculate L1
-    // formula: L1 = (L0 * a0 * ratio1) / a1
-    const l1 = l0.mul(a0).mul(ratio1).div(a1)
-
-    // calculate L2
-    // formula: L2 - (L0 * a0 * ratio2) / a2
-    const l2 = l0.mul(a0).mul(ratio2).div(a2)
+    // calculate liquidities: L_i = k * w_i
+    const l0 = k.mul(w0)
+    const l1 = k.mul(w1)
+    const l2 = k.mul(w2)
 
     // validate liquidities are positive
     if (l0.isNeg() || l1.isNeg() || l2.isNeg()) {

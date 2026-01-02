@@ -292,11 +292,11 @@ export type BuildCurveWithThreeSegmentsParams = BuildCurveBaseParams & {
     /** Price at end of phase 2 */
     phase2EndPrice: number
     /**
-     * Token allocation percentages for each phase [phase1%, phase2%, phase3%]
-     * Must sum to 100
-     * Example: [50, 25, 25] means 50% in phase1 (0-50%), 25% in phase2 (50-75%), 25% in phase3 (75-100%)
+     * Liquidity weights for each phase [phase1Weight, phase2Weight, phase3Weight]
+     * Controls the liquidity distribution across segments (higher weight = more liquidity)
+     * Example: [2, 1, 1] means phase1 has 2x the liquidity of phase2 and phase3
      */
-    tokenAllocation: [number, number, number]
+    liquidityWeights: [number, number, number]
 }
 
 export type InitializePoolBaseParams = {
