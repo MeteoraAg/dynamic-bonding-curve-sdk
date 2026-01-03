@@ -10,7 +10,7 @@ import {
     TokenType,
 } from '../src'
 import { convertBNToDecimal } from './utils/common'
-import { expect, test, describe } from 'bun:test'
+import { expect, test, describe } from 'vitest'
 
 describe('calculateFeeScheduler tests', () => {
     test('linear fee scheduler - should calculate parameters correctly', () => {

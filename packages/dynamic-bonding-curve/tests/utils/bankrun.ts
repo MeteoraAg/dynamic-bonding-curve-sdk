@@ -84,7 +84,7 @@ export async function fundSol(
         )
     }
 
-    let transaction = new Transaction()
+    const transaction = new Transaction()
     const latestBlockhash = await banksClient.getLatestBlockhash()
     if (!latestBlockhash) {
         throw new Error('Failed to get recent blockhash')
@@ -109,7 +109,7 @@ export async function processTransactionMaybeThrow(
 
 export async function expectThrowsAsync(
     fn: () => Promise<void>,
-    errorMessage: String
+    errorMessage: string
 ) {
     try {
         await fn()

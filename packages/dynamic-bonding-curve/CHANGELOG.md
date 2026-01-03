@@ -2,6 +2,11 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.4.10] - 2025-01-03
+
+### Added
+
+- Added `buildCurveWithCustomSqrtPrices` function to build a curve with custom sqrt price points and optional liquidity weights
 
 ## [1.4.9] - 2025-11-29
 
