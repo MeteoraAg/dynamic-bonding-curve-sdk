@@ -756,6 +756,59 @@ export const getPercentageSupplyOnMigration = (
 }
 
 /**
+ * Calculate the adjusted percentageSupplyOnMigration that accounts for migrationFee
+ * to ensure the resulting sqrtStartPrice matches the target initialMarketCap
+ *
+ * Formula:
+ * - D = desiredMarketCap (initialMarketCap parameter - the target actual starting market cap)
+ * - M = migrationMarketCap
+ * - f = migrationFee (as decimal, e.g., 0.49 for 49%)
+ * - V = vesting percentage
+ * - L = leftover percentage
+ *
+ * requiredRatio = sqrt(D / M)
+ * percentageSupplyOnMigration = (requiredRatio * (1 - f) * (100 - V - L)) / (1 + requiredRatio * (1 - f))
+ * This accounts for vesting and leftover similar to getPercentageSupplyOnMigration
+ */
+export function calculateAdjustedPercentageSupplyOnMigration(
+    initialMarketCap: number,
+    migrationMarketCap: number,
+    migrationFee: { feePercentage: number },
+    lockedVesting: LockedVestingParameters,
+    totalLeftover: BN,
+    totalTokenSupply: BN
+): number {
+    // D = desiredMarketCap (the target actual starting market cap)
+    const D = new Decimal(initialMarketCap)
+    // M = migrationMarketCap
+    const M = new Decimal(migrationMarketCap)
+    // f = migrationFee (as decimal)
+    const f = new Decimal(migrationFee.feePercentage).div(100)
+
+    // calculate vesting and leftover percentages
+    const totalVestingAmount = getTotalVestingAmount(lockedVesting)
+    const V = new Decimal(totalVestingAmount.toString())
+        .mul(100)
+        .div(new Decimal(totalTokenSupply.toString()))
+    const L = new Decimal(totalLeftover.toString())
+        .mul(100)
+        .div(new Decimal(totalTokenSupply.toString()))
+
+    // requiredRatio = sqrt(D / M)
+    const requiredRatio = Decimal.sqrt(D.div(M))
+
+    // percentageSupplyOnMigration = (requiredRatio * (1 - f) * (100 - V - L)) / (1 + requiredRatio * (1 - f))
+    // This accounts for vesting and leftover similar to getPercentageSupplyOnMigration
+    const oneMinusF = new Decimal(1).sub(f)
+    const availablePercentage = new Decimal(100).sub(V).sub(L)
+    const numerator = requiredRatio.mul(oneMinusF).mul(availablePercentage)
+    const denominator = new Decimal(1).add(requiredRatio.mul(oneMinusF))
+    const percentageSupplyOnMigration = numerator.div(denominator).toNumber()
+
+    return percentageSupplyOnMigration
+}
+
+/**
  * Get the migration quote amount
  * @param migrationMarketCap - The migration market cap
  * @param percentageSupplyOnMigration - The percentage of supply on migration
