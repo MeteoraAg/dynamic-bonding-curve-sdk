@@ -2,24 +2,25 @@
   "name": "ts-sdk",
   "devDependencies": {
     "prettier": "^3.5.3",
-    "turbo": "^2.5.0",
+    "tsup": "^8.4.0",
     "typescript": "5.8.2"
   },
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "bun@1.2.8",
+  "packageManager": "pnpm@10.27.0",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "link": "turbo run link",
+    "build": "pnpm -r run build",
+    "dev": "pnpm -r run dev",
+    "lint": "pnpm -r run lint",
+    "link": "pnpm -r run link",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
+    "check-types": "pnpm -r run check-types",
+    "test": "pnpm -r run test"
   },
   "workspaces": [
-    "apps/*",
     "packages/*"
   ]
 }
