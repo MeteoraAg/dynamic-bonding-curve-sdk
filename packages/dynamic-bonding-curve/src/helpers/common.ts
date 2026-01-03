@@ -271,7 +271,7 @@ export const getSqrtPriceFromMarketCap = (
     tokenBaseDecimal: number,
     tokenQuoteDecimal: number
 ): BN => {
-    let price = new Decimal(marketCap).div(new Decimal(totalSupply))
+    const price = new Decimal(marketCap).div(new Decimal(totalSupply))
     return getSqrtPriceFromPrice(
         price.toString(),
         tokenBaseDecimal,
@@ -596,8 +596,8 @@ export const getMigrationThresholdPrice = (
             }
         }
         if (!amountLeft.isZero()) {
-            let migrationThresholdStr = migrationThreshold.toString()
-            let amountLeftStr = amountLeft.toString()
+            const migrationThresholdStr = migrationThreshold.toString()
+            const amountLeftStr = amountLeft.toString()
             throw Error(
                 `Not enough liquidity, migrationThreshold: ${migrationThresholdStr}  amountLeft: ${amountLeftStr}`
             )
@@ -1193,26 +1193,26 @@ export const getTwoCurve = (
     swapAmount: BN,
     migrationQuoteThreshold: BN
 ) => {
-    let p0 = new Decimal(initialSqrtPrice.toString())
-    let p1 = new Decimal(midSqrtPrice.toString())
-    let p2 = new Decimal(migrationSqrtPrice.toString())
+    const p0 = new Decimal(initialSqrtPrice.toString())
+    const p1 = new Decimal(midSqrtPrice.toString())
+    const p2 = new Decimal(migrationSqrtPrice.toString())
 
-    let a1 = new Decimal(1).div(p0).sub(new Decimal(1).div(p1))
-    let b1 = new Decimal(1).div(p1).sub(new Decimal(1).div(p2))
-    let c1 = new Decimal(swapAmount.toString())
+    const a1 = new Decimal(1).div(p0).sub(new Decimal(1).div(p1))
+    const b1 = new Decimal(1).div(p1).sub(new Decimal(1).div(p2))
+    const c1 = new Decimal(swapAmount.toString())
 
-    let a2 = p1.sub(p0)
-    let b2 = p2.sub(p1)
-    let c2 = new Decimal(migrationQuoteThreshold.toString()).mul(
+    const a2 = p1.sub(p0)
+    const b2 = p2.sub(p1)
+    const c2 = new Decimal(migrationQuoteThreshold.toString()).mul(
         Decimal.pow(2, 128)
     )
 
     // solve equation to find l0 and l1
-    let l0 = c1
+    const l0 = c1
         .mul(b2)
         .sub(c2.mul(b1))
         .div(a1.mul(b2).sub(a2.mul(b1)))
-    let l1 = c1
+    const l1 = c1
         .mul(a2)
         .sub(c2.mul(a1))
         .div(b1.mul(a2).sub(b2.mul(a1)))

@@ -56,7 +56,7 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
     test('build curve with liquidity weights 1.2^n', () => {
         console.log('\n testing build curve with liquidity weights 1.2^n...')
-        let liquidityWeights: number[] = []
+        const liquidityWeights: number[] = []
         for (let i = 0; i < 16; i++) {
             liquidityWeights[i] = new Decimal(1.2)
                 .pow(new Decimal(i))
@@ -87,7 +87,7 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
     test('build curve with liquidity weights 0.6^n', () => {
         console.log('\n testing build curve with liquidity weights 0.6^n...')
-        let liquidityWeights: number[] = []
+        const liquidityWeights: number[] = []
         for (let i = 0; i < 16; i++) {
             liquidityWeights[i] = new Decimal(0.6)
                 .pow(new Decimal(i))
@@ -116,7 +116,7 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
     test('build curve with liquidity weights v1', () => {
         console.log('\n testing build curve with liquidity weights v1...')
-        let liquidityWeights: number[] = []
+        const liquidityWeights: number[] = []
         for (let i = 0; i < 16; i++) {
             if (i < 15) {
                 liquidityWeights[i] = new Decimal(1.2)

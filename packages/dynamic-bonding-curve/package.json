@@ -24,7 +24,8 @@
     "clean": "rm -rf node_modules dist",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "exports": {
     ".": {
