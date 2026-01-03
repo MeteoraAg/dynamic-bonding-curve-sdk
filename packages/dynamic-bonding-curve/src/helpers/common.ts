@@ -757,18 +757,16 @@ export const getPercentageSupplyOnMigration = (
 
 /**
  * Calculate the adjusted percentageSupplyOnMigration that accounts for migrationFee
- * to ensure the resulting sqrtStartPrice matches the target initialMarketCap
  *
  * Formula:
- * - D = desiredMarketCap (initialMarketCap parameter - the target actual starting market cap)
+ * - D = desiredMarketCap
  * - M = migrationMarketCap
- * - f = migrationFee (as decimal, e.g., 0.49 for 49%)
+ * - f = migrationFee
  * - V = vesting percentage
  * - L = leftover percentage
  *
  * requiredRatio = sqrt(D / M)
  * percentageSupplyOnMigration = (requiredRatio * (1 - f) * (100 - V - L)) / (1 + requiredRatio * (1 - f))
- * This accounts for vesting and leftover similar to getPercentageSupplyOnMigration
  */
 export function calculateAdjustedPercentageSupplyOnMigration(
     initialMarketCap: number,
@@ -778,11 +776,8 @@ export function calculateAdjustedPercentageSupplyOnMigration(
     totalLeftover: BN,
     totalTokenSupply: BN
 ): number {
-    // D = desiredMarketCap (the target actual starting market cap)
     const D = new Decimal(initialMarketCap)
-    // M = migrationMarketCap
     const M = new Decimal(migrationMarketCap)
-    // f = migrationFee (as decimal)
     const f = new Decimal(migrationFee.feePercentage).div(100)
 
     // calculate vesting and leftover percentages
@@ -798,7 +793,6 @@ export function calculateAdjustedPercentageSupplyOnMigration(
     const requiredRatio = Decimal.sqrt(D.div(M))
 
     // percentageSupplyOnMigration = (requiredRatio * (1 - f) * (100 - V - L)) / (1 + requiredRatio * (1 - f))
-    // This accounts for vesting and leftover similar to getPercentageSupplyOnMigration
     const oneMinusF = new Decimal(1).sub(f)
     const availablePercentage = new Decimal(100).sub(V).sub(L)
     const numerator = requiredRatio.mul(oneMinusF).mul(availablePercentage)
