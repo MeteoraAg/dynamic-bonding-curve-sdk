@@ -5,7 +5,7 @@ import {
     bpsToFeeNumerator,
     getFeeNumeratorFromIncludedAmount,
 } from '../src'
-import { expect, test, describe } from 'bun:test'
+import { expect, test, describe } from 'vitest'
 import BN from 'bn.js'
 
 describe('Rate Limiter tests', () => {
