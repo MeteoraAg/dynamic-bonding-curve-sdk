@@ -17,3 +17,6 @@ dist
 
 # Scripts
 scripts/
+
+# Localnet Validator
+**/test-ledger/
