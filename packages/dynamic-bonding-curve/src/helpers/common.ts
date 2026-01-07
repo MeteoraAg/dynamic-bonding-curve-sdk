@@ -13,6 +13,7 @@ import {
     DammV2DynamicFeeMode,
     MigratedPoolFee,
     MigrationFeeOption,
+    LiquidityVestingInfoParameters,
 } from '../types'
 import {
     BASIS_POINT_MAX,
@@ -24,10 +25,12 @@ import {
     FEE_DENOMINATOR,
     MAX_FEE_BPS,
     MAX_FEE_NUMERATOR,
-    MAX_PRICE_CHANGE_BPS_DEFAULT,
+    MAX_LOCK_DURATION_IN_SECONDS,
+    MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT,
     MAX_RATE_LIMITER_DURATION_IN_SECONDS,
     MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     MAX_SQRT_PRICE,
+    MIN_FEE_BPS,
     MIN_FEE_NUMERATOR,
     MIN_SQRT_PRICE,
     ONE_Q64,
@@ -185,7 +188,7 @@ export function getTotalTokenSupply(
 
         return totalAmount
     } catch (error) {
-        throw new Error('Math overflow')
+        throw new Error(`Math overflow: ${error}`)
     }
 }
 
@@ -861,6 +864,12 @@ export function getFeeSchedulerParams(
         )
     }
 
+    if (endingBaseFeeBps < MIN_FEE_BPS) {
+        throw new Error(
+            `endingBaseFeeBps (${endingBaseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
+        )
+    }
+
     if (endingBaseFeeBps > startingBaseFeeBps) {
         throw new Error(
             'endingBaseFeeBps bps must be less than or equal to startingBaseFeeBps bps'
@@ -969,6 +978,12 @@ export function getRateLimiterParams(
         )
     }
 
+    if (baseFeeBps < MIN_FEE_BPS) {
+        throw new Error(
+            `Base fee (${baseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
+        )
+    }
+
     if (feeIncrementBps > MAX_FEE_BPS) {
         throw new Error(
             `Fee increment (${feeIncrementBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
@@ -1027,15 +1042,15 @@ export function getRateLimiterParams(
  */
 export function getDynamicFeeParams(
     baseFeeBps: number,
-    maxPriceChangeBps: number = MAX_PRICE_CHANGE_BPS_DEFAULT // default 15%
+    maxPriceChangePercentage: number = MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT // default 15%
 ): DynamicFeeParameters {
-    if (maxPriceChangeBps > MAX_PRICE_CHANGE_BPS_DEFAULT) {
+    if (maxPriceChangePercentage > MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT) {
         throw new Error(
-            `maxPriceChangeBps (${maxPriceChangeBps} bps) must be less than or equal to ${MAX_PRICE_CHANGE_BPS_DEFAULT}`
+            `maxPriceChangePercentage (${maxPriceChangePercentage}%) must be less than or equal to ${MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT}`
         )
     }
 
-    const priceRatio = maxPriceChangeBps / BASIS_POINT_MAX + 1
+    const priceRatio = maxPriceChangePercentage / BASIS_POINT_MAX + 1
     // Q64
     const sqrtPriceRatioQ64 = new BN(
         Decimal.sqrt(priceRatio.toString())
@@ -1056,7 +1071,9 @@ export function getDynamicFeeParams(
 
     const baseFeeNumerator = new BN(bpsToFeeNumerator(baseFeeBps))
 
-    const maxDynamicFeeNumerator = baseFeeNumerator.muln(20).divn(100) // default max dynamic fee = 20% of min base fee
+    const maxDynamicFeeNumerator = baseFeeNumerator
+        .muln(maxPriceChangePercentage)
+        .divn(100) // default max dynamic fee = 20% of min base fee
     const vFee = maxDynamicFeeNumerator
         .mul(new BN(100_000_000_000))
         .sub(new BN(99_999_999_999))
@@ -1092,13 +1109,7 @@ export function getLockedVestingParams(
     totalVestingDuration: number,
     cliffDurationFromMigrationTime: number,
     tokenBaseDecimal: TokenDecimal
-): {
-    amountPerPeriod: BN
-    cliffDurationFromMigrationTime: BN
-    frequency: BN
-    numberOfPeriod: BN
-    cliffUnlockAmount: BN
-} {
+): LockedVestingParameters {
     if (totalLockedVestingAmount == 0) {
         return {
             amountPerPeriod: new BN(0),
@@ -1169,6 +1180,95 @@ export function getLockedVestingParams(
             adjustedCliffUnlockAmount,
             tokenBaseDecimal
         ),
+    }
+}
+
+export const getLiquidityVestingInfoParams = (
+    vestingPercentage: number,
+    bpsPerPeriod: number,
+    numberOfPeriods: number,
+    cliffDurationFromMigrationTime: number,
+    totalDuration: number
+): LiquidityVestingInfoParameters => {
+    // validate vestingPercentage (0-100, u8)
+    if (vestingPercentage < 0 || vestingPercentage > 100) {
+        throw new Error('vestingPercentage must be between 0 and 100')
+    }
+
+    // if vestingPercentage is 0, all other params should be 0 (zero vesting case)
+    if (vestingPercentage === 0) {
+        if (
+            bpsPerPeriod !== 0 ||
+            numberOfPeriods !== 0 ||
+            cliffDurationFromMigrationTime !== 0 ||
+            totalDuration !== 0
+        ) {
+            throw new Error(
+                'If vestingPercentage is 0, all other parameters must be 0'
+            )
+        }
+        return {
+            vestingPercentage: 0,
+            bpsPerPeriod: 0,
+            numberOfPeriods: 0,
+            cliffDurationFromMigrationTime: 0,
+            frequency: 0,
+        }
+    }
+
+    if (bpsPerPeriod < 0 || bpsPerPeriod > BASIS_POINT_MAX) {
+        throw new Error(`bpsPerPeriod must be between 0 and ${BASIS_POINT_MAX}`)
+    }
+
+    if (numberOfPeriods <= 0) {
+        throw new Error(
+            'numberOfPeriods must be greater than zero when vestingPercentage > 0'
+        )
+    }
+
+    if (cliffDurationFromMigrationTime < 0) {
+        throw new Error('cliffDurationFromMigrationTime must be >= 0')
+    }
+
+    if (totalDuration <= 0) {
+        throw new Error('totalDuration must be greater than zero')
+    }
+
+    const frequency = totalDuration / numberOfPeriods
+
+    if (frequency <= 0) {
+        throw new Error(
+            'frequency must be greater than zero (totalDuration / numberOfPeriods must be > 0)'
+        )
+    }
+
+    const totalBps = bpsPerPeriod * numberOfPeriods
+    if (totalBps > BASIS_POINT_MAX) {
+        throw new Error(
+            `Total BPS (bpsPerPeriod * numberOfPeriods = ${totalBps}) must not exceed ${BASIS_POINT_MAX}`
+        )
+    }
+
+    const totalVestingDuration =
+        cliffDurationFromMigrationTime + numberOfPeriods * frequency
+    if (totalVestingDuration > MAX_LOCK_DURATION_IN_SECONDS) {
+        throw new Error(
+            `Total vesting duration (${totalVestingDuration}s) must not exceed ${MAX_LOCK_DURATION_IN_SECONDS}s (2 years)`
+        )
+    }
+
+    if (cliffDurationFromMigrationTime === 0 && numberOfPeriods === 0) {
+        throw new Error(
+            'If cliffDurationFromMigrationTime is 0, numberOfPeriods must be > 0'
+        )
+    }
+
+    return {
+        vestingPercentage,
+        bpsPerPeriod,
+        numberOfPeriods,
+        cliffDurationFromMigrationTime,
+        frequency: Math.round(frequency),
     }
 }
 

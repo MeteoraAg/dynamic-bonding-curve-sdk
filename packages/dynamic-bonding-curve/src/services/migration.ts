@@ -1,4 +1,5 @@
 import {
+    AccountMeta,
     Commitment,
     ComputeBudgetProgram,
     Keypair,
@@ -38,6 +39,7 @@ import {
     deriveDammV1LockEscrowAddress,
     deriveDammV1ProtocolFeeAddress,
     deriveLockerEventAuthority,
+    deriveDammV2PositionVestingAccount,
 } from '../helpers'
 import type { DammV1 } from '../idl/damm-v1/idl'
 import type {
@@ -752,6 +754,30 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 ? TOKEN_PROGRAM_ID
                 : TOKEN_2022_PROGRAM_ID
 
+        const firstPositionVestingAddress =
+            deriveDammV2PositionVestingAccount(firstPosition)
+
+        const secondPositionVestingAddress =
+            deriveDammV2PositionVestingAccount(secondPosition)
+
+        const remainingAccounts: AccountMeta[] = [
+            {
+                isSigner: false,
+                isWritable: false,
+                pubkey: dammConfig,
+            },
+            {
+                isSigner: false,
+                isWritable: true,
+                pubkey: firstPositionVestingAddress,
+            },
+            {
+                isSigner: false,
+                isWritable: true,
+                pubkey: secondPositionVestingAddress,
+            },
+        ]
+
         const tx = await this.program.methods
             .migrationDammV2()
             .accountsStrict({
@@ -781,17 +807,11 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 systemProgram: SystemProgram.programId,
                 dammEventAuthority,
             })
-            .remainingAccounts([
-                {
-                    isSigner: false,
-                    isWritable: false,
-                    pubkey: dammConfig,
-                },
-            ])
+            .remainingAccounts(remainingAccounts)
             .transaction()
 
         const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
-            units: 500000,
+            units: 600000,
         })
 
         tx.add(modifyComputeUnits)

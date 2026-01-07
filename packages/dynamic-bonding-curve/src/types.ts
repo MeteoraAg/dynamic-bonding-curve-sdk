@@ -16,7 +16,7 @@ export type DynamicCurveProgram = Program<DynamicBondingCurveIDL>
 /////////////////
 
 export type CreateConfigAccounts = Accounts<
-    DynamicBondingCurve['instructions']['6']
+    DynamicBondingCurve['instructions']['8']
 >['createConfig']
 
 ///////////////
@@ -56,6 +56,9 @@ export type SwapResult2 = IdlTypes<DynamicBondingCurve>['swapResult2']
 
 export type CreatePartnerMetadataParameters =
     IdlTypes<DynamicBondingCurve>['createPartnerMetadataParameters']
+
+export type LiquidityVestingInfoParameters =
+    IdlTypes<DynamicBondingCurve>['liquidityVestingInfoParams']
 
 //////////////////
 // IDL ACCOUNTS //
@@ -220,27 +223,30 @@ export type BaseFeeParams =
 
 export type BuildCurveBaseParams = {
     totalTokenSupply: number
-    migrationOption: MigrationOption
+    tokenType: TokenType
     tokenBaseDecimal: TokenDecimal
     tokenQuoteDecimal: TokenDecimal
-    lockedVestingParam: LockedVestingParams
+    tokenUpdateAuthority: number
+    lockedVestingParams: LockedVestingParams
+    leftover: number
     baseFeeParams: BaseFeeParams
     dynamicFeeEnabled: boolean
     activationType: ActivationType
     collectFeeMode: CollectFeeMode
-    migrationFeeOption: MigrationFeeOption
-    tokenType: TokenType
-    partnerLpPercentage: number
-    creatorLpPercentage: number
-    partnerLockedLpPercentage: number
-    creatorLockedLpPercentage: number
     creatorTradingFeePercentage: number
-    leftover: number
-    tokenUpdateAuthority: number
+    poolCreationFee: BN
+    migrationOption: MigrationOption
+    migrationFeeOption: MigrationFeeOption
     migrationFee: {
         feePercentage: number
         creatorFeePercentage: number
     }
+    partnerPermanentLockedLiquidityPercentage: number
+    partnerLiquidityPercentage: number
+    creatorPermanentLockedLiquidityPercentage: number
+    creatorLiquidityPercentage: number
+    partnerLiquidityVestingInfoParams: LiquidityVestingInfoParams
+    creatorLiquidityVestingInfoParams: LiquidityVestingInfoParams
     migratedPoolFee?: {
         collectFeeMode: CollectFeeMode
         dynamicFee: DammV2DynamicFeeMode
@@ -563,6 +569,21 @@ export type TransferPoolCreatorParams = {
 export type WithdrawMigrationFeeParams = {
     virtualPool: PublicKey
     sender: PublicKey // sender is creator or partner
+}
+
+export type ClaimPartnerPoolCreationFeeParams = {
+    config: PublicKey
+    virtualPool: PublicKey
+    feeClaimer: PublicKey
+    feeReceiver: PublicKey
+}
+
+export type LiquidityVestingInfoParams = {
+    vestingPercentage: number
+    bpsPerPeriod: number
+    numberOfPeriods: number
+    cliffDurationFromMigrationTime: number
+    totalDuration: number
 }
 
 ////////////////

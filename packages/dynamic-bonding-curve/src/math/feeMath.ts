@@ -4,12 +4,13 @@ import { mulDiv } from './utilsMath'
 import {
     BASIS_POINT_MAX,
     FEE_DENOMINATOR,
+    HOST_FEE_PERCENT,
     MAX_FEE_NUMERATOR,
+    PROTOCOL_FEE_PERCENT,
 } from '../constants'
 import {
     CollectFeeMode,
     FeeMode,
-    PoolConfig,
     Rounding,
     TradeDirection,
     type DynamicFeeConfig,
@@ -38,7 +39,7 @@ export function toNumerator(bps: BN, feeDenominator: BN): BN {
         return numerator
     } catch (error) {
         throw new Error(
-            'Type cast failed or calculation overflow in toNumerator'
+            `Type cast failed or calculation overflow in toNumerator ${error}`
         )
     }
 }
@@ -224,7 +225,7 @@ export function getFeeOnAmount(
 
     const protocolFee = mulDiv(
         tradingFee,
-        new BN(poolFees.protocolFeePercent),
+        new BN(PROTOCOL_FEE_PERCENT),
         new BN(100),
         Rounding.Down
     )
@@ -235,7 +236,7 @@ export function getFeeOnAmount(
     const referralFee = hasReferral
         ? mulDiv(
               protocolFee,
-              new BN(poolFees.referralFeePercent),
+              new BN(HOST_FEE_PERCENT),
               new BN(100),
               Rounding.Down
           )
@@ -306,7 +307,7 @@ export function splitFees(
 ): [BN, BN, BN] {
     const protocolFee = mulDiv(
         feeAmount,
-        new BN(poolFees.protocolFeePercent),
+        new BN(PROTOCOL_FEE_PERCENT),
         new BN(100),
         Rounding.Down
     )
@@ -317,7 +318,7 @@ export function splitFees(
     const referralFee = hasReferral
         ? mulDiv(
               protocolFee,
-              new BN(poolFees.referralFeePercent),
+              new BN(HOST_FEE_PERCENT),
               new BN(100),
               Rounding.Down
           )

@@ -10,7 +10,7 @@ import {
     deriveTokenVaultKey,
     deriveVaultAddress,
     deriveVaultLpMintAddress,
-} from './accounts'
+} from './pda'
 import { BASE_ADDRESS } from '../constants'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { DammV1 } from '../idl/damm-v1/idl'

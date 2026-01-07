@@ -600,10 +600,10 @@ export function validateConfigParameters(
     // LP percentages validation
     if (
         !validateLPPercentages(
-            configParam.partnerLpPercentage,
-            configParam.partnerLockedLpPercentage,
-            configParam.creatorLpPercentage,
-            configParam.creatorLockedLpPercentage
+            configParam.partnerLiquidityPercentage,
+            configParam.partnerPermanentLockedLiquidityPercentage,
+            configParam.creatorLiquidityPercentage,
+            configParam.creatorPermanentLockedLiquidityPercentage
         )
     ) {
         throw new Error('Sum of LP percentages must equal 100')
@@ -655,7 +655,7 @@ export function validateConfigParameters(
                 throw new Error('Invalid vesting parameters')
             }
         } catch (error) {
-            throw new Error('Invalid vesting parameters')
+            throw new Error(`Invalid vesting parameters ${error}`)
         }
     }
 
@@ -758,7 +758,7 @@ export async function validateBalance(
             }
         } catch (error) {
             throw new Error(
-                `Failed to fetch token balance or token account doesn't exist`
+                `Failed to fetch token balance or token account doesn't exist ${error}`
             )
         }
     }
