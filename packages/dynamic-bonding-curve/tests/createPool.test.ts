@@ -1,7 +1,7 @@
 import { Keypair } from '@solana/web3.js'
 import { ProgramTestContext } from 'solana-bankrun'
 import { fundSol, startTest } from './utils/bankrun'
-import { test, describe, beforeEach } from 'vitest'
+import { test, describe, beforeEach, vi } from 'vitest'
 import {
     ActivationType,
     BaseFeeMode,
@@ -16,6 +16,8 @@ import {
     TokenDecimal,
     TokenType,
     TokenUpdateAuthorityOption,
+    StateService,
+    PoolConfig,
 } from '../src'
 import { connection, executeTransaction } from './utils/common'
 import { NATIVE_MINT } from '@solana/spl-token'
@@ -71,9 +73,9 @@ describe('createPool tests', () => {
                 dynamicFee: DammV2DynamicFeeMode.Enabled,
                 poolFeeBps: 120,
             },
-            partnerLiquidityPercentage: 30,
-            creatorLiquidityPercentage: 70,
-            partnerPermanentLockedLiquidityPercentage: 0,
+            partnerLiquidityPercentage: 0,
+            creatorLiquidityPercentage: 0,
+            partnerPermanentLockedLiquidityPercentage: 100,
             creatorPermanentLockedLiquidityPercentage: 0,
             creatorTradingFeePercentage: 0,
             lockedVestingParams: {
@@ -103,7 +105,7 @@ describe('createPool tests', () => {
         config = Keypair.generate()
     })
 
-    test('createConfig', async () => {
+    test('createPool', async () => {
         const createConfigTx = await dbcClient.partner.createConfig({
             config: config.publicKey,
             feeClaimer: partner.publicKey,
@@ -124,10 +126,15 @@ describe('createPool tests', () => {
             partner,
             config,
         ])
-    })
 
-    test('createPool', async () => {
         const baseMint = Keypair.generate()
+
+        // Mock getPoolConfig to avoid reading from disconnected connection
+        vi.spyOn(StateService.prototype, 'getPoolConfig').mockResolvedValue({
+            quoteMint: NATIVE_MINT,
+            tokenType: TokenType.SPL,
+        } as PoolConfig)
+
         const createPoolTx = await dbcClient.pool.createPool({
             baseMint: baseMint.publicKey,
             config: config.publicKey,
@@ -138,9 +145,9 @@ describe('createPool tests', () => {
             poolCreator: poolCreator.publicKey,
         })
 
-        const recentBlockhash = await context.banksClient.getLatestBlockhash()
-        if (recentBlockhash) {
-            createPoolTx.recentBlockhash = recentBlockhash[0]
+        const poolBlockhash = await context.banksClient.getLatestBlockhash()
+        if (poolBlockhash) {
+            createPoolTx.recentBlockhash = poolBlockhash[0]
         }
 
         createPoolTx.feePayer = poolCreator.publicKey

@@ -68,9 +68,9 @@ describe('createConfig tests', () => {
                 dynamicFee: DammV2DynamicFeeMode.Enabled,
                 poolFeeBps: 120,
             },
-            partnerLiquidityPercentage: 30,
-            creatorLiquidityPercentage: 70,
-            partnerPermanentLockedLiquidityPercentage: 0,
+            partnerLiquidityPercentage: 0,
+            creatorLiquidityPercentage: 0,
+            partnerPermanentLockedLiquidityPercentage: 100,
             creatorPermanentLockedLiquidityPercentage: 0,
             creatorTradingFeePercentage: 0,
             lockedVestingParams: {
