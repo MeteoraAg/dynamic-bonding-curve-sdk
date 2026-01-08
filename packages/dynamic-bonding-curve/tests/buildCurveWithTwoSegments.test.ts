@@ -19,7 +19,7 @@ describe('buildCurveWithTwoSegments tests', () => {
         migrationOption: MigrationOption.MET_DAMM_V2,
         tokenBaseDecimal: TokenDecimal.SIX,
         tokenQuoteDecimal: TokenDecimal.NINE,
-        lockedVestingParam: {
+        lockedVestingParams: {
             totalLockedVestingAmount: 0,
             numberOfVestingPeriod: 0,
             cliffUnlockAmount: 0,
@@ -40,17 +40,18 @@ describe('buildCurveWithTwoSegments tests', () => {
         collectFeeMode: CollectFeeMode.QuoteToken,
         migrationFeeOption: MigrationFeeOption.FixedBps100,
         tokenType: TokenType.SPL,
-        partnerLpPercentage: 0,
-        creatorLpPercentage: 0,
-        partnerLockedLpPercentage: 100,
-        creatorLockedLpPercentage: 0,
+        partnerLiquidityPercentage: 0,
+        creatorLiquidityPercentage: 0,
+        partnerPermanentLockedLiquidityPercentage: 100,
+        creatorPermanentLockedLiquidityPercentage: 0,
         creatorTradingFeePercentage: 0,
         leftover: 10000,
         tokenUpdateAuthority: 0,
         migrationFee: {
-            feePercentage: 10,
-            creatorFeePercentage: 50,
+            feePercentage: 0,
+            creatorFeePercentage: 0,
         },
+        poolCreationFee: 1,
     }
 
     test('build curve with two segments', () => {
@@ -64,7 +65,7 @@ describe('buildCurveWithTwoSegments tests', () => {
             percentageSupplyOnMigration: 20,
             tokenBaseDecimal: TokenDecimal.NINE,
             tokenQuoteDecimal: TokenDecimal.NINE,
-            lockedVestingParam: {
+            lockedVestingParams: {
                 totalLockedVestingAmount: 0,
                 numberOfVestingPeriod: 0,
                 cliffUnlockAmount: 0,
@@ -85,12 +86,13 @@ describe('buildCurveWithTwoSegments tests', () => {
             collectFeeMode: CollectFeeMode.QuoteToken,
             migrationFeeOption: MigrationFeeOption.FixedBps100,
             tokenType: TokenType.SPL,
-            partnerLpPercentage: 0,
-            creatorLpPercentage: 0,
-            partnerLockedLpPercentage: 100,
-            creatorLockedLpPercentage: 0,
+            partnerLiquidityPercentage: 0,
+            creatorLiquidityPercentage: 0,
+            partnerPermanentLockedLiquidityPercentage: 100,
+            creatorPermanentLockedLiquidityPercentage: 0,
             creatorTradingFeePercentage: 0,
             leftover: 350000000,
+            poolCreationFee: 1,
         })
 
         console.log(

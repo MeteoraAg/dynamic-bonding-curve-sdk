@@ -1,5 +1,6 @@
 import BN from 'bn.js'
 import { PublicKey } from '@solana/web3.js'
+import { LiquidityVestingInfoParams } from './types'
 
 export const MAX_CURVE_POINT = 16
 
@@ -108,3 +109,11 @@ export const DAMM_V2_MIGRATION_FEE_ADDRESS = [
     new PublicKey('DbCRBj8McvPYHJG1ukj8RE15h2dCNUdTAESG49XpQ44u'), // FixedBps600
     new PublicKey('A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck'), // Customizable
 ]
+
+export const DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS: LiquidityVestingInfoParams = {
+    vestingPercentage: 0,
+    bpsPerPeriod: 0,
+    numberOfPeriods: 0,
+    cliffDurationFromMigrationTime: 0,
+    totalDuration: 0,
+}

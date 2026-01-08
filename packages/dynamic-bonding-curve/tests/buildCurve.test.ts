@@ -19,7 +19,7 @@ describe('buildCurve tests', () => {
         migrationOption: MigrationOption.MET_DAMM_V2,
         tokenBaseDecimal: TokenDecimal.SIX,
         tokenQuoteDecimal: TokenDecimal.NINE,
-        lockedVestingParam: {
+        lockedVestingParams: {
             totalLockedVestingAmount: 0,
             numberOfVestingPeriod: 0,
             cliffUnlockAmount: 0,
@@ -40,17 +40,18 @@ describe('buildCurve tests', () => {
         collectFeeMode: CollectFeeMode.QuoteToken,
         migrationFeeOption: MigrationFeeOption.FixedBps100,
         tokenType: TokenType.SPL,
-        partnerLpPercentage: 0,
-        creatorLpPercentage: 0,
-        partnerLockedLpPercentage: 100,
-        creatorLockedLpPercentage: 0,
+        partnerLiquidityPercentage: 0,
+        creatorLiquidityPercentage: 0,
+        partnerPermanentLockedLiquidityPercentage: 100,
+        creatorPermanentLockedLiquidityPercentage: 0,
         creatorTradingFeePercentage: 0,
-        leftover: 10000,
+        leftover: 0,
         tokenUpdateAuthority: 0,
         migrationFee: {
             feePercentage: 0,
             creatorFeePercentage: 0,
         },
+        poolCreationFee: 1,
     }
 
     test('build curve with percentage and threshold parameters', () => {

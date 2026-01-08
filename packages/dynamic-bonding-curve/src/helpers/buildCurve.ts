@@ -9,8 +9,12 @@ import {
     BaseFeeMode,
     BuildCurveWithMidPriceParams,
     BuildCurveWithCustomSqrtPricesParams,
+    TokenDecimal,
 } from '../types'
-import { MAX_SQRT_PRICE } from '../constants'
+import {
+    DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS,
+    MAX_SQRT_PRICE,
+} from '../constants'
 import {
     getSqrtPriceFromPrice,
     getMigrationBaseToken,
@@ -94,13 +98,16 @@ export function buildCurve(
         tokenBaseDecimal
     )
 
+    const partnerVestingParams =
+        partnerLiquidityVestingInfoParams ??
+        DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS
     const {
         vestingPercentage: partnerVestingPercentage,
         bpsPerPeriod: partnerBpsPerPeriod,
         numberOfPeriods: partnerNumberOfPeriods,
         cliffDurationFromMigrationTime: partnerCliffDurationFromMigrationTime,
         totalDuration: partnerTotalDuration,
-    } = partnerLiquidityVestingInfoParams
+    } = partnerVestingParams
 
     const partnerLiquidityVestingInfo = getLiquidityVestingInfoParams(
         partnerVestingPercentage,
@@ -110,13 +117,16 @@ export function buildCurve(
         partnerTotalDuration
     )
 
+    const creatorVestingParams =
+        creatorLiquidityVestingInfoParams ??
+        DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS
     const {
         vestingPercentage: creatorVestingPercentage,
         bpsPerPeriod: creatorBpsPerPeriod,
         numberOfPeriods: creatorNumberOfPeriods,
         cliffDurationFromMigrationTime: creatorCliffDurationFromMigrationTime,
         totalDuration: creatorTotalDuration,
-    } = creatorLiquidityVestingInfoParams
+    } = creatorVestingParams
 
     const creatorLiquidityVestingInfo = getLiquidityVestingInfoParams(
         creatorVestingPercentage,
@@ -124,6 +134,11 @@ export function buildCurve(
         creatorNumberOfPeriods,
         creatorCliffDurationFromMigrationTime,
         creatorTotalDuration
+    )
+
+    const poolCreationFeeInLamports = convertToLamports(
+        poolCreationFee,
+        TokenDecimal.NINE
     )
 
     const migratedPoolFeeParams = getMigratedPoolFeeParams(
@@ -249,7 +264,7 @@ export function buildCurve(
             dynamicFee: migratedPoolFeeParams.dynamicFee,
             poolFeeBps: migratedPoolFeeParams.poolFeeBps,
         },
-        poolCreationFee,
+        poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
         padding: [],
@@ -392,13 +407,16 @@ export function buildCurveWithTwoSegments(
         tokenBaseDecimal
     )
 
+    const partnerVestingParams =
+        partnerLiquidityVestingInfoParams ??
+        DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS
     const {
         vestingPercentage: partnerVestingPercentage,
         bpsPerPeriod: partnerBpsPerPeriod,
         numberOfPeriods: partnerNumberOfPeriods,
         cliffDurationFromMigrationTime: partnerCliffDurationFromMigrationTime,
         totalDuration: partnerTotalDuration,
-    } = partnerLiquidityVestingInfoParams
+    } = partnerVestingParams
 
     const partnerLiquidityVestingInfo = getLiquidityVestingInfoParams(
         partnerVestingPercentage,
@@ -408,13 +426,16 @@ export function buildCurveWithTwoSegments(
         partnerTotalDuration
     )
 
+    const creatorVestingParams =
+        creatorLiquidityVestingInfoParams ??
+        DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS
     const {
         vestingPercentage: creatorVestingPercentage,
         bpsPerPeriod: creatorBpsPerPeriod,
         numberOfPeriods: creatorNumberOfPeriods,
         cliffDurationFromMigrationTime: creatorCliffDurationFromMigrationTime,
         totalDuration: creatorTotalDuration,
-    } = creatorLiquidityVestingInfoParams
+    } = creatorVestingParams
 
     const creatorLiquidityVestingInfo = getLiquidityVestingInfoParams(
         creatorVestingPercentage,
@@ -422,6 +443,11 @@ export function buildCurveWithTwoSegments(
         creatorNumberOfPeriods,
         creatorCliffDurationFromMigrationTime,
         creatorTotalDuration
+    )
+
+    const poolCreationFeeInLamports = convertToLamports(
+        poolCreationFee,
+        TokenDecimal.NINE
     )
 
     const migratedPoolFeeParams = getMigratedPoolFeeParams(
@@ -578,7 +604,7 @@ export function buildCurveWithTwoSegments(
             dynamicFee: migratedPoolFeeParams.dynamicFee,
             poolFeeBps: migratedPoolFeeParams.poolFeeBps,
         },
-        poolCreationFee,
+        poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
         padding: [],
@@ -650,13 +676,16 @@ export function buildCurveWithMidPrice(
         tokenBaseDecimal
     )
 
+    const partnerVestingParams =
+        partnerLiquidityVestingInfoParams ??
+        DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS
     const {
         vestingPercentage: partnerVestingPercentage,
         bpsPerPeriod: partnerBpsPerPeriod,
         numberOfPeriods: partnerNumberOfPeriods,
         cliffDurationFromMigrationTime: partnerCliffDurationFromMigrationTime,
         totalDuration: partnerTotalDuration,
-    } = partnerLiquidityVestingInfoParams
+    } = partnerVestingParams
 
     const partnerLiquidityVestingInfo = getLiquidityVestingInfoParams(
         partnerVestingPercentage,
@@ -666,13 +695,16 @@ export function buildCurveWithMidPrice(
         partnerTotalDuration
     )
 
+    const creatorVestingParams =
+        creatorLiquidityVestingInfoParams ??
+        DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS
     const {
         vestingPercentage: creatorVestingPercentage,
         bpsPerPeriod: creatorBpsPerPeriod,
         numberOfPeriods: creatorNumberOfPeriods,
         cliffDurationFromMigrationTime: creatorCliffDurationFromMigrationTime,
         totalDuration: creatorTotalDuration,
-    } = creatorLiquidityVestingInfoParams
+    } = creatorVestingParams
 
     const creatorLiquidityVestingInfo = getLiquidityVestingInfoParams(
         creatorVestingPercentage,
@@ -680,6 +712,11 @@ export function buildCurveWithMidPrice(
         creatorNumberOfPeriods,
         creatorCliffDurationFromMigrationTime,
         creatorTotalDuration
+    )
+
+    const poolCreationFeeInLamports = convertToLamports(
+        poolCreationFee,
+        TokenDecimal.NINE
     )
 
     const migratedPoolFeeParams = getMigratedPoolFeeParams(
@@ -816,7 +853,7 @@ export function buildCurveWithMidPrice(
             dynamicFee: migratedPoolFeeParams.dynamicFee,
             poolFeeBps: migratedPoolFeeParams.poolFeeBps,
         },
-        poolCreationFee,
+        poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
         padding: [],
@@ -887,13 +924,16 @@ export function buildCurveWithLiquidityWeights(
         tokenBaseDecimal
     )
 
+    const partnerVestingParams =
+        partnerLiquidityVestingInfoParams ??
+        DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS
     const {
         vestingPercentage: partnerVestingPercentage,
         bpsPerPeriod: partnerBpsPerPeriod,
         numberOfPeriods: partnerNumberOfPeriods,
         cliffDurationFromMigrationTime: partnerCliffDurationFromMigrationTime,
         totalDuration: partnerTotalDuration,
-    } = partnerLiquidityVestingInfoParams
+    } = partnerVestingParams
 
     const partnerLiquidityVestingInfo = getLiquidityVestingInfoParams(
         partnerVestingPercentage,
@@ -903,13 +943,16 @@ export function buildCurveWithLiquidityWeights(
         partnerTotalDuration
     )
 
+    const creatorVestingParams =
+        creatorLiquidityVestingInfoParams ??
+        DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS
     const {
         vestingPercentage: creatorVestingPercentage,
         bpsPerPeriod: creatorBpsPerPeriod,
         numberOfPeriods: creatorNumberOfPeriods,
         cliffDurationFromMigrationTime: creatorCliffDurationFromMigrationTime,
         totalDuration: creatorTotalDuration,
-    } = creatorLiquidityVestingInfoParams
+    } = creatorVestingParams
 
     const creatorLiquidityVestingInfo = getLiquidityVestingInfoParams(
         creatorVestingPercentage,
@@ -917,6 +960,11 @@ export function buildCurveWithLiquidityWeights(
         creatorNumberOfPeriods,
         creatorCliffDurationFromMigrationTime,
         creatorTotalDuration
+    )
+
+    const poolCreationFeeInLamports = convertToLamports(
+        poolCreationFee,
+        TokenDecimal.NINE
     )
 
     const migratedPoolFeeParams = getMigratedPoolFeeParams(
@@ -1081,7 +1129,7 @@ export function buildCurveWithLiquidityWeights(
             dynamicFee: migratedPoolFeeParams.dynamicFee,
             poolFeeBps: migratedPoolFeeParams.poolFeeBps,
         },
-        poolCreationFee,
+        poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
         padding: [],
@@ -1193,13 +1241,16 @@ export function buildCurveWithCustomSqrtPrices(
         tokenBaseDecimal
     )
 
+    const partnerVestingParams =
+        partnerLiquidityVestingInfoParams ??
+        DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS
     const {
         vestingPercentage: partnerVestingPercentage,
         bpsPerPeriod: partnerBpsPerPeriod,
         numberOfPeriods: partnerNumberOfPeriods,
         cliffDurationFromMigrationTime: partnerCliffDurationFromMigrationTime,
         totalDuration: partnerTotalDuration,
-    } = partnerLiquidityVestingInfoParams
+    } = partnerVestingParams
 
     const partnerLiquidityVestingInfo = getLiquidityVestingInfoParams(
         partnerVestingPercentage,
@@ -1209,13 +1260,16 @@ export function buildCurveWithCustomSqrtPrices(
         partnerTotalDuration
     )
 
+    const creatorVestingParams =
+        creatorLiquidityVestingInfoParams ??
+        DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS
     const {
         vestingPercentage: creatorVestingPercentage,
         bpsPerPeriod: creatorBpsPerPeriod,
         numberOfPeriods: creatorNumberOfPeriods,
         cliffDurationFromMigrationTime: creatorCliffDurationFromMigrationTime,
         totalDuration: creatorTotalDuration,
-    } = creatorLiquidityVestingInfoParams
+    } = creatorVestingParams
 
     const creatorLiquidityVestingInfo = getLiquidityVestingInfoParams(
         creatorVestingPercentage,
@@ -1223,6 +1277,11 @@ export function buildCurveWithCustomSqrtPrices(
         creatorNumberOfPeriods,
         creatorCliffDurationFromMigrationTime,
         creatorTotalDuration
+    )
+
+    const poolCreationFeeInLamports = convertToLamports(
+        poolCreationFee,
+        TokenDecimal.NINE
     )
 
     const migratedPoolFeeParams = getMigratedPoolFeeParams(
@@ -1364,7 +1423,7 @@ export function buildCurveWithCustomSqrtPrices(
             dynamicFee: migratedPoolFeeParams.dynamicFee,
             poolFeeBps: migratedPoolFeeParams.poolFeeBps,
         },
-        poolCreationFee,
+        poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
         padding: [],

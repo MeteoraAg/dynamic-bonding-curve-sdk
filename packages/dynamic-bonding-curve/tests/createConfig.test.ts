@@ -68,12 +68,12 @@ describe('createConfig tests', () => {
                 dynamicFee: DammV2DynamicFeeMode.Enabled,
                 poolFeeBps: 120,
             },
-            partnerLpPercentage: 30,
-            creatorLpPercentage: 70,
-            partnerLockedLpPercentage: 0,
-            creatorLockedLpPercentage: 0,
+            partnerLiquidityPercentage: 30,
+            creatorLiquidityPercentage: 70,
+            partnerPermanentLockedLiquidityPercentage: 0,
+            creatorPermanentLockedLiquidityPercentage: 0,
             creatorTradingFeePercentage: 0,
-            lockedVestingParam: {
+            lockedVestingParams: {
                 totalLockedVestingAmount: 0,
                 numberOfVestingPeriod: 0,
                 cliffUnlockAmount: 0,
@@ -94,6 +94,7 @@ describe('createConfig tests', () => {
             collectFeeMode: CollectFeeMode.QuoteToken,
             tokenUpdateAuthority:
                 TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+            poolCreationFee: 1,
         })
     })
 

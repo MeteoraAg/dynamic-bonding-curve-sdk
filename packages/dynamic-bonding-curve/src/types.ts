@@ -234,7 +234,7 @@ export type BuildCurveBaseParams = {
     activationType: ActivationType
     collectFeeMode: CollectFeeMode
     creatorTradingFeePercentage: number
-    poolCreationFee: BN
+    poolCreationFee: number
     migrationOption: MigrationOption
     migrationFeeOption: MigrationFeeOption
     migrationFee: {
@@ -245,8 +245,8 @@ export type BuildCurveBaseParams = {
     partnerLiquidityPercentage: number
     creatorPermanentLockedLiquidityPercentage: number
     creatorLiquidityPercentage: number
-    partnerLiquidityVestingInfoParams: LiquidityVestingInfoParams
-    creatorLiquidityVestingInfoParams: LiquidityVestingInfoParams
+    partnerLiquidityVestingInfoParams?: LiquidityVestingInfoParams
+    creatorLiquidityVestingInfoParams?: LiquidityVestingInfoParams
     migratedPoolFee?: {
         collectFeeMode: CollectFeeMode
         dynamicFee: DammV2DynamicFeeMode
