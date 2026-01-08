@@ -1,7 +1,7 @@
 import BN from 'bn.js'
 import { PublicKey, type GetProgramAccountsFilter } from '@solana/web3.js'
 import { NATIVE_MINT } from '@solana/spl-token'
-import { BASIS_POINT_MAX, FEE_DENOMINATOR } from '../constants'
+import { MAX_BASIS_POINT, FEE_DENOMINATOR } from '../constants'
 import Decimal from 'decimal.js'
 
 /**
@@ -98,7 +98,7 @@ export function convertDecimalToBN(value: Decimal): BN {
  * @returns The equivalent fee numerator
  */
 export function bpsToFeeNumerator(bps: number): BN {
-    return new BN(bps * FEE_DENOMINATOR).divn(BASIS_POINT_MAX)
+    return new BN(bps * FEE_DENOMINATOR).divn(MAX_BASIS_POINT)
 }
 
 /**
@@ -109,7 +109,7 @@ export function bpsToFeeNumerator(bps: number): BN {
  */
 export function feeNumeratorToBps(feeNumerator: BN): number {
     return feeNumerator
-        .muln(BASIS_POINT_MAX)
+        .muln(MAX_BASIS_POINT)
         .div(new BN(FEE_DENOMINATOR))
         .toNumber()
 }

@@ -16,13 +16,13 @@ import {
     LiquidityVestingInfoParameters,
 } from '../types'
 import {
-    BASIS_POINT_MAX,
     BIN_STEP_BPS_DEFAULT,
     BIN_STEP_BPS_U128_DEFAULT,
     DYNAMIC_FEE_DECAY_PERIOD_DEFAULT,
     DYNAMIC_FEE_FILTER_PERIOD_DEFAULT,
     DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
     FEE_DENOMINATOR,
+    MAX_BASIS_POINT,
     MAX_FEE_BPS,
     MAX_FEE_NUMERATOR,
     MAX_LOCK_DURATION_IN_SECONDS,
@@ -896,7 +896,7 @@ export function getFeeSchedulerParams(
         const ratio =
             minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber()
         const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
-        reductionFactor = new BN(BASIS_POINT_MAX * (1 - decayBase))
+        reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
     }
 
     return {
@@ -924,7 +924,7 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
     baseFeeMode: BaseFeeMode
 ): number {
     if (numberOfPeriod === 0 || periodFrequency === 0) {
-        return (cliffFeeNumerator / FEE_DENOMINATOR) * BASIS_POINT_MAX
+        return (cliffFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
     }
 
     let baseFeeNumerator: number
@@ -933,13 +933,13 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
         baseFeeNumerator = cliffFeeNumerator - numberOfPeriod * reductionFactor
     } else {
         // exponential mode
-        const decayRate = 1 - reductionFactor / BASIS_POINT_MAX
+        const decayRate = 1 - reductionFactor / MAX_BASIS_POINT
         baseFeeNumerator =
             cliffFeeNumerator * Math.pow(decayRate, numberOfPeriod)
     }
 
     // ensure base fee is not negative
-    return Math.max(0, (baseFeeNumerator / FEE_DENOMINATOR) * BASIS_POINT_MAX)
+    return Math.max(0, (baseFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT)
 }
 
 /**
@@ -1050,7 +1050,7 @@ export function getDynamicFeeParams(
         )
     }
 
-    const priceRatio = maxPriceChangePercentage / BASIS_POINT_MAX + 1
+    const priceRatio = maxPriceChangePercentage / MAX_BASIS_POINT + 1
     // Q64
     const sqrtPriceRatioQ64 = new BN(
         Decimal.sqrt(priceRatio.toString())
@@ -1063,7 +1063,7 @@ export function getDynamicFeeParams(
         .div(BIN_STEP_BPS_U128_DEFAULT)
         .muln(2)
 
-    const maxVolatilityAccumulator = new BN(deltaBinId.muln(BASIS_POINT_MAX))
+    const maxVolatilityAccumulator = new BN(deltaBinId.muln(MAX_BASIS_POINT))
 
     const squareVfaBin = maxVolatilityAccumulator
         .mul(new BN(BIN_STEP_BPS_DEFAULT))
@@ -1216,8 +1216,8 @@ export const getLiquidityVestingInfoParams = (
         }
     }
 
-    if (bpsPerPeriod < 0 || bpsPerPeriod > BASIS_POINT_MAX) {
-        throw new Error(`bpsPerPeriod must be between 0 and ${BASIS_POINT_MAX}`)
+    if (bpsPerPeriod < 0 || bpsPerPeriod > MAX_BASIS_POINT) {
+        throw new Error(`bpsPerPeriod must be between 0 and ${MAX_BASIS_POINT}`)
     }
 
     if (numberOfPeriods <= 0) {
@@ -1243,9 +1243,9 @@ export const getLiquidityVestingInfoParams = (
     }
 
     const totalBps = bpsPerPeriod * numberOfPeriods
-    if (totalBps > BASIS_POINT_MAX) {
+    if (totalBps > MAX_BASIS_POINT) {
         throw new Error(
-            `Total BPS (bpsPerPeriod * numberOfPeriods = ${totalBps}) must not exceed ${BASIS_POINT_MAX}`
+            `Total BPS (bpsPerPeriod * numberOfPeriods = ${totalBps}) must not exceed ${MAX_BASIS_POINT}`
         )
     }
 

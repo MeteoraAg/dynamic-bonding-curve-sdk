@@ -2,7 +2,7 @@ import BN from 'bn.js'
 import { SafeMath } from './safeMath'
 import { mulDiv } from './utilsMath'
 import {
-    BASIS_POINT_MAX,
+    MAX_BASIS_POINT,
     FEE_DENOMINATOR,
     HOST_FEE_PERCENT,
     MAX_FEE_NUMERATOR,
@@ -33,7 +33,7 @@ export function toNumerator(bps: BN, feeDenominator: BN): BN {
         const numerator = mulDiv(
             bps,
             feeDenominator,
-            new BN(BASIS_POINT_MAX),
+            new BN(MAX_BASIS_POINT),
             Rounding.Down
         )
         return numerator

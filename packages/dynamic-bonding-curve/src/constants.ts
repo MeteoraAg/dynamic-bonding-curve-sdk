@@ -8,7 +8,7 @@ export const RESOLUTION = 64
 export const ONE_Q64 = new BN(1).shln(RESOLUTION)
 
 export const FEE_DENOMINATOR = 1_000_000_000
-export const BASIS_POINT_MAX = 10_000
+export const MAX_BASIS_POINT = 10_000
 
 export const U16_MAX = 65_535
 export const U64_MAX = new BN('18446744073709551615')
@@ -34,7 +34,7 @@ export const DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT = 5000 // 50%
 export const DYNAMIC_FEE_SCALING_FACTOR = new BN(100_000_000_000)
 export const DYNAMIC_FEE_ROUNDING_OFFSET = new BN(99_999_999_999)
 export const BIN_STEP_BPS_DEFAULT = 1
-//  bin_step << 64 / BASIS_POINT_MAX
+//  bin_step << 64 / MAX_BASIS_POINT
 export const BIN_STEP_BPS_U128_DEFAULT = new BN('1844674407370955')
 export const MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT = 20 // 20%
 
