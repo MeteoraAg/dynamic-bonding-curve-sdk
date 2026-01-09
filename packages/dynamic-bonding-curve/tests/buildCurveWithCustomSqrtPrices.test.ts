@@ -1,7 +1,6 @@
 import { describe, test as it, expect } from 'vitest'
 import {
     buildCurveWithCustomSqrtPrices,
-    getSqrtPriceFromPrice,
     ActivationType,
     BaseFeeMode,
     CollectFeeMode,
@@ -9,30 +8,18 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
     createSqrtPrices,
+    BuildCurveBaseParams,
 } from '../src'
 import BN from 'bn.js'
 
 describe('buildCurveWithCustomSqrtPrices', () => {
-    const baseParams = {
-        totalTokenSupply: 1_000_000_000,
-        leftover: 1_000_000, // Add leftover buffer for precision loss
-        tokenBaseDecimal: TokenDecimal.NINE,
-        tokenQuoteDecimal: TokenDecimal.NINE,
-        tokenType: TokenType.Token2022,
+    const baseParams: BuildCurveBaseParams = {
+        totalTokenSupply: 1000000000,
         migrationOption: MigrationOption.MET_DAMM_V2,
-        migrationFeeOption: MigrationFeeOption.FixedBps30,
-        migrationFee: {
-            feePercentage: 0.3,
-            creatorFeePercentage: 0,
-        },
-        partnerLpPercentage: 0,
-        creatorLpPercentage: 100,
-        partnerLockedLpPercentage: 0,
-        creatorLockedLpPercentage: 0,
-        creatorTradingFeePercentage: 0,
-        lockedVestingParam: {
+        tokenBaseDecimal: TokenDecimal.SIX,
+        tokenQuoteDecimal: TokenDecimal.NINE,
+        lockedVestingParams: {
             totalLockedVestingAmount: 0,
             numberOfVestingPeriod: 0,
             cliffUnlockAmount: 0,
@@ -40,18 +27,31 @@ describe('buildCurveWithCustomSqrtPrices', () => {
             cliffDurationFromMigrationTime: 0,
         },
         baseFeeParams: {
-            baseFeeMode: BaseFeeMode.RateLimiter,
-            rateLimiterParam: {
-                baseFeeBps: 100,
-                feeIncrementBps: 50,
-                referenceAmount: 10_000,
-                maxLimiterDuration: 60,
+            baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+            feeSchedulerParam: {
+                startingFeeBps: 100,
+                endingFeeBps: 100,
+                numberOfPeriod: 0,
+                totalDuration: 0,
             },
-        } as const,
+        },
         dynamicFeeEnabled: true,
         activationType: ActivationType.Slot,
-        collectFeeMode: CollectFeeMode.OutputToken,
-        tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+        collectFeeMode: CollectFeeMode.QuoteToken,
+        migrationFeeOption: MigrationFeeOption.FixedBps100,
+        tokenType: TokenType.SPL,
+        partnerLiquidityPercentage: 0,
+        creatorLiquidityPercentage: 0,
+        partnerPermanentLockedLiquidityPercentage: 100,
+        creatorPermanentLockedLiquidityPercentage: 0,
+        creatorTradingFeePercentage: 0,
+        leftover: 1000,
+        tokenUpdateAuthority: 0,
+        migrationFee: {
+            feePercentage: 0,
+            creatorFeePercentage: 0,
+        },
+        poolCreationFee: 1,
     }
 
     it('should create a curve with custom sqrt prices', () => {

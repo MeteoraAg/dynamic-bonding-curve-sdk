@@ -1,5 +1,5 @@
 import BN from 'bn.js'
-import { BASIS_POINT_MAX, U16_MAX } from '../../constants'
+import { MAX_BASIS_POINT, U16_MAX } from '../../constants'
 import { pow, SafeMath } from '../safeMath'
 import { BaseFeeMode } from '../../types'
 
@@ -113,8 +113,8 @@ export function getFeeNumeratorOnExponentialFeeScheduler(
         return cliffFeeNumerator
     }
 
-    // make reduction_factor into Q64x64, and divided by BASIS_POINT_MAX
-    const basisPointMax = new BN(BASIS_POINT_MAX)
+    // make reduction_factor into Q64x64, and divided by MAX_BASIS_POINT
+    const basisPointMax = new BN(MAX_BASIS_POINT)
     const ONE_Q64 = new BN(1).shln(64)
     const bps = SafeMath.div(SafeMath.shl(reductionFactor, 64), basisPointMax)
 

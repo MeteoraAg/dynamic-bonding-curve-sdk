@@ -8,7 +8,7 @@ export type DynamicBondingCurve = {
     address: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
     metadata: {
         name: 'dynamicBondingCurve'
-        version: '0.1.7'
+        version: '0.1.8'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -59,7 +59,6 @@ export type DynamicBondingCurve = {
                 {
                     name: 'creator'
                     signer: true
-                    relations: ['pool']
                 },
                 {
                     name: 'tokenBaseProgram'
@@ -114,8 +113,8 @@ export type DynamicBondingCurve = {
             ]
         },
         {
-            name: 'claimPoolCreationFee'
-            discriminator: [246, 51, 18, 222, 80, 42, 236, 205]
+            name: 'claimLegacyPoolCreationFee'
+            discriminator: [96, 11, 187, 225, 54, 117, 161, 134]
             accounts: [
                 {
                     name: 'pool'
@@ -126,10 +125,9 @@ export type DynamicBondingCurve = {
                     docs: ['Claim fee operator']
                 },
                 {
-                    name: 'operator'
+                    name: 'signer'
                     docs: ['Operator']
                     signer: true
-                    relations: ['claimFeeOperator']
                 },
                 {
                     name: 'treasury'
@@ -139,6 +137,61 @@ export type DynamicBondingCurve = {
                 {
                     name: 'systemProgram'
                     address: '11111111111111111111111111111111'
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: []
+        },
+        {
+            name: 'claimPartnerPoolCreationFee'
+            discriminator: [250, 238, 26, 4, 139, 10, 101, 248]
+            accounts: [
+                {
+                    name: 'config'
+                    relations: ['pool']
+                },
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'feeClaimer'
+                    signer: true
+                },
+                {
+                    name: 'feeReceiver'
+                    writable: true
                 },
                 {
                     name: 'eventAuthority'
@@ -400,10 +453,9 @@ export type DynamicBondingCurve = {
                     docs: ['Claim fee operator']
                 },
                 {
-                    name: 'operator'
-                    docs: ['Operator']
+                    name: 'signer'
+                    docs: ['Signer']
                     signer: true
-                    relations: ['claimFeeOperator']
                 },
                 {
                     name: 'tokenBaseProgram'
@@ -412,6 +464,67 @@ export type DynamicBondingCurve = {
                 {
                     name: 'tokenQuoteProgram'
                     docs: ['Token b program']
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: []
+        },
+        {
+            name: 'claimProtocolPoolCreationFee'
+            discriminator: [114, 205, 83, 188, 240, 153, 25, 54]
+            accounts: [
+                {
+                    name: 'config'
+                    relations: ['pool']
+                },
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'claimFeeOperator'
+                    docs: ['Claim fee operator']
+                },
+                {
+                    name: 'signer'
+                    docs: ['Operator']
+                    signer: true
+                },
+                {
+                    name: 'treasury'
+                    writable: true
+                    address: '4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv'
                 },
                 {
                     name: 'eventAuthority'
@@ -499,7 +612,6 @@ export type DynamicBondingCurve = {
                 {
                     name: 'feeClaimer'
                     signer: true
-                    relations: ['config']
                 },
                 {
                     name: 'tokenBaseProgram'
@@ -554,8 +666,8 @@ export type DynamicBondingCurve = {
             ]
         },
         {
-            name: 'closeClaimFeeOperator'
-            discriminator: [38, 134, 82, 216, 95, 124, 17, 99]
+            name: 'closeClaimProtocolFeeOperator'
+            discriminator: [8, 41, 87, 35, 80, 48, 121, 26]
             accounts: [
                 {
                     name: 'claimFeeOperator'
@@ -566,7 +678,7 @@ export type DynamicBondingCurve = {
                     writable: true
                 },
                 {
-                    name: 'admin'
+                    name: 'signer'
                     signer: true
                 },
                 {
@@ -605,9 +717,8 @@ export type DynamicBondingCurve = {
             args: []
         },
         {
-            name: 'createClaimFeeOperator'
-            docs: ['ADMIN FUNCTIONS_ ///']
-            discriminator: [169, 62, 207, 107, 58, 187, 162, 109]
+            name: 'createClaimProtocolFeeOperator'
+            discriminator: [51, 19, 150, 252, 105, 157, 48, 91]
             accounts: [
                 {
                     name: 'claimFeeOperator'
@@ -641,7 +752,11 @@ export type DynamicBondingCurve = {
                     name: 'operator'
                 },
                 {
-                    name: 'admin'
+                    name: 'signer'
+                    signer: true
+                },
+                {
+                    name: 'payer'
                     writable: true
                     signer: true
                 },
@@ -998,7 +1113,6 @@ export type DynamicBondingCurve = {
                 {
                     name: 'creator'
                     signer: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'payer'
@@ -1090,7 +1204,6 @@ export type DynamicBondingCurve = {
                 {
                     name: 'creator'
                     signer: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'tokenQuoteProgram'
@@ -1996,6 +2109,7 @@ export type DynamicBondingCurve = {
                 {
                     name: 'firstPositionNftMint'
                     writable: true
+                    signer: true
                 },
                 {
                     name: 'firstPositionNftAccount'
@@ -2008,6 +2122,7 @@ export type DynamicBondingCurve = {
                 {
                     name: 'secondPositionNftMint'
                     writable: true
+                    signer: true
                     optional: true
                 },
                 {
@@ -2239,7 +2354,6 @@ export type DynamicBondingCurve = {
                 {
                     name: 'feeClaimer'
                     signer: true
-                    relations: ['config']
                 },
                 {
                     name: 'tokenQuoteProgram'
@@ -2397,6 +2511,15 @@ export type DynamicBondingCurve = {
                     name: 'quoteMint'
                     docs: ['The mint of token']
                     relations: ['config']
+                },
+                {
+                    name: 'claimFeeOperator'
+                    docs: ['Claim fee operator']
+                },
+                {
+                    name: 'signer'
+                    docs: ['Signer']
+                    signer: true
                 },
                 {
                     name: 'tokenQuoteProgram'
@@ -2675,7 +2798,6 @@ export type DynamicBondingCurve = {
                 {
                     name: 'creator'
                     signer: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'newCreator'
@@ -2711,27 +2833,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'program'
-                },
-            ]
-            args: []
-        },
-        {
-            name: 'withdrawLamportsFromPoolAuthority'
-            discriminator: [20, 185, 242, 240, 129, 24, 212, 194]
-            accounts: [
-                {
-                    name: 'poolAuthority'
-                    writable: true
-                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
-                },
-                {
-                    name: 'receiver'
-                    writable: true
-                    address: '4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv'
-                },
-                {
-                    name: 'systemProgram'
-                    address: '11111111111111111111111111111111'
                 },
             ]
             args: []
@@ -3030,6 +3131,10 @@ export type DynamicBondingCurve = {
             discriminator: [228, 50, 246, 85, 203, 66, 134, 37]
         },
         {
+            name: 'evtPartnerClaimPoolCreationFee'
+            discriminator: [174, 223, 44, 150, 145, 98, 89, 195]
+        },
+        {
             name: 'evtPartnerMetadata'
             discriminator: [200, 127, 6, 55, 13, 32, 8, 150]
         },
@@ -3326,6 +3431,31 @@ export type DynamicBondingCurve = {
             name: 'accountInvariantViolation'
             msg: 'Account invariant violation'
         },
+        {
+            code: 6051
+            name: 'invalidPoolCreationFee'
+            msg: 'Invalid pool creation fee'
+        },
+        {
+            code: 6052
+            name: 'poolCreationFeeHasBeenClaimed'
+            msg: 'Pool creation fee has been claimed'
+        },
+        {
+            code: 6053
+            name: 'unauthorized'
+            msg: 'Not permit to do this action'
+        },
+        {
+            code: 6054
+            name: 'zeroPoolCreationFee'
+            msg: 'Pool creation fee is zero'
+        },
+        {
+            code: 6055
+            name: 'invalidMigrationLockedLiquidity'
+            msg: 'Invalid migration locked liquidity'
+        },
     ]
     types: [
         {
@@ -3495,19 +3625,19 @@ export type DynamicBondingCurve = {
                         type: 'u8'
                     },
                     {
-                        name: 'partnerLpPercentage'
+                        name: 'partnerLiquidityPercentage'
                         type: 'u8'
                     },
                     {
-                        name: 'partnerLockedLpPercentage'
+                        name: 'partnerPermanentLockedLiquidityPercentage'
                         type: 'u8'
                     },
                     {
-                        name: 'creatorLpPercentage'
+                        name: 'creatorLiquidityPercentage'
                         type: 'u8'
                     },
                     {
-                        name: 'creatorLockedLpPercentage'
+                        name: 'creatorPermanentLockedLiquidityPercentage'
                         type: 'u8'
                     },
                     {
@@ -3565,10 +3695,31 @@ export type DynamicBondingCurve = {
                         }
                     },
                     {
+                        name: 'poolCreationFee'
+                        docs: ['pool creation fee in SOL lamports value']
+                        type: 'u64'
+                    },
+                    {
+                        name: 'partnerLiquidityVestingInfo'
+                        type: {
+                            defined: {
+                                name: 'liquidityVestingInfoParams'
+                            }
+                        }
+                    },
+                    {
+                        name: 'creatorLiquidityVestingInfo'
+                        type: {
+                            defined: {
+                                name: 'liquidityVestingInfoParams'
+                            }
+                        }
+                    },
+                    {
                         name: 'padding'
                         docs: ['padding for future use']
                         type: {
-                            array: ['u64', 7]
+                            array: ['u8', 22]
                         }
                     },
                     {
@@ -3758,7 +3909,7 @@ export type DynamicBondingCurve = {
                         type: 'pubkey'
                     },
                     {
-                        name: 'treasury'
+                        name: 'receiver'
                         type: 'pubkey'
                     },
                     {
@@ -3889,19 +4040,19 @@ export type DynamicBondingCurve = {
                         type: 'u8'
                     },
                     {
-                        name: 'partnerLockedLpPercentage'
+                        name: 'partnerPermanentLockedLiquidityPercentage'
                         type: 'u8'
                     },
                     {
-                        name: 'partnerLpPercentage'
+                        name: 'partnerLiquidityPercentage'
                         type: 'u8'
                     },
                     {
-                        name: 'creatorLockedLpPercentage'
+                        name: 'creatorPermanentLockedLiquidityPercentage'
                         type: 'u8'
                     },
                     {
-                        name: 'creatorLpPercentage'
+                        name: 'creatorLiquidityPercentage'
                         type: 'u8'
                     },
                     {
@@ -4068,6 +4219,26 @@ export type DynamicBondingCurve = {
                     },
                     {
                         name: 'activationPoint'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtPartnerClaimPoolCreationFee'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'partner'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'creationFee'
                         type: 'u64'
                     },
                 ]
@@ -4372,6 +4543,76 @@ export type DynamicBondingCurve = {
             }
         },
         {
+            name: 'liquidityVestingInfo'
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'isInitialized'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'vestingPercentage'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'padding'
+                        type: {
+                            array: ['u8', 2]
+                        }
+                    },
+                    {
+                        name: 'bpsPerPeriod'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'numberOfPeriods'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'frequency'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'cliffDurationFromMigrationTime'
+                        type: 'u32'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'liquidityVestingInfoParams'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'vestingPercentage'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'bpsPerPeriod'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'numberOfPeriods'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'cliffDurationFromMigrationTime'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'frequency'
+                        type: 'u32'
+                    },
+                ]
+            }
+        },
+        {
             name: 'lockEscrow'
             docs: ['State of lock escrow account']
             type: {
@@ -4497,7 +4738,7 @@ export type DynamicBondingCurve = {
                     {
                         name: 'padding0'
                         docs: [
-                            '!!! BE CAREFUL to use tomestone field, previous is pool creator',
+                            '!!! BE CAREFUL to use tombstone field, previous is pool creator',
                         ]
                         type: {
                             array: ['u8', 32]
@@ -4514,23 +4755,23 @@ export type DynamicBondingCurve = {
                         type: 'pubkey'
                     },
                     {
-                        name: 'partnerLockedLp'
-                        docs: ['partner locked lp']
+                        name: 'partnerLockedLiquidity'
+                        docs: ['partner locked liquidity']
                         type: 'u64'
                     },
                     {
-                        name: 'partnerLp'
-                        docs: ['partner lp']
+                        name: 'partnerLiquidity'
+                        docs: ['partner liquidity']
                         type: 'u64'
                     },
                     {
-                        name: 'creatorLockedLp'
-                        docs: ['creator locked lp']
+                        name: 'creatorLockedLiquidity'
+                        docs: ['creator locked liquidity']
                         type: 'u64'
                     },
                     {
-                        name: 'creatorLp'
-                        docs: ['creator lp']
+                        name: 'creatorLiquidity'
+                        docs: ['creator liquidity']
                         type: 'u64'
                     },
                     {
@@ -4540,25 +4781,29 @@ export type DynamicBondingCurve = {
                     },
                     {
                         name: 'creatorLockedStatus'
-                        docs: ['flag to check whether lp is locked for creator']
+                        docs: [
+                            'flag to check whether liquidity token is locked for creator',
+                        ]
                         type: 'u8'
                     },
                     {
                         name: 'partnerLockedStatus'
-                        docs: ['flag to check whether lp is locked for partner']
+                        docs: [
+                            'flag to check whether liquidity token is locked for partner',
+                        ]
                         type: 'u8'
                     },
                     {
                         name: 'creatorClaimStatus'
                         docs: [
-                            'flag to check whether creator has claimed lp token',
+                            'flag to check whether creator has claimed liquidity token',
                         ]
                         type: 'u8'
                     },
                     {
                         name: 'partnerClaimStatus'
                         docs: [
-                            'flag to check whether partner has claimed lp token',
+                            'flag to check whether partner has claimed liquidity token',
                         ]
                         type: 'u8'
                     },
@@ -4680,6 +4925,36 @@ export type DynamicBondingCurve = {
                         }
                     },
                     {
+                        name: 'partnerLiquidityVestingInfo'
+                        type: {
+                            defined: {
+                                name: 'liquidityVestingInfo'
+                            }
+                        }
+                    },
+                    {
+                        name: 'creatorLiquidityVestingInfo'
+                        type: {
+                            defined: {
+                                name: 'liquidityVestingInfo'
+                            }
+                        }
+                    },
+                    {
+                        name: 'padding0'
+                        docs: ['Padding for future use']
+                        type: {
+                            array: ['u8', 14]
+                        }
+                    },
+                    {
+                        name: 'padding1'
+                        docs: [
+                            'Previously was protocol and referral fee percent. Beware of tombstone.',
+                        ]
+                        type: 'u16'
+                    },
+                    {
                         name: 'collectFeeMode'
                         docs: ['Collect fee mode']
                         type: 'u8'
@@ -4715,23 +4990,23 @@ export type DynamicBondingCurve = {
                         type: 'u8'
                     },
                     {
-                        name: 'partnerLockedLpPercentage'
-                        docs: ['partner locked lp percentage']
+                        name: 'partnerPermanentLockedLiquidityPercentage'
+                        docs: ['partner locked liquidity percentage']
                         type: 'u8'
                     },
                     {
-                        name: 'partnerLpPercentage'
-                        docs: ['partner lp percentage']
+                        name: 'partnerLiquidityPercentage'
+                        docs: ['partner liquidity percentage']
                         type: 'u8'
                     },
                     {
-                        name: 'creatorLockedLpPercentage'
+                        name: 'creatorPermanentLockedLiquidityPercentage'
                         docs: ['creator post migration fee percentage']
                         type: 'u8'
                     },
                     {
-                        name: 'creatorLpPercentage'
-                        docs: ['creator lp percentage']
+                        name: 'creatorLiquidityPercentage'
+                        docs: ['creator liquidity percentage']
                         type: 'u8'
                     },
                     {
@@ -4767,8 +5042,7 @@ export type DynamicBondingCurve = {
                         type: 'u8'
                     },
                     {
-                        name: 'padding0'
-                        docs: ['padding 0']
+                        name: 'padding2'
                         type: {
                             array: ['u8', 7]
                         }
@@ -4831,8 +5105,13 @@ export type DynamicBondingCurve = {
                         name: 'padding1'
                         docs: ['padding 1']
                         type: {
-                            array: ['u8', 12]
+                            array: ['u8', 4]
                         }
+                    },
+                    {
+                        name: 'poolCreationFee'
+                        docs: ['pool creation fee in lamports value']
+                        type: 'u64'
                     },
                     {
                         name: 'padding2'
@@ -4941,26 +5220,6 @@ export type DynamicBondingCurve = {
                                 name: 'dynamicFeeConfig'
                             }
                         }
-                    },
-                    {
-                        name: 'padding0'
-                        type: {
-                            array: ['u64', 5]
-                        }
-                    },
-                    {
-                        name: 'padding1'
-                        type: {
-                            array: ['u8', 6]
-                        }
-                    },
-                    {
-                        name: 'protocolFeePercent'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'referralFeePercent'
-                        type: 'u8'
                     },
                 ]
             }
@@ -5281,13 +5540,20 @@ export type DynamicBondingCurve = {
                         type: 'u64'
                     },
                     {
+                        name: 'legacyCreationFeeBits'
+                        docs: ['legacy creation fee bits, we dont use this now']
+                        type: 'u8'
+                    },
+                    {
                         name: 'creationFeeBits'
+                        docs: ['pool creation fee claim status']
                         type: 'u8'
                     },
                     {
                         name: 'padding0'
+                        docs: ['Padding for further use']
                         type: {
-                            array: ['u8', 7]
+                            array: ['u8', 6]
                         }
                     },
                     {

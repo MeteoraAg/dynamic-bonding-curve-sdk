@@ -13,25 +13,29 @@ import {
     DammV2DynamicFeeMode,
     MigratedPoolFee,
     MigrationFeeOption,
+    LiquidityVestingInfoParameters,
 } from '../types'
 import {
-    BASIS_POINT_MAX,
     BIN_STEP_BPS_DEFAULT,
     BIN_STEP_BPS_U128_DEFAULT,
     DYNAMIC_FEE_DECAY_PERIOD_DEFAULT,
     DYNAMIC_FEE_FILTER_PERIOD_DEFAULT,
     DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
     FEE_DENOMINATOR,
+    MAX_BASIS_POINT,
     MAX_FEE_BPS,
     MAX_FEE_NUMERATOR,
-    MAX_PRICE_CHANGE_BPS_DEFAULT,
+    MAX_LOCK_DURATION_IN_SECONDS,
+    MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT,
     MAX_RATE_LIMITER_DURATION_IN_SECONDS,
     MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     MAX_SQRT_PRICE,
+    MIN_FEE_BPS,
     MIN_FEE_NUMERATOR,
     MIN_SQRT_PRICE,
     ONE_Q64,
     SWAP_BUFFER_PERCENTAGE,
+    U128_MAX,
 } from '../constants'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
@@ -185,7 +189,7 @@ export function getTotalTokenSupply(
 
         return totalAmount
     } catch (error) {
-        throw new Error('Math overflow')
+        throw new Error(`Math overflow: ${error}`)
     }
 }
 
@@ -861,6 +865,12 @@ export function getFeeSchedulerParams(
         )
     }
 
+    if (endingBaseFeeBps < MIN_FEE_BPS) {
+        throw new Error(
+            `endingBaseFeeBps (${endingBaseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
+        )
+    }
+
     if (endingBaseFeeBps > startingBaseFeeBps) {
         throw new Error(
             'endingBaseFeeBps bps must be less than or equal to startingBaseFeeBps bps'
@@ -887,7 +897,7 @@ export function getFeeSchedulerParams(
         const ratio =
             minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber()
         const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
-        reductionFactor = new BN(BASIS_POINT_MAX * (1 - decayBase))
+        reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
     }
 
     return {
@@ -915,7 +925,7 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
     baseFeeMode: BaseFeeMode
 ): number {
     if (numberOfPeriod === 0 || periodFrequency === 0) {
-        return (cliffFeeNumerator / FEE_DENOMINATOR) * BASIS_POINT_MAX
+        return (cliffFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
     }
 
     let baseFeeNumerator: number
@@ -924,13 +934,13 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
         baseFeeNumerator = cliffFeeNumerator - numberOfPeriod * reductionFactor
     } else {
         // exponential mode
-        const decayRate = 1 - reductionFactor / BASIS_POINT_MAX
+        const decayRate = 1 - reductionFactor / MAX_BASIS_POINT
         baseFeeNumerator =
             cliffFeeNumerator * Math.pow(decayRate, numberOfPeriod)
     }
 
     // ensure base fee is not negative
-    return Math.max(0, (baseFeeNumerator / FEE_DENOMINATOR) * BASIS_POINT_MAX)
+    return Math.max(0, (baseFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT)
 }
 
 /**
@@ -966,6 +976,12 @@ export function getRateLimiterParams(
     if (baseFeeBps > MAX_FEE_BPS) {
         throw new Error(
             `Base fee (${baseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
+        )
+    }
+
+    if (baseFeeBps < MIN_FEE_BPS) {
+        throw new Error(
+            `Base fee (${baseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
         )
     }
 
@@ -1027,15 +1043,15 @@ export function getRateLimiterParams(
  */
 export function getDynamicFeeParams(
     baseFeeBps: number,
-    maxPriceChangeBps: number = MAX_PRICE_CHANGE_BPS_DEFAULT // default 15%
+    maxPriceChangePercentage: number = MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT // default 15%
 ): DynamicFeeParameters {
-    if (maxPriceChangeBps > MAX_PRICE_CHANGE_BPS_DEFAULT) {
+    if (maxPriceChangePercentage > MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT) {
         throw new Error(
-            `maxPriceChangeBps (${maxPriceChangeBps} bps) must be less than or equal to ${MAX_PRICE_CHANGE_BPS_DEFAULT}`
+            `maxPriceChangePercentage (${maxPriceChangePercentage}%) must be less than or equal to ${MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT}`
         )
     }
 
-    const priceRatio = maxPriceChangeBps / BASIS_POINT_MAX + 1
+    const priceRatio = maxPriceChangePercentage / MAX_BASIS_POINT + 1
     // Q64
     const sqrtPriceRatioQ64 = new BN(
         Decimal.sqrt(priceRatio.toString())
@@ -1048,7 +1064,7 @@ export function getDynamicFeeParams(
         .div(BIN_STEP_BPS_U128_DEFAULT)
         .muln(2)
 
-    const maxVolatilityAccumulator = new BN(deltaBinId.muln(BASIS_POINT_MAX))
+    const maxVolatilityAccumulator = new BN(deltaBinId.muln(MAX_BASIS_POINT))
 
     const squareVfaBin = maxVolatilityAccumulator
         .mul(new BN(BIN_STEP_BPS_DEFAULT))
@@ -1056,7 +1072,9 @@ export function getDynamicFeeParams(
 
     const baseFeeNumerator = new BN(bpsToFeeNumerator(baseFeeBps))
 
-    const maxDynamicFeeNumerator = baseFeeNumerator.muln(20).divn(100) // default max dynamic fee = 20% of min base fee
+    const maxDynamicFeeNumerator = baseFeeNumerator
+        .muln(maxPriceChangePercentage)
+        .divn(100) // default max dynamic fee = 20% of min base fee
     const vFee = maxDynamicFeeNumerator
         .mul(new BN(100_000_000_000))
         .sub(new BN(99_999_999_999))
@@ -1092,13 +1110,7 @@ export function getLockedVestingParams(
     totalVestingDuration: number,
     cliffDurationFromMigrationTime: number,
     tokenBaseDecimal: TokenDecimal
-): {
-    amountPerPeriod: BN
-    cliffDurationFromMigrationTime: BN
-    frequency: BN
-    numberOfPeriod: BN
-    cliffUnlockAmount: BN
-} {
+): LockedVestingParameters {
     if (totalLockedVestingAmount == 0) {
         return {
             amountPerPeriod: new BN(0),
@@ -1169,6 +1181,95 @@ export function getLockedVestingParams(
             adjustedCliffUnlockAmount,
             tokenBaseDecimal
         ),
+    }
+}
+
+export const getLiquidityVestingInfoParams = (
+    vestingPercentage: number,
+    bpsPerPeriod: number,
+    numberOfPeriods: number,
+    cliffDurationFromMigrationTime: number,
+    totalDuration: number
+): LiquidityVestingInfoParameters => {
+    // validate vestingPercentage (0-100, u8)
+    if (vestingPercentage < 0 || vestingPercentage > 100) {
+        throw new Error('vestingPercentage must be between 0 and 100')
+    }
+
+    // if vestingPercentage is 0, all other params should be 0 (zero vesting case)
+    if (vestingPercentage === 0) {
+        if (
+            bpsPerPeriod !== 0 ||
+            numberOfPeriods !== 0 ||
+            cliffDurationFromMigrationTime !== 0 ||
+            totalDuration !== 0
+        ) {
+            throw new Error(
+                'If vestingPercentage is 0, all other parameters must be 0'
+            )
+        }
+        return {
+            vestingPercentage: 0,
+            bpsPerPeriod: 0,
+            numberOfPeriods: 0,
+            cliffDurationFromMigrationTime: 0,
+            frequency: 0,
+        }
+    }
+
+    if (bpsPerPeriod < 0 || bpsPerPeriod > MAX_BASIS_POINT) {
+        throw new Error(`bpsPerPeriod must be between 0 and ${MAX_BASIS_POINT}`)
+    }
+
+    if (numberOfPeriods <= 0) {
+        throw new Error(
+            'numberOfPeriods must be greater than zero when vestingPercentage > 0'
+        )
+    }
+
+    if (cliffDurationFromMigrationTime < 0) {
+        throw new Error('cliffDurationFromMigrationTime must be >= 0')
+    }
+
+    if (totalDuration <= 0) {
+        throw new Error('totalDuration must be greater than zero')
+    }
+
+    const frequency = totalDuration / numberOfPeriods
+
+    if (frequency <= 0) {
+        throw new Error(
+            'frequency must be greater than zero (totalDuration / numberOfPeriods must be > 0)'
+        )
+    }
+
+    const totalBps = bpsPerPeriod * numberOfPeriods
+    if (totalBps > MAX_BASIS_POINT) {
+        throw new Error(
+            `Total BPS (bpsPerPeriod * numberOfPeriods = ${totalBps}) must not exceed ${MAX_BASIS_POINT}`
+        )
+    }
+
+    const totalVestingDuration =
+        cliffDurationFromMigrationTime + numberOfPeriods * frequency
+    if (totalVestingDuration > MAX_LOCK_DURATION_IN_SECONDS) {
+        throw new Error(
+            `Total vesting duration (${totalVestingDuration}s) must not exceed ${MAX_LOCK_DURATION_IN_SECONDS}s (2 years)`
+        )
+    }
+
+    if (cliffDurationFromMigrationTime === 0 && numberOfPeriods === 0) {
+        throw new Error(
+            'If cliffDurationFromMigrationTime is 0, numberOfPeriods must be > 0'
+        )
+    }
+
+    return {
+        vestingPercentage,
+        bpsPerPeriod,
+        numberOfPeriods,
+        cliffDurationFromMigrationTime,
+        frequency: Math.round(frequency),
     }
 }
 
@@ -1499,4 +1600,144 @@ export async function prepareSwapAmountParam(
     const mintTokenDecimals = await getTokenDecimals(connection, mintAddress)
 
     return convertToLamports(amount, mintTokenDecimals)
+}
+
+/**
+ * Calculate the locked liquidity BPS for a single vesting info at a given time.
+ * @param vestingInfo - The liquidity vesting info parameters
+ * @param nSeconds - Number of seconds after migration
+ * @returns The locked liquidity in BPS (basis points)
+ */
+export function getVestingLockedLiquidityBpsAtNSeconds(
+    vestingInfo: LiquidityVestingInfoParameters | undefined,
+    nSeconds: number
+): number {
+    // If no vesting info or vesting percentage is 0, return 0
+    if (!vestingInfo || vestingInfo.vestingPercentage === 0) {
+        return 0
+    }
+
+    const totalLiquidity = U128_MAX
+
+    // total_vested_liquidity = floor(total_liquidity * vesting_percentage / 100)
+    const totalVestedLiquidity = totalLiquidity
+        .mul(new BN(vestingInfo.vestingPercentage))
+        .div(new BN(100))
+
+    const bpsPerPeriod = vestingInfo.bpsPerPeriod
+    const numberOfPeriods = vestingInfo.numberOfPeriods
+    const frequency = vestingInfo.frequency
+    const cliffDuration = vestingInfo.cliffDurationFromMigrationTime
+
+    // calculate total BPS that will be unlocked over all periods
+    const totalBpsAfterCliff = bpsPerPeriod * numberOfPeriods
+
+    // total_vesting_liquidity_after_cliff = floor(total_vested_liquidity * total_bps_after_cliff / MAX_BASIS_POINT)
+    const totalVestingLiquidityAfterCliff = totalVestedLiquidity
+        .mul(new BN(totalBpsAfterCliff))
+        .div(new BN(MAX_BASIS_POINT))
+
+    // liquidity_per_period = floor(total_vesting_liquidity_after_cliff / number_of_periods)
+    let liquidityPerPeriod = new BN(0)
+    let adjustedFrequency = frequency
+    let adjustedNumberOfPeriods = numberOfPeriods
+    let adjustedCliffDuration = cliffDuration
+
+    if (numberOfPeriods > 0) {
+        liquidityPerPeriod = totalVestingLiquidityAfterCliff.div(
+            new BN(numberOfPeriods)
+        )
+    }
+
+    // If liquidity_per_period == 0 (due to precision loss), make it cliff-only lock
+    if (liquidityPerPeriod.isZero()) {
+        adjustedNumberOfPeriods = 0
+        adjustedFrequency = 0
+        adjustedCliffDuration = Math.max(cliffDuration, 1)
+    }
+
+    // cliff_unlock_liquidity = total_vested_liquidity - (liquidity_per_period * number_of_periods)
+    const cliffUnlockLiquidity = totalVestedLiquidity.sub(
+        liquidityPerPeriod.mul(new BN(adjustedNumberOfPeriods))
+    )
+
+    // calculate unlocked liquidity at nSeconds using vesting parameters
+    // cliff_point = current_timestamp (0) + cliff_duration
+    const cliffPoint = new BN(adjustedCliffDuration)
+    const currentPoint = new BN(nSeconds)
+
+    let unlockedLiquidity = new BN(0)
+
+    if (currentPoint.gte(cliffPoint)) {
+        // past cliff - add cliff unlock amount
+        unlockedLiquidity = cliffUnlockLiquidity
+
+        // calculate periods elapsed after cliff
+        if (adjustedFrequency > 0 && adjustedNumberOfPeriods > 0) {
+            const timeAfterCliff = currentPoint.sub(cliffPoint)
+            const periodsElapsed = timeAfterCliff
+                .div(new BN(adjustedFrequency))
+                .toNumber()
+            const actualPeriodsElapsed = Math.min(
+                periodsElapsed,
+                adjustedNumberOfPeriods
+            )
+            unlockedLiquidity = unlockedLiquidity.add(
+                liquidityPerPeriod.mul(new BN(actualPeriodsElapsed))
+            )
+        }
+    }
+
+    // locked_liquidity = total_vested_liquidity - unlocked_liquidity
+    const lockedLiquidity = totalVestedLiquidity.sub(unlockedLiquidity)
+
+    // liquidity_locked_bps = floor(locked_liquidity * MAX_BASIS_POINT / total_liquidity)
+    const liquidityLockedBps = lockedLiquidity
+        .mul(new BN(MAX_BASIS_POINT))
+        .div(totalLiquidity)
+
+    return liquidityLockedBps.toNumber()
+}
+
+/**
+ * Calculate the locked liquidity BPS at a given time (in seconds) after migration
+ * @param partnerPermanentLockedLiquidityPercentage - Partner's permanently locked liquidity percentage
+ * @param creatorPermanentLockedLiquidityPercentage - Creator's permanently locked liquidity percentage
+ * @param partnerLiquidityVestingInfo - Partner's liquidity vesting info (optional)
+ * @param creatorLiquidityVestingInfo - Creator's liquidity vesting info (optional)
+ * @param elapsedSeconds - Number of seconds after migration
+ * @returns The total locked liquidity in BPS (basis points)
+ */
+export function calculateLockedLiquidityBpsAtTime(
+    partnerPermanentLockedLiquidityPercentage: number,
+    creatorPermanentLockedLiquidityPercentage: number,
+    partnerLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
+    creatorLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
+    elapsedSeconds: number
+): number {
+    // calculate vested locked BPS using the same u128 arithmetic as on-chain
+    const partnerVestedLockedLiquidityBps =
+        getVestingLockedLiquidityBpsAtNSeconds(
+            partnerLiquidityVestingInfo,
+            elapsedSeconds
+        )
+    const creatorVestedLockedLiquidityBps =
+        getVestingLockedLiquidityBpsAtNSeconds(
+            creatorLiquidityVestingInfo,
+            elapsedSeconds
+        )
+
+    const partnerPermanentLockedLiquidityBps =
+        partnerPermanentLockedLiquidityPercentage * 100
+    const creatorPermanentLockedLiquidityBps =
+        creatorPermanentLockedLiquidityPercentage * 100
+
+    // total locked = partner_vested + partner_permanent + creator_vested + creator_permanent
+    const totalLockedLiquidityBpsAtNSeconds =
+        partnerVestedLockedLiquidityBps +
+        partnerPermanentLockedLiquidityBps +
+        creatorVestedLockedLiquidityBps +
+        creatorPermanentLockedLiquidityBps
+
+    return totalLockedLiquidityBpsAtNSeconds
 }

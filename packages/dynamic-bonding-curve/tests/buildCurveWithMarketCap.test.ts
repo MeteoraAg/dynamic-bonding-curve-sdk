@@ -24,7 +24,7 @@ describe('buildCurveWithMarketCap tests', () => {
         migrationOption: MigrationOption.MET_DAMM_V2,
         tokenBaseDecimal: TokenDecimal.SIX,
         tokenQuoteDecimal: TokenDecimal.NINE,
-        lockedVestingParam: {
+        lockedVestingParams: {
             totalLockedVestingAmount: 0,
             numberOfVestingPeriod: 0,
             cliffUnlockAmount: 0,
@@ -45,17 +45,18 @@ describe('buildCurveWithMarketCap tests', () => {
         collectFeeMode: CollectFeeMode.QuoteToken,
         migrationFeeOption: MigrationFeeOption.FixedBps100,
         tokenType: TokenType.SPL,
-        partnerLpPercentage: 0,
-        creatorLpPercentage: 0,
-        partnerLockedLpPercentage: 100,
-        creatorLockedLpPercentage: 0,
+        partnerLiquidityPercentage: 0,
+        creatorLiquidityPercentage: 0,
+        partnerPermanentLockedLiquidityPercentage: 100,
+        creatorPermanentLockedLiquidityPercentage: 0,
         creatorTradingFeePercentage: 0,
         leftover: 10000,
         tokenUpdateAuthority: 0,
         migrationFee: {
-            feePercentage: 10,
-            creatorFeePercentage: 50,
+            feePercentage: 0,
+            creatorFeePercentage: 0,
         },
+        poolCreationFee: 1,
     }
 
     test('build curve by market cap 1', () => {
@@ -169,6 +170,7 @@ describe('buildCurveWithMarketCap tests', () => {
 
     test('build curve by market cap 3', () => {
         console.log('\n testing build curve by market cap...')
+
         const config = buildCurveWithMarketCap({
             totalTokenSupply: 100000000,
             initialMarketCap: 1000,
@@ -176,7 +178,7 @@ describe('buildCurveWithMarketCap tests', () => {
             migrationOption: MigrationOption.MET_DAMM_V2,
             tokenBaseDecimal: TokenDecimal.SIX,
             tokenQuoteDecimal: TokenDecimal.SIX,
-            lockedVestingParam: {
+            lockedVestingParams: {
                 totalLockedVestingAmount: 50000000,
                 numberOfVestingPeriod: 1,
                 cliffUnlockAmount: 50000000,
@@ -197,10 +199,10 @@ describe('buildCurveWithMarketCap tests', () => {
             collectFeeMode: CollectFeeMode.QuoteToken,
             migrationFeeOption: MigrationFeeOption.FixedBps100,
             tokenType: TokenType.SPL,
-            partnerLpPercentage: 0,
-            creatorLpPercentage: 0,
-            partnerLockedLpPercentage: 100,
-            creatorLockedLpPercentage: 0,
+            partnerLiquidityPercentage: 0,
+            creatorLiquidityPercentage: 0,
+            partnerPermanentLockedLiquidityPercentage: 100,
+            creatorPermanentLockedLiquidityPercentage: 0,
             creatorTradingFeePercentage: 50,
             leftover: 0,
             tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
@@ -208,6 +210,7 @@ describe('buildCurveWithMarketCap tests', () => {
                 feePercentage: 1.5,
                 creatorFeePercentage: 50,
             },
+            poolCreationFee: 1,
         })
 
         console.log(

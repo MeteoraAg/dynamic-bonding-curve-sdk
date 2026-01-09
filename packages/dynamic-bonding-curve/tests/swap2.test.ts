@@ -17,6 +17,8 @@ import {
     MigrationOption,
     PoolConfig,
     StateService,
+    Swap2Params,
+    SwapMode,
     TokenDecimal,
     TokenType,
     TokenUpdateAuthorityOption,
@@ -26,7 +28,7 @@ import { BN } from 'bn.js'
 import { connection, executeTransaction } from './utils/common'
 import { NATIVE_MINT } from '@solana/spl-token'
 
-describe('swap Tests', () => {
+describe('swap2 Tests', () => {
     let context: ProgramTestContext
     let admin: Keypair
     let operator: Keypair
@@ -193,18 +195,19 @@ describe('swap Tests', () => {
         } as unknown as VirtualPool)
     })
 
-    test('swap', async () => {
-        const swapParam = {
+    test('swap2ExactIn', async () => {
+        const swap2Param: Swap2Params = {
+            swapMode: SwapMode.ExactIn,
+            swapBaseForQuote: false,
             amountIn: new BN(1000000000),
             minimumAmountOut: new BN(1),
-            swapBaseForQuote: false,
             owner: user.publicKey,
             pool: pool,
             referralTokenAccount: null as PublicKey | null,
             payer: user.publicKey,
         }
 
-        const swapTx = await dbcClient.pool.swap(swapParam)
+        const swapTx = await dbcClient.pool.swap2(swap2Param)
 
         // Get recent blockhash from the banks client
         const recentBlockhash = await context.banksClient.getLatestBlockhash()
@@ -214,6 +217,57 @@ describe('swap Tests', () => {
 
         // Set fee payer before signing
         swapTx.feePayer = user.publicKey
+        swapTx.partialSign(user)
+
+        await executeTransaction(context.banksClient, swapTx, [user])
+    })
+
+    test('swap2PartialFill', async () => {
+        const swap2Param: Swap2Params = {
+            amountIn: new BN(1000000000),
+            minimumAmountOut: new BN(1),
+            swapBaseForQuote: false,
+            swapMode: SwapMode.PartialFill,
+            owner: user.publicKey,
+            pool: pool,
+            referralTokenAccount: null as PublicKey | null,
+            payer: user.publicKey,
+        }
+
+        const swapTx = await dbcClient.pool.swap2(swap2Param)
+
+        const recentBlockhash = await context.banksClient.getLatestBlockhash()
+        if (recentBlockhash) {
+            swapTx.recentBlockhash = recentBlockhash[0]
+        }
+
+        swapTx.feePayer = user.publicKey
+        swapTx.partialSign(user)
+
+        await executeTransaction(context.banksClient, swapTx, [user])
+    })
+
+    test('swap2ExactOut', async () => {
+        const swap2Param: Swap2Params = {
+            amountOut: new BN(1000000),
+            maximumAmountIn: new BN(1000000000),
+            swapBaseForQuote: false,
+            swapMode: SwapMode.ExactOut,
+            owner: user.publicKey,
+            pool: pool,
+            referralTokenAccount: null as PublicKey | null,
+            payer: user.publicKey,
+        }
+
+        const swapTx = await dbcClient.pool.swap2(swap2Param)
+
+        const recentBlockhash = await context.banksClient.getLatestBlockhash()
+        if (recentBlockhash) {
+            swapTx.recentBlockhash = recentBlockhash[0]
+        }
+
+        swapTx.feePayer = user.publicKey
+        swapTx.partialSign(user)
 
         await executeTransaction(context.banksClient, swapTx, [user])
     })

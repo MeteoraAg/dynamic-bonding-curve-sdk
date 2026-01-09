@@ -17,6 +17,7 @@ import {
     ClaimPartnerTradingFeeWithQuoteMintSolParams,
     ClaimTradingFee2Params,
     WithdrawMigrationFeeParams,
+    ClaimPartnerPoolCreationFeeParams,
 } from '../types'
 import {
     derivePartnerMetadata,
@@ -622,6 +623,45 @@ export class PartnerService extends DynamicBondingCurveProgram {
             })
             .preInstructions(preInstructions)
             .postInstructions(postInstructions)
+            .transaction()
+
+        return transaction
+    }
+
+    /**
+     * Claim partner pool creation fee
+     * @param params - The claim partner pool creation fee parameters
+     * @returns A claim partner pool creation fee transaction
+     */
+    async claimPartnerPoolCreationFee(
+        params: ClaimPartnerPoolCreationFeeParams
+    ): Promise<Transaction> {
+        const { virtualPool, feeReceiver } = params
+
+        const virtualPoolState = await this.state.getPool(virtualPool)
+        if (!virtualPoolState) {
+            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        }
+
+        const config = virtualPoolState.config
+
+        const configState = await this.state.getPoolConfig(
+            virtualPoolState.config
+        )
+        if (!configState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
+
+        const feeClaimer = configState.feeClaimer
+
+        const transaction = await this.program.methods
+            .claimPartnerPoolCreationFee()
+            .accountsPartial({
+                config,
+                pool: virtualPool,
+                feeClaimer,
+                feeReceiver,
+            })
             .transaction()
 
         return transaction

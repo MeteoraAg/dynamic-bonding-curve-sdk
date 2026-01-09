@@ -96,11 +96,28 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build
         run: pnpm build
+
+      - name: Start Solana test validator
+        run: |
+          solana-test-validator \
+            --bpf-program dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN packages/dynamic-bonding-curve/tests/fixtures/dynamic_bonding_curve.so \
+            --bpf-program cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG packages/dynamic-bonding-curve/tests/fixtures/cp_amm.so \
+            --bpf-program Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB packages/dynamic-bonding-curve/tests/fixtures/amm.so \
+            --bpf-program LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn packages/dynamic-bonding-curve/tests/fixtures/locker.so \
+            --bpf-program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s packages/dynamic-bonding-curve/tests/fixtures/metaplex.so \
+            --bpf-program 24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi packages/dynamic-bonding-curve/tests/fixtures/vault.so \
+            --reset &
+          sleep 10
 
       - name: Run tests
         run: pnpm --filter @meteora-ag/dynamic-bonding-curve-sdk test

@@ -2,6 +2,23 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.0] - 2025-01-09
+
+### Added
+
+- Added `firstPositionVestingAddress` and `secondPositionVestingAddress` into `remainingAccounts` in `migrateDammV2` function
+- Added `claimPartnerPoolCreationFee` function
+- Added validation checks for createConfig
+- Added optional `partnerLiquidityVestingInfoParams` and `creatorLiquidityVestingInfoParams` parameters to all `buildCurve` functions
+- Added `getLiquidityVestingInfoParams` helper function to craft `LiquidityVestingInfoParameters` object
+- Added tests for `createConfig` validation, `createPool`, `swap` and `swap2`
+
+### Changed
+
+- `partnerLpPercentage` and `creatorLpPercentage` has been renamed to `partnerLiquidityPercentage` and `creatorLiquidityPercentage` respectively
+- `partnerLockedLpPercentage` and `creatorLockedLpPercentage` has been renamed to `partnerPermanentLockedLiquidityPercentage` and `creatorPermanentLockedLiquidityPercentage` respectively
+- Renamed `BASIS_POINT_MAX` to `MAX_BASIS_POINT`
+
 ## [1.4.10] - 2025-01-03
 
 ### Added

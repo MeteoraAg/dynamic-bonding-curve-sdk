@@ -1,4 +1,4 @@
-import { Keypair, PublicKey } from '@solana/web3.js'
+import { Keypair } from '@solana/web3.js'
 import { ProgramTestContext } from 'solana-bankrun'
 import { fundSol, startTest } from './utils/bankrun'
 import { test, describe, beforeEach, vi } from 'vitest'
@@ -10,51 +10,33 @@ import {
     ConfigParameters,
     createSqrtPrices,
     DammV2DynamicFeeMode,
-    deriveDbcPoolAddress,
-    deriveDbcTokenVaultAddress,
     DynamicBondingCurveClient,
     MigrationFeeOption,
     MigrationOption,
-    PoolConfig,
-    StateService,
     TokenDecimal,
     TokenType,
     TokenUpdateAuthorityOption,
-    VirtualPool,
+    StateService,
+    PoolConfig,
 } from '../src'
-import { BN } from 'bn.js'
 import { connection, executeTransaction } from './utils/common'
 import { NATIVE_MINT } from '@solana/spl-token'
 
-describe('swap Tests', () => {
+describe('createPool tests', () => {
     let context: ProgramTestContext
     let admin: Keypair
-    let operator: Keypair
     let partner: Keypair
-    let user: Keypair
     let poolCreator: Keypair
     let dbcClient: DynamicBondingCurveClient
     let config: Keypair
-    let pool: PublicKey
-    let baseMint: Keypair
     let curveConfig: ConfigParameters
 
     beforeEach(async () => {
         context = await startTest()
         admin = context.payer
-        operator = Keypair.generate()
         partner = Keypair.generate()
-        user = Keypair.generate()
         poolCreator = Keypair.generate()
-        config = Keypair.generate()
-        baseMint = Keypair.generate()
-
-        const receivers = [
-            user.publicKey,
-            operator.publicKey,
-            partner.publicKey,
-            poolCreator.publicKey,
-        ]
+        const receivers = [partner.publicKey, poolCreator.publicKey]
         await fundSol(context.banksClient, admin, receivers)
         dbcClient = new DynamicBondingCurveClient(connection, 'confirmed')
 
@@ -120,6 +102,10 @@ describe('swap Tests', () => {
             poolCreationFee: 1,
         })
 
+        config = Keypair.generate()
+    })
+
+    test('createPool', async () => {
         const createConfigTx = await dbcClient.partner.createConfig({
             config: config.publicKey,
             feeClaimer: partner.publicKey,
@@ -141,12 +127,12 @@ describe('swap Tests', () => {
             config,
         ])
 
+        const baseMint = Keypair.generate()
+
+        // Mock getPoolConfig to avoid reading from disconnected connection
         vi.spyOn(StateService.prototype, 'getPoolConfig').mockResolvedValue({
             quoteMint: NATIVE_MINT,
             tokenType: TokenType.SPL,
-            activationType: ActivationType.Timestamp,
-            poolFees: curveConfig.poolFees,
-            quoteTokenFlag: TokenType.SPL,
         } as PoolConfig)
 
         const createPoolTx = await dbcClient.pool.createPool({
@@ -170,51 +156,5 @@ describe('swap Tests', () => {
             baseMint,
             poolCreator,
         ])
-
-        pool = deriveDbcPoolAddress(
-            NATIVE_MINT,
-            baseMint.publicKey,
-            config.publicKey
-        )
-        const baseVault = deriveDbcTokenVaultAddress(pool, baseMint.publicKey)
-        const quoteVault = deriveDbcTokenVaultAddress(pool, NATIVE_MINT)
-
-        vi.spyOn(StateService.prototype, 'getPool').mockResolvedValue({
-            config: config.publicKey,
-            creator: poolCreator.publicKey,
-            baseMint: baseMint.publicKey,
-            baseVault,
-            quoteVault,
-            baseReserve: new BN(1000000000000),
-            quoteReserve: new BN(0),
-            sqrtPrice: curveConfig.sqrtStartPrice,
-            activationPoint: new BN(0),
-            poolType: TokenType.SPL,
-        } as unknown as VirtualPool)
-    })
-
-    test('swap', async () => {
-        const swapParam = {
-            amountIn: new BN(1000000000),
-            minimumAmountOut: new BN(1),
-            swapBaseForQuote: false,
-            owner: user.publicKey,
-            pool: pool,
-            referralTokenAccount: null as PublicKey | null,
-            payer: user.publicKey,
-        }
-
-        const swapTx = await dbcClient.pool.swap(swapParam)
-
-        // Get recent blockhash from the banks client
-        const recentBlockhash = await context.banksClient.getLatestBlockhash()
-        if (recentBlockhash) {
-            swapTx.recentBlockhash = recentBlockhash[0]
-        }
-
-        // Set fee payer before signing
-        swapTx.feePayer = user.publicKey
-
-        await executeTransaction(context.banksClient, swapTx, [user])
     })
 })

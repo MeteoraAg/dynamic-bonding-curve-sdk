@@ -513,3 +513,17 @@ export function deriveBaseKeyForLocker(virtualPool: PublicKey): PublicKey {
         DYNAMIC_BONDING_CURVE_PROGRAM_ID
     )[0]
 }
+
+/**
+ * Derive DAMM V2 position vesting account
+ * @param position - The position
+ * @returns The DAMM V2 position vesting account
+ */
+export function deriveDammV2PositionVestingAccount(
+    position: PublicKey
+): PublicKey {
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from('position_vesting'), position.toBuffer()],
+        DYNAMIC_BONDING_CURVE_PROGRAM_ID
+    )[0]
+}

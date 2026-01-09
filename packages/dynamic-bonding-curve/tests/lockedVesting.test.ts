@@ -1,5 +1,4 @@
 import {
-    ActivationType,
     getLockedVestingParams,
     getTotalVestingAmount,
     TokenDecimal,
