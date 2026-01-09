@@ -54,6 +54,7 @@ export const MAX_CREATOR_MIGRATION_FEE_PERCENTAGE = 100 // 100%
 
 // Migrated Pool Locked Liquidity
 export const MIN_LOCKED_LIQUIDITY_BPS = 1000 // 10%
+export const SECONDS_PER_DAY = 86400
 // Max lock duration must less than or equals to https://github.com/MeteoraAg/damm-v2/blob/689a3264484799d833c505523f4ff4e4990690aa/programs/cp-amm/src/constants.rs#L72
 // We reduce to 2 years because cliff_point is relative and depend on time when token is migrated
 export const MAX_LOCK_DURATION_IN_SECONDS = 63_072_000 // 2 years
@@ -110,10 +111,11 @@ export const DAMM_V2_MIGRATION_FEE_ADDRESS = [
     new PublicKey('A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck'), // Customizable
 ]
 
-export const DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS: LiquidityVestingInfoParams = {
-    vestingPercentage: 0,
-    bpsPerPeriod: 0,
-    numberOfPeriods: 0,
-    cliffDurationFromMigrationTime: 0,
-    totalDuration: 0,
-}
+export const DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS: LiquidityVestingInfoParams =
+    {
+        vestingPercentage: 0,
+        bpsPerPeriod: 0,
+        numberOfPeriods: 0,
+        cliffDurationFromMigrationTime: 0,
+        totalDuration: 0,
+    }

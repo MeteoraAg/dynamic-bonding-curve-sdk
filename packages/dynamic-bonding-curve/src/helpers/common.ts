@@ -35,6 +35,7 @@ import {
     MIN_SQRT_PRICE,
     ONE_Q64,
     SWAP_BUFFER_PERCENTAGE,
+    U128_MAX,
 } from '../constants'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
@@ -1599,4 +1600,144 @@ export async function prepareSwapAmountParam(
     const mintTokenDecimals = await getTokenDecimals(connection, mintAddress)
 
     return convertToLamports(amount, mintTokenDecimals)
+}
+
+/**
+ * Calculate the locked liquidity BPS for a single vesting info at a given time.
+ * @param vestingInfo - The liquidity vesting info parameters
+ * @param nSeconds - Number of seconds after migration
+ * @returns The locked liquidity in BPS (basis points)
+ */
+export function getVestingLockedLiquidityBpsAtNSeconds(
+    vestingInfo: LiquidityVestingInfoParameters | undefined,
+    nSeconds: number
+): number {
+    // If no vesting info or vesting percentage is 0, return 0
+    if (!vestingInfo || vestingInfo.vestingPercentage === 0) {
+        return 0
+    }
+
+    const totalLiquidity = U128_MAX
+
+    // total_vested_liquidity = floor(total_liquidity * vesting_percentage / 100)
+    const totalVestedLiquidity = totalLiquidity
+        .mul(new BN(vestingInfo.vestingPercentage))
+        .div(new BN(100))
+
+    const bpsPerPeriod = vestingInfo.bpsPerPeriod
+    const numberOfPeriods = vestingInfo.numberOfPeriods
+    const frequency = vestingInfo.frequency
+    const cliffDuration = vestingInfo.cliffDurationFromMigrationTime
+
+    // calculate total BPS that will be unlocked over all periods
+    const totalBpsAfterCliff = bpsPerPeriod * numberOfPeriods
+
+    // total_vesting_liquidity_after_cliff = floor(total_vested_liquidity * total_bps_after_cliff / MAX_BASIS_POINT)
+    const totalVestingLiquidityAfterCliff = totalVestedLiquidity
+        .mul(new BN(totalBpsAfterCliff))
+        .div(new BN(MAX_BASIS_POINT))
+
+    // liquidity_per_period = floor(total_vesting_liquidity_after_cliff / number_of_periods)
+    let liquidityPerPeriod = new BN(0)
+    let adjustedFrequency = frequency
+    let adjustedNumberOfPeriods = numberOfPeriods
+    let adjustedCliffDuration = cliffDuration
+
+    if (numberOfPeriods > 0) {
+        liquidityPerPeriod = totalVestingLiquidityAfterCliff.div(
+            new BN(numberOfPeriods)
+        )
+    }
+
+    // If liquidity_per_period == 0 (due to precision loss), make it cliff-only lock
+    if (liquidityPerPeriod.isZero()) {
+        adjustedNumberOfPeriods = 0
+        adjustedFrequency = 0
+        adjustedCliffDuration = Math.max(cliffDuration, 1)
+    }
+
+    // cliff_unlock_liquidity = total_vested_liquidity - (liquidity_per_period * number_of_periods)
+    const cliffUnlockLiquidity = totalVestedLiquidity.sub(
+        liquidityPerPeriod.mul(new BN(adjustedNumberOfPeriods))
+    )
+
+    // calculate unlocked liquidity at nSeconds using vesting parameters
+    // cliff_point = current_timestamp (0) + cliff_duration
+    const cliffPoint = new BN(adjustedCliffDuration)
+    const currentPoint = new BN(nSeconds)
+
+    let unlockedLiquidity = new BN(0)
+
+    if (currentPoint.gte(cliffPoint)) {
+        // past cliff - add cliff unlock amount
+        unlockedLiquidity = cliffUnlockLiquidity
+
+        // calculate periods elapsed after cliff
+        if (adjustedFrequency > 0 && adjustedNumberOfPeriods > 0) {
+            const timeAfterCliff = currentPoint.sub(cliffPoint)
+            const periodsElapsed = timeAfterCliff
+                .div(new BN(adjustedFrequency))
+                .toNumber()
+            const actualPeriodsElapsed = Math.min(
+                periodsElapsed,
+                adjustedNumberOfPeriods
+            )
+            unlockedLiquidity = unlockedLiquidity.add(
+                liquidityPerPeriod.mul(new BN(actualPeriodsElapsed))
+            )
+        }
+    }
+
+    // locked_liquidity = total_vested_liquidity - unlocked_liquidity
+    const lockedLiquidity = totalVestedLiquidity.sub(unlockedLiquidity)
+
+    // liquidity_locked_bps = floor(locked_liquidity * MAX_BASIS_POINT / total_liquidity)
+    const liquidityLockedBps = lockedLiquidity
+        .mul(new BN(MAX_BASIS_POINT))
+        .div(totalLiquidity)
+
+    return liquidityLockedBps.toNumber()
+}
+
+/**
+ * Calculate the locked liquidity BPS at a given time (in seconds) after migration
+ * @param partnerPermanentLockedLiquidityPercentage - Partner's permanently locked liquidity percentage
+ * @param creatorPermanentLockedLiquidityPercentage - Creator's permanently locked liquidity percentage
+ * @param partnerLiquidityVestingInfo - Partner's liquidity vesting info (optional)
+ * @param creatorLiquidityVestingInfo - Creator's liquidity vesting info (optional)
+ * @param elapsedSeconds - Number of seconds after migration
+ * @returns The total locked liquidity in BPS (basis points)
+ */
+export function calculateLockedLiquidityBpsAtTime(
+    partnerPermanentLockedLiquidityPercentage: number,
+    creatorPermanentLockedLiquidityPercentage: number,
+    partnerLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
+    creatorLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
+    elapsedSeconds: number
+): number {
+    // calculate vested locked BPS using the same u128 arithmetic as on-chain
+    const partnerVestedLockedLiquidityBps =
+        getVestingLockedLiquidityBpsAtNSeconds(
+            partnerLiquidityVestingInfo,
+            elapsedSeconds
+        )
+    const creatorVestedLockedLiquidityBps =
+        getVestingLockedLiquidityBpsAtNSeconds(
+            creatorLiquidityVestingInfo,
+            elapsedSeconds
+        )
+
+    const partnerPermanentLockedLiquidityBps =
+        partnerPermanentLockedLiquidityPercentage * 100
+    const creatorPermanentLockedLiquidityBps =
+        creatorPermanentLockedLiquidityPercentage * 100
+
+    // total locked = partner_vested + partner_permanent + creator_vested + creator_permanent
+    const totalLockedLiquidityBpsAtNSeconds =
+        partnerVestedLockedLiquidityBps +
+        partnerPermanentLockedLiquidityBps +
+        creatorVestedLockedLiquidityBps +
+        creatorPermanentLockedLiquidityBps
+
+    return totalLockedLiquidityBpsAtNSeconds
 }

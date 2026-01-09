@@ -7,12 +7,17 @@ import {
     MAX_SQRT_PRICE,
     MIN_MIGRATED_POOL_FEE_BPS,
     MIN_SQRT_PRICE,
+    MIN_POOL_CREATION_FEE,
+    MAX_POOL_CREATION_FEE,
+    MIN_LOCKED_LIQUIDITY_BPS,
+    SECONDS_PER_DAY,
 } from '../constants'
 import {
     ActivationType,
     BaseFeeMode,
     CollectFeeMode,
     DammV2DynamicFeeMode,
+    LiquidityVestingInfoParameters,
     LockedVestingParameters,
     MigratedPoolFee,
     MigrationFeeOption,
@@ -26,6 +31,7 @@ import {
 } from '../types'
 import { Connection, PublicKey } from '@solana/web3.js'
 import {
+    calculateLockedLiquidityBpsAtTime,
     getBaseTokenForSwap,
     getMigrationBaseToken,
     getMigrationQuoteAmountFromMigrationQuoteThreshold,
@@ -328,19 +334,25 @@ export function validateTokenDecimals(tokenDecimal: TokenDecimal): boolean {
  * @param partnerLockedLpPercentage - The partner locked LP percentage
  * @param creatorLpPercentage - The creator LP percentage
  * @param creatorLockedLpPercentage - The creator locked LP percentage
+ * @param partnerVestingPercentage - The partner vesting percentage (optional, defaults to 0)
+ * @param creatorVestingPercentage - The creator vesting percentage (optional, defaults to 0)
  * @returns true if the LP percentages are valid, false otherwise
  */
 export function validateLPPercentages(
     partnerLpPercentage: number,
     partnerLockedLpPercentage: number,
     creatorLpPercentage: number,
-    creatorLockedLpPercentage: number
+    creatorLockedLpPercentage: number,
+    partnerVestingPercentage: number,
+    creatorVestingPercentage: number
 ): boolean {
     const totalLPPercentage =
         partnerLpPercentage +
         partnerLockedLpPercentage +
         creatorLpPercentage +
-        creatorLockedLpPercentage
+        creatorLockedLpPercentage +
+        partnerVestingPercentage +
+        creatorVestingPercentage
     return totalLPPercentage === 100
 }
 
@@ -465,6 +477,81 @@ export function validateTokenUpdateAuthorityOptions(
         TokenUpdateAuthorityOption.CreatorUpdateAndMintAuthority,
         TokenUpdateAuthorityOption.PartnerUpdateAndMintAuthority,
     ].includes(option)
+}
+
+/**
+ * Validate pool creation fee
+ * @param poolCreationFee - The pool creation fee in lamports
+ * @returns true if the pool creation fee is valid, false otherwise
+ */
+export function validatePoolCreationFee(poolCreationFee: BN): boolean {
+    if (poolCreationFee.eq(new BN(0))) {
+        return true
+    }
+
+    return (
+        poolCreationFee.gte(new BN(MIN_POOL_CREATION_FEE)) &&
+        poolCreationFee.lte(new BN(MAX_POOL_CREATION_FEE))
+    )
+}
+
+/**
+ * Validate the liquidity vesting info parameters
+ * @param vestingInfo - The liquidity vesting info parameters
+ * @returns true if valid, false otherwise
+ */
+export function validateLiquidityVestingInfo(
+    vestingInfo: LiquidityVestingInfoParameters
+): boolean {
+    const isZero =
+        vestingInfo.vestingPercentage === 0 &&
+        vestingInfo.bpsPerPeriod === 0 &&
+        vestingInfo.numberOfPeriods === 0 &&
+        vestingInfo.cliffDurationFromMigrationTime === 0 &&
+        vestingInfo.frequency === 0
+
+    if (isZero) {
+        return true
+    }
+
+    if (
+        vestingInfo.vestingPercentage < 0 ||
+        vestingInfo.vestingPercentage > 100
+    ) {
+        return false
+    }
+
+    if (vestingInfo.vestingPercentage > 0 && vestingInfo.frequency === 0) {
+        return false
+    }
+
+    return true
+}
+
+/**
+ * Validate that the minimum locked liquidity requirement is met at day 1
+ * The program requires at least MIN_LOCKED_LIQUIDITY_BPS (1000 = 10%) to be locked at SECONDS_PER_DAY (86400 seconds) after migration.
+ * @param partnerPermanentLockedLiquidityPercentage - Partner's permanently locked liquidity percentage
+ * @param creatorPermanentLockedLiquidityPercentage - Creator's permanently locked liquidity percentage
+ * @param partnerLiquidityVestingInfo - Partner's liquidity vesting info (optional)
+ * @param creatorLiquidityVestingInfo - Creator's liquidity vesting info (optional)
+ * @returns true if the minimum locked liquidity requirement is met, false otherwise
+ */
+export function validateMinimumLockedLiquidity(
+    partnerPermanentLockedLiquidityPercentage: number,
+    creatorPermanentLockedLiquidityPercentage: number,
+    partnerLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
+    creatorLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined
+): boolean {
+    const lockedBpsAtDay1 = calculateLockedLiquidityBpsAtTime(
+        partnerPermanentLockedLiquidityPercentage,
+        creatorPermanentLockedLiquidityPercentage,
+        partnerLiquidityVestingInfo,
+        creatorLiquidityVestingInfo,
+        SECONDS_PER_DAY
+    )
+
+    return lockedBpsAtDay1 >= MIN_LOCKED_LIQUIDITY_BPS
 }
 
 export function validateMigratedPoolFee(
@@ -592,10 +679,26 @@ export function validateConfigParameters(
         throw new Error('Invalid migration fee')
     }
 
+    // Creator trading fee percentage validation
+    if (
+        configParam.creatorTradingFeePercentage < 0 ||
+        configParam.creatorTradingFeePercentage > 100
+    ) {
+        throw new Error(
+            'Creator trading fee percentage must be between 0 and 100'
+        )
+    }
+
     // Token decimals validation
     if (!validateTokenDecimals(configParam.tokenDecimal)) {
         throw new Error('Token decimal must be between 6 and 9')
     }
+
+    // Get vesting percentages (default to 0 if not provided)
+    const partnerVestingPercentage =
+        configParam.partnerLiquidityVestingInfo?.vestingPercentage ?? 0
+    const creatorVestingPercentage =
+        configParam.creatorLiquidityVestingInfo?.vestingPercentage ?? 0
 
     // LP percentages validation
     if (
@@ -603,10 +706,90 @@ export function validateConfigParameters(
             configParam.partnerLiquidityPercentage,
             configParam.partnerPermanentLockedLiquidityPercentage,
             configParam.creatorLiquidityPercentage,
-            configParam.creatorPermanentLockedLiquidityPercentage
+            configParam.creatorPermanentLockedLiquidityPercentage,
+            partnerVestingPercentage,
+            creatorVestingPercentage
         )
     ) {
         throw new Error('Sum of LP percentages must equal 100')
+    }
+
+    // Pool creation fee validation
+    if (!validatePoolCreationFee(configParam.poolCreationFee)) {
+        throw new Error(
+            `Pool creation fee must be 0 or between ${MIN_POOL_CREATION_FEE} and ${MAX_POOL_CREATION_FEE} lamports`
+        )
+    }
+
+    // Liquidity vesting info validation based on migration option
+    if (configParam.migrationOption === MigrationOption.MET_DAMM) {
+        // For MeteoraDamm migration, vesting info must be zero/empty
+        const isPartnerVestingZero =
+            !configParam.partnerLiquidityVestingInfo ||
+            (configParam.partnerLiquidityVestingInfo.vestingPercentage === 0 &&
+                configParam.partnerLiquidityVestingInfo.bpsPerPeriod === 0 &&
+                configParam.partnerLiquidityVestingInfo.numberOfPeriods === 0 &&
+                configParam.partnerLiquidityVestingInfo
+                    .cliffDurationFromMigrationTime === 0 &&
+                configParam.partnerLiquidityVestingInfo.frequency === 0)
+
+        const isCreatorVestingZero =
+            !configParam.creatorLiquidityVestingInfo ||
+            (configParam.creatorLiquidityVestingInfo.vestingPercentage === 0 &&
+                configParam.creatorLiquidityVestingInfo.bpsPerPeriod === 0 &&
+                configParam.creatorLiquidityVestingInfo.numberOfPeriods === 0 &&
+                configParam.creatorLiquidityVestingInfo
+                    .cliffDurationFromMigrationTime === 0 &&
+                configParam.creatorLiquidityVestingInfo.frequency === 0)
+
+        if (!isPartnerVestingZero || !isCreatorVestingZero) {
+            throw new Error(
+                'Liquidity vesting is not supported for MeteoraDamm migration'
+            )
+        }
+    } else if (configParam.migrationOption === MigrationOption.MET_DAMM_V2) {
+        // For DammV2 migration, validate vesting info if provided
+        if (configParam.partnerLiquidityVestingInfo) {
+            if (
+                !validateLiquidityVestingInfo(
+                    configParam.partnerLiquidityVestingInfo
+                )
+            ) {
+                throw new Error('Invalid partner liquidity vesting info')
+            }
+        }
+        if (configParam.creatorLiquidityVestingInfo) {
+            if (
+                !validateLiquidityVestingInfo(
+                    configParam.creatorLiquidityVestingInfo
+                )
+            ) {
+                throw new Error('Invalid creator liquidity vesting info')
+            }
+        }
+    }
+
+    // The program requires at least 10% (1000 BPS) of liquidity to be locked at day 1
+    if (
+        !validateMinimumLockedLiquidity(
+            configParam.partnerPermanentLockedLiquidityPercentage,
+            configParam.creatorPermanentLockedLiquidityPercentage,
+            configParam.partnerLiquidityVestingInfo,
+            configParam.creatorLiquidityVestingInfo
+        )
+    ) {
+        const lockedBpsAtDay1 = calculateLockedLiquidityBpsAtTime(
+            configParam.partnerPermanentLockedLiquidityPercentage,
+            configParam.creatorPermanentLockedLiquidityPercentage,
+            configParam.partnerLiquidityVestingInfo,
+            configParam.creatorLiquidityVestingInfo,
+            SECONDS_PER_DAY
+        )
+        throw new Error(
+            `Invalid migration locked liquidity. At least ${MIN_LOCKED_LIQUIDITY_BPS} BPS (10%) must be locked at day 1. ` +
+                `Current locked liquidity at day 1: ${lockedBpsAtDay1} BPS. ` +
+                `Consider increasing permanent locked liquidity percentage or extending vesting duration/cliff.`
+        )
     }
 
     // Migration quote threshold validation
