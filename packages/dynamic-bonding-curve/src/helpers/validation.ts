@@ -330,27 +330,27 @@ export function validateTokenDecimals(tokenDecimal: TokenDecimal): boolean {
 
 /**
  * Validate the LP percentages
- * @param partnerLpPercentage - The partner LP percentage
- * @param partnerLockedLpPercentage - The partner locked LP percentage
- * @param creatorLpPercentage - The creator LP percentage
- * @param creatorLockedLpPercentage - The creator locked LP percentage
+ * @param partnerLiquidityPercentage - The partner liquidity percentage
+ * @param partnerPermanentLockedLiquidityPercentage - The partner permanent locked liquidity percentage
+ * @param creatorLiquidityPercentage - The creator liquidity percentage
+ * @param creatorPermanentLockedLiquidityPercentage - The creator permanent locked liquidity percentage
  * @param partnerVestingPercentage - The partner vesting percentage (optional, defaults to 0)
  * @param creatorVestingPercentage - The creator vesting percentage (optional, defaults to 0)
  * @returns true if the LP percentages are valid, false otherwise
  */
 export function validateLPPercentages(
-    partnerLpPercentage: number,
-    partnerLockedLpPercentage: number,
-    creatorLpPercentage: number,
-    creatorLockedLpPercentage: number,
+    partnerLiquidityPercentage: number,
+    partnerPermanentLockedLiquidityPercentage: number,
+    creatorLiquidityPercentage: number,
+    creatorPermanentLockedLiquidityPercentage: number,
     partnerVestingPercentage: number,
     creatorVestingPercentage: number
 ): boolean {
     const totalLPPercentage =
-        partnerLpPercentage +
-        partnerLockedLpPercentage +
-        creatorLpPercentage +
-        creatorLockedLpPercentage +
+        partnerLiquidityPercentage +
+        partnerPermanentLockedLiquidityPercentage +
+        creatorLiquidityPercentage +
+        creatorPermanentLockedLiquidityPercentage +
         partnerVestingPercentage +
         creatorVestingPercentage
     return totalLPPercentage === 100
