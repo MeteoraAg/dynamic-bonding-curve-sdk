@@ -572,9 +572,7 @@ export type WithdrawMigrationFeeParams = {
 }
 
 export type ClaimPartnerPoolCreationFeeParams = {
-    config: PublicKey
     virtualPool: PublicKey
-    feeClaimer: PublicKey
     feeReceiver: PublicKey
 }
 

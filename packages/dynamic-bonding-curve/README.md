@@ -47,8 +47,8 @@ The generic flow of how Dynamic Bonding Curve works is as follows:
 1. `createDammV1MigrationMetadata`
 2. `createLocker` (if the token has locked vesting)
 3. `migrateToDammV1`
-4. `lockDammV1LpToken` (if `creatorLockedLpPercentage` or `partnerLockedLpPercentage` is >0)
-5. `claimDammV1LpToken` (if `creatorLpPercentage` or `partnerLpPercentage` is >0)
+4. `lockDammV1LpToken` (if `creatorPermanentLockedLiquidityPercentage` or `partnerPermanentLockedLiquidityPercentage` is >0)
+5. `claimDammV1LpToken` (if `creatorLiquidityPercentage` or `partnerLiquidityPercentage` is >0)
 
 ### DAMM V2
 
