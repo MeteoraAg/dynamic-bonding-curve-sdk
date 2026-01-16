@@ -106,10 +106,7 @@ export class FeeScheduler implements BaseFeeHandler {
         public feeSchedulerMode: BaseFeeMode
     ) {}
 
-    validate(
-        collectFeeMode: CollectFeeMode,
-        activationType: ActivationType
-    ): boolean {
+    validate(): boolean {
         return validateFeeScheduler(
             this.numberOfPeriod,
             this.periodFrequency,

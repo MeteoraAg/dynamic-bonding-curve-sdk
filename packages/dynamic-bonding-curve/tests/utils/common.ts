@@ -1,7 +1,14 @@
-import { ComputeBudgetProgram, Signer, Transaction } from '@solana/web3.js'
+import {
+    ComputeBudgetProgram,
+    Connection,
+    Signer,
+    Transaction,
+} from '@solana/web3.js'
 import BN from 'bn.js'
 import { BanksClient } from 'solana-bankrun'
 import { processTransactionMaybeThrow } from './bankrun'
+
+export const connection = new Connection('http://127.0.0.1:8899')
 
 export async function executeTransaction(
     banksClient: BanksClient,

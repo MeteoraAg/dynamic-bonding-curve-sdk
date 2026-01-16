@@ -1,5 +1,5 @@
 import {
-    BASIS_POINT_MAX,
+    MAX_BASIS_POINT,
     FEE_DENOMINATOR,
     BaseFeeMode,
     calculateFeeSchedulerEndingBaseFeeBps,
@@ -10,7 +10,7 @@ describe('getMinBaseFeeBps tests', () => {
     test('linear fee scheduler - should calculate minimum fee correctly', () => {
         const baseFeeBps = 5000
         const cliffFeeNumerator =
-            (baseFeeBps * FEE_DENOMINATOR) / BASIS_POINT_MAX
+            (baseFeeBps * FEE_DENOMINATOR) / MAX_BASIS_POINT
         const numberOfPeriod = 144
         const periodFrequency = 60
         const reductionFactor = 3333333
@@ -29,7 +29,7 @@ describe('getMinBaseFeeBps tests', () => {
             cliffFeeNumerator - numberOfPeriod * reductionFactor
         const expectedMinFeeBps = Math.max(
             0,
-            (expectedMinFeeNumerator / FEE_DENOMINATOR) * BASIS_POINT_MAX
+            (expectedMinFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
         )
 
         console.log('minBaseFeeBps:', minBaseFeeBps)
@@ -42,7 +42,7 @@ describe('getMinBaseFeeBps tests', () => {
     test('exponential fee scheduler - should calculate minimum fee correctly', () => {
         const baseFeeBps = 5000
         const cliffFeeNumerator =
-            (baseFeeBps * FEE_DENOMINATOR) / BASIS_POINT_MAX
+            (baseFeeBps * FEE_DENOMINATOR) / MAX_BASIS_POINT
         const numberOfPeriod = 37.5
         const periodFrequency = 60
         const reductionFactor = 822.5
@@ -56,13 +56,13 @@ describe('getMinBaseFeeBps tests', () => {
             baseFeeMode
         )
 
-        // exponential mode: cliffFeeNumerator * (1 - reductionFactor/BASIS_POINT_MAX)^numberOfPeriod
-        const decayRate = 1 - reductionFactor / BASIS_POINT_MAX
+        // exponential mode: cliffFeeNumerator * (1 - reductionFactor/MAX_BASIS_POINT)^numberOfPeriod
+        const decayRate = 1 - reductionFactor / MAX_BASIS_POINT
         const expectedMinFeeNumerator =
             cliffFeeNumerator * Math.pow(decayRate, numberOfPeriod)
         const expectedMinFeeBps = Math.max(
             0,
-            (expectedMinFeeNumerator / FEE_DENOMINATOR) * BASIS_POINT_MAX
+            (expectedMinFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
         )
 
         console.log('minBaseFeeBps:', minBaseFeeBps)
