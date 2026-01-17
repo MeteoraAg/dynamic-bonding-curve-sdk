@@ -442,6 +442,15 @@ export function calculateBaseToQuoteFromAmountIn(
         }
     }
 
+    // minor optimization
+    if (currentSqrtPrice.eq(configState.sqrtStartPrice)) {
+        return {
+            outputAmount: new BN(0),
+            nextSqrtPrice: currentSqrtPrice,
+            amountLeft: amountIn,
+        }
+    }
+
     let totalOutputAmount = new BN(0)
     let currentSqrtPriceLocal = currentSqrtPrice
     let amountLeft = amountIn
