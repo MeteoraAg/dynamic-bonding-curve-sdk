@@ -429,6 +429,7 @@ export function calculateBaseToQuoteFromAmountIn(
             sqrtPrice: BN
             liquidity: BN
         }>
+        sqrtStartPrice: BN
     },
     currentSqrtPrice: BN,
     amountIn: BN
@@ -438,6 +439,15 @@ export function calculateBaseToQuoteFromAmountIn(
             outputAmount: new BN(0),
             nextSqrtPrice: currentSqrtPrice,
             amountLeft: new BN(0),
+        }
+    }
+
+    // minor optimization
+    if (currentSqrtPrice.eq(configState.sqrtStartPrice)) {
+        return {
+            outputAmount: new BN(0),
+            nextSqrtPrice: currentSqrtPrice,
+            amountLeft: amountIn,
         }
     }
 
@@ -504,12 +514,26 @@ export function calculateBaseToQuoteFromAmountIn(
     }
 
     if (!amountLeft.isZero()) {
-        const nextSqrtPrice = getNextSqrtPriceFromInput(
+        let nextSqrtPrice = getNextSqrtPriceFromInput(
             currentSqrtPriceLocal,
             configState.curve[0].liquidity,
             amountLeft,
             true
         )
+
+        if (nextSqrtPrice.lt(configState.sqrtStartPrice)) {
+            nextSqrtPrice = configState.sqrtStartPrice
+
+            const amountIn = getDeltaAmountBaseUnsigned(
+                nextSqrtPrice,
+                currentSqrtPriceLocal,
+                configState.curve[0].liquidity,
+                Rounding.Up
+            )
+            amountLeft = SafeMath.sub(amountLeft, amountIn)
+        } else {
+            amountLeft = new BN(0)
+        }
 
         const outputAmount = getDeltaAmountQuoteUnsigned(
             nextSqrtPrice,
@@ -522,12 +546,10 @@ export function calculateBaseToQuoteFromAmountIn(
         currentSqrtPriceLocal = nextSqrtPrice
     }
 
-    // no need to validate amount_left because if user sell more than what has in quote reserve,
-    // then it will be failed when deduct pool.quote_reserve
     return {
+        amountLeft,
         outputAmount: totalOutputAmount,
         nextSqrtPrice: currentSqrtPriceLocal,
-        amountLeft: new BN(0),
     }
 }
 
