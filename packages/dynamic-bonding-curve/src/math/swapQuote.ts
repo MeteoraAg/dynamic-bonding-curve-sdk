@@ -522,9 +522,6 @@ export function calculateBaseToQuoteFromAmountIn(
                 Rounding.Up
             )
             amountLeft = SafeMath.sub(amountLeft, amountIn)
-            if (amountLeft.isNeg()) {
-                amountLeft = new BN(0)
-            }
         } else {
             amountLeft = new BN(0)
         }
