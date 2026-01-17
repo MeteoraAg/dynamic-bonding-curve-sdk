@@ -429,6 +429,7 @@ export function calculateBaseToQuoteFromAmountIn(
             sqrtPrice: BN
             liquidity: BN
         }>
+        sqrtStartPrice: BN
     },
     currentSqrtPrice: BN,
     amountIn: BN
@@ -504,30 +505,45 @@ export function calculateBaseToQuoteFromAmountIn(
     }
 
     if (!amountLeft.isZero()) {
-        const nextSqrtPrice = getNextSqrtPriceFromInput(
+        let nextSqrtPrice = getNextSqrtPriceFromInput(
             currentSqrtPriceLocal,
             configState.curve[0].liquidity,
             amountLeft,
             true
-        )
+        );
+
+        if (nextSqrtPrice.lt(configState.sqrtStartPrice)) {
+            nextSqrtPrice = configState.sqrtStartPrice;
+
+            const amountIn = getDeltaAmountBaseUnsigned(
+                nextSqrtPrice,
+                currentSqrtPriceLocal,
+                configState.curve[0].liquidity,
+                Rounding.Up
+            );
+            amountLeft = SafeMath.sub(amountLeft, amountIn);
+            if (amountLeft.isNeg()) {
+                amountLeft = new BN(0);
+            }
+        } else {
+            amountLeft = new BN(0);
+        }
 
         const outputAmount = getDeltaAmountQuoteUnsigned(
             nextSqrtPrice,
             currentSqrtPriceLocal,
             configState.curve[0].liquidity,
             Rounding.Down
-        )
+        );
 
-        totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount)
-        currentSqrtPriceLocal = nextSqrtPrice
+        totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount);
+        currentSqrtPriceLocal = nextSqrtPrice;
     }
 
-    // no need to validate amount_left because if user sell more than what has in quote reserve,
-    // then it will be failed when deduct pool.quote_reserve
     return {
+        amountLeft,
         outputAmount: totalOutputAmount,
         nextSqrtPrice: currentSqrtPriceLocal,
-        amountLeft: new BN(0),
     }
 }
 

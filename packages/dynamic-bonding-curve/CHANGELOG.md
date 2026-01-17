@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.1] - 2026-01-17
+
+### Fixed
+
+- Fixed `calculateBaseToQuoteFromAmountIn` function to cap the sqrt price when the input amount is greater than the available liquidity
+
 ## [1.5.0] - 2025-01-09
 
 ### Added
