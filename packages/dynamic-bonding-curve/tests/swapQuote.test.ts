@@ -195,7 +195,6 @@ describe('swapQuote Tests', () => {
     })
 
     test('calculateBaseToQuoteFromAmountIn returns amountLeft when input exceeds available liquidity', async () => {
-
         const configState = {
             curve: curveConfig.curve,
             sqrtStartPrice: curveConfig.sqrtStartPrice,
@@ -203,7 +202,7 @@ describe('swapQuote Tests', () => {
 
         const currentSqrtPrice = curveConfig.sqrtStartPrice
 
-        const excessiveAmountIn = new BN('1000000000000000') 
+        const excessiveAmountIn = new BN('1000000000000000')
 
         const result = calculateBaseToQuoteFromAmountIn(
             configState,
@@ -230,12 +229,15 @@ describe('swapQuote Tests', () => {
         // get a higher sqrt price from the curve
         let currentSqrtPrice = curveConfig.sqrtStartPrice
         for (const point of curveConfig.curve) {
-            if (!point.sqrtPrice.isZero() && point.sqrtPrice.gt(currentSqrtPrice)) {
+            if (
+                !point.sqrtPrice.isZero() &&
+                point.sqrtPrice.gt(currentSqrtPrice)
+            ) {
                 currentSqrtPrice = point.sqrtPrice
             }
         }
 
-        const excessiveAmountIn = new BN('10000000000000000000') 
+        const excessiveAmountIn = new BN('10000000000000000000')
 
         const result = calculateBaseToQuoteFromAmountIn(
             configState,

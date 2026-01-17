@@ -61,7 +61,7 @@ The generic flow of how Dynamic Bonding Curve works is as follows:
 
 ```bash
 cd packages/dynamic-bonding-curve
-solana-test-validator --bpf-program dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN tests/fixtures/dynamic_bonding_curve.so --bpf-program cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG tests/fixtures/cp_amm.so --bpf-program Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB tests/fixtures/amm.so --bpf-program LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn tests/fixtures/locker.so --bpf-program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s tests/fixtures/metaplex.so --bpf-program 24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi tests/fixtures/vault.so
+pnpm start-validator
 ```
 
 2. Run the tests

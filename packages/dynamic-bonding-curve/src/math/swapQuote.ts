@@ -510,23 +510,23 @@ export function calculateBaseToQuoteFromAmountIn(
             configState.curve[0].liquidity,
             amountLeft,
             true
-        );
+        )
 
         if (nextSqrtPrice.lt(configState.sqrtStartPrice)) {
-            nextSqrtPrice = configState.sqrtStartPrice;
+            nextSqrtPrice = configState.sqrtStartPrice
 
             const amountIn = getDeltaAmountBaseUnsigned(
                 nextSqrtPrice,
                 currentSqrtPriceLocal,
                 configState.curve[0].liquidity,
                 Rounding.Up
-            );
-            amountLeft = SafeMath.sub(amountLeft, amountIn);
+            )
+            amountLeft = SafeMath.sub(amountLeft, amountIn)
             if (amountLeft.isNeg()) {
-                amountLeft = new BN(0);
+                amountLeft = new BN(0)
             }
         } else {
-            amountLeft = new BN(0);
+            amountLeft = new BN(0)
         }
 
         const outputAmount = getDeltaAmountQuoteUnsigned(
@@ -534,10 +534,10 @@ export function calculateBaseToQuoteFromAmountIn(
             currentSqrtPriceLocal,
             configState.curve[0].liquidity,
             Rounding.Down
-        );
+        )
 
-        totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount);
-        currentSqrtPriceLocal = nextSqrtPrice;
+        totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount)
+        currentSqrtPriceLocal = nextSqrtPrice
     }
 
     return {

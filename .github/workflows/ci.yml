@@ -109,7 +109,7 @@ jobs:
 
       - name: Start Solana test validator
         run: |
-          pnpm --filter @meteora-ag/dynamic-bonding-curve-sdk localnet
+          pnpm --filter @meteora-ag/dynamic-bonding-curve-sdk start-validator
 
       - name: Run tests
         run: pnpm --filter @meteora-ag/dynamic-bonding-curve-sdk test
