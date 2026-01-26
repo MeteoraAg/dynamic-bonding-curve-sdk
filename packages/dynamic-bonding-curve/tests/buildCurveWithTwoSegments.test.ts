@@ -6,6 +6,7 @@ import {
     BaseFeeMode,
     BuildCurveBaseParams,
     CollectFeeMode,
+    DammV2BaseFeeMode,
     MigrationFeeOption,
     MigrationOption,
     TokenDecimal,
@@ -52,6 +53,8 @@ describe('buildCurveWithTwoSegments tests', () => {
             creatorFeePercentage: 0,
         },
         poolCreationFee: 1,
+        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        enableFirstSwapWithMinFee: false,
     }
 
     test('build curve with two segments', () => {

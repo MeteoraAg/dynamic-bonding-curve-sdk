@@ -16,15 +16,26 @@ export type DynamicCurveProgram = Program<DynamicBondingCurveIDL>
 /////////////////
 
 export type CreateConfigAccounts = Accounts<
-    DynamicBondingCurve['instructions']['8']
+    DynamicBondingCurve['instructions']['7']
 >['createConfig']
+
+export type CreateDammV1MigrationMetadataAccounts = Accounts<
+    DynamicBondingCurve['instructions']['19']
+>['migrationMeteoraDammCreateMetadata']
+
+export type InitializeSplPoolAccounts = Accounts<
+    DynamicBondingCurve['instructions']['12']
+>['initializeVirtualPoolWithSplToken']
+
+export type InitializeToken2022PoolAccounts = Accounts<
+    DynamicBondingCurve['instructions']['13']
+>['initializeVirtualPoolWithToken2022']
 
 ///////////////
 // IDL Types //
 ///////////////
 
 export type ConfigParameters = IdlTypes<DynamicBondingCurve>['configParameters']
-
 export type LockedVestingParameters =
     IdlTypes<DynamicBondingCurve>['lockedVestingParams']
 
@@ -40,13 +51,20 @@ export type DynamicFeeParameters =
 export type LiquidityDistributionParameters =
     IdlTypes<DynamicBondingCurve>['liquidityDistributionParameters']
 
+export type MigratedPoolMarketCapFeeSchedulerParameters =
+    IdlTypes<DynamicBondingCurve>['migratedPoolMarketCapFeeSchedulerParams']
+
+export type LiquidityVestingInfoParameters =
+    IdlTypes<DynamicBondingCurve>['liquidityVestingInfoParams']
+
+export type CreatePartnerMetadataParameters =
+    IdlTypes<DynamicBondingCurve>['createPartnerMetadataParameters']
+
 export type PoolFeesConfig = IdlTypes<DynamicBondingCurve>['poolFeesConfig']
 
 export type BaseFeeConfig = IdlTypes<DynamicBondingCurve>['baseFeeConfig']
 
 export type DynamicFeeConfig = IdlTypes<DynamicBondingCurve>['dynamicFeeConfig']
-
-export type PoolFees = IdlTypes<DynamicBondingCurve>['poolFees']
 
 export type MigratedPoolFee = IdlTypes<DynamicBondingCurve>['migratedPoolFee']
 
@@ -54,11 +72,8 @@ export type SwapResult = IdlTypes<DynamicBondingCurve>['swapResult']
 
 export type SwapResult2 = IdlTypes<DynamicBondingCurve>['swapResult2']
 
-export type CreatePartnerMetadataParameters =
-    IdlTypes<DynamicBondingCurve>['createPartnerMetadataParameters']
-
-export type LiquidityVestingInfoParameters =
-    IdlTypes<DynamicBondingCurve>['liquidityVestingInfoParams']
+export type VolatilityTracker =
+    IdlTypes<DynamicBondingCurve>['volatilityTracker']
 
 //////////////////
 // IDL ACCOUNTS //
@@ -72,9 +87,6 @@ export type MeteoraDammMigrationMetadata =
     IdlAccounts<DynamicBondingCurve>['meteoraDammMigrationMetadata']
 
 export type LockEscrow = IdlAccounts<DynamicBondingCurve>['lockEscrow']
-
-export type VolatilityTracker =
-    IdlTypes<DynamicBondingCurve>['volatilityTracker']
 
 export type PartnerMetadata =
     IdlAccounts<DynamicBondingCurve>['partnerMetadata']
@@ -104,6 +116,22 @@ export enum CollectFeeMode {
 export enum DammV2DynamicFeeMode {
     Disabled = 0,
     Enabled = 1,
+}
+
+export enum DammV2BaseFeeMode {
+    // fee = cliff_fee_numerator - passed_period * reduction_factor
+    // passed_period = (current_point - activation_point) / period_frequency
+    FeeTimeSchedulerLinear = 0,
+    // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
+    FeeTimeSchedulerExponential = 1,
+    // rate limiter
+    RateLimiter = 2,
+    // fee = cliff_fee_numerator - passed_period * reduction_factor
+    // passed_period = changed_price / sqrt_price_step_bps
+    // passed_period = (current_sqrt_price - init_sqrt_price) * 10_000 / init_sqrt_price / sqrt_price_step_bps
+    FeeMarketCapSchedulerLinear = 3,
+    // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
+    FeeMarketCapSchedulerExponential = 4,
 }
 
 export enum MigrationOption {
@@ -173,19 +201,16 @@ export type CreateConfigParams = Omit<
 > &
     ConfigParameters
 
-export type CreateDammV1MigrationMetadataParams = {
-    payer: PublicKey
-    virtualPool: PublicKey
-    config: PublicKey
-}
+export type CreateDammV1MigrationMetadataParams = Omit<
+    CreateDammV1MigrationMetadataAccounts,
+    'program' | 'eventAuthority' | 'systemProgram' | 'migrationMetadata'
+>
 
-export type BaseFee = {
-    cliffFeeNumerator: BN
-    firstFactor: number // feeScheduler: numberOfPeriod, rateLimiter: feeIncrementBps
-    secondFactor: BN // feeScheduler: periodFrequency, rateLimiter: maxLimiterDuration
-    thirdFactor: BN // feeScheduler: reductionFactor, rateLimiter: referenceAmount
-    baseFeeMode: BaseFeeMode
-}
+// firstFactor - feeScheduler: numberOfPeriod, rateLimiter: feeIncrementBps
+// secondFactor - feeScheduler: periodFrequency, rateLimiter: maxLimiterDuration
+// thirdFactor - feeScheduler: reductionFactor, rateLimiter: referenceAmount
+// baseFeeMode - BaseFeeMode
+export type BaseFee = Omit<BaseFeeConfig, 'padding0'>
 
 export type FeeSchedulerParams = {
     startingFeeBps: number
@@ -245,6 +270,8 @@ export type BuildCurveBaseParams = {
     partnerLiquidityPercentage: number
     creatorPermanentLockedLiquidityPercentage: number
     creatorLiquidityPercentage: number
+    migratedPoolBaseFeeMode: DammV2BaseFeeMode
+    enableFirstSwapWithMinFee: boolean
     partnerLiquidityVestingInfoParams?: LiquidityVestingInfoParams
     creatorLiquidityVestingInfoParams?: LiquidityVestingInfoParams
     migratedPoolFee?: {
@@ -252,6 +279,7 @@ export type BuildCurveBaseParams = {
         dynamicFee: DammV2DynamicFeeMode
         poolFeeBps: number
     }
+    migratedPoolMarketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParams
 }
 
 export type BuildCurveParams = BuildCurveBaseParams & {
@@ -406,6 +434,7 @@ export type SwapQuoteParams = {
     amountIn: BN
     slippageBps?: number
     hasReferral: boolean
+    eligibleForFirstSwapWithMinFee: boolean // only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
     currentPoint: BN
 }
 
@@ -414,6 +443,7 @@ export type SwapQuote2Params = {
     config: PoolConfig
     swapBaseForQuote: boolean
     hasReferral: boolean
+    eligibleForFirstSwapWithMinFee: boolean // only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
     currentPoint: BN
     slippageBps?: number
 } & (
@@ -576,12 +606,18 @@ export type ClaimPartnerPoolCreationFeeParams = {
     feeReceiver: PublicKey
 }
 
-export type LiquidityVestingInfoParams = {
-    vestingPercentage: number
-    bpsPerPeriod: number
-    numberOfPeriods: number
-    cliffDurationFromMigrationTime: number
-    totalDuration: number
+export type LiquidityVestingInfoParams = Omit<
+    LiquidityVestingInfoParameters,
+    'frequency'
+> & { totalDuration: number }
+
+export type MigratedPoolMarketCapFeeSchedulerParams = Omit<
+    MigratedPoolMarketCapFeeSchedulerParameters,
+    'reductionFactor'
+> & {
+    startingBaseFeeBps: number
+    endingBaseFeeBps: number
+    dammV2BaseFeeMode: DammV2BaseFeeMode
 }
 
 ////////////////
@@ -593,6 +629,7 @@ export interface BaseFeeHandler {
         collectFeeMode: CollectFeeMode,
         activationType: ActivationType
     ): boolean
+    getMinBaseFeeNumerator(): BN
     getBaseFeeNumeratorFromIncludedFeeAmount(
         currentPoint: BN,
         activationPoint: BN,

@@ -14,6 +14,7 @@ import {
     getFeeOnAmount,
     getFeeMode,
 } from './feeMath'
+import { getBaseFeeHandler } from './poolFees/baseFee'
 import {
     Rounding,
     SwapResult,
@@ -45,20 +46,31 @@ export function getSwapResult(
     amountIn: BN,
     feeMode: FeeMode,
     tradeDirection: TradeDirection,
-    currentPoint: BN
+    currentPoint: BN,
+    eligibleForFirstSwapWithMinFee: boolean
 ): SwapResult {
     let actualProtocolFee = new BN(0)
     let actualTradingFee = new BN(0)
     let actualReferralFee = new BN(0)
 
-    const tradeFeeNumerator = getTotalFeeNumeratorFromIncludedFeeAmount(
-        configState.poolFees,
-        poolState.volatilityTracker,
-        currentPoint,
-        poolState.activationPoint,
-        amountIn,
-        tradeDirection
+    const baseFeeHandler = getBaseFeeHandler(
+        configState.poolFees.baseFee.cliffFeeNumerator,
+        configState.poolFees.baseFee.firstFactor,
+        configState.poolFees.baseFee.secondFactor,
+        configState.poolFees.baseFee.thirdFactor,
+        configState.poolFees.baseFee.baseFeeMode
     )
+
+    const tradeFeeNumerator = eligibleForFirstSwapWithMinFee
+        ? baseFeeHandler.getMinBaseFeeNumerator()
+        : getTotalFeeNumeratorFromIncludedFeeAmount(
+              configState.poolFees,
+              poolState.volatilityTracker,
+              currentPoint,
+              poolState.activationPoint,
+              amountIn,
+              tradeDirection
+          )
 
     const actualAmountIn = feeMode.feesOnInput
         ? (() => {
@@ -91,7 +103,11 @@ export function getSwapResult(
                   configState.migrationSqrtPrice
               )
 
-    const { outputAmount, nextSqrtPrice } = swapAmountFromInput
+    const { outputAmount, nextSqrtPrice, amountLeft } = swapAmountFromInput
+
+    if (!amountLeft.isZero()) {
+        throw new Error('Insufficient Liquidity')
+    }
 
     const actualAmountOut = feeMode.feesOnInput
         ? outputAmount
@@ -138,7 +154,8 @@ export function swapQuote(
     amountIn: BN,
     slippageBps: number = 0,
     hasReferral: boolean,
-    currentPoint: BN
+    currentPoint: BN,
+    eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuoteResult {
     if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
         throw new Error('Virtual pool is completed')
@@ -164,7 +181,8 @@ export function swapQuote(
         amountIn,
         feeMode,
         tradeDirection,
-        currentPoint
+        currentPoint,
+        eligibleForFirstSwapWithMinFee
     )
 
     let minimumAmountOut: BN
@@ -197,6 +215,7 @@ export function swapQuote(
  * @param feeMode Fee mode
  * @param tradeDirection Trade direction
  * @param currentPoint Current point
+ * @param eligibleForFirstSwapWithMinFee Whether eligible for first swap with min fee
  * @returns Swap result
  */
 export function getSwapResultFromExactInput(
@@ -205,20 +224,31 @@ export function getSwapResultFromExactInput(
     amountIn: BN,
     feeMode: FeeMode,
     tradeDirection: TradeDirection,
-    currentPoint: BN
+    currentPoint: BN,
+    eligibleForFirstSwapWithMinFee: boolean
 ): SwapResult2 {
     let actualProtocolFee = new BN(0)
     let actualTradingFee = new BN(0)
     let actualReferralFee = new BN(0)
 
-    const tradeFeeNumerator = getTotalFeeNumeratorFromIncludedFeeAmount(
-        config.poolFees,
-        virtualPool.volatilityTracker,
-        currentPoint,
-        virtualPool.activationPoint,
-        amountIn,
-        tradeDirection
+    const baseFeeHandler = getBaseFeeHandler(
+        config.poolFees.baseFee.cliffFeeNumerator,
+        config.poolFees.baseFee.firstFactor,
+        config.poolFees.baseFee.secondFactor,
+        config.poolFees.baseFee.thirdFactor,
+        config.poolFees.baseFee.baseFeeMode
     )
+
+    const tradeFeeNumerator = eligibleForFirstSwapWithMinFee
+        ? baseFeeHandler.getMinBaseFeeNumerator()
+        : getTotalFeeNumeratorFromIncludedFeeAmount(
+              config.poolFees,
+              virtualPool.volatilityTracker,
+              currentPoint,
+              virtualPool.activationPoint,
+              amountIn,
+              tradeDirection
+          )
 
     const actualAmountIn = feeMode.feesOnInput
         ? (() => {
@@ -254,7 +284,7 @@ export function getSwapResultFromExactInput(
     const { outputAmount, nextSqrtPrice, amountLeft } = swapAmountFromInput
 
     if (!amountLeft.isZero()) {
-        throw new Error('Swap amount is over a threshold')
+        throw new Error('Insufficient Liquidity')
     }
 
     const actualAmountOut = feeMode.feesOnInput
@@ -294,6 +324,7 @@ export function getSwapResultFromExactInput(
  * @param feeMode Fee mode
  * @param tradeDirection Trade direction
  * @param currentPoint Current point
+ * @param eligibleForFirstSwapWithMinFee Whether eligible for first swap with min fee
  * @returns Swap result
  */
 export function getSwapResultFromPartialInput(
@@ -302,20 +333,31 @@ export function getSwapResultFromPartialInput(
     amountIn: BN,
     feeMode: FeeMode,
     tradeDirection: TradeDirection,
-    currentPoint: BN
+    currentPoint: BN,
+    eligibleForFirstSwapWithMinFee: boolean
 ): SwapResult2 {
     let actualProtocolFee = new BN(0)
     let actualTradingFee = new BN(0)
     let actualReferralFee = new BN(0)
 
-    const tradeFeeNumerator = getTotalFeeNumeratorFromIncludedFeeAmount(
-        config.poolFees,
-        virtualPool.volatilityTracker,
-        currentPoint,
-        virtualPool.activationPoint,
-        amountIn,
-        tradeDirection
+    const baseFeeHandler = getBaseFeeHandler(
+        config.poolFees.baseFee.cliffFeeNumerator,
+        config.poolFees.baseFee.firstFactor,
+        config.poolFees.baseFee.secondFactor,
+        config.poolFees.baseFee.thirdFactor,
+        config.poolFees.baseFee.baseFeeMode
     )
+
+    const tradeFeeNumerator = eligibleForFirstSwapWithMinFee
+        ? baseFeeHandler.getMinBaseFeeNumerator()
+        : getTotalFeeNumeratorFromIncludedFeeAmount(
+              config.poolFees,
+              virtualPool.volatilityTracker,
+              currentPoint,
+              virtualPool.activationPoint,
+              amountIn,
+              tradeDirection
+          )
 
     let actualAmountIn = feeMode.feesOnInput
         ? (() => {
@@ -354,21 +396,26 @@ export function getSwapResultFromPartialInput(
         ? (() => {
               actualAmountIn = SafeMath.sub(actualAmountIn, amountLeft)
 
+              // recalculate includedFeeInputAmount, actualTradingFee, actualProtocolFee, actualReferralFee
               if (feeMode.feesOnInput) {
                   const tradeFeeNumeratorPartial =
-                      getTotalFeeNumeratorFromExcludedFeeAmount(
-                          config.poolFees,
-                          virtualPool.volatilityTracker,
-                          currentPoint,
-                          virtualPool.activationPoint,
-                          actualAmountIn,
-                          tradeDirection
-                      )
+                      eligibleForFirstSwapWithMinFee
+                          ? baseFeeHandler.getMinBaseFeeNumerator()
+                          : getTotalFeeNumeratorFromExcludedFeeAmount(
+                                config.poolFees,
+                                virtualPool.volatilityTracker,
+                                currentPoint,
+                                virtualPool.activationPoint,
+                                actualAmountIn,
+                                tradeDirection
+                            )
+
                   const [includedFeeAmount, feeAmount] = getIncludedFeeAmount(
                       tradeFeeNumeratorPartial,
                       actualAmountIn
                   )
 
+                  // ensure includedFeeAmount = actualAmountIn + tradingFee + protocolFee + referralFee
                   const [tradingFee, protocolFee, referralFee] = splitFees(
                       config.poolFees,
                       feeAmount,
@@ -420,7 +467,6 @@ export function getSwapResultFromPartialInput(
  * @param configState Config state
  * @param currentSqrtPrice Current sqrt price
  * @param amountIn Input amount
- * @param stopSqrtPrice Stop sqrt price
  * @returns Swap amount
  */
 export function calculateBaseToQuoteFromAmountIn(
@@ -434,23 +480,7 @@ export function calculateBaseToQuoteFromAmountIn(
     currentSqrtPrice: BN,
     amountIn: BN
 ): SwapAmount {
-    if (amountIn.isZero()) {
-        return {
-            outputAmount: new BN(0),
-            nextSqrtPrice: currentSqrtPrice,
-            amountLeft: new BN(0),
-        }
-    }
-
-    // minor optimization
-    if (currentSqrtPrice.eq(configState.sqrtStartPrice)) {
-        return {
-            outputAmount: new BN(0),
-            nextSqrtPrice: currentSqrtPrice,
-            amountLeft: amountIn,
-        }
-    }
-
+    // finding new target price
     let totalOutputAmount = new BN(0)
     let currentSqrtPriceLocal = currentSqrtPrice
     let amountLeft = amountIn
@@ -666,6 +696,7 @@ export function calculateQuoteToBaseFromAmountIn(
  * @param feeMode Fee mode
  * @param tradeDirection Trade direction
  * @param currentPoint Current point
+ * @param eligibleForFirstSwapWithMinFee Whether eligible for first swap with min fee
  * @returns Swap result
  */
 export function getSwapResultFromExactOutput(
@@ -674,24 +705,34 @@ export function getSwapResultFromExactOutput(
     amountOut: BN,
     feeMode: FeeMode,
     tradeDirection: TradeDirection,
-    currentPoint: BN
+    currentPoint: BN,
+    eligibleForFirstSwapWithMinFee: boolean
 ): SwapResult2 {
     let actualProtocolFee = new BN(0)
     let actualTradingFee = new BN(0)
     let actualReferralFee = new BN(0)
 
+    const baseFeeHandler = getBaseFeeHandler(
+        config.poolFees.baseFee.cliffFeeNumerator,
+        config.poolFees.baseFee.firstFactor,
+        config.poolFees.baseFee.secondFactor,
+        config.poolFees.baseFee.thirdFactor,
+        config.poolFees.baseFee.baseFeeMode
+    )
+
     const includedFeeOutAmount = feeMode.feesOnInput
         ? amountOut
         : (() => {
-              const tradeFeeNumerator =
-                  getTotalFeeNumeratorFromExcludedFeeAmount(
-                      config.poolFees,
-                      virtualPool.volatilityTracker,
-                      currentPoint,
-                      virtualPool.activationPoint,
-                      amountOut,
-                      tradeDirection
-                  )
+              const tradeFeeNumerator = eligibleForFirstSwapWithMinFee
+                  ? baseFeeHandler.getMinBaseFeeNumerator()
+                  : getTotalFeeNumeratorFromExcludedFeeAmount(
+                        config.poolFees,
+                        virtualPool.volatilityTracker,
+                        currentPoint,
+                        virtualPool.activationPoint,
+                        amountOut,
+                        tradeDirection
+                    )
               const [includedFeeOutAmount, feeAmount] = getIncludedFeeAmount(
                   tradeFeeNumerator,
                   amountOut
@@ -730,20 +771,21 @@ export function getSwapResultFromExactOutput(
     const { outputAmount: amountIn, nextSqrtPrice } = swapAmountFromOutput
 
     if (nextSqrtPrice.gt(config.migrationSqrtPrice)) {
-        throw new Error('Swap amount is over a threshold')
+        throw new Error('Insufficient Liquidity')
     }
 
     const [excludedFeeInputAmount, includedFeeInputAmount] = feeMode.feesOnInput
         ? (() => {
-              const tradeFeeNumerator =
-                  getTotalFeeNumeratorFromExcludedFeeAmount(
-                      config.poolFees,
-                      virtualPool.volatilityTracker,
-                      currentPoint,
-                      virtualPool.activationPoint,
-                      amountIn,
-                      tradeDirection
-                  )
+              const tradeFeeNumerator = eligibleForFirstSwapWithMinFee
+                  ? baseFeeHandler.getMinBaseFeeNumerator()
+                  : getTotalFeeNumeratorFromExcludedFeeAmount(
+                        config.poolFees,
+                        virtualPool.volatilityTracker,
+                        currentPoint,
+                        virtualPool.activationPoint,
+                        amountIn,
+                        tradeDirection
+                    )
 
               const [includedFeeInAmount, feeAmount] = getIncludedFeeAmount(
                   tradeFeeNumerator,
@@ -845,6 +887,17 @@ export function calculateBaseToQuoteFromAmountOut(
     }
 
     if (!amountLeft.isZero()) {
+        const maxAmountOut = getDeltaAmountQuoteUnsigned(
+            configState.sqrtStartPrice,
+            currentSqrtPriceLocal,
+            configState.curve[0].liquidity,
+            Rounding.Down
+        )
+
+        if (amountLeft.gt(maxAmountOut)) {
+            throw new Error('Insufficient Liquidity')
+        }
+
         const nextSqrtPrice = getNextSqrtPriceFromOutput(
             currentSqrtPriceLocal,
             configState.curve[0].liquidity,
@@ -853,7 +906,7 @@ export function calculateBaseToQuoteFromAmountOut(
         )
 
         if (nextSqrtPrice.lt(configState.sqrtStartPrice)) {
-            throw new Error('Not enough liquidity')
+            throw new Error('Insufficient Liquidity')
         }
 
         const inAmount = getDeltaAmountBaseUnsigned(
@@ -962,6 +1015,7 @@ export function calculateQuoteToBaseFromAmountOut(
  * @param slippageBps Slippage tolerance in basis points (100 = 1%)
  * @param hasReferral Whether referral is used
  * @param currentPoint Current point
+ * @param eligibleForFirstSwapWithMinFee Whether eligible for first swap with min fee
  * @returns Swap quote result
  */
 export function swapQuoteExactIn(
@@ -971,7 +1025,8 @@ export function swapQuoteExactIn(
     amountIn: BN,
     slippageBps: number = 0,
     hasReferral: boolean,
-    currentPoint: BN
+    currentPoint: BN,
+    eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuote2Result {
     if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
         throw new Error('Virtual pool is completed')
@@ -997,7 +1052,8 @@ export function swapQuoteExactIn(
         amountIn,
         feeMode,
         tradeDirection,
-        currentPoint
+        currentPoint,
+        eligibleForFirstSwapWithMinFee
     )
 
     // calculate minimum amount out
@@ -1029,6 +1085,7 @@ export function swapQuoteExactIn(
  * @param amountIn Input amount
  * @param hasReferral Whether referral is used
  * @param currentPoint Current point
+ * @param eligibleForFirstSwapWithMinFee Whether eligible for first swap with min fee
  * @returns Swap quote result
  */
 export function swapQuotePartialFill(
@@ -1038,7 +1095,8 @@ export function swapQuotePartialFill(
     amountIn: BN,
     slippageBps: number = 0,
     hasReferral: boolean,
-    currentPoint: BN
+    currentPoint: BN,
+    eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuote2Result {
     if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
         throw new Error('Virtual pool is completed')
@@ -1064,7 +1122,8 @@ export function swapQuotePartialFill(
         amountIn,
         feeMode,
         tradeDirection,
-        currentPoint
+        currentPoint,
+        eligibleForFirstSwapWithMinFee
     )
 
     // calculate minimum amount out
@@ -1097,6 +1156,7 @@ export function swapQuotePartialFill(
  * @param slippageBps Slippage tolerance in basis points (100 = 1%)
  * @param hasReferral Whether referral is used
  * @param currentPoint Current point
+ * @param eligibleForFirstSwapWithMinFee Whether eligible for first swap with min fee
  * @returns Swap quote result with input amount calculated
  */
 export function swapQuoteExactOut(
@@ -1106,7 +1166,8 @@ export function swapQuoteExactOut(
     outAmount: BN,
     slippageBps: number = 0,
     hasReferral: boolean,
-    currentPoint: BN
+    currentPoint: BN,
+    eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuote2Result {
     if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
         throw new Error('Virtual pool is completed')
@@ -1132,7 +1193,8 @@ export function swapQuoteExactOut(
         outAmount,
         feeMode,
         tradeDirection,
-        currentPoint
+        currentPoint,
+        eligibleForFirstSwapWithMinFee
     )
 
     // calculate maximum amount in (for slippage protection)

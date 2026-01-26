@@ -9,6 +9,7 @@ import {
     CollectFeeMode,
     ConfigParameters,
     createSqrtPrices,
+    DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
     deriveDbcPoolAddress,
     deriveDbcTokenVaultAddress,
@@ -118,6 +119,8 @@ describe('swap Tests', () => {
             tokenUpdateAuthority:
                 TokenUpdateAuthorityOption.PartnerUpdateAuthority,
             poolCreationFee: 1,
+            migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+            enableFirstSwapWithMinFee: false,
         })
 
         const createConfigTx = await dbcClient.partner.createConfig({

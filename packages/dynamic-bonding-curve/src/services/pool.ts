@@ -5,6 +5,7 @@ import {
     type Connection,
     Transaction,
     SYSVAR_INSTRUCTIONS_PUBKEY,
+    AccountMeta,
 } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
 import {
@@ -873,16 +874,16 @@ export class PoolService extends DynamicBondingCurveProgram {
             unwrapIx && postInstructions.push(unwrapIx)
         }
 
+        const remainingAccounts: AccountMeta[] = []
+
         // add remaining accounts if rate limiter is applied
-        const remainingAccounts = rateLimiterApplied
-            ? [
-                  {
-                      isSigner: false,
-                      isWritable: false,
-                      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-                  },
-              ]
-            : []
+        if (rateLimiterApplied || poolConfigState.enableFirstSwapWithMinFee) {
+            remainingAccounts.push({
+                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+                isSigner: false,
+                isWritable: false,
+            })
+        }
 
         return this.program.methods
             .swap({
@@ -1034,16 +1035,16 @@ export class PoolService extends DynamicBondingCurveProgram {
             unwrapIx && postInstructions.push(unwrapIx)
         }
 
+        const remainingAccounts: AccountMeta[] = []
+
         // add remaining accounts if rate limiter is applied
-        const remainingAccounts = rateLimiterApplied
-            ? [
-                  {
-                      isSigner: false,
-                      isWritable: false,
-                      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-                  },
-              ]
-            : []
+        if (rateLimiterApplied || poolConfigState.enableFirstSwapWithMinFee) {
+            remainingAccounts.push({
+                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+                isSigner: false,
+                isWritable: false,
+            })
+        }
 
         return this.program.methods
             .swap2({
@@ -1096,6 +1097,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             slippageBps,
             hasReferral,
             currentPoint,
+            eligibleForFirstSwapWithMinFee,
         } = params
 
         return swapQuote(
@@ -1105,7 +1107,8 @@ export class PoolService extends DynamicBondingCurveProgram {
             amountIn,
             slippageBps,
             hasReferral,
-            currentPoint
+            currentPoint,
+            eligibleForFirstSwapWithMinFee
         )
     }
 
@@ -1129,6 +1132,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             swapBaseForQuote,
             swapMode,
             hasReferral,
+            eligibleForFirstSwapWithMinFee,
             currentPoint,
             slippageBps,
         } = params
@@ -1143,7 +1147,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                         params.amountIn,
                         slippageBps,
                         hasReferral,
-                        currentPoint
+                        currentPoint,
+                        eligibleForFirstSwapWithMinFee
                     )
                 }
                 throw new Error('amountIn is required for ExactIn swap mode')
@@ -1157,7 +1162,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                         params.amountOut,
                         slippageBps,
                         hasReferral,
-                        currentPoint
+                        currentPoint,
+                        eligibleForFirstSwapWithMinFee
                     )
                 }
                 throw new Error('outAmount is required for ExactOut swap mode')
@@ -1171,7 +1177,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                         params.amountIn,
                         slippageBps,
                         hasReferral,
-                        currentPoint
+                        currentPoint,
+                        eligibleForFirstSwapWithMinFee
                     )
                 }
                 throw new Error(

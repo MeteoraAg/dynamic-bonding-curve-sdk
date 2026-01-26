@@ -10,6 +10,7 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
+    DammV2BaseFeeMode,
 } from '../src'
 import Decimal from 'decimal.js'
 import { convertBNToDecimal } from './utils/common'
@@ -53,6 +54,8 @@ describe('buildCurveWithLiquidityWeights tests', () => {
             creatorFeePercentage: 0,
         },
         poolCreationFee: 1,
+        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        enableFirstSwapWithMinFee: false,
     }
 
     test('build curve with liquidity weights 1.2^n', () => {

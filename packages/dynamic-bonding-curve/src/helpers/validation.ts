@@ -11,15 +11,22 @@ import {
     MAX_POOL_CREATION_FEE,
     MIN_LOCKED_LIQUIDITY_BPS,
     SECONDS_PER_DAY,
+    BIN_STEP_BPS_U128_DEFAULT,
+    BIN_STEP_BPS_DEFAULT,
+    MAX_BASIS_POINT,
+    U24_MAX,
 } from '../constants'
 import {
     ActivationType,
     BaseFeeMode,
     CollectFeeMode,
+    DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
+    DynamicFeeParameters,
     LiquidityVestingInfoParameters,
     LockedVestingParameters,
     MigratedPoolFee,
+    MigratedPoolMarketCapFeeSchedulerParameters,
     MigrationFeeOption,
     MigrationOption,
     PoolFeeParameters,
@@ -54,8 +61,8 @@ import {
 } from '../constants'
 import {
     getFeeNumeratorFromIncludedAmount,
-    getMaxBaseFeeNumerator,
-    getMinBaseFeeNumerator,
+    getFeeSchedulerMaxBaseFeeNumerator,
+    getFeeSchedulerMinBaseFeeNumerator,
     toNumerator,
 } from '../math'
 
@@ -75,7 +82,7 @@ export function validatePoolFees(
 
     // check base fee if it exists
     if (poolFees.baseFee) {
-        if (poolFees.baseFee.cliffFeeNumerator.lte(new BN(0))) {
+        if (poolFees.baseFee.cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR))) {
             return false
         }
 
@@ -146,13 +153,14 @@ export function validateFeeScheduler(
         }
     }
 
-    const minFeeNumerator = getMinBaseFeeNumerator(
+    const minFeeNumerator = getFeeSchedulerMinBaseFeeNumerator(
         cliffFeeNumerator,
         numberOfPeriod,
         reductionFactor,
         baseFeeMode
     )
-    const maxFeeNumerator = getMaxBaseFeeNumerator(cliffFeeNumerator)
+    const maxFeeNumerator =
+        getFeeSchedulerMaxBaseFeeNumerator(cliffFeeNumerator)
 
     // Validate fee fractions - check if within valid range
     if (
@@ -248,6 +256,21 @@ export function validateFeeRateLimiter(
         minFeeNumerator.gte(new BN(MIN_FEE_NUMERATOR)) &&
         maxFeeNumerator.lte(new BN(MAX_FEE_NUMERATOR))
     )
+}
+
+export function validateDynamicFee(
+    dynamicFee: DynamicFeeParameters | undefined
+): boolean {
+    if (!dynamicFee) return true // Optional field
+
+    if (dynamicFee.binStep !== BIN_STEP_BPS_DEFAULT) return false
+    if (!dynamicFee.binStepU128.eq(BIN_STEP_BPS_U128_DEFAULT)) return false
+    if (dynamicFee.filterPeriod >= dynamicFee.decayPeriod) return false
+    if (dynamicFee.reductionFactor > MAX_BASIS_POINT) return false
+    if (dynamicFee.variableFeeControl > U24_MAX) return false
+    if (dynamicFee.maxVolatilityAccumulator > U24_MAX) return false
+
+    return true
 }
 
 /**
@@ -769,6 +792,16 @@ export function validateConfigParameters(
         }
     }
 
+    // Migration sqrt price validation
+    const sqrtMigrationPrice = getMigrationThresholdPrice(
+        configParam.migrationQuoteThreshold,
+        configParam.sqrtStartPrice,
+        configParam.curve
+    )
+    if (sqrtMigrationPrice.gte(new BN(MAX_SQRT_PRICE))) {
+        throw new Error('Migration sqrt price exceeds maximum')
+    }
+
     // The program requires at least 10% (1000 BPS) of liquidity to be locked at day 1
     if (
         !validateMinimumLockedLiquidity(
@@ -816,6 +849,15 @@ export function validateConfigParameters(
         ) {
             throw new Error('Invalid migrated pool fee parameters')
         }
+    }
+
+    // Migrated pool base fee mode and market cap fee scheduler params validation (DAMM V2 only)
+    if (configParam.migrationOption === MigrationOption.MET_DAMM_V2) {
+        validateMigratedPoolBaseFeeMode(
+            configParam.migratedPoolBaseFeeMode,
+            configParam.migratedPoolMarketCapFeeSchedulerParams,
+            configParam.migrationOption
+        )
     }
 
     // Curve validation
@@ -959,6 +1001,95 @@ export function validateSwapAmount(amountIn: BN): boolean {
         throw new Error('Swap amount must be greater than 0')
     }
     return true
+}
+
+/**
+ * Validate the migrated pool base fee mode and market cap fee scheduler params
+ * @param migratedPoolBaseFeeMode - The base fee mode for the migrated pool
+ * @param migratedPoolMarketCapFeeSchedulerParams - The market cap fee scheduler params
+ * @param migrationOption - The migration option (optional - only validates for DAMM V2)
+ * @returns true if valid
+ * @throws Error if invalid
+ */
+export function validateMigratedPoolBaseFeeMode(
+    migratedPoolBaseFeeMode: DammV2BaseFeeMode,
+    migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParameters,
+    migrationOption?: MigrationOption
+): boolean {
+    // only validate for DAMM V2 migration
+    if (
+        migrationOption !== undefined &&
+        migrationOption !== MigrationOption.MET_DAMM_V2
+    ) {
+        return true
+    }
+
+    // mode 2 (RateLimiter) is not supported for DAMM V2 migration
+    if (migratedPoolBaseFeeMode === DammV2BaseFeeMode.RateLimiter) {
+        throw new Error(
+            'RateLimiter (mode 2) is not supported for DAMM V2 migration. ' +
+                'Use FeeTimeSchedulerLinear (0), FeeTimeSchedulerExponential (1), ' +
+                'FeeMarketCapSchedulerLinear (3), or FeeMarketCapSchedulerExponential (4) instead.'
+        )
+    }
+
+    const isFixedFeeParams =
+        migratedPoolMarketCapFeeSchedulerParams.numberOfPeriod === 0 &&
+        migratedPoolMarketCapFeeSchedulerParams.sqrtPriceStepBps === 0 &&
+        migratedPoolMarketCapFeeSchedulerParams.schedulerExpirationDuration ===
+            0 &&
+        migratedPoolMarketCapFeeSchedulerParams.reductionFactor.eq(new BN(0))
+
+    // modes 0 and 1 (time-based schedulers) only work as fixed fee
+    if (
+        migratedPoolBaseFeeMode === DammV2BaseFeeMode.FeeTimeSchedulerLinear ||
+        migratedPoolBaseFeeMode ===
+            DammV2BaseFeeMode.FeeTimeSchedulerExponential
+    ) {
+        if (!isFixedFeeParams) {
+            throw new Error(
+                `FeeTimeSchedulerLinear (0) and FeeTimeSchedulerExponential (1) modes ` +
+                    `only work as fixed fee for migrated pools. All market cap fee scheduler params must be 0: ` +
+                    `numberOfPeriod, sqrtPriceStepBps, schedulerExpirationDuration, and reductionFactor.`
+            )
+        }
+        return true
+    }
+
+    // modes 3 and 4 (market cap-based schedulers) require full validation
+    if (
+        migratedPoolBaseFeeMode ===
+            DammV2BaseFeeMode.FeeMarketCapSchedulerLinear ||
+        migratedPoolBaseFeeMode ===
+            DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
+    ) {
+        // for market cap modes, params should NOT all be zero (otherwise use time-based modes)
+        if (isFixedFeeParams) {
+            // allow fixed fee params for market cap modes too (they will behave as fixed fee)
+            return true
+        }
+
+        // validate that all required params are provided
+        if (
+            migratedPoolMarketCapFeeSchedulerParams.numberOfPeriod <= 0 ||
+            migratedPoolMarketCapFeeSchedulerParams.sqrtPriceStepBps <= 0 ||
+            migratedPoolMarketCapFeeSchedulerParams.schedulerExpirationDuration <=
+                0
+        ) {
+            throw new Error(
+                `For FeeMarketCapSchedulerLinear (3) and FeeMarketCapSchedulerExponential (4) modes, ` +
+                    `if using dynamic fee scheduling, numberOfPeriod, sqrtPriceStepBps, and ` +
+                    `schedulerExpirationDuration must all be greater than 0.`
+            )
+        }
+
+        return true
+    }
+
+    // unknown mode
+    throw new Error(
+        `Unknown migratedPoolBaseFeeMode: ${migratedPoolBaseFeeMode}`
+    )
 }
 
 export function validateMigrationFee(migrationFee: {

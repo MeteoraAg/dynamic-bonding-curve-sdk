@@ -11,6 +11,7 @@ import {
     CollectFeeMode,
     ConfigParameters,
     createSqrtPrices,
+    DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
     DynamicBondingCurveClient,
     getVestingLockedLiquidityBpsAtNSeconds,
@@ -99,6 +100,8 @@ describe('createConfig tests', () => {
             tokenUpdateAuthority:
                 TokenUpdateAuthorityOption.PartnerUpdateAuthority,
             poolCreationFee: 1,
+            migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+            enableFirstSwapWithMinFee: false,
         })
     })
 
@@ -341,6 +344,9 @@ describe('Locked Liquidity Validation Tests', () => {
                     numberOfPeriods: 100,
                     totalDuration: 100000,
                 },
+                migratedPoolBaseFeeMode:
+                    DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+                enableFirstSwapWithMinFee: false,
             })
 
             // verify the locked BPS calculation shows 999 BPS
@@ -408,6 +414,9 @@ describe('Locked Liquidity Validation Tests', () => {
                     numberOfPeriods: 10000,
                     totalDuration: 100000,
                 },
+                migratedPoolBaseFeeMode:
+                    DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+                enableFirstSwapWithMinFee: false,
             })
 
             // verify the locked BPS calculation shows >= 1000 BPS

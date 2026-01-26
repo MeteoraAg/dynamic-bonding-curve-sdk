@@ -10,6 +10,7 @@ import {
     TokenType,
     createSqrtPrices,
     BuildCurveBaseParams,
+    DammV2BaseFeeMode,
 } from '../src'
 import BN from 'bn.js'
 
@@ -52,6 +53,8 @@ describe('buildCurveWithCustomSqrtPrices', () => {
             creatorFeePercentage: 0,
         },
         poolCreationFee: 1,
+        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        enableFirstSwapWithMinFee: false,
     }
 
     it('should create a curve with custom sqrt prices', () => {

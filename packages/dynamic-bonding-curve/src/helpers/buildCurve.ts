@@ -13,6 +13,7 @@ import {
 } from '../types'
 import {
     DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS,
+    DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
     MAX_SQRT_PRICE,
 } from '../constants'
 import {
@@ -35,6 +36,7 @@ import {
     getMigratedPoolFeeParams,
     calculateAdjustedPercentageSupplyOnMigration,
     getLiquidityVestingInfoParams,
+    getMigratedPoolMarketCapFeeSchedulerParams,
 } from './common'
 import { getInitialLiquidityFromDeltaBase } from '../math/curve'
 import { convertDecimalToBN, convertToLamports, fromDecimalToBN } from './utils'
@@ -71,6 +73,9 @@ export function buildCurve(
         partnerLiquidityVestingInfoParams,
         creatorLiquidityVestingInfoParams,
         migratedPoolFee,
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams,
+        enableFirstSwapWithMinFee,
         percentageSupplyOnMigration,
         migrationQuoteThreshold,
     } = buildCurveParam
@@ -267,6 +272,19 @@ export function buildCurve(
         poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams:
+            migratedPoolMarketCapFeeSchedulerParams
+                ? getMigratedPoolMarketCapFeeSchedulerParams(
+                      migratedPoolMarketCapFeeSchedulerParams.startingBaseFeeBps,
+                      migratedPoolMarketCapFeeSchedulerParams.endingBaseFeeBps,
+                      migratedPoolMarketCapFeeSchedulerParams.dammV2BaseFeeMode,
+                      migratedPoolMarketCapFeeSchedulerParams.numberOfPeriod,
+                      migratedPoolMarketCapFeeSchedulerParams.sqrtPriceStepBps,
+                      migratedPoolMarketCapFeeSchedulerParams.schedulerExpirationDuration
+                  )
+                : DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+        enableFirstSwapWithMinFee,
         padding: [],
         curve,
     }
@@ -379,6 +397,9 @@ export function buildCurveWithTwoSegments(
         partnerLiquidityVestingInfoParams,
         creatorLiquidityVestingInfoParams,
         migratedPoolFee,
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams,
+        enableFirstSwapWithMinFee,
         initialMarketCap,
         migrationMarketCap,
         percentageSupplyOnMigration,
@@ -607,6 +628,19 @@ export function buildCurveWithTwoSegments(
         poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams:
+            migratedPoolMarketCapFeeSchedulerParams
+                ? getMigratedPoolMarketCapFeeSchedulerParams(
+                      migratedPoolMarketCapFeeSchedulerParams.startingBaseFeeBps,
+                      migratedPoolMarketCapFeeSchedulerParams.endingBaseFeeBps,
+                      migratedPoolMarketCapFeeSchedulerParams.dammV2BaseFeeMode,
+                      migratedPoolMarketCapFeeSchedulerParams.numberOfPeriod,
+                      migratedPoolMarketCapFeeSchedulerParams.sqrtPriceStepBps,
+                      migratedPoolMarketCapFeeSchedulerParams.schedulerExpirationDuration
+                  )
+                : DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+        enableFirstSwapWithMinFee,
         padding: [],
         curve,
         tokenUpdateAuthority,
@@ -647,6 +681,9 @@ export function buildCurveWithMidPrice(
         partnerLiquidityVestingInfoParams,
         creatorLiquidityVestingInfoParams,
         migratedPoolFee,
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams,
+        enableFirstSwapWithMinFee,
         initialMarketCap,
         migrationMarketCap,
         midPrice,
@@ -856,6 +893,19 @@ export function buildCurveWithMidPrice(
         poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams:
+            migratedPoolMarketCapFeeSchedulerParams
+                ? getMigratedPoolMarketCapFeeSchedulerParams(
+                      migratedPoolMarketCapFeeSchedulerParams.startingBaseFeeBps,
+                      migratedPoolMarketCapFeeSchedulerParams.endingBaseFeeBps,
+                      migratedPoolMarketCapFeeSchedulerParams.dammV2BaseFeeMode,
+                      migratedPoolMarketCapFeeSchedulerParams.numberOfPeriod,
+                      migratedPoolMarketCapFeeSchedulerParams.sqrtPriceStepBps,
+                      migratedPoolMarketCapFeeSchedulerParams.schedulerExpirationDuration
+                  )
+                : DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+        enableFirstSwapWithMinFee,
         padding: [],
         curve,
         tokenUpdateAuthority,
@@ -896,6 +946,9 @@ export function buildCurveWithLiquidityWeights(
         partnerLiquidityVestingInfoParams,
         creatorLiquidityVestingInfoParams,
         migratedPoolFee,
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams,
+        enableFirstSwapWithMinFee,
         initialMarketCap,
         migrationMarketCap,
         liquidityWeights,
@@ -1132,6 +1185,19 @@ export function buildCurveWithLiquidityWeights(
         poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams:
+            migratedPoolMarketCapFeeSchedulerParams
+                ? getMigratedPoolMarketCapFeeSchedulerParams(
+                      migratedPoolMarketCapFeeSchedulerParams.startingBaseFeeBps,
+                      migratedPoolMarketCapFeeSchedulerParams.endingBaseFeeBps,
+                      migratedPoolMarketCapFeeSchedulerParams.dammV2BaseFeeMode,
+                      migratedPoolMarketCapFeeSchedulerParams.numberOfPeriod,
+                      migratedPoolMarketCapFeeSchedulerParams.sqrtPriceStepBps,
+                      migratedPoolMarketCapFeeSchedulerParams.schedulerExpirationDuration
+                  )
+                : DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+        enableFirstSwapWithMinFee,
         padding: [],
         curve,
         migrationFee,
@@ -1192,6 +1258,9 @@ export function buildCurveWithCustomSqrtPrices(
         partnerLiquidityVestingInfoParams,
         creatorLiquidityVestingInfoParams,
         migratedPoolFee,
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams,
+        enableFirstSwapWithMinFee,
         sqrtPrices,
     } = buildCurveWithCustomSqrtPricesParam
 
@@ -1426,6 +1495,19 @@ export function buildCurveWithCustomSqrtPrices(
         poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams:
+            migratedPoolMarketCapFeeSchedulerParams
+                ? getMigratedPoolMarketCapFeeSchedulerParams(
+                      migratedPoolMarketCapFeeSchedulerParams.startingBaseFeeBps,
+                      migratedPoolMarketCapFeeSchedulerParams.endingBaseFeeBps,
+                      migratedPoolMarketCapFeeSchedulerParams.dammV2BaseFeeMode,
+                      migratedPoolMarketCapFeeSchedulerParams.numberOfPeriod,
+                      migratedPoolMarketCapFeeSchedulerParams.sqrtPriceStepBps,
+                      migratedPoolMarketCapFeeSchedulerParams.schedulerExpirationDuration
+                  )
+                : DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+        enableFirstSwapWithMinFee,
         padding: [],
         curve,
         migrationFee,

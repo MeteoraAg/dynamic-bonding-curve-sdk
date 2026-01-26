@@ -18,6 +18,7 @@ import {
     TokenUpdateAuthorityOption,
     StateService,
     PoolConfig,
+    DammV2BaseFeeMode,
 } from '../src'
 import { connection, executeTransaction } from './utils/common'
 import { NATIVE_MINT } from '@solana/spl-token'
@@ -100,6 +101,8 @@ describe('createPool tests', () => {
             tokenUpdateAuthority:
                 TokenUpdateAuthorityOption.PartnerUpdateAuthority,
             poolCreationFee: 1,
+            migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+            enableFirstSwapWithMinFee: false,
         })
 
         config = Keypair.generate()

@@ -15,6 +15,7 @@ import {
     TokenDecimal,
     TokenType,
     TokenUpdateAuthorityOption,
+    DammV2BaseFeeMode,
 } from '../src'
 import { convertBNToDecimal } from './utils/common'
 
@@ -57,6 +58,8 @@ describe('buildCurveWithMarketCap tests', () => {
             creatorFeePercentage: 0,
         },
         poolCreationFee: 1,
+        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        enableFirstSwapWithMinFee: false,
     }
 
     test('build curve by market cap 1', () => {
@@ -211,6 +214,8 @@ describe('buildCurveWithMarketCap tests', () => {
                 creatorFeePercentage: 50,
             },
             poolCreationFee: 1,
+            migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+            enableFirstSwapWithMinFee: false,
         })
 
         console.log(

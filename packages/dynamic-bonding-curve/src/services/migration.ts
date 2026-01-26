@@ -236,7 +236,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
         const { virtualPool, config, payer } = params
 
         const migrationMetadata =
-            deriveDammV1MigrationMetadataAddress(virtualPool)
+            deriveDammV1MigrationMetadataAddress(new PublicKey(virtualPool))
 
         const accounts = {
             virtualPool,

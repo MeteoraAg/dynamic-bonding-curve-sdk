@@ -413,3 +413,12 @@ export function getFeeNumeratorFromIncludedAmount(
 
     return feeNumerator
 }
+
+/**
+ * Get the min base fee numerator for rate limiter
+ * @param cliffFeeNumerator - The cliff fee numerator
+ * @returns The min base fee numerator
+ */
+export function getRateLimiterMinBaseFeeNumerator(cliffFeeNumerator: BN): BN {
+    return cliffFeeNumerator
+}
