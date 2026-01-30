@@ -1,36 +1,9 @@
-import {
-    ComputeBudgetProgram,
-    Connection,
-    Signer,
-    Transaction,
-} from '@solana/web3.js'
+import { Connection } from '@solana/web3.js'
 import BN from 'bn.js'
-import { BanksClient } from 'solana-bankrun'
-import { processTransactionMaybeThrow } from './bankrun'
 
 export const connection = new Connection('http://127.0.0.1:8899')
 
-export async function executeTransaction(
-    banksClient: BanksClient,
-    transaction: Transaction,
-    signers: Signer[]
-) {
-    transaction.add(
-        ComputeBudgetProgram.setComputeUnitLimit({
-            units: 400_000,
-        })
-    )
-    const latestBlockhash = await banksClient.getLatestBlockhash()
-    if (!latestBlockhash) {
-        throw new Error('Failed to get latest blockhash')
-    }
-    transaction.recentBlockhash = latestBlockhash[0]
-    transaction.sign(...signers)
-
-    await processTransactionMaybeThrow(banksClient, transaction)
-}
-
-// Helper function to convert BN values to decimal strings
+// helper function to convert BN values to decimal strings
 export function convertBNToDecimal<T>(obj: T): T {
     if (obj instanceof BN) {
         return obj.toString(10) as T

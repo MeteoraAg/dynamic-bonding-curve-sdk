@@ -1,6 +1,9 @@
-import { Keypair } from '@solana/web3.js'
-import { ProgramTestContext } from 'solana-bankrun'
-import { fundSol, startTest } from './utils/bankrun'
+import {
+    Keypair,
+    Connection,
+    sendAndConfirmTransaction,
+    LAMPORTS_PER_SOL,
+} from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
 import {
     ActivationType,
@@ -21,23 +24,27 @@ import {
     TokenType,
     TokenUpdateAuthorityOption,
 } from '../src'
-import { connection, executeTransaction } from './utils/common'
 import { NATIVE_MINT } from '@solana/spl-token'
 import { MIN_LOCKED_LIQUIDITY_BPS, SECONDS_PER_DAY } from '../src/constants'
 
-describe('createConfig tests', () => {
-    let context: ProgramTestContext
-    let admin: Keypair
+const connection = new Connection('http://127.0.0.1:8899', 'confirmed')
+
+describe('createConfig tests', { timeout: 60000 }, () => {
     let partner: Keypair
     let dbcClient: DynamicBondingCurveClient
     let curveConfig: ConfigParameters
 
     beforeEach(async () => {
-        context = await startTest()
-        admin = context.payer
         partner = Keypair.generate()
-        const receivers = [partner.publicKey]
-        await fundSol(context.banksClient, admin, receivers)
+
+        const sig = await connection.requestAirdrop(partner.publicKey, 10 * LAMPORTS_PER_SOL)
+        const latestBlockhash = await connection.getLatestBlockhash()
+        await connection.confirmTransaction({
+            signature: sig,
+            blockhash: latestBlockhash.blockhash,
+            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+        }, 'confirmed')
+
         dbcClient = new DynamicBondingCurveClient(connection, 'confirmed')
 
         // define sqrtPrices array for each curve segment checkpoint
@@ -116,17 +123,15 @@ describe('createConfig tests', () => {
             ...curveConfig,
         })
 
-        const recentBlockhash = await context.banksClient.getLatestBlockhash()
-        if (recentBlockhash) {
-            createConfigTx.recentBlockhash = recentBlockhash[0]
-        }
-
         createConfigTx.feePayer = partner.publicKey
 
-        await executeTransaction(context.banksClient, createConfigTx, [
+        await sendAndConfirmTransaction(connection, createConfigTx, [
             partner,
             config,
         ])
+
+        const configState = await dbcClient.state.getPoolConfig(config.publicKey)
+        expect(configState).not.toBeNull()
     })
 })
 
