@@ -37,13 +37,19 @@ describe('createConfig tests', { timeout: 60000 }, () => {
     beforeEach(async () => {
         partner = Keypair.generate()
 
-        const sig = await connection.requestAirdrop(partner.publicKey, 10 * LAMPORTS_PER_SOL)
+        const sig = await connection.requestAirdrop(
+            partner.publicKey,
+            10 * LAMPORTS_PER_SOL
+        )
         const latestBlockhash = await connection.getLatestBlockhash()
-        await connection.confirmTransaction({
-            signature: sig,
-            blockhash: latestBlockhash.blockhash,
-            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-        }, 'confirmed')
+        await connection.confirmTransaction(
+            {
+                signature: sig,
+                blockhash: latestBlockhash.blockhash,
+                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+            },
+            'confirmed'
+        )
 
         dbcClient = new DynamicBondingCurveClient(connection, 'confirmed')
 
@@ -130,7 +136,9 @@ describe('createConfig tests', { timeout: 60000 }, () => {
             config,
         ])
 
-        const configState = await dbcClient.state.getPoolConfig(config.publicKey)
+        const configState = await dbcClient.state.getPoolConfig(
+            config.publicKey
+        )
         expect(configState).not.toBeNull()
     })
 })

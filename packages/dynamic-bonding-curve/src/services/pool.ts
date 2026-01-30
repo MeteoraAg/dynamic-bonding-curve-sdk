@@ -312,7 +312,7 @@ export class PoolService extends DynamicBondingCurveProgram {
         activationType: ActivationType,
         tokenType: TokenType,
         quoteMint: PublicKey,
-        enableFirstSwapWithMinFee: boolean,
+        enableFirstSwapWithMinFee: boolean
     ): Promise<Transaction> {
         const {
             buyer,

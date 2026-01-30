@@ -49,13 +49,19 @@ describe('swap2 Tests', { timeout: 60000 }, () => {
 
         const accountsToFund = [partner, user, poolCreator]
         for (const account of accountsToFund) {
-            const sig = await connection.requestAirdrop(account.publicKey, 10 * LAMPORTS_PER_SOL)
+            const sig = await connection.requestAirdrop(
+                account.publicKey,
+                10 * LAMPORTS_PER_SOL
+            )
             const latestBlockhash = await connection.getLatestBlockhash()
-            await connection.confirmTransaction({
-                signature: sig,
-                blockhash: latestBlockhash.blockhash,
-                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-            }, 'confirmed')
+            await connection.confirmTransaction(
+                {
+                    signature: sig,
+                    blockhash: latestBlockhash.blockhash,
+                    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+                },
+                'confirmed'
+            )
         }
 
         dbcClient = new DynamicBondingCurveClient(connection, 'confirmed')

@@ -52,15 +52,21 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         baseMint = Keypair.generate()
 
         const accountsToFund = [partner, user, poolCreator]
-        
+
         for (const account of accountsToFund) {
-            const sig = await connection.requestAirdrop(account.publicKey, 10 * LAMPORTS_PER_SOL)
+            const sig = await connection.requestAirdrop(
+                account.publicKey,
+                10 * LAMPORTS_PER_SOL
+            )
             const latestBlockhash = await connection.getLatestBlockhash()
-            await connection.confirmTransaction({
-                signature: sig,
-                blockhash: latestBlockhash.blockhash,
-                lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-            }, 'confirmed')
+            await connection.confirmTransaction(
+                {
+                    signature: sig,
+                    blockhash: latestBlockhash.blockhash,
+                    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+                },
+                'confirmed'
+            )
         }
 
         dbcClient = new DynamicBondingCurveClient(connection, 'confirmed')
@@ -281,7 +287,9 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
 
         // verify the fee charged is close to the expected cliff fee (in this case, the fee should be at most the cliff fee and at least 95% of it)
         expect(totalTradingFee.lte(expectedFee)).toBe(true)
-        expect(totalTradingFee.gte(expectedFee.mul(new BN(95)).div(new BN(100)))).toBe(true)
+        expect(
+            totalTradingFee.gte(expectedFee.mul(new BN(95)).div(new BN(100)))
+        ).toBe(true)
     })
 
     test('should charge min fee when first swap with pool creation (with SYSVAR)', async () => {
@@ -500,8 +508,12 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
 
         // verify second swap charged a fee close to cliff fee (may be slightly lower due to fee decay over time)
         expect(secondSwapFee.lte(expectedSecondFee)).toBe(true)
-        expect(secondSwapFee.gte(expectedSecondFee.mul(new BN(95)).div(new BN(100)))).toBe(true)
-        
+        expect(
+            secondSwapFee.gte(
+                expectedSecondFee.mul(new BN(95)).div(new BN(100))
+            )
+        ).toBe(true)
+
         // Verify second swap fee is significantly higher than min fee (proving it's not using min fee)
         expect(secondSwapFee.gt(expectedFirstFee.mul(new BN(10)))).toBe(true)
     })
