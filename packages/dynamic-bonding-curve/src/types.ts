@@ -270,7 +270,6 @@ export type BuildCurveBaseParams = {
     partnerLiquidityPercentage: number
     creatorPermanentLockedLiquidityPercentage: number
     creatorLiquidityPercentage: number
-    migratedPoolBaseFeeMode: DammV2BaseFeeMode
     enableFirstSwapWithMinFee: boolean
     partnerLiquidityVestingInfoParams?: LiquidityVestingInfoParams
     creatorLiquidityVestingInfoParams?: LiquidityVestingInfoParams
@@ -279,6 +278,7 @@ export type BuildCurveBaseParams = {
         dynamicFee: DammV2DynamicFeeMode
         poolFeeBps: number
     }
+    migratedPoolBaseFeeMode?: DammV2BaseFeeMode
     migratedPoolMarketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParams
 }
 
