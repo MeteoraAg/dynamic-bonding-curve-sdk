@@ -615,9 +615,7 @@ export type MigratedPoolMarketCapFeeSchedulerParams = Omit<
     MigratedPoolMarketCapFeeSchedulerParameters,
     'reductionFactor'
 > & {
-    startingBaseFeeBps: number
     endingBaseFeeBps: number
-    dammV2BaseFeeMode: DammV2BaseFeeMode
 }
 
 ////////////////

@@ -16,6 +16,7 @@ import {
     LiquidityVestingInfoParameters,
     DammV2BaseFeeMode,
     MigratedPoolMarketCapFeeSchedulerParameters,
+    BaseFeeParams,
 } from '../types'
 import {
     BIN_STEP_BPS_DEFAULT,
@@ -1146,6 +1147,23 @@ export function getDynamicFeeParams(
         reductionFactor: DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
         maxVolatilityAccumulator: maxVolatilityAccumulator.toNumber(),
         variableFeeControl: variableFeeControl.toNumber(),
+    }
+}
+
+/**
+ * Derive the starting base fee BPS from baseFeeParams
+ * For FeeSchedulerLinear/FeeSchedulerExponential: uses endingFeeBps (the fee at end of pre-migration curve)
+ * For RateLimiter: uses baseFeeBps (the cliff fee)
+ * @param baseFeeParams - The base fee parameters from the pre-migration pool
+ * @returns The starting base fee in basis points for the migrated pool
+ */
+export function getStartingBaseFeeBpsFromBaseFeeParams(
+    baseFeeParams: BaseFeeParams
+): number {
+    if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
+        return baseFeeParams.rateLimiterParam.baseFeeBps
+    } else {
+        return baseFeeParams.feeSchedulerParam.endingFeeBps
     }
 }
 
