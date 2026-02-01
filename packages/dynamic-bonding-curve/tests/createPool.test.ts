@@ -1,8 +1,4 @@
-import {
-    Keypair,
-    Connection,
-    sendAndConfirmTransaction,
-} from '@solana/web3.js'
+import { Keypair, Connection, sendAndConfirmTransaction } from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
 import { fundSol } from './utils/common'
 import {
