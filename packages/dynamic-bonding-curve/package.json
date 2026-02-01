@@ -6,6 +6,11 @@
   "source": "src/index.ts",
   "types": "dist/index.d.ts",
   "author": "Dann Wee <dann@raccoons.dev>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MeteoraAg/dynamic-bonding-curve-sdk.git",
+    "directory": "packages/dynamic-bonding-curve"
+  },
   "keywords": [
     "meteora-ag",
     "dynamic-bonding-curve",
