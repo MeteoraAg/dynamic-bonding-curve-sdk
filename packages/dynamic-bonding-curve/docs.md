@@ -748,10 +748,10 @@ interface BuildCurveParams {
     migratedPoolBaseFeeMode?: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeMarketCapSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams?: {
         // Defaults to all 0. Configure only when migratedPoolBaseFeeMode = FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential
+        endingBaseFeeBps: number // The ending base fee in basis points
         numberOfPeriod: number // The number of periods
         sqrtPriceStepBps: number // The square root price step in basis points
         schedulerExpirationDuration: number // The scheduler expiration duration in seconds
-        reductionFactor: BN // The reduction factor
     }
     enableFirstSwapWithMinFee: boolean // Whether to enable first swap with minimum fee
     percentageSupplyOnMigration: number // The percentage of the supply that will be migrated
@@ -945,10 +945,10 @@ interface BuildCurveWithMarketCapParams {
     migratedPoolBaseFeeMode?: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeMarketCapSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams?: {
         // Defaults to all 0. Configure only when migratedPoolBaseFeeMode = FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential
+        endingBaseFeeBps: number // The ending base fee in basis points
         numberOfPeriod: number // The number of periods
         sqrtPriceStepBps: number // The square root price step in basis points
         schedulerExpirationDuration: number // The scheduler expiration duration in seconds
-        reductionFactor: BN // The reduction factor
     }
     enableFirstSwapWithMinFee: boolean // Whether to enable first swap with minimum fee
     initialMarketCap: number // The initial market cap that your token will start with
@@ -1142,10 +1142,10 @@ interface BuildCurveWithTwoSegmentsParams {
     migratedPoolBaseFeeMode?: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeMarketCapSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams?: {
         // Defaults to all 0. Configure only when migratedPoolBaseFeeMode = FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential
+        endingBaseFeeBps: number // The ending base fee in basis points
         numberOfPeriod: number // The number of periods
         sqrtPriceStepBps: number // The square root price step in basis points
         schedulerExpirationDuration: number // The scheduler expiration duration in seconds
-        reductionFactor: BN // The reduction factor
     }
     enableFirstSwapWithMinFee: boolean // Whether to enable first swap with minimum fee
     initialMarketCap: number // The initial market cap that your token will start with
@@ -1341,10 +1341,10 @@ interface BuildCurveWithMidPriceParams {
     migratedPoolBaseFeeMode?: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeMarketCapSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams?: {
         // Defaults to all 0. Configure only when migratedPoolBaseFeeMode = FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential
+        endingBaseFeeBps: number // The ending base fee in basis points
         numberOfPeriod: number // The number of periods
         sqrtPriceStepBps: number // The square root price step in basis points
         schedulerExpirationDuration: number // The scheduler expiration duration in seconds
-        reductionFactor: BN // The reduction factor
     }
     enableFirstSwapWithMinFee: boolean // Whether to enable first swap with minimum fee
     initialMarketCap: number // The initial market cap
@@ -1545,10 +1545,10 @@ interface BuildCurveWithLiquidityWeightsParams {
     migratedPoolBaseFeeMode?: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeMarketCapSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams?: {
         // Defaults to all 0. Configure only when migratedPoolBaseFeeMode = FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential
+        endingBaseFeeBps: number // The ending base fee in basis points
         numberOfPeriod: number // The number of periods
         sqrtPriceStepBps: number // The square root price step in basis points
         schedulerExpirationDuration: number // The scheduler expiration duration in seconds
-        reductionFactor: BN // The reduction factor
     }
     enableFirstSwapWithMinFee: boolean // Whether to enable first swap with minimum fee
     initialMarketCap: number // The initial market cap
@@ -1761,10 +1761,10 @@ interface BuildCurveWithCustomSqrtPricesParams {
     migratedPoolBaseFeeMode?: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeMarketCapSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams?: {
         // Defaults to all 0. Configure only when migratedPoolBaseFeeMode = FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential
+        endingBaseFeeBps: number // The ending base fee in basis points
         numberOfPeriod: number // The number of periods
         sqrtPriceStepBps: number // The square root price step in basis points
         schedulerExpirationDuration: number // The scheduler expiration duration in seconds
-        reductionFactor: BN // The reduction factor
     }
     enableFirstSwapWithMinFee: boolean // Whether to enable first swap with minimum fee
     sqrtPrices: BN[] // Array of custom sqrt prices (must be in ascending order)

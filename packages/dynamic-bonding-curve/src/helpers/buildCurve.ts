@@ -274,9 +274,8 @@ export function buildCurve(
         poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
-        migratedPoolBaseFeeMode: migratedPoolBaseFeeMode
-            ? migratedPoolBaseFeeMode
-            : DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        migratedPoolBaseFeeMode:
+            migratedPoolBaseFeeMode ?? DammV2BaseFeeMode.FeeTimeSchedulerLinear,
         migratedPoolMarketCapFeeSchedulerParams:
             migratedPoolMarketCapFeeSchedulerParams
                 ? getMigratedPoolMarketCapFeeSchedulerParams(
@@ -633,9 +632,8 @@ export function buildCurveWithTwoSegments(
         poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
-        migratedPoolBaseFeeMode: migratedPoolBaseFeeMode
-            ? migratedPoolBaseFeeMode
-            : DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        migratedPoolBaseFeeMode:
+            migratedPoolBaseFeeMode ?? DammV2BaseFeeMode.FeeTimeSchedulerLinear,
         migratedPoolMarketCapFeeSchedulerParams:
             migratedPoolMarketCapFeeSchedulerParams
                 ? getMigratedPoolMarketCapFeeSchedulerParams(
@@ -901,9 +899,8 @@ export function buildCurveWithMidPrice(
         poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
-        migratedPoolBaseFeeMode: migratedPoolBaseFeeMode
-            ? migratedPoolBaseFeeMode
-            : DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        migratedPoolBaseFeeMode:
+            migratedPoolBaseFeeMode ?? DammV2BaseFeeMode.FeeTimeSchedulerLinear,
         migratedPoolMarketCapFeeSchedulerParams:
             migratedPoolMarketCapFeeSchedulerParams
                 ? getMigratedPoolMarketCapFeeSchedulerParams(
@@ -1196,9 +1193,8 @@ export function buildCurveWithLiquidityWeights(
         poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
-        migratedPoolBaseFeeMode: migratedPoolBaseFeeMode
-            ? migratedPoolBaseFeeMode
-            : DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        migratedPoolBaseFeeMode:
+            migratedPoolBaseFeeMode ?? DammV2BaseFeeMode.FeeTimeSchedulerLinear,
         migratedPoolMarketCapFeeSchedulerParams:
             migratedPoolMarketCapFeeSchedulerParams
                 ? getMigratedPoolMarketCapFeeSchedulerParams(
@@ -1509,9 +1505,8 @@ export function buildCurveWithCustomSqrtPrices(
         poolCreationFee: poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
-        migratedPoolBaseFeeMode: migratedPoolBaseFeeMode
-            ? migratedPoolBaseFeeMode
-            : DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        migratedPoolBaseFeeMode:
+            migratedPoolBaseFeeMode ?? DammV2BaseFeeMode.FeeTimeSchedulerLinear,
         migratedPoolMarketCapFeeSchedulerParams:
             migratedPoolMarketCapFeeSchedulerParams
                 ? getMigratedPoolMarketCapFeeSchedulerParams(

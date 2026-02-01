@@ -1,7 +1,28 @@
-import { Connection } from '@solana/web3.js'
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 
 export const connection = new Connection('http://127.0.0.1:8899')
+
+// airdrop SOL to a given public key and confirms the transaction
+export async function fundSol(
+    connection: Connection,
+    pubkey: PublicKey,
+    solAmount: number = 10
+): Promise<void> {
+    const sig = await connection.requestAirdrop(
+        pubkey,
+        solAmount * LAMPORTS_PER_SOL
+    )
+    const latestBlockhash = await connection.getLatestBlockhash()
+    await connection.confirmTransaction(
+        {
+            signature: sig,
+            blockhash: latestBlockhash.blockhash,
+            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+        },
+        'confirmed'
+    )
+}
 
 // helper function to convert BN values to decimal strings
 export function convertBNToDecimal<T>(obj: T): T {

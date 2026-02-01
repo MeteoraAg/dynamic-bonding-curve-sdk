@@ -2,9 +2,9 @@ import {
     Keypair,
     Connection,
     sendAndConfirmTransaction,
-    LAMPORTS_PER_SOL,
 } from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
+import { fundSol } from './utils/common'
 import {
     ActivationType,
     BaseFeeMode,
@@ -37,21 +37,8 @@ describe('createPool tests', { timeout: 60000 }, () => {
         partner = Keypair.generate()
         poolCreator = Keypair.generate()
 
-        const accountsToFund = [partner, poolCreator]
-        for (const account of accountsToFund) {
-            const sig = await connection.requestAirdrop(
-                account.publicKey,
-                10 * LAMPORTS_PER_SOL
-            )
-            const latestBlockhash = await connection.getLatestBlockhash()
-            await connection.confirmTransaction(
-                {
-                    signature: sig,
-                    blockhash: latestBlockhash.blockhash,
-                    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-                },
-                'confirmed'
-            )
+        for (const account of [partner, poolCreator]) {
+            await fundSol(connection, account.publicKey)
         }
 
         dbcClient = new DynamicBondingCurveClient(connection, 'confirmed')

@@ -301,6 +301,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param currentPoint - The current point
      * @param tokenType - The token type
      * @param quoteMint - The quote mint token
+     * @param enableFirstSwapWithMinFee - Whether to enable first swap with minimum fee
      * @returns Instructions for the first buy
      */
     private async swapBuyTx(
