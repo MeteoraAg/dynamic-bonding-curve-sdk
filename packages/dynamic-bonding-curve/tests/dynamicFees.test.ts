@@ -5,6 +5,7 @@ import {
     calculateFeeSchedulerEndingBaseFeeBps,
 } from '../src'
 import { expect, test, describe } from 'vitest'
+import Decimal from 'decimal.js'
 
 describe('getMinBaseFeeBps tests', () => {
     test('linear fee scheduler - should calculate minimum fee correctly', () => {
@@ -57,9 +58,12 @@ describe('getMinBaseFeeBps tests', () => {
         )
 
         // exponential mode: cliffFeeNumerator * (1 - reductionFactor/MAX_BASIS_POINT)^numberOfPeriod
-        const decayRate = 1 - reductionFactor / MAX_BASIS_POINT
-        const expectedMinFeeNumerator =
-            cliffFeeNumerator * Math.pow(decayRate, numberOfPeriod)
+        const decayRate = new Decimal(1).sub(
+            new Decimal(reductionFactor).div(MAX_BASIS_POINT)
+        )
+        const expectedMinFeeNumerator = new Decimal(cliffFeeNumerator)
+            .mul(decayRate.pow(numberOfPeriod))
+            .toNumber()
         const expectedMinFeeBps = Math.max(
             0,
             (expectedMinFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT

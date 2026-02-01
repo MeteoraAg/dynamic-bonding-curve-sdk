@@ -952,10 +952,16 @@ export function getFeeSchedulerParams(
         const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator)
         reductionFactor = totalReduction.divn(numberOfPeriod)
     } else {
-        const ratio =
-            minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber()
-        const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
-        reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
+        const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
+            new Decimal(maxBaseFeeNumerator.toString())
+        )
+        const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
+        reductionFactor = new BN(
+            new Decimal(MAX_BASIS_POINT)
+                .mul(new Decimal(1).sub(decayBase))
+                .floor()
+                .toFixed()
+        )
     }
 
     return {
@@ -992,9 +998,12 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
         baseFeeNumerator = cliffFeeNumerator - numberOfPeriod * reductionFactor
     } else {
         // exponential mode
-        const decayRate = 1 - reductionFactor / MAX_BASIS_POINT
-        baseFeeNumerator =
-            cliffFeeNumerator * Math.pow(decayRate, numberOfPeriod)
+        const decayRate = new Decimal(1).sub(
+            new Decimal(reductionFactor).div(MAX_BASIS_POINT)
+        )
+        baseFeeNumerator = new Decimal(cliffFeeNumerator)
+            .mul(decayRate.pow(numberOfPeriod))
+            .toNumber()
     }
 
     // ensure base fee is not negative
@@ -1237,10 +1246,16 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
     } else if (
         dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
     ) {
-        const ratio =
-            minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber()
-        const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
-        reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
+        const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
+            new Decimal(maxBaseFeeNumerator.toString())
+        )
+        const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
+        reductionFactor = new BN(
+            new Decimal(MAX_BASIS_POINT)
+                .mul(new Decimal(1).sub(decayBase))
+                .floor()
+                .toFixed()
+        )
     }
 
     return {
