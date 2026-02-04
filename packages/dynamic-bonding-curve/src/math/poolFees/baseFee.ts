@@ -10,8 +10,12 @@ import {
     getFeeNumeratorFromIncludedAmount,
     getFeeNumeratorFromExcludedAmount,
     isRateLimiterApplied,
+    getRateLimiterMinBaseFeeNumerator,
 } from './rateLimiter'
-import { getBaseFeeNumerator } from './feeScheduler'
+import {
+    getBaseFeeNumerator,
+    getFeeSchedulerMinBaseFeeNumerator,
+} from './feeScheduler'
 import { validateFeeRateLimiter, validateFeeScheduler } from '../../helpers'
 
 /**
@@ -37,6 +41,10 @@ export class FeeRateLimiter implements BaseFeeHandler {
             collectFeeMode,
             activationType
         )
+    }
+
+    getMinBaseFeeNumerator(): BN {
+        return getRateLimiterMinBaseFeeNumerator(this.cliffFeeNumerator)
     }
 
     getBaseFeeNumeratorFromIncludedFeeAmount(
@@ -112,6 +120,15 @@ export class FeeScheduler implements BaseFeeHandler {
             this.periodFrequency,
             this.reductionFactor,
             this.cliffFeeNumerator,
+            this.feeSchedulerMode
+        )
+    }
+
+    getMinBaseFeeNumerator(): BN {
+        return getFeeSchedulerMinBaseFeeNumerator(
+            this.cliffFeeNumerator,
+            this.numberOfPeriod,
+            this.reductionFactor,
             this.feeSchedulerMode
         )
     }

@@ -8,7 +8,7 @@ export type DynamicBondingCurve = {
     address: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
     metadata: {
         name: 'dynamicBondingCurve'
-        version: '0.1.8'
+        version: '0.1.9'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -113,67 +113,6 @@ export type DynamicBondingCurve = {
             ]
         },
         {
-            name: 'claimLegacyPoolCreationFee'
-            discriminator: [96, 11, 187, 225, 54, 117, 161, 134]
-            accounts: [
-                {
-                    name: 'pool'
-                    writable: true
-                },
-                {
-                    name: 'claimFeeOperator'
-                    docs: ['Claim fee operator']
-                },
-                {
-                    name: 'signer'
-                    docs: ['Operator']
-                    signer: true
-                },
-                {
-                    name: 'treasury'
-                    writable: true
-                    address: '4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv'
-                },
-                {
-                    name: 'systemProgram'
-                    address: '11111111111111111111111111111111'
-                },
-                {
-                    name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
-                },
-                {
-                    name: 'program'
-                },
-            ]
-            args: []
-        },
-        {
             name: 'claimPartnerPoolCreationFee'
             discriminator: [250, 238, 26, 4, 139, 10, 101, 248]
             accounts: [
@@ -268,185 +207,11 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'tokenBaseAccount'
-                    docs: ['The treasury token a account']
                     writable: true
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    48,
-                                    9,
-                                    89,
-                                    123,
-                                    106,
-                                    114,
-                                    131,
-                                    251,
-                                    50,
-                                    173,
-                                    254,
-                                    250,
-                                    10,
-                                    80,
-                                    160,
-                                    84,
-                                    143,
-                                    100,
-                                    81,
-                                    249,
-                                    134,
-                                    112,
-                                    30,
-                                    213,
-                                    50,
-                                    166,
-                                    239,
-                                    78,
-                                    53,
-                                    175,
-                                    188,
-                                    85,
-                                ]
-                            },
-                            {
-                                kind: 'account'
-                                path: 'tokenBaseProgram'
-                            },
-                            {
-                                kind: 'account'
-                                path: 'baseMint'
-                            },
-                        ]
-                        program: {
-                            kind: 'const'
-                            value: [
-                                140,
-                                151,
-                                37,
-                                143,
-                                78,
-                                36,
-                                137,
-                                241,
-                                187,
-                                61,
-                                16,
-                                41,
-                                20,
-                                142,
-                                13,
-                                131,
-                                11,
-                                90,
-                                19,
-                                153,
-                                218,
-                                255,
-                                16,
-                                132,
-                                4,
-                                142,
-                                123,
-                                216,
-                                219,
-                                233,
-                                248,
-                                89,
-                            ]
-                        }
-                    }
                 },
                 {
                     name: 'tokenQuoteAccount'
-                    docs: ['The treasury token b account']
                     writable: true
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    48,
-                                    9,
-                                    89,
-                                    123,
-                                    106,
-                                    114,
-                                    131,
-                                    251,
-                                    50,
-                                    173,
-                                    254,
-                                    250,
-                                    10,
-                                    80,
-                                    160,
-                                    84,
-                                    143,
-                                    100,
-                                    81,
-                                    249,
-                                    134,
-                                    112,
-                                    30,
-                                    213,
-                                    50,
-                                    166,
-                                    239,
-                                    78,
-                                    53,
-                                    175,
-                                    188,
-                                    85,
-                                ]
-                            },
-                            {
-                                kind: 'account'
-                                path: 'tokenQuoteProgram'
-                            },
-                            {
-                                kind: 'account'
-                                path: 'quoteMint'
-                            },
-                        ]
-                        program: {
-                            kind: 'const'
-                            value: [
-                                140,
-                                151,
-                                37,
-                                143,
-                                78,
-                                36,
-                                137,
-                                241,
-                                187,
-                                61,
-                                16,
-                                41,
-                                20,
-                                142,
-                                13,
-                                131,
-                                11,
-                                90,
-                                19,
-                                153,
-                                218,
-                                255,
-                                16,
-                                132,
-                                4,
-                                142,
-                                123,
-                                216,
-                                219,
-                                233,
-                                248,
-                                89,
-                            ]
-                        }
-                    }
                 },
                 {
                     name: 'claimFeeOperator'
@@ -498,7 +263,16 @@ export type DynamicBondingCurve = {
                     name: 'program'
                 },
             ]
-            args: []
+            args: [
+                {
+                    name: 'maxBaseAmount'
+                    type: 'u64'
+                },
+                {
+                    name: 'maxQuoteAmount'
+                    type: 'u64'
+                },
+            ]
         },
         {
             name: 'claimProtocolPoolCreationFee'
@@ -524,7 +298,7 @@ export type DynamicBondingCurve = {
                 {
                     name: 'treasury'
                     writable: true
-                    address: '4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv'
+                    address: '6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm'
                 },
                 {
                     name: 'eventAuthority'
@@ -2395,172 +2169,6 @@ export type DynamicBondingCurve = {
             args: []
         },
         {
-            name: 'protocolWithdrawSurplus'
-            discriminator: [54, 136, 225, 138, 172, 182, 214, 167]
-            accounts: [
-                {
-                    name: 'poolAuthority'
-                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
-                },
-                {
-                    name: 'config'
-                    relations: ['virtualPool']
-                },
-                {
-                    name: 'virtualPool'
-                    writable: true
-                },
-                {
-                    name: 'tokenQuoteAccount'
-                    docs: ['The treasury quote token account']
-                    writable: true
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    48,
-                                    9,
-                                    89,
-                                    123,
-                                    106,
-                                    114,
-                                    131,
-                                    251,
-                                    50,
-                                    173,
-                                    254,
-                                    250,
-                                    10,
-                                    80,
-                                    160,
-                                    84,
-                                    143,
-                                    100,
-                                    81,
-                                    249,
-                                    134,
-                                    112,
-                                    30,
-                                    213,
-                                    50,
-                                    166,
-                                    239,
-                                    78,
-                                    53,
-                                    175,
-                                    188,
-                                    85,
-                                ]
-                            },
-                            {
-                                kind: 'account'
-                                path: 'tokenQuoteProgram'
-                            },
-                            {
-                                kind: 'account'
-                                path: 'quoteMint'
-                            },
-                        ]
-                        program: {
-                            kind: 'const'
-                            value: [
-                                140,
-                                151,
-                                37,
-                                143,
-                                78,
-                                36,
-                                137,
-                                241,
-                                187,
-                                61,
-                                16,
-                                41,
-                                20,
-                                142,
-                                13,
-                                131,
-                                11,
-                                90,
-                                19,
-                                153,
-                                218,
-                                255,
-                                16,
-                                132,
-                                4,
-                                142,
-                                123,
-                                216,
-                                219,
-                                233,
-                                248,
-                                89,
-                            ]
-                        }
-                    }
-                },
-                {
-                    name: 'quoteVault'
-                    docs: ['The vault token account for quote token']
-                    writable: true
-                    relations: ['virtualPool']
-                },
-                {
-                    name: 'quoteMint'
-                    docs: ['The mint of token']
-                    relations: ['config']
-                },
-                {
-                    name: 'claimFeeOperator'
-                    docs: ['Claim fee operator']
-                },
-                {
-                    name: 'signer'
-                    docs: ['Signer']
-                    signer: true
-                },
-                {
-                    name: 'tokenQuoteProgram'
-                    docs: ['Token b program']
-                },
-                {
-                    name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
-                },
-                {
-                    name: 'program'
-                },
-            ]
-            args: []
-        },
-        {
             name: 'swap'
             docs: ['TRADING BOTS FUNCTIONS ////']
             discriminator: [248, 198, 158, 145, 225, 117, 135, 200]
@@ -3095,6 +2703,10 @@ export type DynamicBondingCurve = {
             discriminator: [186, 244, 75, 251, 188, 13, 25, 33]
         },
         {
+            name: 'evtClaimProtocolLiquidityMigrationFee'
+            discriminator: [81, 168, 116, 31, 161, 86, 27, 35]
+        },
+        {
             name: 'evtClaimTradingFee'
             discriminator: [26, 83, 117, 240, 92, 202, 112, 254]
         },
@@ -3145,10 +2757,6 @@ export type DynamicBondingCurve = {
         {
             name: 'evtPartnerWithdrawSurplus'
             discriminator: [195, 56, 152, 9, 232, 72, 35, 22]
-        },
-        {
-            name: 'evtProtocolWithdrawSurplus'
-            discriminator: [109, 111, 28, 221, 134, 195, 230, 203]
         },
         {
             name: 'evtSwap'
@@ -3259,7 +2867,7 @@ export type DynamicBondingCurve = {
         {
             code: 6016
             name: 'invalidTokenDecimals'
-            msg: 'Invalid activation type'
+            msg: 'Invalid token decimals'
         },
         {
             code: 6017
@@ -3343,8 +2951,8 @@ export type DynamicBondingCurve = {
         },
         {
             code: 6033
-            name: 'swapAmountIsOverAThreshold'
-            msg: 'Swap amount is over a threshold'
+            name: 'insufficientLiquidity'
+            msg: 'Liquidity in bonding curve is insufficient'
         },
         {
             code: 6034
@@ -3455,6 +3063,21 @@ export type DynamicBondingCurve = {
             code: 6055
             name: 'invalidMigrationLockedLiquidity'
             msg: 'Invalid migration locked liquidity'
+        },
+        {
+            code: 6056
+            name: 'invalidFeeMarketCapScheduler'
+            msg: 'Invalid fee market cap scheduler'
+        },
+        {
+            code: 6057
+            name: 'firstSwapValidationFailed'
+            msg: 'Fail to validate first swap with minimum fee'
+        },
+        {
+            code: 6058
+            name: 'incorrectAta'
+            msg: 'Incorrect ATA'
         },
     ]
     types: [
@@ -3716,10 +3339,26 @@ export type DynamicBondingCurve = {
                         }
                     },
                     {
+                        name: 'migratedPoolBaseFeeMode'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'migratedPoolMarketCapFeeSchedulerParams'
+                        type: {
+                            defined: {
+                                name: 'migratedPoolMarketCapFeeSchedulerParams'
+                            }
+                        }
+                    },
+                    {
+                        name: 'enableFirstSwapWithMinFee'
+                        type: 'bool'
+                    },
+                    {
                         name: 'padding'
                         docs: ['padding for future use']
                         type: {
-                            array: ['u8', 22]
+                            array: ['u8', 4]
                         }
                     },
                     {
@@ -3921,6 +3560,26 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'evtClaimProtocolFee'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'tokenBaseAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'tokenQuoteAmount'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtClaimProtocolLiquidityMigrationFee'
             type: {
                 kind: 'struct'
                 fields: [
@@ -4241,6 +3900,10 @@ export type DynamicBondingCurve = {
                         name: 'creationFee'
                         type: 'u64'
                     },
+                    {
+                        name: 'feeReceiver'
+                        type: 'pubkey'
+                    },
                 ]
             }
         },
@@ -4279,22 +3942,6 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'evtPartnerWithdrawSurplus'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'pool'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'surplusAmount'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'evtProtocolWithdrawSurplus'
             type: {
                 kind: 'struct'
                 fields: [
@@ -4838,6 +4485,30 @@ export type DynamicBondingCurve = {
             }
         },
         {
+            name: 'migratedPoolMarketCapFeeSchedulerParams'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'numberOfPeriod'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'sqrtPriceStepBps'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'schedulerExpirationDuration'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'reductionFactor'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
             name: 'migrationFee'
             type: {
                 kind: 'struct'
@@ -5102,10 +4773,18 @@ export type DynamicBondingCurve = {
                         type: 'u16'
                     },
                     {
+                        name: 'migratedPoolBaseFeeMode'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'enableFirstSwapWithMinFee'
+                        type: 'u8'
+                    },
+                    {
                         name: 'padding1'
                         docs: ['padding 1']
                         type: {
-                            array: ['u8', 4]
+                            array: ['u8', 2]
                         }
                     },
                     {
@@ -5114,9 +4793,11 @@ export type DynamicBondingCurve = {
                         type: 'u64'
                     },
                     {
-                        name: 'padding2'
+                        name: 'migratedPoolBaseFeeBytes'
                         docs: ['padding 2']
-                        type: 'u128'
+                        type: {
+                            array: ['u8', 16]
+                        }
                     },
                     {
                         name: 'sqrtStartPrice'
@@ -5382,7 +5063,7 @@ export type DynamicBondingCurve = {
                         name: 'postMigrationTokenSupply'
                         docs: [
                             'post migration token supply',
-                            'becase DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve',
+                            'because DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve',
                             'that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)',
                         ]
                         type: 'u64'
@@ -5511,7 +5192,9 @@ export type DynamicBondingCurve = {
                     {
                         name: 'migrationFeeWithdrawStatus'
                         docs: [
-                            'migration fee withdraw status, first bit is for partner, second bit is for creator',
+                            'migration fee withdraw status',
+                            'bit 1 (0b010) creator',
+                            'bit 2 (0b100) partner',
                         ]
                         type: 'u8'
                     },
@@ -5550,17 +5233,40 @@ export type DynamicBondingCurve = {
                         type: 'u8'
                     },
                     {
+                        name: 'hasSwap'
+                        docs: ['Cached flag']
+                        type: 'u8'
+                    },
+                    {
                         name: 'padding0'
                         docs: ['Padding for further use']
+                        type: {
+                            array: ['u8', 5]
+                        }
+                    },
+                    {
+                        name: 'protocolLiquidityMigrationFeeBps'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'padding1'
                         type: {
                             array: ['u8', 6]
                         }
                     },
                     {
-                        name: 'padding1'
+                        name: 'protocolMigrationBaseFeeAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'protocolMigrationQuoteFeeAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'padding2'
                         docs: ['Padding for further use']
                         type: {
-                            array: ['u64', 6]
+                            array: ['u64', 3]
                         }
                     },
                 ]

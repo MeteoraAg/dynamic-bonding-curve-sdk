@@ -14,10 +14,14 @@ import {
     MigratedPoolFee,
     MigrationFeeOption,
     LiquidityVestingInfoParameters,
+    DammV2BaseFeeMode,
+    MigratedPoolMarketCapFeeSchedulerParameters,
+    BaseFeeParams,
 } from '../types'
 import {
     BIN_STEP_BPS_DEFAULT,
     BIN_STEP_BPS_U128_DEFAULT,
+    DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
     DYNAMIC_FEE_DECAY_PERIOD_DEFAULT,
     DYNAMIC_FEE_FILTER_PERIOD_DEFAULT,
     DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
@@ -51,6 +55,7 @@ import type { DynamicBondingCurve } from '../idl/dynamic-bonding-curve/idl'
 import { Program } from '@coral-xyz/anchor'
 import { bpsToFeeNumerator, convertToLamports, fromDecimalToBN } from './utils'
 import { getTokenDecimals } from './token'
+import { mulDiv } from '../math'
 
 /**
  * Get the first key
@@ -350,6 +355,59 @@ export const getMigrationQuoteThresholdFromMigrationQuoteAmount = (
         .mul(new Decimal(100))
         .div(new Decimal(100).sub(new Decimal(migrationFeePercent)))
     return migrationQuoteThreshold
+}
+
+/**
+ * Calculates the protocol migration fee for both base and quote tokens.
+ *
+ * @param depositBaseAmount - Amount of base token to deposit in pool (BN)
+ * @param depositQuoteAmount - Amount of quote token to deposit in pool (BN)
+ * @param migrationSqrtPrice - Migration sqrt price (BN)
+ * @param migrationFeeBps - Migration fee in basis points (number)
+ * @param migrationOption - Migration option (MigrationOption, enum)
+ * @returns [baseFeeAmount: BN, quoteFeeAmount: BN]
+ */
+export function getProtocolMigrationFee(
+    depositBaseAmount: BN,
+    depositQuoteAmount: BN,
+    migrationSqrtPrice: BN,
+    migrationFeeBps: number,
+    migrationOption: MigrationOption
+): [BN, BN] {
+    // quote fee amount = (depositQuoteAmount * migrationFeeBps) / MAX_BASIS_POINT
+    const quoteFeeAmount = mulDiv(
+        depositQuoteAmount,
+        new BN(migrationFeeBps),
+        new BN(MAX_BASIS_POINT),
+        Rounding.Down
+    )
+
+    if (migrationOption === MigrationOption.MET_DAMM) {
+        // DAMM v1 migration: fee as same ratio for base
+        const baseFeeAmount = mulDiv(
+            depositBaseAmount,
+            new BN(migrationFeeBps),
+            new BN(MAX_BASIS_POINT),
+            Rounding.Down
+        )
+        return [baseFeeAmount, quoteFeeAmount]
+    } else if (migrationOption === MigrationOption.MET_DAMM_V2) {
+        // DAMM v2 migration
+        const feeLiquidity = getInitialLiquidityFromDeltaQuote(
+            quoteFeeAmount,
+            MIN_SQRT_PRICE,
+            migrationSqrtPrice
+        )
+        const baseFeeAmount = getDeltaAmountBaseUnsigned(
+            migrationSqrtPrice,
+            MAX_SQRT_PRICE,
+            feeLiquidity,
+            Rounding.Down
+        )
+        return [baseFeeAmount, quoteFeeAmount]
+    } else {
+        throw new Error('Invalid migration option')
+    }
 }
 
 /**
@@ -894,10 +952,16 @@ export function getFeeSchedulerParams(
         const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator)
         reductionFactor = totalReduction.divn(numberOfPeriod)
     } else {
-        const ratio =
-            minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber()
-        const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
-        reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
+        const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
+            new Decimal(maxBaseFeeNumerator.toString())
+        )
+        const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
+        reductionFactor = new BN(
+            new Decimal(MAX_BASIS_POINT)
+                .mul(new Decimal(1).sub(decayBase))
+                .floor()
+                .toFixed()
+        )
     }
 
     return {
@@ -934,9 +998,12 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
         baseFeeNumerator = cliffFeeNumerator - numberOfPeriod * reductionFactor
     } else {
         // exponential mode
-        const decayRate = 1 - reductionFactor / MAX_BASIS_POINT
-        baseFeeNumerator =
-            cliffFeeNumerator * Math.pow(decayRate, numberOfPeriod)
+        const decayRate = new Decimal(1).sub(
+            new Decimal(reductionFactor).div(MAX_BASIS_POINT)
+        )
+        baseFeeNumerator = new Decimal(cliffFeeNumerator)
+            .mul(decayRate.pow(numberOfPeriod))
+            .toNumber()
     }
 
     // ensure base fee is not negative
@@ -1089,6 +1156,113 @@ export function getDynamicFeeParams(
         reductionFactor: DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
         maxVolatilityAccumulator: maxVolatilityAccumulator.toNumber(),
         variableFeeControl: variableFeeControl.toNumber(),
+    }
+}
+
+/**
+ * Derive the starting base fee BPS from baseFeeParams
+ * For FeeSchedulerLinear/FeeSchedulerExponential: uses endingFeeBps (the fee at end of pre-migration curve)
+ * For RateLimiter: uses baseFeeBps (the cliff fee)
+ * @param baseFeeParams - The base fee parameters from the pre-migration pool
+ * @returns The starting base fee in basis points for the migrated pool
+ */
+export function getStartingBaseFeeBpsFromBaseFeeParams(
+    baseFeeParams: BaseFeeParams
+): number {
+    if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
+        return baseFeeParams.rateLimiterParam.baseFeeBps
+    } else {
+        return baseFeeParams.feeSchedulerParam.endingFeeBps
+    }
+}
+
+/**
+ * Get the migrated pool market cap fee scheduler parameters
+ * @param startingBaseFeeBps - The starting base fee in basis points
+ * @param endingBaseFeeBps - The ending base fee in basis points
+ * @param dammV2BaseFeeMode - The DAMM V2 base fee mode
+ * @param numberOfPeriod - The number of periods
+ * @param sqrtPriceStepBps - The sqrt price step in basis points
+ * @param schedulerExpirationDuration - The scheduler expiration duration
+ * @returns The migrated pool market cap fee scheduler parameters
+ */
+export function getMigratedPoolMarketCapFeeSchedulerParams(
+    startingBaseFeeBps: number,
+    endingBaseFeeBps: number,
+    dammV2BaseFeeMode: DammV2BaseFeeMode,
+    numberOfPeriod: number,
+    sqrtPriceStepBps: number,
+    schedulerExpirationDuration: number
+): MigratedPoolMarketCapFeeSchedulerParameters {
+    if (
+        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeTimeSchedulerLinear ||
+        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeTimeSchedulerExponential
+    ) {
+        return DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS
+    }
+
+    if (dammV2BaseFeeMode === DammV2BaseFeeMode.RateLimiter) {
+        throw new Error(
+            'RateLimiter is not supported for DAMM v2 migration. Use either FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential instead.'
+        )
+    }
+
+    if (numberOfPeriod <= 0) {
+        throw new Error('Total periods must be greater than zero')
+    }
+
+    const poolMaxFeeBps = MAX_FEE_BPS
+
+    if (startingBaseFeeBps <= endingBaseFeeBps) {
+        throw new Error(
+            `startingBaseFeeBps (${startingBaseFeeBps} bps) must be greater than endingBaseFeeBps (${endingBaseFeeBps} bps)`
+        )
+    }
+
+    if (startingBaseFeeBps > poolMaxFeeBps) {
+        throw new Error(
+            `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${poolMaxFeeBps} bps`
+        )
+    }
+
+    if (
+        numberOfPeriod == 0 ||
+        sqrtPriceStepBps == 0 ||
+        schedulerExpirationDuration == 0
+    ) {
+        throw new Error(
+            'numberOfPeriod, sqrtPriceStepBps, and schedulerExpirationDuration must be greater than zero'
+        )
+    }
+
+    const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
+    const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
+
+    let reductionFactor: BN
+
+    if (dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerLinear) {
+        const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator)
+        reductionFactor = totalReduction.divn(numberOfPeriod)
+    } else if (
+        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
+    ) {
+        const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
+            new Decimal(maxBaseFeeNumerator.toString())
+        )
+        const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
+        reductionFactor = new BN(
+            new Decimal(MAX_BASIS_POINT)
+                .mul(new Decimal(1).sub(decayBase))
+                .floor()
+                .toFixed()
+        )
+    }
+
+    return {
+        numberOfPeriod,
+        sqrtPriceStepBps,
+        schedulerExpirationDuration,
+        reductionFactor,
     }
 }
 

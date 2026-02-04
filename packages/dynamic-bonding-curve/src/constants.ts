@@ -1,6 +1,9 @@
 import BN from 'bn.js'
 import { PublicKey } from '@solana/web3.js'
-import { LiquidityVestingInfoParams } from './types'
+import {
+    LiquidityVestingInfoParams,
+    MigratedPoolMarketCapFeeSchedulerParameters,
+} from './types'
 
 export const MAX_CURVE_POINT = 16
 
@@ -12,6 +15,7 @@ export const FEE_DENOMINATOR = 1_000_000_000
 export const MAX_BASIS_POINT = 10_000
 
 export const U16_MAX = 65_535
+export const U24_MAX = 16_777_215
 export const U64_MAX = new BN('18446744073709551615')
 export const U128_MAX = new BN('340282366920938463463374607431768211455')
 
@@ -118,4 +122,12 @@ export const DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS: LiquidityVestingInfoParams =
         numberOfPeriods: 0,
         cliffDurationFromMigrationTime: 0,
         totalDuration: 0,
+    }
+
+export const DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS: MigratedPoolMarketCapFeeSchedulerParameters =
+    {
+        numberOfPeriod: 0,
+        sqrtPriceStepBps: 0,
+        schedulerExpirationDuration: 0,
+        reductionFactor: new BN(0),
     }

@@ -1,7 +1,6 @@
-import { Keypair } from '@solana/web3.js'
-import { ProgramTestContext } from 'solana-bankrun'
-import { fundSol, startTest } from './utils/bankrun'
+import { Keypair, Connection, sendAndConfirmTransaction } from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
+import { fundSol } from './utils/common'
 import {
     ActivationType,
     BaseFeeMode,
@@ -11,6 +10,7 @@ import {
     CollectFeeMode,
     ConfigParameters,
     createSqrtPrices,
+    DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
     DynamicBondingCurveClient,
     getVestingLockedLiquidityBpsAtNSeconds,
@@ -20,23 +20,21 @@ import {
     TokenType,
     TokenUpdateAuthorityOption,
 } from '../src'
-import { connection, executeTransaction } from './utils/common'
 import { NATIVE_MINT } from '@solana/spl-token'
 import { MIN_LOCKED_LIQUIDITY_BPS, SECONDS_PER_DAY } from '../src/constants'
 
-describe('createConfig tests', () => {
-    let context: ProgramTestContext
-    let admin: Keypair
+const connection = new Connection('http://127.0.0.1:8899', 'confirmed')
+
+describe('createConfig tests', { timeout: 60000 }, () => {
     let partner: Keypair
     let dbcClient: DynamicBondingCurveClient
     let curveConfig: ConfigParameters
 
     beforeEach(async () => {
-        context = await startTest()
-        admin = context.payer
         partner = Keypair.generate()
-        const receivers = [partner.publicKey]
-        await fundSol(context.banksClient, admin, receivers)
+
+        await fundSol(connection, partner.publicKey)
+
         dbcClient = new DynamicBondingCurveClient(connection, 'confirmed')
 
         // define sqrtPrices array for each curve segment checkpoint
@@ -99,6 +97,8 @@ describe('createConfig tests', () => {
             tokenUpdateAuthority:
                 TokenUpdateAuthorityOption.PartnerUpdateAuthority,
             poolCreationFee: 1,
+            migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+            enableFirstSwapWithMinFee: false,
         })
     })
 
@@ -113,17 +113,17 @@ describe('createConfig tests', () => {
             ...curveConfig,
         })
 
-        const recentBlockhash = await context.banksClient.getLatestBlockhash()
-        if (recentBlockhash) {
-            createConfigTx.recentBlockhash = recentBlockhash[0]
-        }
-
         createConfigTx.feePayer = partner.publicKey
 
-        await executeTransaction(context.banksClient, createConfigTx, [
+        await sendAndConfirmTransaction(connection, createConfigTx, [
             partner,
             config,
         ])
+
+        const configState = await dbcClient.state.getPoolConfig(
+            config.publicKey
+        )
+        expect(configState).not.toBeNull()
     })
 })
 
@@ -341,6 +341,9 @@ describe('Locked Liquidity Validation Tests', () => {
                     numberOfPeriods: 100,
                     totalDuration: 100000,
                 },
+                migratedPoolBaseFeeMode:
+                    DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+                enableFirstSwapWithMinFee: false,
             })
 
             // verify the locked BPS calculation shows 999 BPS
@@ -408,6 +411,9 @@ describe('Locked Liquidity Validation Tests', () => {
                     numberOfPeriods: 10000,
                     totalDuration: 100000,
                 },
+                migratedPoolBaseFeeMode:
+                    DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+                enableFirstSwapWithMinFee: false,
             })
 
             // verify the locked BPS calculation shows >= 1000 BPS

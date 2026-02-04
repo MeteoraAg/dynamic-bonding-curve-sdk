@@ -8,7 +8,7 @@ import { BaseFeeMode } from '../../types'
  * @param cliffFeeNumerator Cliff fee numerator
  * @returns Max fee numerator
  */
-export function getMaxBaseFeeNumerator(cliffFeeNumerator: BN): BN {
+export function getFeeSchedulerMaxBaseFeeNumerator(cliffFeeNumerator: BN): BN {
     return cliffFeeNumerator
 }
 
@@ -21,7 +21,7 @@ export function getMaxBaseFeeNumerator(cliffFeeNumerator: BN): BN {
  * @param feeSchedulerMode Fee scheduler mode
  * @returns Min fee numerator
  */
-export function getMinBaseFeeNumerator(
+export function getFeeSchedulerMinBaseFeeNumerator(
     cliffFeeNumerator: BN,
     numberOfPeriod: number,
     reductionFactor: BN,

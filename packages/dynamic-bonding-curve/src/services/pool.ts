@@ -5,6 +5,7 @@ import {
     type Connection,
     Transaction,
     SYSVAR_INSTRUCTIONS_PUBKEY,
+    AccountMeta,
 } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
 import {
@@ -300,6 +301,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param currentPoint - The current point
      * @param tokenType - The token type
      * @param quoteMint - The quote mint token
+     * @param enableFirstSwapWithMinFee - Whether to enable first swap with minimum fee
      * @returns Instructions for the first buy
      */
     private async swapBuyTx(
@@ -310,7 +312,8 @@ export class PoolService extends DynamicBondingCurveProgram {
         swapBaseForQuote: boolean,
         activationType: ActivationType,
         tokenType: TokenType,
-        quoteMint: PublicKey
+        quoteMint: PublicKey,
+        enableFirstSwapWithMinFee: boolean
     ): Promise<Transaction> {
         const {
             buyer,
@@ -412,16 +415,16 @@ export class PoolService extends DynamicBondingCurveProgram {
             unwrapIx && postInstructions.push(unwrapIx)
         }
 
-        // add remaining accounts if rate limiter is applied
-        const remainingAccounts = rateLimiterApplied
-            ? [
-                  {
-                      isSigner: false,
-                      isWritable: false,
-                      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-                  },
-              ]
-            : []
+        const remainingAccounts: AccountMeta[] = []
+
+        // add remaining accounts if rate limiter is applied or enableFirstSwapWithMinFee is true
+        if (rateLimiterApplied || enableFirstSwapWithMinFee) {
+            remainingAccounts.push({
+                isSigner: false,
+                isWritable: false,
+                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+            })
+        }
 
         return this.program.methods
             .swap({
@@ -624,7 +627,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                 false,
                 configParam.activationType,
                 params.tokenType,
-                quoteMintToken
+                quoteMintToken,
+                true
             )
         }
 
@@ -676,7 +680,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                 false,
                 poolConfigState.activationType,
                 tokenType,
-                quoteMint
+                quoteMint,
+                true
             )
         }
 
@@ -736,7 +741,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                 false,
                 poolConfigState.activationType,
                 tokenType,
-                quoteMint
+                quoteMint,
+                true
             )
         }
 
@@ -761,7 +767,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                 false,
                 poolConfigState.activationType,
                 tokenType,
-                quoteMint
+                quoteMint,
+                true
             )
         }
 
@@ -873,16 +880,16 @@ export class PoolService extends DynamicBondingCurveProgram {
             unwrapIx && postInstructions.push(unwrapIx)
         }
 
-        // add remaining accounts if rate limiter is applied
-        const remainingAccounts = rateLimiterApplied
-            ? [
-                  {
-                      isSigner: false,
-                      isWritable: false,
-                      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-                  },
-              ]
-            : []
+        const remainingAccounts: AccountMeta[] = []
+
+        // add remaining accounts if rate limiter is applied or enableFirstSwapWithMinFee is true
+        if (rateLimiterApplied || poolConfigState.enableFirstSwapWithMinFee) {
+            remainingAccounts.push({
+                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+                isSigner: false,
+                isWritable: false,
+            })
+        }
 
         return this.program.methods
             .swap({
@@ -1034,16 +1041,16 @@ export class PoolService extends DynamicBondingCurveProgram {
             unwrapIx && postInstructions.push(unwrapIx)
         }
 
+        const remainingAccounts: AccountMeta[] = []
+
         // add remaining accounts if rate limiter is applied
-        const remainingAccounts = rateLimiterApplied
-            ? [
-                  {
-                      isSigner: false,
-                      isWritable: false,
-                      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-                  },
-              ]
-            : []
+        if (rateLimiterApplied || poolConfigState.enableFirstSwapWithMinFee) {
+            remainingAccounts.push({
+                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+                isSigner: false,
+                isWritable: false,
+            })
+        }
 
         return this.program.methods
             .swap2({
@@ -1096,6 +1103,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             slippageBps,
             hasReferral,
             currentPoint,
+            eligibleForFirstSwapWithMinFee,
         } = params
 
         return swapQuote(
@@ -1105,7 +1113,8 @@ export class PoolService extends DynamicBondingCurveProgram {
             amountIn,
             slippageBps,
             hasReferral,
-            currentPoint
+            currentPoint,
+            eligibleForFirstSwapWithMinFee
         )
     }
 
@@ -1129,6 +1138,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             swapBaseForQuote,
             swapMode,
             hasReferral,
+            eligibleForFirstSwapWithMinFee,
             currentPoint,
             slippageBps,
         } = params
@@ -1143,7 +1153,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                         params.amountIn,
                         slippageBps,
                         hasReferral,
-                        currentPoint
+                        currentPoint,
+                        eligibleForFirstSwapWithMinFee
                     )
                 }
                 throw new Error('amountIn is required for ExactIn swap mode')
@@ -1157,7 +1168,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                         params.amountOut,
                         slippageBps,
                         hasReferral,
-                        currentPoint
+                        currentPoint,
+                        eligibleForFirstSwapWithMinFee
                     )
                 }
                 throw new Error('outAmount is required for ExactOut swap mode')
@@ -1171,7 +1183,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                         params.amountIn,
                         slippageBps,
                         hasReferral,
-                        currentPoint
+                        currentPoint,
+                        eligibleForFirstSwapWithMinFee
                     )
                 }
                 throw new Error(

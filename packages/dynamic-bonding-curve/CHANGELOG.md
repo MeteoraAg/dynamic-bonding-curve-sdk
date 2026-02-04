@@ -2,6 +2,25 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.2] - 2026-01-27
+
+### Added
+
+- Added `getMigratedPoolMarketCapFeeSchedulerParams` helper function to craft `MigratedPoolMarketCapFeeSchedulerParams` object
+- Added `decodePodAlignedFeeMarketCapScheduler` helper function to decode `PodAlignedFeeMarketCapScheduler` object from config account data
+- Added `validateMigratedPoolBaseFeeMode` and `validateDynamicFeeParams` validation functions for config creation
+- Added `getMinBaseFeeNumerator` into `BaseFeeHandler` class
+- Added if `poolConfigState.enableFirstSwapWithMinFee` is true, then the `swap` and `swap2` functions will contain `SYSVAR_INSTRUCTIONS_PUBKEY` in remaining accounts
+
+### Changed
+
+- Bumped DAMM v2 IDL to v0.1.7
+
+### Breaking Changes
+
+- Added `migratedPoolBaseFeeMode`, `migratedPoolMarketCapFeeSchedulerParams` and `enableFirstSwapWithMinFee` parameters to `buildCurve`, `buildCurveWithMarketCap`, `buildCurveWithTwoSegments`, `buildCurveWithLiquidityWeights`, `buildCurveWithMidPrice`, `buildCurveWithCustomSqrtPrices` functions
+- Added `eligibleForFirstSwapWithMinFee` parameter to `swapQuote`, `swapQuote2` functions when quoting for first swap with minimum fee
+
 ## [1.5.1] - 2026-01-17
 
 ### Fixed

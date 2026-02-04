@@ -1,7 +1,6 @@
-import { Keypair } from '@solana/web3.js'
-import { ProgramTestContext } from 'solana-bankrun'
-import { fundSol, startTest } from './utils/bankrun'
-import { test, describe, beforeEach, vi } from 'vitest'
+import { Keypair, Connection, sendAndConfirmTransaction } from '@solana/web3.js'
+import { test, describe, beforeEach, expect } from 'vitest'
+import { fundSol } from './utils/common'
 import {
     ActivationType,
     BaseFeeMode,
@@ -16,15 +15,14 @@ import {
     TokenDecimal,
     TokenType,
     TokenUpdateAuthorityOption,
-    StateService,
-    PoolConfig,
+    DammV2BaseFeeMode,
+    deriveDbcPoolAddress,
 } from '../src'
-import { connection, executeTransaction } from './utils/common'
 import { NATIVE_MINT } from '@solana/spl-token'
 
-describe('createPool tests', () => {
-    let context: ProgramTestContext
-    let admin: Keypair
+const connection = new Connection('http://127.0.0.1:8899', 'confirmed')
+
+describe('createPool tests', { timeout: 60000 }, () => {
     let partner: Keypair
     let poolCreator: Keypair
     let dbcClient: DynamicBondingCurveClient
@@ -32,12 +30,13 @@ describe('createPool tests', () => {
     let curveConfig: ConfigParameters
 
     beforeEach(async () => {
-        context = await startTest()
-        admin = context.payer
         partner = Keypair.generate()
         poolCreator = Keypair.generate()
-        const receivers = [partner.publicKey, poolCreator.publicKey]
-        await fundSol(context.banksClient, admin, receivers)
+
+        for (const account of [partner, poolCreator]) {
+            await fundSol(connection, account.publicKey)
+        }
+
         dbcClient = new DynamicBondingCurveClient(connection, 'confirmed')
 
         // define sqrtPrices array for each curve segment checkpoint
@@ -100,6 +99,8 @@ describe('createPool tests', () => {
             tokenUpdateAuthority:
                 TokenUpdateAuthorityOption.PartnerUpdateAuthority,
             poolCreationFee: 1,
+            migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+            enableFirstSwapWithMinFee: false,
         })
 
         config = Keypair.generate()
@@ -115,25 +116,14 @@ describe('createPool tests', () => {
             ...curveConfig,
         })
 
-        const recentBlockhash = await context.banksClient.getLatestBlockhash()
-        if (recentBlockhash) {
-            createConfigTx.recentBlockhash = recentBlockhash[0]
-        }
-
         createConfigTx.feePayer = partner.publicKey
 
-        await executeTransaction(context.banksClient, createConfigTx, [
+        await sendAndConfirmTransaction(connection, createConfigTx, [
             partner,
             config,
         ])
 
         const baseMint = Keypair.generate()
-
-        // Mock getPoolConfig to avoid reading from disconnected connection
-        vi.spyOn(StateService.prototype, 'getPoolConfig').mockResolvedValue({
-            quoteMint: NATIVE_MINT,
-            tokenType: TokenType.SPL,
-        } as PoolConfig)
 
         const createPoolTx = await dbcClient.pool.createPool({
             baseMint: baseMint.publicKey,
@@ -145,16 +135,19 @@ describe('createPool tests', () => {
             poolCreator: poolCreator.publicKey,
         })
 
-        const poolBlockhash = await context.banksClient.getLatestBlockhash()
-        if (poolBlockhash) {
-            createPoolTx.recentBlockhash = poolBlockhash[0]
-        }
-
         createPoolTx.feePayer = poolCreator.publicKey
 
-        await executeTransaction(context.banksClient, createPoolTx, [
+        await sendAndConfirmTransaction(connection, createPoolTx, [
             baseMint,
             poolCreator,
         ])
+
+        const pool = deriveDbcPoolAddress(
+            NATIVE_MINT,
+            baseMint.publicKey,
+            config.publicKey
+        )
+        const poolState = await dbcClient.state.getPool(pool)
+        expect(poolState).not.toBeNull()
     })
 })

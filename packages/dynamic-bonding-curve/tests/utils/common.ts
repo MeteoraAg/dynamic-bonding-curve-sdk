@@ -1,36 +1,30 @@
-import {
-    ComputeBudgetProgram,
-    Connection,
-    Signer,
-    Transaction,
-} from '@solana/web3.js'
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
-import { BanksClient } from 'solana-bankrun'
-import { processTransactionMaybeThrow } from './bankrun'
 
 export const connection = new Connection('http://127.0.0.1:8899')
 
-export async function executeTransaction(
-    banksClient: BanksClient,
-    transaction: Transaction,
-    signers: Signer[]
-) {
-    transaction.add(
-        ComputeBudgetProgram.setComputeUnitLimit({
-            units: 400_000,
-        })
+// airdrop SOL to a given public key and confirms the transaction
+export async function fundSol(
+    connection: Connection,
+    pubkey: PublicKey,
+    solAmount: number = 10
+): Promise<void> {
+    const sig = await connection.requestAirdrop(
+        pubkey,
+        solAmount * LAMPORTS_PER_SOL
     )
-    const latestBlockhash = await banksClient.getLatestBlockhash()
-    if (!latestBlockhash) {
-        throw new Error('Failed to get latest blockhash')
-    }
-    transaction.recentBlockhash = latestBlockhash[0]
-    transaction.sign(...signers)
-
-    await processTransactionMaybeThrow(banksClient, transaction)
+    const latestBlockhash = await connection.getLatestBlockhash()
+    await connection.confirmTransaction(
+        {
+            signature: sig,
+            blockhash: latestBlockhash.blockhash,
+            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+        },
+        'confirmed'
+    )
 }
 
-// Helper function to convert BN values to decimal strings
+// helper function to convert BN values to decimal strings
 export function convertBNToDecimal<T>(obj: T): T {
     if (obj instanceof BN) {
         return obj.toString(10) as T

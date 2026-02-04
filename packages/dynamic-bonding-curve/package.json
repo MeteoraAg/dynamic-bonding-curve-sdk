@@ -1,11 +1,16 @@
 {
   "name": "@meteora-ag/dynamic-bonding-curve-sdk",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "source": "src/index.ts",
   "types": "dist/index.d.ts",
   "author": "Dann Wee <dann@raccoons.dev>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MeteoraAg/dynamic-bonding-curve-sdk.git",
+    "directory": "packages/dynamic-bonding-curve"
+  },
   "keywords": [
     "meteora-ag",
     "dynamic-bonding-curve",
@@ -40,7 +45,7 @@
     "@types/bn.js": "^5.1.6",
     "@types/node": "^25.0.3",
     "eslint": "^9.24.0",
-    "solana-bankrun": "^0.4.0",
+    "jito-ts": "^4.2.1",
     "tsup": "^8.4.0",
     "tsx": "^4.19.3",
     "vitest": "^2.1.0"

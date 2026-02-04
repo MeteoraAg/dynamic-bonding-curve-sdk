@@ -2,7 +2,7 @@
   "address": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
   "metadata": {
     "name": "dynamic_bonding_curve",
-    "version": "0.1.8",
+    "version": "0.1.9",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -138,80 +138,6 @@
       ]
     },
     {
-      "name": "claim_legacy_pool_creation_fee",
-      "discriminator": [
-        96,
-        11,
-        187,
-        225,
-        54,
-        117,
-        161,
-        134
-      ],
-      "accounts": [
-        {
-          "name": "pool",
-          "writable": true
-        },
-        {
-          "name": "claim_fee_operator",
-          "docs": [
-            "Claim fee operator"
-          ]
-        },
-        {
-          "name": "signer",
-          "docs": [
-            "Operator"
-          ],
-          "signer": true
-        },
-        {
-          "name": "treasury",
-          "writable": true,
-          "address": "4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "program"
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "claim_partner_pool_creation_fee",
       "discriminator": [
         250,
@@ -344,189 +270,11 @@
         },
         {
           "name": "token_base_account",
-          "docs": [
-            "The treasury token a account"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  48,
-                  9,
-                  89,
-                  123,
-                  106,
-                  114,
-                  131,
-                  251,
-                  50,
-                  173,
-                  254,
-                  250,
-                  10,
-                  80,
-                  160,
-                  84,
-                  143,
-                  100,
-                  81,
-                  249,
-                  134,
-                  112,
-                  30,
-                  213,
-                  50,
-                  166,
-                  239,
-                  78,
-                  53,
-                  175,
-                  188,
-                  85
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "token_base_program"
-              },
-              {
-                "kind": "account",
-                "path": "base_mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
+          "writable": true
         },
         {
           "name": "token_quote_account",
-          "docs": [
-            "The treasury token b account"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  48,
-                  9,
-                  89,
-                  123,
-                  106,
-                  114,
-                  131,
-                  251,
-                  50,
-                  173,
-                  254,
-                  250,
-                  10,
-                  80,
-                  160,
-                  84,
-                  143,
-                  100,
-                  81,
-                  249,
-                  134,
-                  112,
-                  30,
-                  213,
-                  50,
-                  166,
-                  239,
-                  78,
-                  53,
-                  175,
-                  188,
-                  85
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "token_quote_program"
-              },
-              {
-                "kind": "account",
-                "path": "quote_mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
+          "writable": true
         },
         {
           "name": "claim_fee_operator",
@@ -586,7 +334,16 @@
           "name": "program"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "max_base_amount",
+          "type": "u64"
+        },
+        {
+          "name": "max_quote_amount",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "claim_protocol_pool_creation_fee",
@@ -627,7 +384,7 @@
         {
           "name": "treasury",
           "writable": true,
-          "address": "4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"
+          "address": "6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm"
         },
         {
           "name": "event_authority",
@@ -2832,199 +2589,6 @@
       "args": []
     },
     {
-      "name": "protocol_withdraw_surplus",
-      "discriminator": [
-        54,
-        136,
-        225,
-        138,
-        172,
-        182,
-        214,
-        167
-      ],
-      "accounts": [
-        {
-          "name": "pool_authority",
-          "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
-        },
-        {
-          "name": "config",
-          "relations": [
-            "virtual_pool"
-          ]
-        },
-        {
-          "name": "virtual_pool",
-          "writable": true
-        },
-        {
-          "name": "token_quote_account",
-          "docs": [
-            "The treasury quote token account"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  48,
-                  9,
-                  89,
-                  123,
-                  106,
-                  114,
-                  131,
-                  251,
-                  50,
-                  173,
-                  254,
-                  250,
-                  10,
-                  80,
-                  160,
-                  84,
-                  143,
-                  100,
-                  81,
-                  249,
-                  134,
-                  112,
-                  30,
-                  213,
-                  50,
-                  166,
-                  239,
-                  78,
-                  53,
-                  175,
-                  188,
-                  85
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "token_quote_program"
-              },
-              {
-                "kind": "account",
-                "path": "quote_mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "quote_vault",
-          "docs": [
-            "The vault token account for quote token"
-          ],
-          "writable": true,
-          "relations": [
-            "virtual_pool"
-          ]
-        },
-        {
-          "name": "quote_mint",
-          "docs": [
-            "The mint of token"
-          ],
-          "relations": [
-            "config"
-          ]
-        },
-        {
-          "name": "claim_fee_operator",
-          "docs": [
-            "Claim fee operator"
-          ]
-        },
-        {
-          "name": "signer",
-          "docs": [
-            "Signer"
-          ],
-          "signer": true
-        },
-        {
-          "name": "token_quote_program",
-          "docs": [
-            "Token b program"
-          ]
-        },
-        {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "program"
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "swap",
       "docs": [
         "TRADING BOTS FUNCTIONS ////"
@@ -3799,6 +3363,19 @@
       ]
     },
     {
+      "name": "EvtClaimProtocolLiquidityMigrationFee",
+      "discriminator": [
+        81,
+        168,
+        116,
+        31,
+        161,
+        86,
+        27,
+        35
+      ]
+    },
+    {
       "name": "EvtClaimTradingFee",
       "discriminator": [
         26,
@@ -3968,19 +3545,6 @@
       ]
     },
     {
-      "name": "EvtProtocolWithdrawSurplus",
-      "discriminator": [
-        109,
-        111,
-        28,
-        221,
-        134,
-        195,
-        230,
-        203
-      ]
-    },
-    {
       "name": "EvtSwap",
       "discriminator": [
         27,
@@ -4143,7 +3707,7 @@
     {
       "code": 6016,
       "name": "InvalidTokenDecimals",
-      "msg": "Invalid activation type"
+      "msg": "Invalid token decimals"
     },
     {
       "code": 6017,
@@ -4227,8 +3791,8 @@
     },
     {
       "code": 6033,
-      "name": "SwapAmountIsOverAThreshold",
-      "msg": "Swap amount is over a threshold"
+      "name": "InsufficientLiquidity",
+      "msg": "Liquidity in bonding curve is insufficient"
     },
     {
       "code": 6034,
@@ -4339,6 +3903,21 @@
       "code": 6055,
       "name": "InvalidMigrationLockedLiquidity",
       "msg": "Invalid migration locked liquidity"
+    },
+    {
+      "code": 6056,
+      "name": "InvalidFeeMarketCapScheduler",
+      "msg": "Invalid fee market cap scheduler"
+    },
+    {
+      "code": 6057,
+      "name": "FirstSwapValidationFailed",
+      "msg": "Fail to validate first swap with minimum fee"
+    },
+    {
+      "code": 6058,
+      "name": "IncorrectATA",
+      "msg": "Incorrect ATA"
     }
   ],
   "types": [
@@ -4617,6 +4196,22 @@
             }
           },
           {
+            "name": "migrated_pool_base_fee_mode",
+            "type": "u8"
+          },
+          {
+            "name": "migrated_pool_market_cap_fee_scheduler_params",
+            "type": {
+              "defined": {
+                "name": "MigratedPoolMarketCapFeeSchedulerParams"
+              }
+            }
+          },
+          {
+            "name": "enable_first_swap_with_min_fee",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "docs": [
               "padding for future use"
@@ -4624,7 +4219,7 @@
             "type": {
               "array": [
                 "u8",
-                22
+                4
               ]
             }
           },
@@ -4839,6 +4434,26 @@
     },
     {
       "name": "EvtClaimProtocolFee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "token_base_amount",
+            "type": "u64"
+          },
+          {
+            "name": "token_quote_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvtClaimProtocolLiquidityMigrationFee",
       "type": {
         "kind": "struct",
         "fields": [
@@ -5164,6 +4779,10 @@
           {
             "name": "creation_fee",
             "type": "u64"
+          },
+          {
+            "name": "fee_receiver",
+            "type": "pubkey"
           }
         ]
       }
@@ -5205,22 +4824,6 @@
     },
     {
       "name": "EvtPartnerWithdrawSurplus",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "surplus_amount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "EvtProtocolWithdrawSurplus",
       "type": {
         "kind": "struct",
         "fields": [
@@ -5795,6 +5398,30 @@
       }
     },
     {
+      "name": "MigratedPoolMarketCapFeeSchedulerParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "number_of_period",
+            "type": "u16"
+          },
+          {
+            "name": "sqrt_price_step_bps",
+            "type": "u16"
+          },
+          {
+            "name": "scheduler_expiration_duration",
+            "type": "u32"
+          },
+          {
+            "name": "reduction_factor",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "MigrationFee",
       "type": {
         "kind": "struct",
@@ -6140,6 +5767,14 @@
             "type": "u16"
           },
           {
+            "name": "migrated_pool_base_fee_mode",
+            "type": "u8"
+          },
+          {
+            "name": "enable_first_swap_with_min_fee",
+            "type": "u8"
+          },
+          {
             "name": "_padding_1",
             "docs": [
               "padding 1"
@@ -6147,7 +5782,7 @@
             "type": {
               "array": [
                 "u8",
-                4
+                2
               ]
             }
           },
@@ -6159,11 +5794,16 @@
             "type": "u64"
           },
           {
-            "name": "_padding_2",
+            "name": "migrated_pool_base_fee_bytes",
             "docs": [
               "padding 2"
             ],
-            "type": "u128"
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
           },
           {
             "name": "sqrt_start_price",
@@ -6445,7 +6085,7 @@
             "name": "post_migration_token_supply",
             "docs": [
               "post migration token supply",
-              "becase DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve",
+              "because DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve",
               "that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)"
             ],
             "type": "u64"
@@ -6616,7 +6256,9 @@
           {
             "name": "migration_fee_withdraw_status",
             "docs": [
-              "migration fee withdraw status, first bit is for partner, second bit is for creator"
+              "migration fee withdraw status",
+              "bit 1 (0b010) creator",
+              "bit 2 (0b100) partner"
             ],
             "type": "u8"
           },
@@ -6667,10 +6309,30 @@
             "type": "u8"
           },
           {
+            "name": "has_swap",
+            "docs": [
+              "Cached flag"
+            ],
+            "type": "u8"
+          },
+          {
             "name": "_padding_0",
             "docs": [
               "Padding for further use"
             ],
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          },
+          {
+            "name": "protocol_liquidity_migration_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "_padding_1",
             "type": {
               "array": [
                 "u8",
@@ -6679,14 +6341,22 @@
             }
           },
           {
-            "name": "_padding_1",
+            "name": "protocol_migration_base_fee_amount",
+            "type": "u64"
+          },
+          {
+            "name": "protocol_migration_quote_fee_amount",
+            "type": "u64"
+          },
+          {
+            "name": "_padding_2",
             "docs": [
               "Padding for further use"
             ],
             "type": {
               "array": [
                 "u64",
-                6
+                3
               ]
             }
           }

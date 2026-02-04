@@ -8,7 +8,7 @@ export type CpAmm = {
     address: 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG'
     metadata: {
         name: 'cpAmm'
-        version: '0.1.3'
+        version: '0.1.7'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -356,195 +356,20 @@ export type CpAmm = {
                 },
                 {
                     name: 'tokenAAccount'
-                    docs: ['The treasury token a account']
                     writable: true
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    48,
-                                    9,
-                                    89,
-                                    123,
-                                    106,
-                                    114,
-                                    131,
-                                    251,
-                                    50,
-                                    173,
-                                    254,
-                                    250,
-                                    10,
-                                    80,
-                                    160,
-                                    84,
-                                    143,
-                                    100,
-                                    81,
-                                    249,
-                                    134,
-                                    112,
-                                    30,
-                                    213,
-                                    50,
-                                    166,
-                                    239,
-                                    78,
-                                    53,
-                                    175,
-                                    188,
-                                    85,
-                                ]
-                            },
-                            {
-                                kind: 'account'
-                                path: 'tokenAProgram'
-                            },
-                            {
-                                kind: 'account'
-                                path: 'tokenAMint'
-                            },
-                        ]
-                        program: {
-                            kind: 'const'
-                            value: [
-                                140,
-                                151,
-                                37,
-                                143,
-                                78,
-                                36,
-                                137,
-                                241,
-                                187,
-                                61,
-                                16,
-                                41,
-                                20,
-                                142,
-                                13,
-                                131,
-                                11,
-                                90,
-                                19,
-                                153,
-                                218,
-                                255,
-                                16,
-                                132,
-                                4,
-                                142,
-                                123,
-                                216,
-                                219,
-                                233,
-                                248,
-                                89,
-                            ]
-                        }
-                    }
                 },
                 {
                     name: 'tokenBAccount'
-                    docs: ['The treasury token b account']
                     writable: true
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    48,
-                                    9,
-                                    89,
-                                    123,
-                                    106,
-                                    114,
-                                    131,
-                                    251,
-                                    50,
-                                    173,
-                                    254,
-                                    250,
-                                    10,
-                                    80,
-                                    160,
-                                    84,
-                                    143,
-                                    100,
-                                    81,
-                                    249,
-                                    134,
-                                    112,
-                                    30,
-                                    213,
-                                    50,
-                                    166,
-                                    239,
-                                    78,
-                                    53,
-                                    175,
-                                    188,
-                                    85,
-                                ]
-                            },
-                            {
-                                kind: 'account'
-                                path: 'tokenBProgram'
-                            },
-                            {
-                                kind: 'account'
-                                path: 'tokenBMint'
-                            },
-                        ]
-                        program: {
-                            kind: 'const'
-                            value: [
-                                140,
-                                151,
-                                37,
-                                143,
-                                78,
-                                36,
-                                137,
-                                241,
-                                187,
-                                61,
-                                16,
-                                41,
-                                20,
-                                142,
-                                13,
-                                131,
-                                11,
-                                90,
-                                19,
-                                153,
-                                218,
-                                255,
-                                16,
-                                132,
-                                4,
-                                142,
-                                123,
-                                216,
-                                219,
-                                233,
-                                248,
-                                89,
-                            ]
-                        }
-                    }
-                },
-                {
-                    name: 'claimFeeOperator'
-                    docs: ['Claim fee operator']
                 },
                 {
                     name: 'operator'
-                    docs: ['Operator']
+                    docs: ['Claim fee operator']
+                },
+                {
+                    name: 'signer'
+                    docs: ['operator']
                     signer: true
-                    relations: ['claimFeeOperator']
                 },
                 {
                     name: 'tokenAProgram'
@@ -684,20 +509,23 @@ export type CpAmm = {
             ]
         },
         {
-            name: 'closeClaimFeeOperator'
-            discriminator: [38, 134, 82, 216, 95, 124, 17, 99]
+            name: 'closeConfig'
+            discriminator: [145, 9, 72, 157, 95, 125, 61, 85]
             accounts: [
                 {
-                    name: 'claimFeeOperator'
+                    name: 'config'
                     writable: true
+                },
+                {
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
+                    signer: true
                 },
                 {
                     name: 'rentReceiver'
                     writable: true
-                },
-                {
-                    name: 'admin'
-                    signer: true
                 },
                 {
                     name: 'eventAuthority'
@@ -735,16 +563,15 @@ export type CpAmm = {
             args: []
         },
         {
-            name: 'closeConfig'
-            discriminator: [145, 9, 72, 157, 95, 125, 61, 85]
+            name: 'closeOperatorAccount'
+            discriminator: [171, 9, 213, 74, 120, 23, 3, 29]
             accounts: [
                 {
-                    name: 'config'
+                    name: 'operator'
                     writable: true
                 },
                 {
-                    name: 'admin'
-                    writable: true
+                    name: 'signer'
                     signer: true
                 },
                 {
@@ -873,8 +700,10 @@ export type CpAmm = {
                     writable: true
                 },
                 {
-                    name: 'admin'
-                    writable: true
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
                     signer: true
                 },
                 {
@@ -917,87 +746,8 @@ export type CpAmm = {
             args: []
         },
         {
-            name: 'createClaimFeeOperator'
-            discriminator: [169, 62, 207, 107, 58, 187, 162, 109]
-            accounts: [
-                {
-                    name: 'claimFeeOperator'
-                    writable: true
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    99,
-                                    102,
-                                    95,
-                                    111,
-                                    112,
-                                    101,
-                                    114,
-                                    97,
-                                    116,
-                                    111,
-                                    114,
-                                ]
-                            },
-                            {
-                                kind: 'account'
-                                path: 'operator'
-                            },
-                        ]
-                    }
-                },
-                {
-                    name: 'operator'
-                },
-                {
-                    name: 'admin'
-                    writable: true
-                    signer: true
-                },
-                {
-                    name: 'systemProgram'
-                    address: '11111111111111111111111111111111'
-                },
-                {
-                    name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
-                },
-                {
-                    name: 'program'
-                },
-            ]
-            args: []
-        },
-        {
             name: 'createConfig'
-            docs: ['ADMIN FUNCTIONS /////']
+            docs: ['OPERATOR FUNCTIONS /////']
             discriminator: [201, 207, 243, 114, 75, 111, 47, 189]
             accounts: [
                 {
@@ -1017,7 +767,14 @@ export type CpAmm = {
                     }
                 },
                 {
-                    name: 'admin'
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                },
+                {
+                    name: 'payer'
                     writable: true
                     signer: true
                 },
@@ -1094,7 +851,14 @@ export type CpAmm = {
                     }
                 },
                 {
-                    name: 'admin'
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                },
+                {
+                    name: 'payer'
                     writable: true
                     signer: true
                 },
@@ -1147,6 +911,83 @@ export type CpAmm = {
                             name: 'dynamicConfigParameters'
                         }
                     }
+                },
+            ]
+        },
+        {
+            name: 'createOperatorAccount'
+            docs: ['ADMIN FUNCTIONS /////']
+            discriminator: [221, 64, 246, 149, 240, 153, 229, 163]
+            accounts: [
+                {
+                    name: 'operator'
+                    writable: true
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [111, 112, 101, 114, 97, 116, 111, 114]
+                            },
+                            {
+                                kind: 'account'
+                                path: 'whitelistedAddress'
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'whitelistedAddress'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                },
+                {
+                    name: 'payer'
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'systemProgram'
+                    address: '11111111111111111111111111111111'
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'permission'
+                    type: 'u128'
                 },
             ]
         },
@@ -1315,7 +1156,14 @@ export type CpAmm = {
                     name: 'tokenMint'
                 },
                 {
-                    name: 'admin'
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                },
+                {
+                    name: 'payer'
                     writable: true
                     signer: true
                 },
@@ -1357,6 +1205,31 @@ export type CpAmm = {
                 },
             ]
             args: []
+        },
+        {
+            name: 'dummyIx'
+            discriminator: [234, 95, 176, 185, 7, 42, 35, 159]
+            accounts: [
+                {
+                    name: 'podAlignedFeeTimeScheduler'
+                },
+                {
+                    name: 'podAlignedFeeRateLimiter'
+                },
+                {
+                    name: 'podAlignedFeeMarketCapScheduler'
+                },
+            ]
+            args: [
+                {
+                    name: 'ixs'
+                    type: {
+                        defined: {
+                            name: 'dummyParams'
+                        }
+                    }
+                },
+            ]
         },
         {
             name: 'fundReward'
@@ -2637,7 +2510,10 @@ export type CpAmm = {
                     writable: true
                 },
                 {
-                    name: 'admin'
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
                     signer: true
                 },
                 {
@@ -2762,6 +2638,83 @@ export type CpAmm = {
             ]
         },
         {
+            name: 'splitPosition2'
+            discriminator: [221, 147, 228, 207, 140, 212, 17, 119]
+            accounts: [
+                {
+                    name: 'pool'
+                    writable: true
+                    relations: ['firstPosition', 'secondPosition']
+                },
+                {
+                    name: 'firstPosition'
+                    docs: ['The first position']
+                    writable: true
+                },
+                {
+                    name: 'firstPositionNftAccount'
+                    docs: ['The token account for position nft']
+                },
+                {
+                    name: 'secondPosition'
+                    docs: ['The second position']
+                    writable: true
+                },
+                {
+                    name: 'secondPositionNftAccount'
+                    docs: ['The token account for position nft']
+                },
+                {
+                    name: 'firstOwner'
+                    docs: ['Owner of first position']
+                    signer: true
+                },
+                {
+                    name: 'secondOwner'
+                    docs: ['Owner of second position']
+                    signer: true
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'numerator'
+                    type: 'u32'
+                },
+            ]
+        },
+        {
             name: 'swap'
             discriminator: [248, 198, 158, 145, 225, 117, 135, 200]
             accounts: [
@@ -2862,6 +2815,171 @@ export type CpAmm = {
                     type: {
                         defined: {
                             name: 'swapParameters'
+                        }
+                    }
+                },
+            ]
+        },
+        {
+            name: 'swap2'
+            discriminator: [65, 75, 63, 76, 235, 91, 91, 136]
+            accounts: [
+                {
+                    name: 'poolAuthority'
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
+                },
+                {
+                    name: 'pool'
+                    docs: ['Pool account']
+                    writable: true
+                },
+                {
+                    name: 'inputTokenAccount'
+                    docs: ['The user token account for input token']
+                    writable: true
+                },
+                {
+                    name: 'outputTokenAccount'
+                    docs: ['The user token account for output token']
+                    writable: true
+                },
+                {
+                    name: 'tokenAVault'
+                    docs: ['The vault token account for input token']
+                    writable: true
+                    relations: ['pool']
+                },
+                {
+                    name: 'tokenBVault'
+                    docs: ['The vault token account for output token']
+                    writable: true
+                    relations: ['pool']
+                },
+                {
+                    name: 'tokenAMint'
+                    docs: ['The mint of token a']
+                },
+                {
+                    name: 'tokenBMint'
+                    docs: ['The mint of token b']
+                },
+                {
+                    name: 'payer'
+                    docs: ['The user performing the swap']
+                    signer: true
+                },
+                {
+                    name: 'tokenAProgram'
+                    docs: ['Token a program']
+                },
+                {
+                    name: 'tokenBProgram'
+                    docs: ['Token b program']
+                },
+                {
+                    name: 'referralTokenAccount'
+                    docs: ['referral token account']
+                    writable: true
+                    optional: true
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'params'
+                    type: {
+                        defined: {
+                            name: 'swapParameters2'
+                        }
+                    }
+                },
+            ]
+        },
+        {
+            name: 'updatePoolFees'
+            discriminator: [118, 217, 203, 179, 60, 8, 70, 89]
+            accounts: [
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'params'
+                    type: {
+                        defined: {
+                            name: 'updatePoolFeesParameters'
                         }
                     }
                 },
@@ -3049,15 +3167,75 @@ export type CpAmm = {
                 },
             ]
         },
+        {
+            name: 'zapProtocolFee'
+            discriminator: [213, 155, 187, 34, 56, 182, 91, 240]
+            accounts: [
+                {
+                    name: 'poolAuthority'
+                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
+                },
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'tokenVault'
+                    writable: true
+                },
+                {
+                    name: 'tokenMint'
+                },
+                {
+                    name: 'receiverToken'
+                    writable: true
+                },
+                {
+                    name: 'operator'
+                    docs: ['zap claim fee operator']
+                },
+                {
+                    name: 'signer'
+                    docs: ['operator']
+                    signer: true
+                },
+                {
+                    name: 'tokenProgram'
+                    docs: ['Token program']
+                },
+                {
+                    name: 'sysvarInstructions'
+                    address: 'Sysvar1nstructions1111111111111111111111111'
+                },
+            ]
+            args: [
+                {
+                    name: 'maxAmount'
+                    type: 'u64'
+                },
+            ]
+        },
     ]
     accounts: [
         {
-            name: 'claimFeeOperator'
-            discriminator: [166, 48, 134, 86, 34, 200, 188, 150]
-        },
-        {
             name: 'config'
             discriminator: [155, 12, 170, 224, 30, 250, 204, 130]
+        },
+        {
+            name: 'operator'
+            discriminator: [219, 31, 188, 145, 69, 139, 204, 117]
+        },
+        {
+            name: 'podAlignedFeeMarketCapScheduler'
+            discriminator: [251, 130, 208, 253, 245, 27, 145, 203]
+        },
+        {
+            name: 'podAlignedFeeRateLimiter'
+            discriminator: [160, 219, 8, 251, 179, 7, 16, 117]
+        },
+        {
+            name: 'podAlignedFeeTimeScheduler'
+            discriminator: [239, 132, 138, 213, 67, 154, 130, 70]
         },
         {
             name: 'pool'
@@ -3078,10 +3256,6 @@ export type CpAmm = {
     ]
     events: [
         {
-            name: 'evtAddLiquidity'
-            discriminator: [175, 242, 8, 157, 30, 247, 185, 169]
-        },
-        {
             name: 'evtClaimPartnerFee'
             discriminator: [118, 99, 77, 10, 226, 1, 1, 87]
         },
@@ -3098,20 +3272,12 @@ export type CpAmm = {
             discriminator: [218, 86, 147, 200, 235, 188, 215, 231]
         },
         {
-            name: 'evtCloseClaimFeeOperator'
-            discriminator: [111, 39, 37, 55, 110, 216, 194, 23]
-        },
-        {
             name: 'evtCloseConfig'
             discriminator: [36, 30, 239, 45, 58, 132, 14, 5]
         },
         {
             name: 'evtClosePosition'
             discriminator: [20, 145, 144, 68, 143, 142, 214, 178]
-        },
-        {
-            name: 'evtCreateClaimFeeOperator'
-            discriminator: [21, 6, 153, 120, 68, 116, 28, 177]
         },
         {
             name: 'evtCreateConfig'
@@ -3142,6 +3308,10 @@ export type CpAmm = {
             discriminator: [129, 91, 188, 3, 246, 52, 185, 249]
         },
         {
+            name: 'evtLiquidityChange'
+            discriminator: [197, 171, 78, 127, 224, 211, 87, 13]
+        },
+        {
             name: 'evtLockPosition'
             discriminator: [168, 63, 108, 83, 219, 82, 2, 200]
         },
@@ -3150,20 +3320,20 @@ export type CpAmm = {
             discriminator: [145, 143, 162, 218, 218, 80, 67, 11]
         },
         {
-            name: 'evtRemoveLiquidity'
-            discriminator: [87, 46, 88, 98, 175, 96, 34, 91]
-        },
-        {
             name: 'evtSetPoolStatus'
             discriminator: [100, 213, 74, 3, 95, 91, 228, 146]
         },
         {
-            name: 'evtSplitPosition'
-            discriminator: [182, 138, 42, 254, 27, 94, 82, 221]
+            name: 'evtSplitPosition2'
+            discriminator: [165, 32, 203, 174, 72, 100, 233, 103]
         },
         {
-            name: 'evtSwap'
-            discriminator: [27, 60, 21, 213, 138, 170, 187, 147]
+            name: 'evtSwap2'
+            discriminator: [189, 66, 51, 168, 38, 80, 117, 153]
+        },
+        {
+            name: 'evtUpdatePoolFees'
+            discriminator: [76, 165, 246, 102, 102, 217, 156, 44]
         },
         {
             name: 'evtUpdateRewardDuration'
@@ -3414,6 +3584,106 @@ export type CpAmm = {
             name: 'samePosition'
             msg: 'Same position'
         },
+        {
+            code: 6047
+            name: 'invalidBaseFeeMode'
+            msg: 'Invalid base fee mode'
+        },
+        {
+            code: 6048
+            name: 'invalidFeeRateLimiter'
+            msg: 'Invalid fee rate limiter'
+        },
+        {
+            code: 6049
+            name: 'failToValidateSingleSwapInstruction'
+            msg: 'Fail to validate single swap instruction in rate limiter'
+        },
+        {
+            code: 6050
+            name: 'invalidFeeTimeScheduler'
+            msg: 'Invalid fee scheduler'
+        },
+        {
+            code: 6051
+            name: 'undeterminedError'
+            msg: 'Undetermined error'
+        },
+        {
+            code: 6052
+            name: 'invalidPoolVersion'
+            msg: 'Invalid pool version'
+        },
+        {
+            code: 6053
+            name: 'invalidAuthority'
+            msg: 'Invalid authority to do that action'
+        },
+        {
+            code: 6054
+            name: 'invalidPermission'
+            msg: 'Invalid permission'
+        },
+        {
+            code: 6055
+            name: 'invalidFeeMarketCapScheduler'
+            msg: 'Invalid fee market cap scheduler'
+        },
+        {
+            code: 6056
+            name: 'cannotUpdateBaseFee'
+            msg: 'Cannot update base fee'
+        },
+        {
+            code: 6057
+            name: 'invalidDynamicFeeParameters'
+            msg: 'Invalid dynamic fee parameters'
+        },
+        {
+            code: 6058
+            name: 'invalidUpdatePoolFeesParameters'
+            msg: 'Invalid update pool fees parameters'
+        },
+        {
+            code: 6059
+            name: 'missingOperatorAccount'
+            msg: 'Missing operator account'
+        },
+        {
+            code: 6060
+            name: 'incorrectAta'
+            msg: 'Incorrect ATA'
+        },
+        {
+            code: 6061
+            name: 'invalidZapOutParameters'
+            msg: 'Invalid zap out parameters'
+        },
+        {
+            code: 6062
+            name: 'invalidWithdrawProtocolFeeZapAccounts'
+            msg: 'Invalid withdraw protocol fee zap accounts'
+        },
+        {
+            code: 6063
+            name: 'mintRestrictedFromZap'
+            msg: 'SOL,USDC protocol fee cannot be withdrawn via zap'
+        },
+        {
+            code: 6064
+            name: 'cpiDisabled'
+            msg: 'CPI disabled'
+        },
+        {
+            code: 6065
+            name: 'missingZapOutInstruction'
+            msg: 'Missing zap out instruction'
+        },
+        {
+            code: 6066
+            name: 'invalidZapAccounts'
+            msg: 'Invalid zap accounts'
+        },
     ]
     types: [
         {
@@ -3440,7 +3710,7 @@ export type CpAmm = {
             }
         },
         {
-            name: 'baseFeeConfig'
+            name: 'baseFeeInfo'
             serialization: 'bytemuck'
             repr: {
                 kind: 'c'
@@ -3449,30 +3719,10 @@ export type CpAmm = {
                 kind: 'struct'
                 fields: [
                     {
-                        name: 'cliffFeeNumerator'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'feeSchedulerMode'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'padding'
+                        name: 'data'
                         type: {
-                            array: ['u8', 5]
+                            array: ['u8', 32]
                         }
-                    },
-                    {
-                        name: 'numberOfPeriod'
-                        type: 'u16'
-                    },
-                    {
-                        name: 'periodFrequency'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'reductionFactor'
-                        type: 'u64'
                     },
                 ]
             }
@@ -3483,24 +3733,10 @@ export type CpAmm = {
                 kind: 'struct'
                 fields: [
                     {
-                        name: 'cliffFeeNumerator'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'numberOfPeriod'
-                        type: 'u16'
-                    },
-                    {
-                        name: 'periodFrequency'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'reductionFactor'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'feeSchedulerMode'
-                        type: 'u8'
+                        name: 'data'
+                        type: {
+                            array: ['u8', 30]
+                        }
                     },
                 ]
             }
@@ -3515,18 +3751,117 @@ export type CpAmm = {
                 kind: 'struct'
                 fields: [
                     {
+                        name: 'baseFeeInfo'
+                        type: {
+                            defined: {
+                                name: 'baseFeeInfo'
+                            }
+                        }
+                    },
+                    {
+                        name: 'padding1'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'borshFeeMarketCapScheduler'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
                         name: 'cliffFeeNumerator'
                         type: 'u64'
                     },
                     {
-                        name: 'feeSchedulerMode'
+                        name: 'numberOfPeriod'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'sqrtPriceStepBps'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'schedulerExpirationDuration'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'reductionFactor'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'baseFeeMode'
                         type: 'u8'
                     },
                     {
-                        name: 'padding0'
+                        name: 'padding'
                         type: {
-                            array: ['u8', 5]
+                            array: ['u8', 3]
                         }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'borshFeeRateLimiter'
+            docs: [
+                'we denote reference_amount = x0, cliff_fee_numerator = c, fee_increment = i',
+                'if input_amount <= x0, then fee = input_amount * c',
+                '',
+                'if input_amount > x0, then input_amount = x0 + (a * x0 + b)',
+                'if a < max_index',
+                'then fee = x0 * c + x0 * (c + i) + .... + x0 * (c + i*a) + b * (c + i * (a+1))',
+                'then fee = x0 * (c + c*a + i*a*(a+1)/2) + b * (c + i * (a+1))',
+                '',
+                'if a >= max_index',
+                'if a = max_index + d, input_amount = x0 + max_index * x0 + (d * x0 + b)',
+                'then fee = x0 * (c + c*max_index + i*max_index*(max_index+1)/2) + (d * x0 + b) * MAX_FEE',
+            ]
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'cliffFeeNumerator'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'feeIncrementBps'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'maxLimiterDuration'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'maxFeeBps'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'referenceAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'baseFeeMode'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'padding'
+                        type: {
+                            array: ['u8', 3]
+                        }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'borshFeeTimeScheduler'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'cliffFeeNumerator'
+                        type: 'u64'
                     },
                     {
                         name: 'numberOfPeriod'
@@ -3541,32 +3876,13 @@ export type CpAmm = {
                         type: 'u64'
                     },
                     {
-                        name: 'padding1'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'claimFeeOperator'
-            docs: ['Parameter that set by the protocol']
-            serialization: 'bytemuck'
-            repr: {
-                kind: 'c'
-            }
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'operator'
-                        docs: ['operator']
-                        type: 'pubkey'
+                        name: 'baseFeeMode'
+                        type: 'u8'
                     },
                     {
                         name: 'padding'
-                        docs: ['Reserve']
                         type: {
-                            array: ['u8', 128]
+                            array: ['u8', 3]
                         }
                     },
                 ]
@@ -3644,6 +3960,38 @@ export type CpAmm = {
                         docs: ['Fee curve point', 'Padding for further use']
                         type: {
                             array: ['u64', 10]
+                        }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'dummyParams'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'borshFeeTimeSchedulerParams'
+                        type: {
+                            defined: {
+                                name: 'borshFeeTimeScheduler'
+                            }
+                        }
+                    },
+                    {
+                        name: 'borshFeeRateLimiterParams'
+                        type: {
+                            defined: {
+                                name: 'borshFeeRateLimiter'
+                            }
+                        }
+                    },
+                    {
+                        name: 'borshFeeMarketCapSchedulerParams'
+                        type: {
+                            defined: {
+                                name: 'borshFeeMarketCapScheduler'
+                            }
                         }
                     },
                 ]
@@ -3820,50 +4168,6 @@ export type CpAmm = {
             }
         },
         {
-            name: 'evtAddLiquidity'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'pool'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'position'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'owner'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'params'
-                        type: {
-                            defined: {
-                                name: 'addLiquidityParameters'
-                            }
-                        }
-                    },
-                    {
-                        name: 'tokenAAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'tokenBAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'totalAmountA'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'totalAmountB'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
             name: 'evtClaimPartnerFee'
             type: {
                 kind: 'struct'
@@ -3964,23 +4268,6 @@ export type CpAmm = {
             }
         },
         {
-            name: 'evtCloseClaimFeeOperator'
-            docs: ['Close claim fee operator']
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'claimFeeOperator'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'operator'
-                        type: 'pubkey'
-                    },
-                ]
-            }
-        },
-        {
             name: 'evtCloseConfig'
             docs: ['Close config']
             type: {
@@ -4018,19 +4305,6 @@ export type CpAmm = {
                     },
                     {
                         name: 'positionNftMint'
-                        type: 'pubkey'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'evtCreateClaimFeeOperator'
-            docs: ['Create claim fee operator']
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'operator'
                         type: 'pubkey'
                     },
                 ]
@@ -4316,6 +4590,66 @@ export type CpAmm = {
             }
         },
         {
+            name: 'evtLiquidityChange'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'position'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'owner'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'tokenAAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'tokenBAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'transferFeeIncludedTokenAAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'transferFeeIncludedTokenBAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reserveAAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reserveBAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'liquidityDelta'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'tokenAAmountThreshold'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'tokenBAmountThreshold'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'changeType'
+                        type: 'u8'
+                    },
+                ]
+            }
+        },
+        {
             name: 'evtLockPosition'
             type: {
                 kind: 'struct'
@@ -4384,42 +4718,6 @@ export type CpAmm = {
             }
         },
         {
-            name: 'evtRemoveLiquidity'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'pool'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'position'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'owner'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'params'
-                        type: {
-                            defined: {
-                                name: 'removeLiquidityParameters'
-                            }
-                        }
-                    },
-                    {
-                        name: 'tokenAAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'tokenBAmount'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
             name: 'evtSetPoolStatus'
             type: {
                 kind: 'struct'
@@ -4436,7 +4734,7 @@ export type CpAmm = {
             }
         },
         {
-            name: 'evtSplitPosition'
+            name: 'evtSplitPosition2'
             type: {
                 kind: 'struct'
                 fields: [
@@ -4492,7 +4790,7 @@ export type CpAmm = {
                         name: 'splitPositionParameters'
                         type: {
                             defined: {
-                                name: 'splitPositionParameters'
+                                name: 'splitPositionParameters2'
                             }
                         }
                     },
@@ -4500,7 +4798,7 @@ export type CpAmm = {
             }
         },
         {
-            name: 'evtSwap'
+            name: 'evtSwap2'
             type: {
                 kind: 'struct'
                 fields: [
@@ -4513,6 +4811,10 @@ export type CpAmm = {
                         type: 'u8'
                     },
                     {
+                        name: 'collectFeeMode'
+                        type: 'u8'
+                    },
+                    {
                         name: 'hasReferral'
                         type: 'bool'
                     },
@@ -4520,7 +4822,7 @@ export type CpAmm = {
                         name: 'params'
                         type: {
                             defined: {
-                                name: 'swapParameters'
+                                name: 'swapParameters2'
                             }
                         }
                     },
@@ -4528,17 +4830,57 @@ export type CpAmm = {
                         name: 'swapResult'
                         type: {
                             defined: {
-                                name: 'swapResult'
+                                name: 'swapResult2'
                             }
                         }
                     },
                     {
-                        name: 'actualAmountIn'
+                        name: 'includedTransferFeeAmountIn'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'includedTransferFeeAmountOut'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'excludedTransferFeeAmountOut'
                         type: 'u64'
                     },
                     {
                         name: 'currentTimestamp'
                         type: 'u64'
+                    },
+                    {
+                        name: 'reserveAAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reserveBAmount'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtUpdatePoolFees'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'operator'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'params'
+                        type: {
+                            defined: {
+                                name: 'updatePoolFeesParameters'
+                            }
+                        }
                     },
                 ]
             }
@@ -4648,7 +4990,7 @@ export type CpAmm = {
                     {
                         name: 'sqrtPrice'
                         docs: [
-                            'The init price of the pool as a sqrt(token_b/token_a) Q64.64 value',
+                            'The init price of the pool as a sqrt(token_b/token_a) Q64.64 value. Market cap fee scheduler minimum price will be derived from this value',
                         ]
                         type: 'u128'
                     },
@@ -4695,6 +5037,154 @@ export type CpAmm = {
                         type: {
                             option: 'u64'
                         }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'operator'
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'whitelistedAddress'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'permission'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'padding'
+                        type: {
+                            array: ['u64', 2]
+                        }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'podAlignedFeeMarketCapScheduler'
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'cliffFeeNumerator'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'baseFeeMode'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'padding'
+                        type: {
+                            array: ['u8', 5]
+                        }
+                    },
+                    {
+                        name: 'numberOfPeriod'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'sqrtPriceStepBps'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'schedulerExpirationDuration'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'reductionFactor'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'podAlignedFeeRateLimiter'
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'cliffFeeNumerator'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'baseFeeMode'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'padding'
+                        type: {
+                            array: ['u8', 5]
+                        }
+                    },
+                    {
+                        name: 'feeIncrementBps'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'maxLimiterDuration'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'maxFeeBps'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'referenceAmount'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'podAlignedFeeTimeScheduler'
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'cliffFeeNumerator'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'baseFeeMode'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'padding'
+                        type: {
+                            array: ['u8', 5]
+                        }
+                    },
+                    {
+                        name: 'numberOfPeriod'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'periodFrequency'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reductionFactor'
+                        type: 'u64'
                     },
                 ]
             }
@@ -4826,7 +5316,7 @@ export type CpAmm = {
                     {
                         name: 'collectFeeMode'
                         docs: [
-                            '0 is collect fee in both token, 1 only collect fee in token a, 2 only collect fee in token b',
+                            '0 is collect fee in both token, 1 only collect fee only in token b',
                         ]
                         type: 'u8'
                     },
@@ -4836,11 +5326,16 @@ export type CpAmm = {
                         type: 'u8'
                     },
                     {
+                        name: 'version'
+                        docs: [
+                            'pool version, 0: max_fee is still capped at 50%, 1: max_fee is capped at 99%',
+                        ]
+                        type: 'u8'
+                    },
+                    {
                         name: 'padding0'
                         docs: ['padding']
-                        type: {
-                            array: ['u8', 2]
-                        }
+                        type: 'u8'
                     },
                     {
                         name: 'feeAPerLiquidity'
@@ -4914,13 +5409,6 @@ export type CpAmm = {
                         }
                     },
                     {
-                        name: 'padding'
-                        docs: ['padding']
-                        type: {
-                            array: ['u8', 3]
-                        }
-                    },
-                    {
                         name: 'dynamicFee'
                         docs: ['dynamic fee']
                         type: {
@@ -4947,7 +5435,7 @@ export type CpAmm = {
                         name: 'baseFee'
                         type: {
                             defined: {
-                                name: 'baseFeeConfig'
+                                name: 'baseFeeInfo'
                             }
                         }
                     },
@@ -5052,11 +5540,8 @@ export type CpAmm = {
                         }
                     },
                     {
-                        name: 'padding1'
-                        docs: ['padding']
-                        type: {
-                            array: ['u64', 2]
-                        }
+                        name: 'initSqrtPrice'
+                        type: 'u128'
                     },
                 ]
             }
@@ -5447,6 +5932,38 @@ export type CpAmm = {
             }
         },
         {
+            name: 'splitPositionParameters2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'unlockedLiquidityNumerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'permanentLockedLiquidityNumerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'feeANumerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'feeBNumerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'reward0Numerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'reward1Numerator'
+                        type: 'u32'
+                    },
+                ]
+            }
+        },
+        {
             name: 'staticConfigParameters'
             type: {
                 kind: 'struct'
@@ -5503,11 +6020,49 @@ export type CpAmm = {
             }
         },
         {
-            name: 'swapResult'
-            docs: ['Encodes all results of swapping']
+            name: 'swapParameters2'
             type: {
                 kind: 'struct'
                 fields: [
+                    {
+                        name: 'amount0'
+                        docs: [
+                            "When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out",
+                        ]
+                        type: 'u64'
+                    },
+                    {
+                        name: 'amount1'
+                        docs: [
+                            "When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in",
+                        ]
+                        type: 'u64'
+                    },
+                    {
+                        name: 'swapMode'
+                        docs: ['Swap mode, refer [SwapMode]']
+                        type: 'u8'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'swapResult2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'includedFeeInputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'excludedFeeInputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'amountLeft'
+                        type: 'u64'
+                    },
                     {
                         name: 'outputAmount'
                         type: 'u64'
@@ -5517,7 +6072,7 @@ export type CpAmm = {
                         type: 'u128'
                     },
                     {
-                        name: 'lpFee'
+                        name: 'tradingFee'
                         type: 'u64'
                     },
                     {
@@ -5555,6 +6110,41 @@ export type CpAmm = {
                         docs: ['Reserve']
                         type: {
                             array: ['u8', 128]
+                        }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'updatePoolFeesParameters'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'cliffFeeNumerator'
+                        docs: [
+                            'Base fee update mode:',
+                            '- None: skip base fee update',
+                            '- Some: update new cliff_fee_numerator if base fee is static',
+                        ]
+                        type: {
+                            option: 'u64'
+                        }
+                    },
+                    {
+                        name: 'dynamicFee'
+                        docs: [
+                            'Dynamic fee update mode:',
+                            '- None: skip dynamic fee update',
+                            '- Some(with default value): disable dynamic fee',
+                            '- Some(with non default value): enable dynamic fee if disabled or update dynamic fee if enabled',
+                        ]
+                        type: {
+                            option: {
+                                defined: {
+                                    name: 'dynamicFeeParameters'
+                                }
+                            }
                         }
                     },
                 ]
@@ -5670,6 +6260,83 @@ export type CpAmm = {
                     },
                 ]
             }
+        },
+    ]
+    constants: [
+        {
+            name: 'binStepBpsDefault'
+            type: 'u16'
+            value: '1'
+        },
+        {
+            name: 'binStepU128DefaultLeBytes'
+            type: {
+                array: ['u8', 16]
+            }
+            value: '[203, 16, 199, 186, 184, 141, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0]'
+        },
+        {
+            name: 'customizablePoolPrefix'
+            type: 'bytes'
+            value: '[99, 112, 111, 111, 108]'
+        },
+        {
+            name: 'feeDenominator'
+            docs: [
+                'Default fee denominator. DO NOT simply update it as it will break logic that depends on it as default value.',
+            ]
+            type: 'u64'
+            value: '1000000000'
+        },
+        {
+            name: 'maxBasisPoint'
+            docs: ['Max basis point. 100% in pct']
+            type: 'u64'
+            value: '10000'
+        },
+        {
+            name: 'maxSqrtPriceLeBytes'
+            type: {
+                array: ['u8', 16]
+            }
+            value: '[155, 87, 105, 78, 169, 26, 92, 132, 177, 196, 254, 255, 0, 0, 0, 0]'
+        },
+        {
+            name: 'minSqrtPriceLeBytes'
+            type: {
+                array: ['u8', 16]
+            }
+            value: '[80, 59, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]'
+        },
+        {
+            name: 'poolAuthorityPrefix'
+            type: 'bytes'
+            value: '[112, 111, 111, 108, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]'
+        },
+        {
+            name: 'poolPrefix'
+            type: 'bytes'
+            value: '[112, 111, 111, 108]'
+        },
+        {
+            name: 'positionNftAccountPrefix'
+            type: 'bytes'
+            value: '[112, 111, 115, 105, 116, 105, 111, 110, 95, 110, 102, 116, 95, 97, 99, 99, 111, 117, 110, 116]'
+        },
+        {
+            name: 'positionPrefix'
+            type: 'bytes'
+            value: '[112, 111, 115, 105, 116, 105, 111, 110]'
+        },
+        {
+            name: 'splitPositionDenominator'
+            type: 'u32'
+            value: '1000000000'
+        },
+        {
+            name: 'tokenVaultPrefix'
+            type: 'bytes'
+            value: '[116, 111, 107, 101, 110, 95, 118, 97, 117, 108, 116]'
         },
     ]
 }
