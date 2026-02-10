@@ -20,10 +20,7 @@ import {
     TokenUpdateAuthorityOption,
 } from '../src'
 import { NATIVE_MINT } from '@solana/spl-token'
-import {
-    MIN_LOCKED_LIQUIDITY_BPS,
-    SECONDS_PER_DAY,
-} from '../src/constants'
+import { MIN_LOCKED_LIQUIDITY_BPS, SECONDS_PER_DAY } from '../src/constants'
 
 const connection = new Connection('http://127.0.0.1:8899', 'confirmed')
 
