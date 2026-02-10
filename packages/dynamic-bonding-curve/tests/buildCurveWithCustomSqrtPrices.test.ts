@@ -10,51 +10,58 @@ import {
     TokenType,
     createSqrtPrices,
     BuildCurveBaseParams,
-    DammV2BaseFeeMode,
+    TokenUpdateAuthorityOption,
 } from '../src'
 import BN from 'bn.js'
 
 describe('buildCurveWithCustomSqrtPrices', () => {
     const baseParams: BuildCurveBaseParams = {
-        totalTokenSupply: 1000000000,
-        migrationOption: MigrationOption.MET_DAMM_V2,
-        tokenBaseDecimal: TokenDecimal.SIX,
-        tokenQuoteDecimal: TokenDecimal.NINE,
-        lockedVestingParams: {
+        token: {
+            tokenType: TokenType.SPL,
+            tokenBaseDecimal: TokenDecimal.SIX,
+            tokenQuoteDecimal: TokenDecimal.NINE,
+            tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+            totalTokenSupply: 1000000000,
+            leftover: 1000,
+        },
+        fee: {
+            baseFeeParams: {
+                baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+                feeSchedulerParam: {
+                    startingFeeBps: 100,
+                    endingFeeBps: 100,
+                    numberOfPeriod: 0,
+                    totalDuration: 0,
+                },
+            },
+            dynamicFeeEnabled: true,
+            collectFeeMode: CollectFeeMode.QuoteToken,
+            creatorTradingFeePercentage: 0,
+            poolCreationFee: 1,
+            enableFirstSwapWithMinFee: false,
+        },
+        migration: {
+            migrationOption: MigrationOption.MET_DAMM_V2,
+            migrationFeeOption: MigrationFeeOption.FixedBps100,
+            migrationFee: {
+                feePercentage: 0,
+                creatorFeePercentage: 0,
+            },
+        },
+        liquidityDistribution: {
+            partnerLiquidityPercentage: 0,
+            partnerPermanentLockedLiquidityPercentage: 100,
+            creatorLiquidityPercentage: 0,
+            creatorPermanentLockedLiquidityPercentage: 0,
+        },
+        lockedVesting: {
             totalLockedVestingAmount: 0,
             numberOfVestingPeriod: 0,
             cliffUnlockAmount: 0,
             totalVestingDuration: 0,
             cliffDurationFromMigrationTime: 0,
         },
-        baseFeeParams: {
-            baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-            feeSchedulerParam: {
-                startingFeeBps: 100,
-                endingFeeBps: 100,
-                numberOfPeriod: 0,
-                totalDuration: 0,
-            },
-        },
-        dynamicFeeEnabled: true,
         activationType: ActivationType.Slot,
-        collectFeeMode: CollectFeeMode.QuoteToken,
-        migrationFeeOption: MigrationFeeOption.FixedBps100,
-        tokenType: TokenType.SPL,
-        partnerLiquidityPercentage: 0,
-        creatorLiquidityPercentage: 0,
-        partnerPermanentLockedLiquidityPercentage: 100,
-        creatorPermanentLockedLiquidityPercentage: 0,
-        creatorTradingFeePercentage: 0,
-        leftover: 1000,
-        tokenUpdateAuthority: 0,
-        migrationFee: {
-            feePercentage: 0,
-            creatorFeePercentage: 0,
-        },
-        poolCreationFee: 1,
-        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-        enableFirstSwapWithMinFee: false,
     }
 
     it('should create a curve with custom sqrt prices', () => {

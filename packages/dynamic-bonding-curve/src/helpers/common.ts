@@ -9,18 +9,18 @@ import {
     type LockedVestingParameters,
     ActivationType,
     type PoolConfig,
-    CollectFeeMode,
-    DammV2DynamicFeeMode,
-    MigratedPoolFee,
+    MigratedPoolFeeConfig,
     MigrationFeeOption,
     LiquidityVestingInfoParameters,
     DammV2BaseFeeMode,
     MigratedPoolMarketCapFeeSchedulerParameters,
     BaseFeeParams,
+    MigratedPoolFeeResult,
 } from '../types'
 import {
     BIN_STEP_BPS_DEFAULT,
     BIN_STEP_BPS_U128_DEFAULT,
+    DEFAULT_MIGRATED_POOL_FEE_PARAMS,
     DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
     DYNAMIC_FEE_DECAY_PERIOD_DEFAULT,
     DYNAMIC_FEE_FILTER_PERIOD_DEFAULT,
@@ -1542,30 +1542,11 @@ export function checkRateLimiterApplied(
  * @returns The base fee parameters
  */
 export function getBaseFeeParams(
-    baseFeeParams: {
-        baseFeeMode: BaseFeeMode
-        rateLimiterParam?: {
-            baseFeeBps: number
-            feeIncrementBps: number
-            referenceAmount: number
-            maxLimiterDuration: number
-        }
-        feeSchedulerParam?: {
-            startingFeeBps: number
-            endingFeeBps: number
-            numberOfPeriod: number
-            totalDuration: number
-        }
-    },
+    baseFeeParams: BaseFeeParams,
     tokenQuoteDecimal: TokenDecimal,
     activationType: ActivationType
 ): BaseFee {
     if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
-        if (!baseFeeParams.rateLimiterParam) {
-            throw new Error(
-                'Rate limiter parameters are required for RateLimiter mode'
-            )
-        }
         const {
             baseFeeBps,
             feeIncrementBps,
@@ -1582,11 +1563,6 @@ export function getBaseFeeParams(
             activationType
         )
     } else {
-        if (!baseFeeParams.feeSchedulerParam) {
-            throw new Error(
-                'Fee scheduler parameters are required for FeeScheduler mode'
-            )
-        }
         const { startingFeeBps, endingFeeBps, numberOfPeriod, totalDuration } =
             baseFeeParams.feeSchedulerParam
 
@@ -1709,34 +1685,85 @@ export const getTokenomics = (
 export function getMigratedPoolFeeParams(
     migrationOption: MigrationOption,
     migrationFeeOption: MigrationFeeOption,
-    migratedPoolFee?: MigratedPoolFee
-): {
-    collectFeeMode: CollectFeeMode
-    dynamicFee: DammV2DynamicFeeMode
-    poolFeeBps: number
-} {
-    // Default fee parameters for non-customizable scenarios
-    const defaultFeeParams = {
-        collectFeeMode: 0,
-        dynamicFee: 0,
-        poolFeeBps: 0,
-    } as const
+    migratedPoolFee?: MigratedPoolFeeConfig,
+    baseFeeParams?: BaseFeeParams
+): MigratedPoolFeeResult {
+    const defaultResult: MigratedPoolFeeResult = {
+        migratedPoolFee: DEFAULT_MIGRATED_POOL_FEE_PARAMS,
+        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        migratedPoolMarketCapFeeSchedulerParams:
+            DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+        migrationFeeOption,
+    }
 
-    // For DAMM_V1: always use default parameters
+    // for DAMM_V1: always use default parameters
     if (migrationOption === MigrationOption.MET_DAMM) {
-        return defaultFeeParams
+        return defaultResult
     }
 
-    // For DAMM_V2: use custom parameters only if Customizable option is selected
+    // for DAMM_V2: use custom parameters based on configuration
     if (migrationOption === MigrationOption.MET_DAMM_V2) {
-        if (migrationFeeOption === MigrationFeeOption.Customizable) {
-            return migratedPoolFee
+        const baseFeeMode =
+            migratedPoolFee?.baseFeeMode ??
+            DammV2BaseFeeMode.FeeTimeSchedulerLinear
+
+        // when marketCapFeeSchedulerParams is configured, use custom values
+        if (migratedPoolFee?.marketCapFeeSchedulerParams && baseFeeParams) {
+            const schedulerParams = getMigratedPoolMarketCapFeeSchedulerParams(
+                getStartingBaseFeeBpsFromBaseFeeParams(baseFeeParams),
+                migratedPoolFee.marketCapFeeSchedulerParams.endingBaseFeeBps,
+                baseFeeMode,
+                migratedPoolFee.marketCapFeeSchedulerParams.numberOfPeriod,
+                migratedPoolFee.marketCapFeeSchedulerParams.sqrtPriceStepBps,
+                migratedPoolFee.marketCapFeeSchedulerParams
+                    .schedulerExpirationDuration
+            )
+
+            return {
+                migratedPoolFee: {
+                    collectFeeMode: migratedPoolFee.collectFeeMode,
+                    dynamicFee: migratedPoolFee.dynamicFee,
+                    poolFeeBps: migratedPoolFee.poolFeeBps,
+                },
+                migratedPoolBaseFeeMode: baseFeeMode,
+                migratedPoolMarketCapFeeSchedulerParams: schedulerParams,
+                // force Customizable when using market cap fee scheduler
+                migrationFeeOption: MigrationFeeOption.Customizable,
+            }
         }
-        // For fixed fee options (0-5), always use defaults
-        return defaultFeeParams
+
+        // use custom parameters if Customizable option is selected
+        if (migrationFeeOption === MigrationFeeOption.Customizable) {
+            return {
+                migratedPoolFee: {
+                    collectFeeMode:
+                        migratedPoolFee?.collectFeeMode ??
+                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.collectFeeMode,
+                    dynamicFee:
+                        migratedPoolFee?.dynamicFee ??
+                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.dynamicFee,
+                    poolFeeBps:
+                        migratedPoolFee?.poolFeeBps ??
+                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.poolFeeBps,
+                },
+                migratedPoolBaseFeeMode: baseFeeMode,
+                migratedPoolMarketCapFeeSchedulerParams:
+                    DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+                migrationFeeOption: MigrationFeeOption.Customizable,
+            }
+        }
+
+        // for fixed fee options (0-5), use defaults but preserve baseFeeMode if provided
+        return {
+            migratedPoolFee: DEFAULT_MIGRATED_POOL_FEE_PARAMS,
+            migratedPoolBaseFeeMode: baseFeeMode,
+            migratedPoolMarketCapFeeSchedulerParams:
+                DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+            migrationFeeOption,
+        }
     }
 
-    return defaultFeeParams
+    return defaultResult
 }
 
 /**

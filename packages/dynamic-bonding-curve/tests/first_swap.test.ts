@@ -79,53 +79,61 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         const liquidityWeights = [2, 1, 1]
 
         curveConfig = buildCurveWithCustomSqrtPrices({
-            totalTokenSupply: 1_000_000_000,
-            leftover: 1000,
-            sqrtPrices,
-            liquidityWeights,
-            tokenBaseDecimal: tokenBaseDecimal,
-            tokenQuoteDecimal: tokenQuoteDecimal,
-            tokenType: TokenType.SPL,
-            migrationOption: MigrationOption.MET_DAMM_V2,
-            migrationFeeOption: MigrationFeeOption.Customizable,
-            migrationFee: {
-                feePercentage: 10,
-                creatorFeePercentage: 50,
+            token: {
+                tokenType: TokenType.SPL,
+                tokenBaseDecimal: tokenBaseDecimal,
+                tokenQuoteDecimal: tokenQuoteDecimal,
+                tokenUpdateAuthority:
+                    TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+                totalTokenSupply: 1_000_000_000,
+                leftover: 1000,
             },
-            migratedPoolFee: {
+            fee: {
+                baseFeeParams: {
+                    baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+                    feeSchedulerParam: {
+                        startingFeeBps,
+                        endingFeeBps,
+                        numberOfPeriod,
+                        totalDuration,
+                    },
+                },
+                dynamicFeeEnabled: false,
                 collectFeeMode: CollectFeeMode.QuoteToken,
-                dynamicFee: DammV2DynamicFeeMode.Enabled,
-                poolFeeBps: 120,
+                creatorTradingFeePercentage: 0,
+                poolCreationFee: 0,
+                enableFirstSwapWithMinFee: true,
             },
-            partnerLiquidityPercentage: 0,
-            creatorLiquidityPercentage: 0,
-            partnerPermanentLockedLiquidityPercentage: 100,
-            creatorPermanentLockedLiquidityPercentage: 0,
-            creatorTradingFeePercentage: 0,
-            lockedVestingParams: {
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM_V2,
+                migrationFeeOption: MigrationFeeOption.Customizable,
+                migrationFee: {
+                    feePercentage: 10,
+                    creatorFeePercentage: 50,
+                },
+                migratedPoolFee: {
+                    collectFeeMode: CollectFeeMode.QuoteToken,
+                    dynamicFee: DammV2DynamicFeeMode.Enabled,
+                    poolFeeBps: 120,
+                    baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+                },
+            },
+            liquidityDistribution: {
+                partnerLiquidityPercentage: 0,
+                partnerPermanentLockedLiquidityPercentage: 100,
+                creatorLiquidityPercentage: 0,
+                creatorPermanentLockedLiquidityPercentage: 0,
+            },
+            lockedVesting: {
                 totalLockedVestingAmount: 0,
                 numberOfVestingPeriod: 0,
                 cliffUnlockAmount: 0,
                 totalVestingDuration: 0,
                 cliffDurationFromMigrationTime: 0,
             },
-            baseFeeParams: {
-                baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-                feeSchedulerParam: {
-                    startingFeeBps,
-                    endingFeeBps,
-                    numberOfPeriod,
-                    totalDuration,
-                },
-            },
-            dynamicFeeEnabled: false,
             activationType: ActivationType.Timestamp,
-            collectFeeMode: CollectFeeMode.QuoteToken,
-            tokenUpdateAuthority:
-                TokenUpdateAuthorityOption.PartnerUpdateAuthority,
-            poolCreationFee: 0,
-            migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-            enableFirstSwapWithMinFee: true,
+            sqrtPrices,
+            liquidityWeights,
         })
 
         const createConfigTx = await dbcClient.partner.createConfig({

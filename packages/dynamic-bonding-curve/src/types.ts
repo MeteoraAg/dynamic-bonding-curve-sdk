@@ -212,6 +212,15 @@ export type CreateDammV1MigrationMetadataParams = Omit<
 // baseFeeMode - BaseFeeMode
 export type BaseFee = Omit<BaseFeeConfig, 'padding0'>
 
+export type TokenConfig = {
+    tokenType: TokenType
+    tokenBaseDecimal: TokenDecimal
+    tokenQuoteDecimal: TokenDecimal
+    tokenUpdateAuthority: TokenUpdateAuthorityOption
+    totalTokenSupply: number
+    leftover: number
+}
+
 export type FeeSchedulerParams = {
     startingFeeBps: number
     endingFeeBps: number
@@ -226,14 +235,6 @@ export type RateLimiterParams = {
     maxLimiterDuration: number
 }
 
-export type LockedVestingParams = {
-    totalLockedVestingAmount: number
-    numberOfVestingPeriod: number
-    cliffUnlockAmount: number
-    totalVestingDuration: number
-    cliffDurationFromMigrationTime: number
-}
-
 export type BaseFeeParams =
     | {
           baseFeeMode:
@@ -246,40 +247,74 @@ export type BaseFeeParams =
           rateLimiterParam: RateLimiterParams
       }
 
-export type BuildCurveBaseParams = {
-    totalTokenSupply: number
-    tokenType: TokenType
-    tokenBaseDecimal: TokenDecimal
-    tokenQuoteDecimal: TokenDecimal
-    tokenUpdateAuthority: number
-    lockedVestingParams: LockedVestingParams
-    leftover: number
+export type FeeConfig = {
     baseFeeParams: BaseFeeParams
     dynamicFeeEnabled: boolean
-    activationType: ActivationType
     collectFeeMode: CollectFeeMode
     creatorTradingFeePercentage: number
     poolCreationFee: number
+    enableFirstSwapWithMinFee: boolean
+}
+
+export type MigrationFee = {
+    feePercentage: number
+    creatorFeePercentage: number
+}
+
+export type MigratedPoolFeeConfig = {
+    collectFeeMode: CollectFeeMode
+    dynamicFee: DammV2DynamicFeeMode
+    poolFeeBps: number
+    baseFeeMode?: DammV2BaseFeeMode
+    marketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParams
+}
+
+export type MigratedPoolMarketCapFeeSchedulerParams = {
+    endingBaseFeeBps: number
+    numberOfPeriod: number
+    sqrtPriceStepBps: number
+    schedulerExpirationDuration: number
+}
+
+export type MigrationConfig = {
     migrationOption: MigrationOption
     migrationFeeOption: MigrationFeeOption
-    migrationFee: {
-        feePercentage: number
-        creatorFeePercentage: number
-    }
+    migrationFee: MigrationFee
+    migratedPoolFee?: MigratedPoolFeeConfig
+}
+
+export type LiquidityVestingInfoParams = {
+    vestingPercentage: number
+    bpsPerPeriod: number
+    numberOfPeriods: number
+    cliffDurationFromMigrationTime: number
+    totalDuration: number
+}
+
+export type LiquidityDistributionConfig = {
     partnerPermanentLockedLiquidityPercentage: number
     partnerLiquidityPercentage: number
+    partnerLiquidityVestingInfoParams?: LiquidityVestingInfoParams
     creatorPermanentLockedLiquidityPercentage: number
     creatorLiquidityPercentage: number
-    enableFirstSwapWithMinFee: boolean
-    partnerLiquidityVestingInfoParams?: LiquidityVestingInfoParams
     creatorLiquidityVestingInfoParams?: LiquidityVestingInfoParams
-    migratedPoolFee?: {
-        collectFeeMode: CollectFeeMode
-        dynamicFee: DammV2DynamicFeeMode
-        poolFeeBps: number
-    }
-    migratedPoolBaseFeeMode?: DammV2BaseFeeMode
-    migratedPoolMarketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParams
+}
+
+export type LockedVestingParams = {
+    totalLockedVestingAmount: number
+    numberOfVestingPeriod: number
+    cliffUnlockAmount: number
+    totalVestingDuration: number
+    cliffDurationFromMigrationTime: number
+}
+
+export type BuildCurveBaseParams = {
+    token: TokenConfig
+    fee: FeeConfig
+    migration: MigrationConfig
+    liquidityDistribution: LiquidityDistributionConfig
+    lockedVesting: LockedVestingParams
+    activationType: ActivationType
 }
 
 export type BuildCurveParams = BuildCurveBaseParams & {
@@ -606,16 +641,15 @@ export type ClaimPartnerPoolCreationFeeParams = {
     feeReceiver: PublicKey
 }
 
-export type LiquidityVestingInfoParams = Omit<
-    LiquidityVestingInfoParameters,
-    'frequency'
-> & { totalDuration: number }
-
-export type MigratedPoolMarketCapFeeSchedulerParams = Omit<
-    MigratedPoolMarketCapFeeSchedulerParameters,
-    'reductionFactor'
-> & {
-    endingBaseFeeBps: number
+export type MigratedPoolFeeResult = {
+    migratedPoolFee: {
+        collectFeeMode: CollectFeeMode
+        dynamicFee: DammV2DynamicFeeMode
+        poolFeeBps: number
+    }
+    migratedPoolBaseFeeMode: DammV2BaseFeeMode
+    migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParameters
+    migrationFeeOption: MigrationFeeOption
 }
 
 ////////////////
