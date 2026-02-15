@@ -15,51 +15,57 @@ import {
     TokenDecimal,
     TokenType,
     TokenUpdateAuthorityOption,
-    DammV2BaseFeeMode,
 } from '../src'
 import { convertBNToDecimal } from './utils/common'
 
 describe('buildCurveWithMarketCap tests', () => {
     const baseParams: BuildCurveBaseParams = {
-        totalTokenSupply: 1000000000,
-        migrationOption: MigrationOption.MET_DAMM_V2,
-        tokenBaseDecimal: TokenDecimal.SIX,
-        tokenQuoteDecimal: TokenDecimal.NINE,
-        lockedVestingParams: {
+        token: {
+            tokenType: TokenType.SPL,
+            tokenBaseDecimal: TokenDecimal.SIX,
+            tokenQuoteDecimal: TokenDecimal.NINE,
+            tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+            totalTokenSupply: 1000000000,
+            leftover: 10000,
+        },
+        fee: {
+            baseFeeParams: {
+                baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+                feeSchedulerParam: {
+                    startingFeeBps: 100,
+                    endingFeeBps: 100,
+                    numberOfPeriod: 0,
+                    totalDuration: 0,
+                },
+            },
+            dynamicFeeEnabled: true,
+            collectFeeMode: CollectFeeMode.QuoteToken,
+            creatorTradingFeePercentage: 0,
+            poolCreationFee: 1,
+            enableFirstSwapWithMinFee: false,
+        },
+        migration: {
+            migrationOption: MigrationOption.MET_DAMM_V2,
+            migrationFeeOption: MigrationFeeOption.FixedBps100,
+            migrationFee: {
+                feePercentage: 0,
+                creatorFeePercentage: 0,
+            },
+        },
+        liquidityDistribution: {
+            partnerLiquidityPercentage: 0,
+            partnerPermanentLockedLiquidityPercentage: 100,
+            creatorLiquidityPercentage: 0,
+            creatorPermanentLockedLiquidityPercentage: 0,
+        },
+        lockedVesting: {
             totalLockedVestingAmount: 0,
             numberOfVestingPeriod: 0,
             cliffUnlockAmount: 0,
             totalVestingDuration: 0,
             cliffDurationFromMigrationTime: 0,
         },
-        baseFeeParams: {
-            baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-            feeSchedulerParam: {
-                startingFeeBps: 100,
-                endingFeeBps: 100,
-                numberOfPeriod: 0,
-                totalDuration: 0,
-            },
-        },
-        dynamicFeeEnabled: true,
         activationType: ActivationType.Slot,
-        collectFeeMode: CollectFeeMode.QuoteToken,
-        migrationFeeOption: MigrationFeeOption.FixedBps100,
-        tokenType: TokenType.SPL,
-        partnerLiquidityPercentage: 0,
-        creatorLiquidityPercentage: 0,
-        partnerPermanentLockedLiquidityPercentage: 100,
-        creatorPermanentLockedLiquidityPercentage: 0,
-        creatorTradingFeePercentage: 0,
-        leftover: 10000,
-        tokenUpdateAuthority: 0,
-        migrationFee: {
-            feePercentage: 0,
-            creatorFeePercentage: 0,
-        },
-        poolCreationFee: 1,
-        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-        enableFirstSwapWithMinFee: false,
     }
 
     test('build curve by market cap 1', () => {
@@ -101,20 +107,20 @@ describe('buildCurveWithMarketCap tests', () => {
 
     test('build curve by market cap with locked vesting', () => {
         console.log('\n testing build curve with locked vesting...')
-        const lockedVestingParams = {
-            ...baseParams,
-            initialMarketCap: 99.1669972233,
-            migrationMarketCap: 462.779320376,
-            lockedVestingParam: {
-                totalLockedVestingAmount: 10000000,
-                numberOfVestingPeriod: 1000,
-                cliffUnlockAmount: 0,
-                totalVestingDuration: 365 * 24 * 60 * 60,
-                cliffDurationFromMigrationTime: 0,
-            },
+        const lockedVestingConfig = {
+            totalLockedVestingAmount: 10000000,
+            numberOfVestingPeriod: 1000,
+            cliffUnlockAmount: 0,
+            totalVestingDuration: 365 * 24 * 60 * 60,
+            cliffDurationFromMigrationTime: 0,
         }
 
-        const config = buildCurveWithMarketCap(lockedVestingParams)
+        const config = buildCurveWithMarketCap({
+            ...baseParams,
+            lockedVesting: lockedVestingConfig,
+            initialMarketCap: 99.1669972233,
+            migrationMarketCap: 462.779320376,
+        })
 
         console.log(
             'migrationQuoteThreshold: %d',
@@ -127,13 +133,12 @@ describe('buildCurveWithMarketCap tests', () => {
         expect(config).toBeDefined()
 
         const lockedVesting = getLockedVestingParams(
-            lockedVestingParams.lockedVestingParam.totalLockedVestingAmount,
-            lockedVestingParams.lockedVestingParam.numberOfVestingPeriod,
-            lockedVestingParams.lockedVestingParam.cliffUnlockAmount,
-            lockedVestingParams.lockedVestingParam.totalVestingDuration,
-            lockedVestingParams.lockedVestingParam
-                .cliffDurationFromMigrationTime,
-            lockedVestingParams.tokenBaseDecimal
+            lockedVestingConfig.totalLockedVestingAmount,
+            lockedVestingConfig.numberOfVestingPeriod,
+            lockedVestingConfig.cliffUnlockAmount,
+            lockedVestingConfig.totalVestingDuration,
+            lockedVestingConfig.cliffDurationFromMigrationTime,
+            baseParams.token.tokenBaseDecimal
         )
 
         console.log('lockedVesting', convertBNToDecimal(lockedVesting))
@@ -146,8 +151,8 @@ describe('buildCurveWithMarketCap tests', () => {
             .mul(new BN(100))
             .div(
                 new BN(
-                    lockedVestingParams.totalTokenSupply *
-                        10 ** lockedVestingParams.tokenBaseDecimal
+                    baseParams.token.totalTokenSupply *
+                        10 ** baseParams.token.tokenBaseDecimal
                 )
             )
             .toNumber()
@@ -166,8 +171,8 @@ describe('buildCurveWithMarketCap tests', () => {
         }
 
         expect(totalVestingAmount.toNumber()).toBe(
-            lockedVestingParams.lockedVestingParam.totalLockedVestingAmount *
-                10 ** lockedVestingParams.tokenBaseDecimal
+            lockedVestingConfig.totalLockedVestingAmount *
+                10 ** baseParams.token.tokenBaseDecimal
         )
     })
 
@@ -175,47 +180,54 @@ describe('buildCurveWithMarketCap tests', () => {
         console.log('\n testing build curve by market cap...')
 
         const config = buildCurveWithMarketCap({
-            totalTokenSupply: 100000000,
-            initialMarketCap: 1000,
-            migrationMarketCap: 3000,
-            migrationOption: MigrationOption.MET_DAMM_V2,
-            tokenBaseDecimal: TokenDecimal.SIX,
-            tokenQuoteDecimal: TokenDecimal.SIX,
-            lockedVestingParams: {
+            token: {
+                tokenType: TokenType.SPL,
+                tokenBaseDecimal: TokenDecimal.SIX,
+                tokenQuoteDecimal: TokenDecimal.SIX,
+                tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                totalTokenSupply: 100000000,
+                leftover: 0,
+            },
+            fee: {
+                baseFeeParams: {
+                    baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+                    feeSchedulerParam: {
+                        startingFeeBps: 100,
+                        endingFeeBps: 100,
+                        numberOfPeriod: 0,
+                        totalDuration: 0,
+                    },
+                },
+                dynamicFeeEnabled: true,
+                collectFeeMode: CollectFeeMode.QuoteToken,
+                creatorTradingFeePercentage: 50,
+                poolCreationFee: 1,
+                enableFirstSwapWithMinFee: false,
+            },
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM_V2,
+                migrationFeeOption: MigrationFeeOption.FixedBps100,
+                migrationFee: {
+                    feePercentage: 1.5,
+                    creatorFeePercentage: 50,
+                },
+            },
+            liquidityDistribution: {
+                partnerLiquidityPercentage: 0,
+                partnerPermanentLockedLiquidityPercentage: 100,
+                creatorLiquidityPercentage: 0,
+                creatorPermanentLockedLiquidityPercentage: 0,
+            },
+            lockedVesting: {
                 totalLockedVestingAmount: 50000000,
                 numberOfVestingPeriod: 1,
                 cliffUnlockAmount: 50000000,
                 totalVestingDuration: 1,
                 cliffDurationFromMigrationTime: 0,
             },
-            baseFeeParams: {
-                baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-                feeSchedulerParam: {
-                    startingFeeBps: 100,
-                    endingFeeBps: 100,
-                    numberOfPeriod: 0,
-                    totalDuration: 0,
-                },
-            },
-            dynamicFeeEnabled: true,
             activationType: ActivationType.Slot,
-            collectFeeMode: CollectFeeMode.QuoteToken,
-            migrationFeeOption: MigrationFeeOption.FixedBps100,
-            tokenType: TokenType.SPL,
-            partnerLiquidityPercentage: 0,
-            creatorLiquidityPercentage: 0,
-            partnerPermanentLockedLiquidityPercentage: 100,
-            creatorPermanentLockedLiquidityPercentage: 0,
-            creatorTradingFeePercentage: 50,
-            leftover: 0,
-            tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
-            migrationFee: {
-                feePercentage: 1.5,
-                creatorFeePercentage: 50,
-            },
-            poolCreationFee: 1,
-            migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-            enableFirstSwapWithMinFee: false,
+            initialMarketCap: 1000,
+            migrationMarketCap: 3000,
         })
 
         console.log(

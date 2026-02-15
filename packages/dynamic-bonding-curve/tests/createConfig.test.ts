@@ -10,7 +10,6 @@ import {
     CollectFeeMode,
     ConfigParameters,
     createSqrtPrices,
-    DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
     DynamicBondingCurveClient,
     getVestingLockedLiquidityBpsAtNSeconds,
@@ -52,53 +51,60 @@ describe('createConfig tests', { timeout: 60000 }, () => {
         const liquidityWeights = [2, 1, 1]
 
         curveConfig = buildCurveWithCustomSqrtPrices({
-            totalTokenSupply: 1_000_000_000,
-            leftover: 1000,
-            sqrtPrices,
-            liquidityWeights,
-            tokenBaseDecimal: tokenBaseDecimal,
-            tokenQuoteDecimal: tokenQuoteDecimal,
-            tokenType: TokenType.SPL,
-            migrationOption: MigrationOption.MET_DAMM_V2,
-            migrationFeeOption: MigrationFeeOption.Customizable,
-            migrationFee: {
-                feePercentage: 10,
-                creatorFeePercentage: 50,
+            token: {
+                tokenType: TokenType.SPL,
+                tokenBaseDecimal: tokenBaseDecimal,
+                tokenQuoteDecimal: tokenQuoteDecimal,
+                tokenUpdateAuthority:
+                    TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+                totalTokenSupply: 1_000_000_000,
+                leftover: 1000,
             },
-            migratedPoolFee: {
+            fee: {
+                baseFeeParams: {
+                    baseFeeMode: BaseFeeMode.FeeSchedulerExponential,
+                    feeSchedulerParam: {
+                        startingFeeBps: 9900,
+                        endingFeeBps: 120,
+                        numberOfPeriod: 60,
+                        totalDuration: 60,
+                    },
+                },
+                dynamicFeeEnabled: true,
                 collectFeeMode: CollectFeeMode.QuoteToken,
-                dynamicFee: DammV2DynamicFeeMode.Enabled,
-                poolFeeBps: 120,
+                creatorTradingFeePercentage: 0,
+                poolCreationFee: 1,
+                enableFirstSwapWithMinFee: false,
             },
-            partnerLiquidityPercentage: 0,
-            creatorLiquidityPercentage: 0,
-            partnerPermanentLockedLiquidityPercentage: 100,
-            creatorPermanentLockedLiquidityPercentage: 0,
-            creatorTradingFeePercentage: 0,
-            lockedVestingParams: {
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM_V2,
+                migrationFeeOption: MigrationFeeOption.Customizable,
+                migrationFee: {
+                    feePercentage: 10,
+                    creatorFeePercentage: 50,
+                },
+                migratedPoolFee: {
+                    collectFeeMode: CollectFeeMode.QuoteToken,
+                    dynamicFee: DammV2DynamicFeeMode.Enabled,
+                    poolFeeBps: 120,
+                },
+            },
+            liquidityDistribution: {
+                partnerLiquidityPercentage: 0,
+                partnerPermanentLockedLiquidityPercentage: 100,
+                creatorLiquidityPercentage: 0,
+                creatorPermanentLockedLiquidityPercentage: 0,
+            },
+            lockedVesting: {
                 totalLockedVestingAmount: 0,
                 numberOfVestingPeriod: 0,
                 cliffUnlockAmount: 0,
                 totalVestingDuration: 0,
                 cliffDurationFromMigrationTime: 0,
             },
-            baseFeeParams: {
-                baseFeeMode: BaseFeeMode.FeeSchedulerExponential,
-                feeSchedulerParam: {
-                    startingFeeBps: 9000,
-                    endingFeeBps: 120,
-                    numberOfPeriod: 60,
-                    totalDuration: 60,
-                },
-            },
-            dynamicFeeEnabled: true,
             activationType: ActivationType.Timestamp,
-            collectFeeMode: CollectFeeMode.QuoteToken,
-            tokenUpdateAuthority:
-                TokenUpdateAuthorityOption.PartnerUpdateAuthority,
-            poolCreationFee: 1,
-            migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-            enableFirstSwapWithMinFee: false,
+            sqrtPrices,
+            liquidityWeights,
         })
     })
 
@@ -290,60 +296,66 @@ describe('Locked Liquidity Validation Tests', () => {
     describe('validateConfigParameters validation', () => {
         test('should throw error for 10% vesting with insufficient locked liquidity', () => {
             const curveConfig = buildCurve({
-                totalTokenSupply: 1_000_000_000,
-                percentageSupplyOnMigration: 25,
-                migrationQuoteThreshold: 1,
-                migrationOption: MigrationOption.MET_DAMM_V2,
-                tokenBaseDecimal: TokenDecimal.SIX,
-                tokenQuoteDecimal: TokenDecimal.NINE,
-                lockedVestingParams: {
+                token: {
+                    tokenType: TokenType.SPL,
+                    tokenBaseDecimal: TokenDecimal.SIX,
+                    tokenQuoteDecimal: TokenDecimal.NINE,
+                    tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                    totalTokenSupply: 1_000_000_000,
+                    leftover: 0,
+                },
+                fee: {
+                    baseFeeParams: {
+                        baseFeeMode: BaseFeeMode.FeeSchedulerExponential,
+                        feeSchedulerParam: {
+                            startingFeeBps: 120,
+                            endingFeeBps: 120,
+                            numberOfPeriod: 0,
+                            totalDuration: 0,
+                        },
+                    },
+                    dynamicFeeEnabled: true,
+                    collectFeeMode: CollectFeeMode.QuoteToken,
+                    creatorTradingFeePercentage: 0,
+                    poolCreationFee: 1,
+                    enableFirstSwapWithMinFee: false,
+                },
+                migration: {
+                    migrationOption: MigrationOption.MET_DAMM_V2,
+                    migrationFeeOption: MigrationFeeOption.Customizable,
+                    migrationFee: {
+                        feePercentage: 0,
+                        creatorFeePercentage: 0,
+                    },
+                    migratedPoolFee: {
+                        collectFeeMode: CollectFeeMode.QuoteToken,
+                        dynamicFee: DammV2DynamicFeeMode.Enabled,
+                        poolFeeBps: 120,
+                    },
+                },
+                liquidityDistribution: {
+                    partnerLiquidityPercentage: 90,
+                    partnerPermanentLockedLiquidityPercentage: 0,
+                    partnerLiquidityVestingInfoParams: {
+                        vestingPercentage: 10, // 10% = 999 BPS (fails)
+                        bpsPerPeriod: 10,
+                        cliffDurationFromMigrationTime: SECONDS_PER_DAY + 1,
+                        numberOfPeriods: 100,
+                        totalDuration: 100000,
+                    },
+                    creatorLiquidityPercentage: 0,
+                    creatorPermanentLockedLiquidityPercentage: 0,
+                },
+                lockedVesting: {
                     totalLockedVestingAmount: 0,
                     numberOfVestingPeriod: 0,
                     cliffUnlockAmount: 0,
                     totalVestingDuration: 0,
                     cliffDurationFromMigrationTime: 0,
                 },
-                baseFeeParams: {
-                    baseFeeMode: BaseFeeMode.FeeSchedulerExponential,
-                    feeSchedulerParam: {
-                        startingFeeBps: 120,
-                        endingFeeBps: 120,
-                        numberOfPeriod: 0,
-                        totalDuration: 0,
-                    },
-                },
-                dynamicFeeEnabled: true,
                 activationType: ActivationType.Timestamp,
-                collectFeeMode: CollectFeeMode.QuoteToken,
-                migrationFeeOption: MigrationFeeOption.Customizable,
-                tokenType: TokenType.SPL,
-                partnerLiquidityPercentage: 90,
-                creatorLiquidityPercentage: 0,
-                partnerPermanentLockedLiquidityPercentage: 0,
-                creatorPermanentLockedLiquidityPercentage: 0,
-                creatorTradingFeePercentage: 0,
-                leftover: 0,
-                tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
-                migrationFee: {
-                    feePercentage: 0,
-                    creatorFeePercentage: 0,
-                },
-                migratedPoolFee: {
-                    collectFeeMode: CollectFeeMode.QuoteToken,
-                    dynamicFee: DammV2DynamicFeeMode.Enabled,
-                    poolFeeBps: 120,
-                },
-                poolCreationFee: 1,
-                partnerLiquidityVestingInfoParams: {
-                    vestingPercentage: 10, // 10% = 999 BPS (fails)
-                    bpsPerPeriod: 10,
-                    cliffDurationFromMigrationTime: SECONDS_PER_DAY + 1,
-                    numberOfPeriods: 100,
-                    totalDuration: 100000,
-                },
-                migratedPoolBaseFeeMode:
-                    DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-                enableFirstSwapWithMinFee: false,
+                percentageSupplyOnMigration: 25,
+                migrationQuoteThreshold: 1,
             })
 
             // verify the locked BPS calculation shows 999 BPS
@@ -360,60 +372,66 @@ describe('Locked Liquidity Validation Tests', () => {
 
         test('should succeed for 11% vesting with sufficient locked liquidity', () => {
             const curveConfig = buildCurve({
-                totalTokenSupply: 1_000_000_000,
-                percentageSupplyOnMigration: 25,
-                migrationQuoteThreshold: 1,
-                migrationOption: MigrationOption.MET_DAMM_V2,
-                tokenBaseDecimal: TokenDecimal.SIX,
-                tokenQuoteDecimal: TokenDecimal.NINE,
-                lockedVestingParams: {
+                token: {
+                    tokenType: TokenType.SPL,
+                    tokenBaseDecimal: TokenDecimal.SIX,
+                    tokenQuoteDecimal: TokenDecimal.NINE,
+                    tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                    totalTokenSupply: 1_000_000_000,
+                    leftover: 0,
+                },
+                fee: {
+                    baseFeeParams: {
+                        baseFeeMode: BaseFeeMode.FeeSchedulerExponential,
+                        feeSchedulerParam: {
+                            startingFeeBps: 120,
+                            endingFeeBps: 120,
+                            numberOfPeriod: 0,
+                            totalDuration: 0,
+                        },
+                    },
+                    dynamicFeeEnabled: true,
+                    collectFeeMode: CollectFeeMode.QuoteToken,
+                    creatorTradingFeePercentage: 0,
+                    poolCreationFee: 1,
+                    enableFirstSwapWithMinFee: false,
+                },
+                migration: {
+                    migrationOption: MigrationOption.MET_DAMM_V2,
+                    migrationFeeOption: MigrationFeeOption.Customizable,
+                    migrationFee: {
+                        feePercentage: 0,
+                        creatorFeePercentage: 0,
+                    },
+                    migratedPoolFee: {
+                        collectFeeMode: CollectFeeMode.QuoteToken,
+                        dynamicFee: DammV2DynamicFeeMode.Enabled,
+                        poolFeeBps: 120,
+                    },
+                },
+                liquidityDistribution: {
+                    partnerLiquidityPercentage: 89,
+                    partnerPermanentLockedLiquidityPercentage: 0,
+                    partnerLiquidityVestingInfoParams: {
+                        vestingPercentage: 11, // 11% = 1099 BPS (passes)
+                        bpsPerPeriod: 1,
+                        cliffDurationFromMigrationTime: SECONDS_PER_DAY,
+                        numberOfPeriods: 10000,
+                        totalDuration: 100000,
+                    },
+                    creatorLiquidityPercentage: 0,
+                    creatorPermanentLockedLiquidityPercentage: 0,
+                },
+                lockedVesting: {
                     totalLockedVestingAmount: 0,
                     numberOfVestingPeriod: 0,
                     cliffUnlockAmount: 0,
                     totalVestingDuration: 0,
                     cliffDurationFromMigrationTime: 0,
                 },
-                baseFeeParams: {
-                    baseFeeMode: BaseFeeMode.FeeSchedulerExponential,
-                    feeSchedulerParam: {
-                        startingFeeBps: 120,
-                        endingFeeBps: 120,
-                        numberOfPeriod: 0,
-                        totalDuration: 0,
-                    },
-                },
-                dynamicFeeEnabled: true,
                 activationType: ActivationType.Timestamp,
-                collectFeeMode: CollectFeeMode.QuoteToken,
-                migrationFeeOption: MigrationFeeOption.Customizable,
-                tokenType: TokenType.SPL,
-                partnerLiquidityPercentage: 89,
-                creatorLiquidityPercentage: 0,
-                partnerPermanentLockedLiquidityPercentage: 0,
-                creatorPermanentLockedLiquidityPercentage: 0,
-                creatorTradingFeePercentage: 0,
-                leftover: 0,
-                tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
-                migrationFee: {
-                    feePercentage: 0,
-                    creatorFeePercentage: 0,
-                },
-                migratedPoolFee: {
-                    collectFeeMode: CollectFeeMode.QuoteToken,
-                    dynamicFee: DammV2DynamicFeeMode.Enabled,
-                    poolFeeBps: 120,
-                },
-                poolCreationFee: 1,
-                partnerLiquidityVestingInfoParams: {
-                    vestingPercentage: 11, // 11% = 1099 BPS (passes)
-                    bpsPerPeriod: 1,
-                    cliffDurationFromMigrationTime: SECONDS_PER_DAY,
-                    numberOfPeriods: 10000,
-                    totalDuration: 100000,
-                },
-                migratedPoolBaseFeeMode:
-                    DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-                enableFirstSwapWithMinFee: false,
+                percentageSupplyOnMigration: 25,
+                migrationQuoteThreshold: 1,
             })
 
             // verify the locked BPS calculation shows >= 1000 BPS

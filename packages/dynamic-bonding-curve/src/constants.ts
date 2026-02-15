@@ -115,6 +115,12 @@ export const DAMM_V2_MIGRATION_FEE_ADDRESS = [
     new PublicKey('A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck'), // Customizable
 ]
 
+export const DEFAULT_MIGRATED_POOL_FEE_PARAMS = {
+    collectFeeMode: 0,
+    dynamicFee: 0,
+    poolFeeBps: 0,
+} as const
+
 export const DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS: LiquidityVestingInfoParams =
     {
         vestingPercentage: 0,

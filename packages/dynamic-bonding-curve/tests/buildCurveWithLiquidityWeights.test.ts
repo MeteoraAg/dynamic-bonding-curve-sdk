@@ -10,52 +10,59 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    DammV2BaseFeeMode,
+    TokenUpdateAuthorityOption,
 } from '../src'
 import Decimal from 'decimal.js'
 import { convertBNToDecimal } from './utils/common'
 
 describe('buildCurveWithLiquidityWeights tests', () => {
     const baseParams: BuildCurveBaseParams = {
-        totalTokenSupply: 1000000000,
-        migrationOption: MigrationOption.MET_DAMM_V2,
-        tokenBaseDecimal: TokenDecimal.SIX,
-        tokenQuoteDecimal: TokenDecimal.NINE,
-        lockedVestingParams: {
+        token: {
+            tokenType: TokenType.SPL,
+            tokenBaseDecimal: TokenDecimal.SIX,
+            tokenQuoteDecimal: TokenDecimal.NINE,
+            tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+            totalTokenSupply: 1000000000,
+            leftover: 1000,
+        },
+        fee: {
+            baseFeeParams: {
+                baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+                feeSchedulerParam: {
+                    startingFeeBps: 100,
+                    endingFeeBps: 100,
+                    numberOfPeriod: 0,
+                    totalDuration: 0,
+                },
+            },
+            dynamicFeeEnabled: true,
+            collectFeeMode: CollectFeeMode.QuoteToken,
+            creatorTradingFeePercentage: 0,
+            poolCreationFee: 1,
+            enableFirstSwapWithMinFee: false,
+        },
+        migration: {
+            migrationOption: MigrationOption.MET_DAMM_V2,
+            migrationFeeOption: MigrationFeeOption.FixedBps100,
+            migrationFee: {
+                feePercentage: 0,
+                creatorFeePercentage: 0,
+            },
+        },
+        liquidityDistribution: {
+            partnerLiquidityPercentage: 0,
+            partnerPermanentLockedLiquidityPercentage: 100,
+            creatorLiquidityPercentage: 0,
+            creatorPermanentLockedLiquidityPercentage: 0,
+        },
+        lockedVesting: {
             totalLockedVestingAmount: 0,
             numberOfVestingPeriod: 0,
             cliffUnlockAmount: 0,
             totalVestingDuration: 0,
             cliffDurationFromMigrationTime: 0,
         },
-        baseFeeParams: {
-            baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-            feeSchedulerParam: {
-                startingFeeBps: 100,
-                endingFeeBps: 100,
-                numberOfPeriod: 0,
-                totalDuration: 0,
-            },
-        },
-        dynamicFeeEnabled: true,
         activationType: ActivationType.Slot,
-        collectFeeMode: CollectFeeMode.QuoteToken,
-        migrationFeeOption: MigrationFeeOption.FixedBps100,
-        tokenType: TokenType.SPL,
-        partnerLiquidityPercentage: 0,
-        creatorLiquidityPercentage: 0,
-        partnerPermanentLockedLiquidityPercentage: 100,
-        creatorPermanentLockedLiquidityPercentage: 0,
-        creatorTradingFeePercentage: 0,
-        leftover: 1000,
-        tokenUpdateAuthority: 0,
-        migrationFee: {
-            feePercentage: 0,
-            creatorFeePercentage: 0,
-        },
-        poolCreationFee: 1,
-        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-        enableFirstSwapWithMinFee: false,
     }
 
     test('build curve with liquidity weights 1.2^n', () => {
@@ -135,21 +142,32 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
         const curveGraphParams = {
             ...baseParams,
-            totalTokenSupply: 1000000000,
-            initialMarketCap: 15,
-            migrationMarketCap: 255,
-            tokenQuoteDecimal: TokenDecimal.SIX,
-            tokenBaseDecimal: TokenDecimal.NINE,
-            lockedVestingParam: {
+            token: {
+                tokenType: TokenType.SPL,
+                tokenBaseDecimal: TokenDecimal.NINE,
+                tokenQuoteDecimal: TokenDecimal.SIX,
+                tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                totalTokenSupply: 1000000000,
+                leftover: 200000000,
+            },
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM,
+                migrationFeeOption: MigrationFeeOption.FixedBps100,
+                migrationFee: {
+                    feePercentage: 0,
+                    creatorFeePercentage: 0,
+                },
+            },
+            lockedVesting: {
                 totalLockedVestingAmount: 10000000,
                 numberOfVestingPeriod: 1,
                 cliffUnlockAmount: 0,
                 totalVestingDuration: 1,
                 cliffDurationFromMigrationTime: 0,
             },
-            leftover: 200000000,
+            initialMarketCap: 15,
+            migrationMarketCap: 255,
             liquidityWeights,
-            migrationOption: MigrationOption.MET_DAMM,
         }
 
         const config = buildCurveWithLiquidityWeights(curveGraphParams)
@@ -177,14 +195,25 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
         const curveGraphParams = {
             ...baseParams,
-            totalTokenSupply: 100000000,
+            token: {
+                tokenType: TokenType.SPL,
+                tokenBaseDecimal: TokenDecimal.SIX,
+                tokenQuoteDecimal: TokenDecimal.SIX,
+                tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                totalTokenSupply: 100000000,
+                leftover: 50000000,
+            },
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM,
+                migrationFeeOption: MigrationFeeOption.FixedBps100,
+                migrationFee: {
+                    feePercentage: 0,
+                    creatorFeePercentage: 0,
+                },
+            },
             initialMarketCap: 50,
             migrationMarketCap: 100000,
-            tokenQuoteDecimal: TokenDecimal.SIX,
-            tokenBaseDecimal: TokenDecimal.SIX,
-            leftover: 50000000,
             liquidityWeights,
-            migrationOption: MigrationOption.MET_DAMM,
         }
 
         const config = buildCurveWithLiquidityWeights(curveGraphParams)
