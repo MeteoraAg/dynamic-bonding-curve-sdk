@@ -2,6 +2,26 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.3] - 2026-02-15
+
+### Added
+
+- Added `TokenConfig`, `FeeConfig`, `MigrationConfig`, `MigrationFee`, `MigratedPoolFeeConfig`, `MigratedPoolMarketCapFeeSchedulerParams`, `LiquidityDistributionConfig` types for structured parameter grouping
+- Added `MigratedPoolFeeResult` type for the return value of `getMigratedPoolFeeParams`
+- Added `DEFAULT_MIGRATED_POOL_FEE_PARAMS` constant for default migrated pool fee values
+- Added `validateMarketCapFeeSchedulerRequiresPoolFeeBps` validation to ensure `poolFeeBps > 0` when `marketCapFeeSchedulerParams` is configured
+- Added comprehensive unit tests for `getMigratedPoolFeeParams` and migration fee option behavior in `buildCurve.test.ts`
+- Added test coverage for all migration fee option cases: fixed options (0-5), customizable without market cap scheduler, customizable with market cap scheduler, and DAMM V1 defaults
+
+### Changed
+
+- All `buildCurve*` functions now destructure the unified `MigratedPoolFeeResult` from `getMigratedPoolFeeParams` instead of separately calling `getMigratedPoolMarketCapFeeSchedulerParams`
+- Updated `validateMigratedPoolFee` to accept `migratedPoolMarketCapFeeSchedulerParams` and allow non-empty `migratedPoolFee` when market cap fee scheduler is configured with a fixed fee option
+
+### Breaking Changes
+
+- **`BuildCurveBaseParams` restructured** from flat parameters to nested groups: `token: TokenConfig`, `fee: FeeConfig`, `migration: MigrationConfig`, `liquidityDistribution: LiquidityDistributionConfig`, `lockedVesting: LockedVestingParams`, `activationType: ActivationType`. This affects all `buildCurve*` functions: `buildCurve`, `buildCurveWithMarketCap`, `buildCurveWithTwoSegments`, `buildCurveWithMidPrice`, `buildCurveWithLiquidityWeights`, `buildCurveWithCustomSqrtPrices`.
+
 ## [1.5.2] - 2026-01-27
 
 ### Added
