@@ -710,12 +710,14 @@ interface BuildCurveParams {
             feePercentage: number // Percentage of fee taken from migration quote threshold (0-99)
             creatorFeePercentage: number // Fee share percentage for the creator from the migration fee (0-100)
         }
-        migratedPoolFee?: { // Optional. Configure only for DAMM V2 migration.
+        migratedPoolFee?: {
+            // Optional. Configure only for DAMM V2 migration.
             collectFeeMode: CollectFeeMode // 0: QuoteToken, 1: OutputToken
             dynamicFee: DammV2DynamicFeeMode // 0: Disabled, 1: Enabled
             poolFeeBps: number // The pool fee in basis points
             baseFeeMode?: DammV2BaseFeeMode // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential
-            marketCapFeeSchedulerParams?: { // Configure for market cap-based fee scheduling
+            marketCapFeeSchedulerParams?: {
+                // Configure for market cap-based fee scheduling
                 endingBaseFeeBps: number // The ending base fee in basis points (must be < bonding curve's endingFeeBps)
                 numberOfPeriod: number // The number of periods
                 sqrtPriceStepBps: number // The square root price step in basis points
@@ -727,7 +729,8 @@ interface BuildCurveParams {
     liquidityDistribution: {
         partnerLiquidityPercentage: number // Partner LP percentage (0-100)
         partnerPermanentLockedLiquidityPercentage: number // Partner permanent locked LP percentage (0-100)
-        partnerLiquidityVestingInfoParams?: { // Optional partner liquidity vesting (DAMM V2 only)
+        partnerLiquidityVestingInfoParams?: {
+            // Optional partner liquidity vesting (DAMM V2 only)
             vestingPercentage: number
             bpsPerPeriod: number
             numberOfPeriods: number
@@ -736,7 +739,8 @@ interface BuildCurveParams {
         }
         creatorLiquidityPercentage: number // Creator LP percentage (0-100)
         creatorPermanentLockedLiquidityPercentage: number // Creator permanent locked LP percentage (0-100)
-        creatorLiquidityVestingInfoParams?: { // Optional creator liquidity vesting (DAMM V2 only)
+        creatorLiquidityVestingInfoParams?: {
+            // Optional creator liquidity vesting (DAMM V2 only)
             vestingPercentage: number
             bpsPerPeriod: number
             numberOfPeriods: number
@@ -763,25 +767,28 @@ interface BuildCurveParams {
 
 ```typescript
 // Either FeeSchedulerLinear/FeeSchedulerExponential mode:
-type BaseFeeParams = {
-    baseFeeMode: BaseFeeMode.FeeSchedulerLinear | BaseFeeMode.FeeSchedulerExponential
-    feeSchedulerParam: {
-        startingFeeBps: number // The starting fee in basis points
-        endingFeeBps: number // The ending fee in basis points
-        numberOfPeriod: number // The number of periods
-        totalDuration: number // The total duration of the fee scheduler
-    }
-}
-// OR RateLimiter mode:
-| {
-    baseFeeMode: BaseFeeMode.RateLimiter
-    rateLimiterParam: {
-        baseFeeBps: number // The base fee in basis points
-        feeIncrementBps: number // The fee increment in basis points
-        referenceAmount: number // The reference amount for rate limiting
-        maxLimiterDuration: number // The maximum duration for rate limiting
-    }
-}
+type BaseFeeParams =
+    | {
+          baseFeeMode:
+              | BaseFeeMode.FeeSchedulerLinear
+              | BaseFeeMode.FeeSchedulerExponential
+          feeSchedulerParam: {
+              startingFeeBps: number // The starting fee in basis points
+              endingFeeBps: number // The ending fee in basis points
+              numberOfPeriod: number // The number of periods
+              totalDuration: number // The total duration of the fee scheduler
+          }
+      }
+    // OR RateLimiter mode:
+    | {
+          baseFeeMode: BaseFeeMode.RateLimiter
+          rateLimiterParam: {
+              baseFeeBps: number // The base fee in basis points
+              feeIncrementBps: number // The fee increment in basis points
+              referenceAmount: number // The reference amount for rate limiting
+              maxLimiterDuration: number // The maximum duration for rate limiting
+          }
+      }
 ```
 
 **Returns**
@@ -951,7 +958,9 @@ Builds a new constant product curve with customisable parameters based on market
 **Function**
 
 ```typescript
-function buildCurveWithMarketCap(params: BuildCurveWithMarketCapParams): ConfigParameters
+function buildCurveWithMarketCap(
+    params: BuildCurveWithMarketCapParams
+): ConfigParameters
 ```
 
 **Parameters**
@@ -1073,7 +1082,9 @@ Builds a new constant product curve with two segments. This function does the ma
 **Function**
 
 ```typescript
-function buildCurveWithTwoSegments(params: BuildCurveWithTwoSegmentsParams): ConfigParameters
+function buildCurveWithTwoSegments(
+    params: BuildCurveWithTwoSegmentsParams
+): ConfigParameters
 ```
 
 **Parameters**
@@ -1183,7 +1194,9 @@ Builds a custom constant product curve with a mid price. This will create a two 
 **Function**
 
 ```typescript
-function buildCurveWithMidPrice(params: BuildCurveWithMidPriceParams): ConfigParameters
+function buildCurveWithMidPrice(
+    params: BuildCurveWithMidPriceParams
+): ConfigParameters
 ```
 
 **Parameters**
@@ -1298,7 +1311,9 @@ Builds a super customizable constant product curve graph configuration based on 
 **Function**
 
 ```typescript
-function buildCurveWithLiquidityWeights(params: BuildCurveWithLiquidityWeightsParams): ConfigParameters
+function buildCurveWithLiquidityWeights(
+    params: BuildCurveWithLiquidityWeightsParams
+): ConfigParameters
 ```
 
 **Parameters**
@@ -1423,7 +1438,9 @@ Builds a super customizable constant product curve graph configuration based on 
 **Function**
 
 ```typescript
-function buildCurveWithCustomSqrtPrices(params: BuildCurveWithCustomSqrtPricesParams): ConfigParameters
+function buildCurveWithCustomSqrtPrices(
+    params: BuildCurveWithCustomSqrtPricesParams
+): ConfigParameters
 ```
 
 **Parameters**
