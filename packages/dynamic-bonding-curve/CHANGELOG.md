@@ -2,6 +2,16 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.4] - 2026-02-24
+
+### Added
+
+- Added `getPoolBaseTokenCurveProgress` function to get the progress of the base token curve
+
+### Changed
+
+- Renamed `getPoolCurveProgress` function to `getPoolQuoteTokenCurveProgress`
+
 ## [1.5.3] - 2026-02-15
 
 ### Added

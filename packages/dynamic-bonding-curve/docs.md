@@ -57,7 +57,8 @@
     - [getPoolsByCreator](#getPoolsByCreator)
     - [getPoolByBaseMint](#getPoolByBaseMint)
     - [getPoolMigrationQuoteThreshold](#getPoolMigrationQuoteThreshold)
-    - [getPoolCurveProgress](#getPoolCurveProgress)
+    - [getPoolQuoteTokenCurveProgress](#getPoolQuoteTokenCurveProgress)
+    - [getPoolBaseTokenCurveProgress](#getPoolBaseTokenCurveProgress)
     - [getPoolMetadata](#getPoolMetadata)
     - [getPartnerMetadata](#getPartnerMetadata)
     - [getDammV1LockEscrow](#getDammV1LockEscrow)
@@ -3474,14 +3475,14 @@ const threshold = await client.state.getPoolMigrationQuoteThreshold(poolAddress)
 
 ---
 
-### getPoolCurveProgress
+### getPoolQuoteTokenCurveProgress
 
 Gets the progress of the curve by comparing current quote reserve to migration threshold.
 
 **Function**
 
 ```typescript
-async getPoolCurveProgress(poolAddress: PublicKey | string): Promise<number>
+async getPoolQuoteTokenCurveProgress(poolAddress: PublicKey | string): Promise<number>
 ```
 
 **Parameters**
@@ -3497,7 +3498,35 @@ poolAddress: PublicKey | string // The address of the pool
 **Example**
 
 ```typescript
-const progress = await client.state.getPoolCurveProgress(poolAddress)
+const progress = await client.state.getPoolQuoteTokenCurveProgress(poolAddress)
+```
+
+---
+
+### getPoolBaseTokenCurveProgress
+
+Gets the progress of the curve based on base tokens sold relative to total base tokens available for trading.
+
+**Function**
+
+```typescript
+async getPoolBaseTokenCurveProgress(poolAddress: PublicKey | string): Promise<number>
+```
+
+**Parameters**
+
+```typescript
+poolAddress: PublicKey | string // The address of the pool
+```
+
+**Returns**
+
+- A number between 0 and 1 representing the curve progress.
+
+**Example**
+
+```typescript
+const progress = await client.state.getPoolBaseTokenCurveProgress(poolAddress)
 ```
 
 ---

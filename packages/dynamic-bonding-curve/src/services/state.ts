@@ -4,6 +4,8 @@ import {
     createProgramAccountFilter,
     deriveDammV1MigrationMetadataAddress,
     getAccountData,
+    getSwapAmountWithBuffer,
+    getTotalTokenSupply,
 } from '../helpers'
 import {
     LockEscrow,
@@ -139,7 +141,7 @@ export class StateService extends DynamicBondingCurveProgram {
      * @param poolAddress - The address of the pool
      * @returns The progress as a ratio between 0 and 1
      */
-    async getPoolCurveProgress(
+    async getPoolQuoteTokenCurveProgress(
         poolAddress: PublicKey | string
     ): Promise<number> {
         const pool = await this.getPool(poolAddress)
@@ -155,6 +157,71 @@ export class StateService extends DynamicBondingCurveProgram {
         const thresholdDecimal = new Decimal(migrationThreshold.toString())
 
         const progress = quoteReserveDecimal.div(thresholdDecimal).toNumber()
+
+        return Math.min(Math.max(progress, 0), 1)
+    }
+
+    /**
+     * Get the progress of the curve based on base tokens sold relative to total base tokens available for trading.
+     *
+     * In CLMMs, the formulas are non-linear.
+     * For a liquidity position with liquidity L between sqrt prices P0 and P1:
+     *   - Base delta = L × (1/P0 - 1/P1)
+     *   - Quote delta = L × (P1 - P0)
+     * At some intermediate current sqrt price P:
+     *   - Base progress:   (1/P0 - 1/P) / (1/P0 - 1/P1)
+     *   - Quote progress:  (P - P0) / (P1 - P0)
+     *
+     * Both metrics equal 0 when the price is at P0, and 1 at P1, but their curves differ in between:
+     *   - Base progress depends on 1/P, which means it flattens for high prices.
+     *   - Quote progress depends linearly on P.
+     *
+     * As a result, near the end of the curve (at high prices), base progress approaches 1 faster than quote progress.
+     * For example, you might see progress values like 99.87% base vs 99.38% quote, reflecting this mathematical difference.
+     *
+     * @param poolAddress - The address of the pool
+     * @returns The progress as a ratio between 0 and 1
+     */
+    async getPoolBaseTokenCurveProgress(
+        poolAddress: PublicKey | string
+    ): Promise<number> {
+        const pool = await this.getPool(poolAddress)
+        if (!pool) {
+            throw new Error(`Pool not found: ${poolAddress.toString()}`)
+        }
+
+        const config = await this.getPoolConfig(pool.config)
+
+        const swapBaseAmount = new Decimal(config.swapBaseAmount.toString())
+        if (swapBaseAmount.isZero()) {
+            return 0
+        }
+
+        const baseReserve = new Decimal(pool.baseReserve.toString())
+        let initialBaseReserve: Decimal
+
+        const isFixedSupply = config.fixedTokenSupplyFlag === 1
+
+        if (isFixedSupply) {
+            initialBaseReserve = new Decimal(
+                config.preMigrationTokenSupply.toString()
+            )
+        } else {
+            const swapBaseAmountBuffer = getSwapAmountWithBuffer(
+                config.swapBaseAmount,
+                config.sqrtStartPrice,
+                config.curve
+            )
+            const totalSupply = getTotalTokenSupply(
+                swapBaseAmountBuffer,
+                config.migrationBaseThreshold,
+                config.lockedVestingConfig
+            )
+            initialBaseReserve = new Decimal(totalSupply.toString())
+        }
+
+        const baseSold = Decimal.max(0, initialBaseReserve.sub(baseReserve))
+        const progress = baseSold.div(swapBaseAmount).toNumber()
 
         return Math.min(Math.max(progress, 0), 1)
     }
