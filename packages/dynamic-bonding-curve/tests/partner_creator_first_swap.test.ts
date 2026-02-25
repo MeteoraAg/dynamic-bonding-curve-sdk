@@ -159,7 +159,8 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
             poolCreator: poolCreator.publicKey,
         }
 
-        const createOnlyPoolTx = await dbcClient.pool.createPool(createPoolParam)
+        const createOnlyPoolTx =
+            await dbcClient.pool.createPool(createPoolParam)
         const bundledTx =
             await dbcClient.pool.createPoolWithPartnerAndCreatorFirstBuy({
                 createPoolParam,
@@ -212,7 +213,8 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
             poolCreator: poolCreator.publicKey,
         }
 
-        const createOnlyPoolTx = await dbcClient.pool.createPool(createPoolParam)
+        const createOnlyPoolTx =
+            await dbcClient.pool.createPool(createPoolParam)
         const bundledTx =
             await dbcClient.pool.createPoolWithPartnerAndCreatorFirstBuy({
                 createPoolParam,
