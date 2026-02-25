@@ -1986,6 +1986,7 @@ interface CreateConfigAndPoolWithFirstBuyParams {
 **Returns**
 
 An object of transactions containing:
+
 - `createConfigTx`: config creation transaction
 - `createPoolTx`: pool creation transaction, with first-buy instructions included when `firstBuyParam` is provided and `buyAmount > 0`
 

@@ -162,23 +162,24 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
     test('should charge min fee when using SDK createPoolWithFirstBuy (bundled tx)', async () => {
         const amountIn = new BN(1_000_000_000) // 1 SOL
 
-        const createPoolWithFirstBuyTx = await dbcClient.pool.createPoolWithFirstBuy({
-            createPoolParam: {
-                baseMint: baseMint.publicKey,
-                config: config.publicKey,
-                name: 'TEST',
-                symbol: 'TEST',
-                uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
-                payer: poolCreator.publicKey,
-                poolCreator: poolCreator.publicKey,
-            },
-            firstBuyParam: {
-                buyer: poolCreator.publicKey,
-                buyAmount: amountIn,
-                minimumAmountOut: new BN(0),
-                referralTokenAccount: null,
-            },
-        })
+        const createPoolWithFirstBuyTx =
+            await dbcClient.pool.createPoolWithFirstBuy({
+                createPoolParam: {
+                    baseMint: baseMint.publicKey,
+                    config: config.publicKey,
+                    name: 'TEST',
+                    symbol: 'TEST',
+                    uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
+                    payer: poolCreator.publicKey,
+                    poolCreator: poolCreator.publicKey,
+                },
+                firstBuyParam: {
+                    buyer: poolCreator.publicKey,
+                    buyAmount: amountIn,
+                    minimumAmountOut: new BN(0),
+                    referralTokenAccount: null,
+                },
+            })
 
         createPoolWithFirstBuyTx.feePayer = poolCreator.publicKey
 
@@ -280,23 +281,24 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
     test('should charge min fee when first swap with pool creation (with SYSVAR)', async () => {
         const amountIn = new BN(1_000_000_000)
 
-        const createPoolWithFirstBuyTx = await dbcClient.pool.createPoolWithFirstBuy({
-            createPoolParam: {
-                baseMint: baseMint.publicKey,
-                config: config.publicKey,
-                name: 'TEST',
-                symbol: 'TEST',
-                uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
-                payer: poolCreator.publicKey,
-                poolCreator: poolCreator.publicKey,
-            },
-            firstBuyParam: {
-                buyer: poolCreator.publicKey,
-                buyAmount: amountIn,
-                minimumAmountOut: new BN(0),
-                referralTokenAccount: null,
-            },
-        })
+        const createPoolWithFirstBuyTx =
+            await dbcClient.pool.createPoolWithFirstBuy({
+                createPoolParam: {
+                    baseMint: baseMint.publicKey,
+                    config: config.publicKey,
+                    name: 'TEST',
+                    symbol: 'TEST',
+                    uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
+                    payer: poolCreator.publicKey,
+                    poolCreator: poolCreator.publicKey,
+                },
+                firstBuyParam: {
+                    buyer: poolCreator.publicKey,
+                    buyAmount: amountIn,
+                    minimumAmountOut: new BN(0),
+                    referralTokenAccount: null,
+                },
+            })
 
         createPoolWithFirstBuyTx.feePayer = poolCreator.publicKey
 
@@ -338,20 +340,26 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             poolCreator: poolCreator.publicKey,
         }
 
-        const createPoolWithFirstBuyTx = await dbcClient.pool.createPoolWithFirstBuy({
-            createPoolParam,
-            firstBuyParam: {
-                buyer: poolCreator.publicKey,
-                buyAmount: amountIn,
-                minimumAmountOut: new BN(0),
-                referralTokenAccount: null,
-            },
-        })
+        const createPoolWithFirstBuyTx =
+            await dbcClient.pool.createPoolWithFirstBuy({
+                createPoolParam,
+                firstBuyParam: {
+                    buyer: poolCreator.publicKey,
+                    buyAmount: amountIn,
+                    minimumAmountOut: new BN(0),
+                    referralTokenAccount: null,
+                },
+            })
 
-        const createOnlyPoolTx = await dbcClient.pool.createPool(createPoolParam)
+        const createOnlyPoolTx =
+            await dbcClient.pool.createPool(createPoolParam)
         const createPoolIxCount = createOnlyPoolTx.instructions.length
-        const createPoolIxs = createPoolWithFirstBuyTx.instructions.slice(0, createPoolIxCount)
-        const swapIxs = createPoolWithFirstBuyTx.instructions.slice(createPoolIxCount)
+        const createPoolIxs = createPoolWithFirstBuyTx.instructions.slice(
+            0,
+            createPoolIxCount
+        )
+        const swapIxs =
+            createPoolWithFirstBuyTx.instructions.slice(createPoolIxCount)
 
         const swapIxWithoutSysvar = swapIxs.map((ix) => {
             // remove SYSVAR_INSTRUCTIONS_PUBKEY from keys if present
@@ -407,23 +415,24 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
     test('second swap after bundled first swap should charge cliff fee', async () => {
         const amountIn = new BN(1_000_000_000)
 
-        const createPoolWithFirstBuyTx = await dbcClient.pool.createPoolWithFirstBuy({
-            createPoolParam: {
-                baseMint: baseMint.publicKey,
-                config: config.publicKey,
-                name: 'TEST',
-                symbol: 'TEST',
-                uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
-                payer: poolCreator.publicKey,
-                poolCreator: poolCreator.publicKey,
-            },
-            firstBuyParam: {
-                buyer: poolCreator.publicKey,
-                buyAmount: amountIn,
-                minimumAmountOut: new BN(0),
-                referralTokenAccount: null,
-            },
-        })
+        const createPoolWithFirstBuyTx =
+            await dbcClient.pool.createPoolWithFirstBuy({
+                createPoolParam: {
+                    baseMint: baseMint.publicKey,
+                    config: config.publicKey,
+                    name: 'TEST',
+                    symbol: 'TEST',
+                    uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
+                    payer: poolCreator.publicKey,
+                    poolCreator: poolCreator.publicKey,
+                },
+                firstBuyParam: {
+                    buyer: poolCreator.publicKey,
+                    buyAmount: amountIn,
+                    minimumAmountOut: new BN(0),
+                    referralTokenAccount: null,
+                },
+            })
 
         createPoolWithFirstBuyTx.feePayer = poolCreator.publicKey
 
