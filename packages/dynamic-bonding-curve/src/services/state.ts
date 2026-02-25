@@ -183,8 +183,6 @@ export class StateService extends DynamicBondingCurveProgram {
             ).toString()
         )
 
-        console.log('baseSold:', baseSold.toString())
-
         const totalBaseCouldBeSold = new Decimal(
             getBaseTokenForSwap(
                 config.sqrtStartPrice,
@@ -192,8 +190,6 @@ export class StateService extends DynamicBondingCurveProgram {
                 config.curve
             ).toString()
         )
-
-        console.log('totalBaseCouldBeSold:', totalBaseCouldBeSold.toString())
 
         const progress = baseSold.div(totalBaseCouldBeSold).toNumber()
 
