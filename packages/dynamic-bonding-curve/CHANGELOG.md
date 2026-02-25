@@ -6,9 +6,9 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 
 ### Changed
 
-- Fixed `getBaseTokenForSwap` function to correctly calculate the base token for swap
+- Fixed `getPoolBaseTokenCurveProgress` function to correctly calculate the progress of the base token curve using `getBaseTokenForSwap` function
+- `createConfigAndPoolWithFirstBuy` functions now return `createConfigTx` and `createPoolWithFirstBuyTx` as separate `Transaction` instead of an object containing 3 separate `Transaction`s
 - `createPoolWithFirstBuy` functions now return a `Transaction` instead of an object containing the new config transaction and pool transaction
-- `createConfigAndPoolWithFirstBuy` functions now return `createConfigTx` and `createPoolWithFirstBuyTx` as separate `Transaction` instead of an object containing 3 separate transactions
 - `createPoolWithPartnerAndCreatorFirstBuy` functions now return a `Transaction` instead of an object containing the new config transaction and pool transaction
 
 ## [1.5.4] - 2026-02-24
