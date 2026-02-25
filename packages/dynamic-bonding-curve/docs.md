@@ -1858,7 +1858,7 @@ const transaction = await client.pool.createConfigAndPool({
 
 ### createConfigAndPoolWithFirstBuy
 
-Creates a config key and a token pool and buys the token immediately in a single transaction.
+Creates a config key and a token pool and buys the token immediately.
 
 **Function**
 
@@ -1866,7 +1866,6 @@ Creates a config key and a token pool and buys the token immediately in a single
 async createConfigAndPoolWithFirstBuy(params: CreateConfigAndPoolWithFirstBuyParams): Promise<{
     createConfigTx: Transaction
     createPoolTx: Transaction
-    swapBuyTx: Transaction | undefined
 }>
 ```
 
@@ -1986,14 +1985,16 @@ interface CreateConfigAndPoolWithFirstBuyParams {
 
 **Returns**
 
-An object of transactions (containing createConfigTx, createPoolTx, and swapBuyTx) that requires signatures before being submitted to the network. Can be bundled together.
+An object of transactions containing:
+- `createConfigTx`: config creation transaction
+- `createPoolTx`: pool creation transaction, with first-buy instructions included when `firstBuyParam` is provided and `buyAmount > 0`
 
 **Example**
 
 ```typescript
 const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
 
-const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
+const transactions = await client.pool.createConfigAndPoolWithFirstBuy({
     payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     config: new PublicKey('1234567890abcdefghijklmnopqrstuvwxyz'),
     feeClaimer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
@@ -2102,9 +2103,8 @@ const transaction = await client.pool.createConfigAndPoolWithFirstBuy({
 
 - The payer must be the same as the payer in the `CreateConfigAndPoolWithFirstBuyParam` params.
 - The `createConfigTx` requires the payer and config to sign the transaction.
-- The `createPoolTx` requires the payer, poolCreator, and baseMint to sign the transaction.
-- If the `firstBuyParam` is not provided, the `swapBuyTx` will be undefined.
-- The `swapBuyTx` requires the buyer and payer to sign the transaction.
+- The `createPoolTx` requires the payer, poolCreator, and baseMint to sign the transaction. If `firstBuyParam` is provided, it also requires buyer/payer signatures for the appended first-buy instructions.
+- If the `firstBuyParam` is not provided, `createPoolTx` includes only pool-creation instructions.
 - The `receiver` parameter is an optional account. If provided, the token will be sent to the receiver address.
 
 ---
@@ -2118,7 +2118,6 @@ Creates a new pool with the config key and buys the token immediately.
 ```typescript
 async createPoolWithFirstBuy(params: CreatePoolWithFirstBuyParams): Promise<{
     createPoolTx: Transaction
-    swapBuyTx: Transaction | undefined
 }>
 ```
 
@@ -2148,7 +2147,7 @@ interface CreatePoolWithFirstBuyParams {
 
 **Returns**
 
-An object of transactions (containing createPoolTx and swapBuyTx) that requires signatures before being submitted to the network. Can be bundled together.
+An object containing `createPoolTx`, where first-buy instructions are included when `firstBuyParam` is provided and `buyAmount > 0`.
 
 **Example**
 
@@ -2177,7 +2176,7 @@ const transaction = await client.pool.createPoolWithFirstBuy({
 **Notes**
 
 - The `poolCreator` is required to sign when creating the pool.
-- The `buyer` is required to sign when buying the token.
+- The `buyer` is required to sign when `firstBuyParam` is provided.
 - The `baseMint` token type must be the same as the config key's token type.
 - The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
