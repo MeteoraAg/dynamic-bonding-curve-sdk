@@ -2192,11 +2192,7 @@ Creates a new pool with the config key and buys the token immediately with partn
 **Function**
 
 ```typescript
-async createPoolWithPartnerAndCreatorFirstBuy(params: CreatePoolWithPartnerAndCreatorFirstBuyParams): Promise<{
-    createPoolTx: Transaction
-    partnerSwapBuyTx: Transaction | undefined
-    creatorSwapBuyTx: Transaction | undefined
-}>
+async createPoolWithPartnerAndCreatorFirstBuy(params: CreatePoolWithPartnerAndCreatorFirstBuyParams): Promise<Transaction>
 ```
 
 **Parameters**
@@ -2233,7 +2229,7 @@ interface CreatePoolWithPartnerAndCreatorFirstBuyParams {
 
 **Returns**
 
-An object of transactions (containing createPoolTx, partnerSwapBuyTx, and creatorSwapBuyTx) that requires signatures before being submitted to the network. Can be bundled together.
+A single transaction containing pool creation and optional partner/creator first buy instructions. Partner and creator swap instructions are appended when their corresponding params are provided with `buyAmount > 0`.
 
 **Example**
 
@@ -2279,8 +2275,8 @@ const transaction = await client.pool.createPoolWithPartnerAndCreatorFirstBuy({
 **Notes**
 
 - The `poolCreator` is required to sign when creating the pool.
-- The `partner` is required to sign when buying the token.
-- The `creator` is required to sign when buying the token.
+- The `partner` is required to sign when `partnerFirstBuyParam` is provided with `buyAmount > 0`.
+- The `creator` is required to sign when `creatorFirstBuyParam` is provided with `buyAmount > 0`.
 - The `baseMint` token type must be the same as the config key's token type.
 - The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.

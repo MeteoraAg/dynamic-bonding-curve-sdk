@@ -688,15 +688,11 @@ export class PoolService extends DynamicBondingCurveProgram {
      * @param createPoolParam - The parameters for the pool
      * @param partnerFirstBuyParam - The parameters for the partner first buy
      * @param creatorFirstBuyParam - The parameters for the creator first buy
-     * @returns An object containing the new pool transaction and swap buy transactions for partner and creator
+     * @returns A single transaction containing pool creation and optional partner/creator first buy instructions
      */
     async createPoolWithPartnerAndCreatorFirstBuy(
         params: CreatePoolWithPartnerAndCreatorFirstBuyParams
-    ): Promise<{
-        createPoolTx: Transaction
-        partnerSwapBuyTx: Transaction | undefined
-        creatorSwapBuyTx: Transaction | undefined
-    }> {
+    ): Promise<Transaction> {
         const { createPoolParam, partnerFirstBuyParam, creatorFirstBuyParam } =
             params
         const { config } = createPoolParam
@@ -706,19 +702,18 @@ export class PoolService extends DynamicBondingCurveProgram {
         const { quoteMint, tokenType } = poolConfigState
 
         // create pool transaction
-        const createPoolTx = await this.createPoolTx(
+        const createPoolWithFirstBuysTx = await this.createPoolTx(
             createPoolParam,
             tokenType,
             quoteMint
         )
 
-        // create partner first buy transaction
-        let partnerSwapBuyTx: Transaction | undefined
+        // append partner first buy instructions into createPoolTx
         if (
             partnerFirstBuyParam &&
             partnerFirstBuyParam.buyAmount.gt(new BN(0))
         ) {
-            partnerSwapBuyTx = await this.swapBuyTx(
+            const partnerSwapBuyTx = await this.swapBuyTx(
                 {
                     buyer: partnerFirstBuyParam.partner,
                     receiver: partnerFirstBuyParam.receiver,
@@ -736,15 +731,15 @@ export class PoolService extends DynamicBondingCurveProgram {
                 quoteMint,
                 true
             )
+            createPoolWithFirstBuysTx.add(partnerSwapBuyTx)
         }
 
-        // create creator first buy transaction
-        let creatorSwapBuyTx: Transaction | undefined
+        // append creator first buy instructions into createPoolTx
         if (
             creatorFirstBuyParam &&
             creatorFirstBuyParam.buyAmount.gt(new BN(0))
         ) {
-            creatorSwapBuyTx = await this.swapBuyTx(
+            const creatorSwapBuyTx = await this.swapBuyTx(
                 {
                     buyer: creatorFirstBuyParam.creator,
                     receiver: creatorFirstBuyParam.receiver,
@@ -762,13 +757,10 @@ export class PoolService extends DynamicBondingCurveProgram {
                 quoteMint,
                 true
             )
+            createPoolWithFirstBuysTx.add(creatorSwapBuyTx)
         }
 
-        return {
-            createPoolTx,
-            partnerSwapBuyTx,
-            creatorSwapBuyTx,
-        }
+        return createPoolWithFirstBuysTx
     }
 
     /**
