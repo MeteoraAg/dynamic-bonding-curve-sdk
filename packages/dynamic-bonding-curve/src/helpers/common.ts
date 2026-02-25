@@ -302,8 +302,8 @@ export function getBaseTokenForSwap(
 ): BN {
     let totalAmount = new BN(0)
     for (let i = 0; i < curve.length; i++) {
-        const lowerSqrtPrice = i == 0 ? sqrtStartPrice : curve[i - 1].sqrtPrice
-        if (curve[i].sqrtPrice && curve[i].sqrtPrice.gt(sqrtMigrationPrice)) {
+        const lowerSqrtPrice = i === 0 ? sqrtStartPrice : curve[i - 1].sqrtPrice
+        if (curve[i].sqrtPrice.gt(sqrtMigrationPrice)) {
             const deltaAmount = getDeltaAmountBaseUnsigned(
                 lowerSqrtPrice,
                 sqrtMigrationPrice,

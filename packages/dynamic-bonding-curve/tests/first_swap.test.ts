@@ -162,7 +162,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
     test('should charge min fee when using SDK createPoolWithFirstBuy (bundled tx)', async () => {
         const amountIn = new BN(1_000_000_000) // 1 SOL
 
-        const { createPoolTx, swapBuyTx } =
+        const createPoolWithFirstBuyTx =
             await dbcClient.pool.createPoolWithFirstBuy({
                 createPoolParam: {
                     baseMint: baseMint.publicKey,
@@ -181,17 +181,9 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
                 },
             })
 
-        expect(swapBuyTx).toBeDefined()
+        createPoolWithFirstBuyTx.feePayer = poolCreator.publicKey
 
-        const bundledTx = new Transaction()
-        bundledTx.add(...createPoolTx.instructions)
-        if (swapBuyTx) {
-            bundledTx.add(...swapBuyTx.instructions)
-        }
-
-        bundledTx.feePayer = poolCreator.publicKey
-
-        await sendAndConfirmTransaction(connection, bundledTx, [
+        await sendAndConfirmTransaction(connection, createPoolWithFirstBuyTx, [
             poolCreator,
             baseMint,
         ])
@@ -289,7 +281,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
     test('should charge min fee when first swap with pool creation (with SYSVAR)', async () => {
         const amountIn = new BN(1_000_000_000)
 
-        const { createPoolTx, swapBuyTx } =
+        const createPoolWithFirstBuyTx =
             await dbcClient.pool.createPoolWithFirstBuy({
                 createPoolParam: {
                     baseMint: baseMint.publicKey,
@@ -308,15 +300,9 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
                 },
             })
 
-        expect(swapBuyTx).toBeDefined()
+        createPoolWithFirstBuyTx.feePayer = poolCreator.publicKey
 
-        const bundledTx = new Transaction()
-        bundledTx.add(...createPoolTx.instructions)
-        bundledTx.add(...swapBuyTx!.instructions)
-
-        bundledTx.feePayer = poolCreator.publicKey
-
-        await sendAndConfirmTransaction(connection, bundledTx, [
+        await sendAndConfirmTransaction(connection, createPoolWithFirstBuyTx, [
             poolCreator,
             baseMint,
         ])
@@ -344,17 +330,19 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
     test('should charge cliff fee when swap bundled WITHOUT SYSVAR', async () => {
         const amountIn = new BN(1_000_000_000)
 
-        const { createPoolTx, swapBuyTx } =
+        const createPoolParam = {
+            baseMint: baseMint.publicKey,
+            config: config.publicKey,
+            name: 'TEST',
+            symbol: 'TEST',
+            uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
+            payer: poolCreator.publicKey,
+            poolCreator: poolCreator.publicKey,
+        }
+
+        const createPoolWithFirstBuyTx =
             await dbcClient.pool.createPoolWithFirstBuy({
-                createPoolParam: {
-                    baseMint: baseMint.publicKey,
-                    config: config.publicKey,
-                    name: 'TEST',
-                    symbol: 'TEST',
-                    uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
-                    payer: poolCreator.publicKey,
-                    poolCreator: poolCreator.publicKey,
-                },
+                createPoolParam,
                 firstBuyParam: {
                     buyer: poolCreator.publicKey,
                     buyAmount: amountIn,
@@ -363,9 +351,17 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
                 },
             })
 
-        expect(swapBuyTx).toBeDefined()
+        const createOnlyPoolTx =
+            await dbcClient.pool.createPool(createPoolParam)
+        const createPoolIxCount = createOnlyPoolTx.instructions.length
+        const createPoolIxs = createPoolWithFirstBuyTx.instructions.slice(
+            0,
+            createPoolIxCount
+        )
+        const swapIxs =
+            createPoolWithFirstBuyTx.instructions.slice(createPoolIxCount)
 
-        const swapIxWithoutSysvar = swapBuyTx!.instructions.map((ix) => {
+        const swapIxWithoutSysvar = swapIxs.map((ix) => {
             // remove SYSVAR_INSTRUCTIONS_PUBKEY from keys if present
             const filteredKeys = ix.keys.filter(
                 (key) => !key.pubkey.equals(SYSVAR_INSTRUCTIONS_PUBKEY)
@@ -376,9 +372,9 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             }
         })
 
-        // combine into single transaction without SYSVAR
+        // combine into single transaction without SYSVAR on swap instructions
         const bundledTx = new Transaction()
-        bundledTx.add(...createPoolTx.instructions)
+        bundledTx.add(...createPoolIxs)
         swapIxWithoutSysvar.forEach((ix) =>
             bundledTx.add({
                 programId: ix.programId,
@@ -419,7 +415,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
     test('second swap after bundled first swap should charge cliff fee', async () => {
         const amountIn = new BN(1_000_000_000)
 
-        const { createPoolTx, swapBuyTx } =
+        const createPoolWithFirstBuyTx =
             await dbcClient.pool.createPoolWithFirstBuy({
                 createPoolParam: {
                     baseMint: baseMint.publicKey,
@@ -438,15 +434,9 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
                 },
             })
 
-        expect(swapBuyTx).toBeDefined()
+        createPoolWithFirstBuyTx.feePayer = poolCreator.publicKey
 
-        const bundledTx = new Transaction()
-        bundledTx.add(...createPoolTx.instructions)
-        bundledTx.add(...swapBuyTx!.instructions)
-
-        bundledTx.feePayer = poolCreator.publicKey
-
-        await sendAndConfirmTransaction(connection, bundledTx, [
+        await sendAndConfirmTransaction(connection, createPoolWithFirstBuyTx, [
             poolCreator,
             baseMint,
         ])
@@ -523,7 +513,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             newConfig.publicKey
         )
 
-        const { createConfigTx, createPoolTx, swapBuyTx } =
+        const { createConfigTx, createPoolWithFirstBuyTx } =
             await dbcClient.pool.createConfigAndPoolWithFirstBuy({
                 config: newConfig.publicKey,
                 feeClaimer: partner.publicKey,
@@ -547,8 +537,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             })
 
         expect(createConfigTx).toBeDefined()
-        expect(createPoolTx).toBeDefined()
-        expect(swapBuyTx).toBeDefined()
+        expect(createPoolWithFirstBuyTx).toBeDefined()
 
         createConfigTx.feePayer = poolCreator.publicKey
 
@@ -557,15 +546,9 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             newConfig,
         ])
 
-        const bundledTx = new Transaction()
-        bundledTx.add(...createPoolTx.instructions)
-        if (swapBuyTx) {
-            bundledTx.add(...swapBuyTx.instructions)
-        }
+        createPoolWithFirstBuyTx.feePayer = poolCreator.publicKey
 
-        bundledTx.feePayer = poolCreator.publicKey
-
-        await sendAndConfirmTransaction(connection, bundledTx, [
+        await sendAndConfirmTransaction(connection, createPoolWithFirstBuyTx, [
             poolCreator,
             newBaseMint,
         ])
