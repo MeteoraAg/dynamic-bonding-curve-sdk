@@ -5,7 +5,7 @@ import {
     sendAndConfirmTransaction,
 } from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
-import { fundSol } from './utils/common'
+import { fundSol, LOCALNET_RPC_URL } from './utils/common'
 import {
     ActivationType,
     BaseFeeMode,
@@ -26,7 +26,7 @@ import {
 import { BN } from 'bn.js'
 import { NATIVE_MINT } from '@solana/spl-token'
 
-const connection = new Connection('http://127.0.0.1:8899', 'confirmed')
+const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
 
 describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
     let partner: Keypair
