@@ -1,6 +1,6 @@
 import { Keypair, Connection, sendAndConfirmTransaction } from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
-import { fundSol } from './utils/common'
+import { fundSol, LOCALNET_RPC_URL } from './utils/common'
 import {
     ActivationType,
     BaseFeeMode,
@@ -20,7 +20,7 @@ import {
 } from '../src'
 import { NATIVE_MINT } from '@solana/spl-token'
 
-const connection = new Connection('http://127.0.0.1:8899', 'confirmed')
+const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
 
 describe('createPool tests', { timeout: 60000 }, () => {
     let partner: Keypair
