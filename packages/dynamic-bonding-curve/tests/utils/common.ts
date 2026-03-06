@@ -1,7 +1,7 @@
 import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 
-export const LOCALNET_RPC_URL = "http://127.0.0.1:8899";
+export const LOCALNET_RPC_URL = 'http://127.0.0.1:8899'
 
 // airdrop SOL to a given public key and confirms the transaction
 export async function fundSol(
