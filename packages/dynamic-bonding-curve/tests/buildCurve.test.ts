@@ -1,5 +1,10 @@
 import { expect, test, describe } from 'vitest'
-import { buildCurve, getMigratedPoolFeeParams } from '../src/helpers'
+import {
+    buildCurve,
+    getMigratedPoolFeeParams,
+    validateCompoundingFeeBps,
+    validateMigratedPoolFee,
+} from '../src/helpers'
 import BN from 'bn.js'
 import {
     ActivationType,
@@ -207,6 +212,186 @@ describe('getMigratedPoolFeeParams Unit Tests', () => {
         expect(result.migratedPoolMarketCapFeeSchedulerParams).toEqual(
             DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS
         )
+    })
+
+    test('Compounding mode should propagate compoundingFeeBps', () => {
+        const baseFeeParamsInput = {
+            baseFeeMode: BaseFeeMode.FeeSchedulerLinear as const,
+            feeSchedulerParam: {
+                startingFeeBps: 500,
+                endingFeeBps: 100,
+                numberOfPeriod: 10,
+                totalDuration: 3600,
+            },
+        }
+
+        const result = getMigratedPoolFeeParams(
+            MigrationOption.MET_DAMM_V2,
+            MigrationFeeOption.Customizable,
+            {
+                collectFeeMode: MigratedCollectFeeMode.Compounding,
+                dynamicFee: DammV2DynamicFeeMode.Enabled,
+                poolFeeBps: 300,
+                compoundingFeeBps: 500,
+            },
+            baseFeeParamsInput
+        )
+
+        expect(result.migrationFeeOption).toBe(MigrationFeeOption.Customizable)
+        expect(result.migratedPoolFee.collectFeeMode).toBe(
+            MigratedCollectFeeMode.Compounding
+        )
+        expect(result.compoundingFeeBps).toBe(500)
+    })
+
+    test('Compounding mode without compoundingFeeBps should default to 0', () => {
+        const baseFeeParamsInput = {
+            baseFeeMode: BaseFeeMode.FeeSchedulerLinear as const,
+            feeSchedulerParam: {
+                startingFeeBps: 500,
+                endingFeeBps: 100,
+                numberOfPeriod: 10,
+                totalDuration: 3600,
+            },
+        }
+
+        const result = getMigratedPoolFeeParams(
+            MigrationOption.MET_DAMM_V2,
+            MigrationFeeOption.Customizable,
+            {
+                collectFeeMode: MigratedCollectFeeMode.Compounding,
+                dynamicFee: DammV2DynamicFeeMode.Enabled,
+                poolFeeBps: 300,
+            },
+            baseFeeParamsInput
+        )
+
+        expect(result.compoundingFeeBps).toBe(0)
+    })
+
+    test('Non-compounding mode should have compoundingFeeBps = 0', () => {
+        const baseFeeParamsInput = {
+            baseFeeMode: BaseFeeMode.FeeSchedulerLinear as const,
+            feeSchedulerParam: {
+                startingFeeBps: 500,
+                endingFeeBps: 100,
+                numberOfPeriod: 10,
+                totalDuration: 3600,
+            },
+        }
+
+        const result = getMigratedPoolFeeParams(
+            MigrationOption.MET_DAMM_V2,
+            MigrationFeeOption.Customizable,
+            {
+                collectFeeMode: MigratedCollectFeeMode.QuoteToken,
+                dynamicFee: DammV2DynamicFeeMode.Enabled,
+                poolFeeBps: 300,
+            },
+            baseFeeParamsInput
+        )
+
+        expect(result.compoundingFeeBps).toBe(0)
+    })
+})
+
+describe('validateCompoundingFeeBps Tests', () => {
+    test('Compounding mode with valid compoundingFeeBps should pass', () => {
+        expect(
+            validateCompoundingFeeBps(MigratedCollectFeeMode.Compounding, 500)
+        ).toBe(true)
+    })
+
+    test('Compounding mode with compoundingFeeBps = 0 should fail', () => {
+        expect(
+            validateCompoundingFeeBps(MigratedCollectFeeMode.Compounding, 0)
+        ).toBe(false)
+    })
+
+    test('Compounding mode with compoundingFeeBps > MAX_BASIS_POINT should fail', () => {
+        expect(
+            validateCompoundingFeeBps(MigratedCollectFeeMode.Compounding, 10001)
+        ).toBe(false)
+    })
+
+    test('Non-compounding mode with compoundingFeeBps = 0 should pass', () => {
+        expect(
+            validateCompoundingFeeBps(MigratedCollectFeeMode.QuoteToken, 0)
+        ).toBe(true)
+        expect(
+            validateCompoundingFeeBps(MigratedCollectFeeMode.OutputToken, 0)
+        ).toBe(true)
+    })
+
+    test('Non-compounding mode with non-zero compoundingFeeBps should fail', () => {
+        expect(
+            validateCompoundingFeeBps(MigratedCollectFeeMode.QuoteToken, 100)
+        ).toBe(false)
+        expect(
+            validateCompoundingFeeBps(MigratedCollectFeeMode.OutputToken, 250)
+        ).toBe(false)
+    })
+})
+
+describe('validateMigratedPoolFee with Compounding mode', () => {
+    test('Compounding mode with valid compoundingFeeBps should pass validation', () => {
+        const result = validateMigratedPoolFee(
+            {
+                collectFeeMode: MigratedCollectFeeMode.Compounding,
+                dynamicFee: DammV2DynamicFeeMode.Enabled,
+                poolFeeBps: 300,
+            },
+            MigrationOption.MET_DAMM_V2,
+            MigrationFeeOption.Customizable,
+            undefined,
+            500
+        )
+        expect(result).toBe(true)
+    })
+
+    test('Compounding mode with compoundingFeeBps = 0 should fail validation', () => {
+        const result = validateMigratedPoolFee(
+            {
+                collectFeeMode: MigratedCollectFeeMode.Compounding,
+                dynamicFee: DammV2DynamicFeeMode.Enabled,
+                poolFeeBps: 300,
+            },
+            MigrationOption.MET_DAMM_V2,
+            MigrationFeeOption.Customizable,
+            undefined,
+            0
+        )
+        expect(result).toBe(false)
+    })
+
+    test('Compounding mode with omitted compoundingFeeBps should fail validation', () => {
+        const result = validateMigratedPoolFee(
+            {
+                collectFeeMode: MigratedCollectFeeMode.Compounding,
+                dynamicFee: DammV2DynamicFeeMode.Enabled,
+                poolFeeBps: 300,
+            },
+            MigrationOption.MET_DAMM_V2,
+            MigrationFeeOption.Customizable,
+            undefined,
+            undefined
+        )
+        expect(result).toBe(false)
+    })
+
+    test('Non-compounding mode with non-zero compoundingFeeBps should fail validation', () => {
+        const result = validateMigratedPoolFee(
+            {
+                collectFeeMode: MigratedCollectFeeMode.QuoteToken,
+                dynamicFee: DammV2DynamicFeeMode.Enabled,
+                poolFeeBps: 300,
+            },
+            MigrationOption.MET_DAMM_V2,
+            MigrationFeeOption.Customizable,
+            undefined,
+            100
+        )
+        expect(result).toBe(false)
     })
 })
 
