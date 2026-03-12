@@ -8,6 +8,7 @@ import {
     CollectFeeMode,
     DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
+    MigratedCollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
     TokenDecimal,
@@ -95,7 +96,7 @@ describe('buildCurve tests', () => {
 describe('getMigratedPoolFeeParams Unit Tests', () => {
     test('should return scheduler params when marketCapFeeSchedulerParams is provided with FeeMarketCapSchedulerLinear', () => {
         const migratedPoolFee = {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 500,
             baseFeeMode: DammV2BaseFeeMode.FeeMarketCapSchedulerLinear,
@@ -144,7 +145,7 @@ describe('getMigratedPoolFeeParams Unit Tests', () => {
 
     test('should return default scheduler params when using FeeTimeSchedulerLinear', () => {
         const migratedPoolFee = {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 500,
             baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
@@ -349,7 +350,7 @@ describe('Migration Fee Option Tests', () => {
                         creatorFeePercentage: 0,
                     },
                     migratedPoolFee: {
-                        collectFeeMode: CollectFeeMode.OutputToken,
+                        collectFeeMode: MigratedCollectFeeMode.OutputToken,
                         dynamicFee: DammV2DynamicFeeMode.Enabled,
                         poolFeeBps: 500, // this should be ignored
                     },
@@ -384,7 +385,7 @@ describe('Migration Fee Option Tests', () => {
                         creatorFeePercentage: 50,
                     },
                     migratedPoolFee: {
-                        collectFeeMode: CollectFeeMode.QuoteToken,
+                        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
                         dynamicFee: DammV2DynamicFeeMode.Enabled,
                         poolFeeBps: 250,
                     },
@@ -401,7 +402,7 @@ describe('Migration Fee Option Tests', () => {
             )
             expect(curveConfig.migratedPoolFee.poolFeeBps).toBe(250)
             expect(curveConfig.migratedPoolFee.collectFeeMode).toBe(
-                CollectFeeMode.QuoteToken
+                MigratedCollectFeeMode.QuoteToken
             )
             expect(curveConfig.migratedPoolFee.dynamicFee).toBe(
                 DammV2DynamicFeeMode.Enabled
@@ -453,7 +454,7 @@ describe('Migration Fee Option Tests', () => {
                         creatorFeePercentage: 25,
                     },
                     migratedPoolFee: {
-                        collectFeeMode: CollectFeeMode.OutputToken,
+                        collectFeeMode: MigratedCollectFeeMode.OutputToken,
                         dynamicFee: DammV2DynamicFeeMode.Disabled,
                         poolFeeBps: 100,
                     },
@@ -472,7 +473,7 @@ describe('Migration Fee Option Tests', () => {
                 DammV2DynamicFeeMode.Disabled
             )
             expect(curveConfig.migratedPoolFee.collectFeeMode).toBe(
-                CollectFeeMode.OutputToken
+                MigratedCollectFeeMode.OutputToken
             )
         })
     })
@@ -490,7 +491,7 @@ describe('Migration Fee Option Tests', () => {
                         creatorFeePercentage: 0,
                     },
                     migratedPoolFee: {
-                        collectFeeMode: CollectFeeMode.QuoteToken,
+                        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
                         dynamicFee: DammV2DynamicFeeMode.Enabled,
                         poolFeeBps: 500,
                         baseFeeMode:
@@ -558,7 +559,7 @@ describe('Migration Fee Option Tests', () => {
                         creatorFeePercentage: 0,
                     },
                     migratedPoolFee: {
-                        collectFeeMode: CollectFeeMode.QuoteToken,
+                        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
                         dynamicFee: DammV2DynamicFeeMode.Enabled,
                         poolFeeBps: 800,
                         baseFeeMode:
@@ -615,7 +616,7 @@ describe('Migration Fee Option Tests', () => {
                         creatorFeePercentage: 0,
                     },
                     migratedPoolFee: {
-                        collectFeeMode: CollectFeeMode.QuoteToken,
+                        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
                         dynamicFee: DammV2DynamicFeeMode.Disabled,
                         poolFeeBps: 200,
                         baseFeeMode:
@@ -658,7 +659,7 @@ describe('Migration Fee Option Tests', () => {
                         creatorFeePercentage: 0,
                     },
                     migratedPoolFee: {
-                        collectFeeMode: CollectFeeMode.QuoteToken,
+                        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
                         dynamicFee: DammV2DynamicFeeMode.Enabled,
                         poolFeeBps: 500,
                         baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
@@ -700,7 +701,7 @@ describe('Migration Fee Option Tests', () => {
                         creatorFeePercentage: 50,
                     },
                     migratedPoolFee: {
-                        collectFeeMode: CollectFeeMode.OutputToken,
+                        collectFeeMode: MigratedCollectFeeMode.OutputToken,
                         dynamicFee: DammV2DynamicFeeMode.Enabled,
                         poolFeeBps: 999, // Should be ignored for DAMM V1
                     },

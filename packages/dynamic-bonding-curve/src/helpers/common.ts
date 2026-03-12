@@ -1694,6 +1694,7 @@ export function getMigratedPoolFeeParams(
         migratedPoolMarketCapFeeSchedulerParams:
             DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
         migrationFeeOption,
+        compoundingFeeBps: 0,
     }
 
     // for DAMM_V1: always use default parameters
@@ -1727,8 +1728,8 @@ export function getMigratedPoolFeeParams(
                 },
                 migratedPoolBaseFeeMode: baseFeeMode,
                 migratedPoolMarketCapFeeSchedulerParams: schedulerParams,
-                // force Customizable when using market cap fee scheduler
                 migrationFeeOption: MigrationFeeOption.Customizable,
+                compoundingFeeBps: migratedPoolFee.compoundingFeeBps ?? 0,
             }
         }
 
@@ -1750,6 +1751,7 @@ export function getMigratedPoolFeeParams(
                 migratedPoolMarketCapFeeSchedulerParams:
                     DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
                 migrationFeeOption: MigrationFeeOption.Customizable,
+                compoundingFeeBps: migratedPoolFee?.compoundingFeeBps ?? 0,
             }
         }
 
@@ -1760,6 +1762,7 @@ export function getMigratedPoolFeeParams(
             migratedPoolMarketCapFeeSchedulerParams:
                 DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
             migrationFeeOption,
+            compoundingFeeBps: 0,
         }
     }
 

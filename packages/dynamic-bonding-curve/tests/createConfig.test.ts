@@ -12,6 +12,7 @@ import {
     createSqrtPrices,
     DammV2DynamicFeeMode,
     DynamicBondingCurveClient,
+    MigratedCollectFeeMode,
     getVestingLockedLiquidityBpsAtNSeconds,
     MigrationFeeOption,
     MigrationOption,
@@ -84,7 +85,7 @@ describe('createConfig tests', { timeout: 60000 }, () => {
                     creatorFeePercentage: 50,
                 },
                 migratedPoolFee: {
-                    collectFeeMode: CollectFeeMode.QuoteToken,
+                    collectFeeMode: MigratedCollectFeeMode.QuoteToken,
                     dynamicFee: DammV2DynamicFeeMode.Enabled,
                     poolFeeBps: 120,
                 },
@@ -328,7 +329,7 @@ describe('Locked Liquidity Validation Tests', () => {
                         creatorFeePercentage: 0,
                     },
                     migratedPoolFee: {
-                        collectFeeMode: CollectFeeMode.QuoteToken,
+                        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
                         dynamicFee: DammV2DynamicFeeMode.Enabled,
                         poolFeeBps: 120,
                     },
@@ -404,7 +405,7 @@ describe('Locked Liquidity Validation Tests', () => {
                         creatorFeePercentage: 0,
                     },
                     migratedPoolFee: {
-                        collectFeeMode: CollectFeeMode.QuoteToken,
+                        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
                         dynamicFee: DammV2DynamicFeeMode.Enabled,
                         poolFeeBps: 120,
                     },
