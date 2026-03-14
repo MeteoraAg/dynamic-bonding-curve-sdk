@@ -581,11 +581,7 @@ export function validateMinimumLockedLiquidity(
 export function validateMigratedCollectFeeMode(
     collectFeeMode: number
 ): boolean {
-    return [
-        MigratedCollectFeeMode.QuoteToken,
-        MigratedCollectFeeMode.OutputToken,
-        MigratedCollectFeeMode.Compounding,
-    ].includes(collectFeeMode)
+    return Object.values(MigratedCollectFeeMode).includes(collectFeeMode)
 }
 
 export function validateCompoundingFeeBps(
