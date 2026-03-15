@@ -157,9 +157,10 @@ interface CreateConfigParams {
     }
     migratedPoolFee: {
         // Only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
-        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken, 2: Compounding
         dynamicFee: number // 0: Disabled, 1: Enabled
         poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+        compoundingFeeBps?: number // Required when collectFeeMode = 2 (Compounding), otherwise must be 0
     }
     poolCreationFee: BN // The pool creation fee
     partnerLiquidityVestingInfo: {
@@ -404,7 +405,7 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 
 - Configures the graduated pool fee parameters for the migrated DAMM V2 pool.
 - Only applies when `migrationOption = MET_DAMM_V2` (1).
-- When using `migrationFeeOption = Customizable` (6), you can configure: `collectFeeMode`, `dynamicFee`, and `poolFeeBps`.
+- When using `migrationFeeOption = Customizable` (6), you can configure: `collectFeeMode`, `dynamicFee`, `poolFeeBps`, and `compoundingFeeBps`.
 - When `marketCapFeeSchedulerParams` is configured:
     - `poolFeeBps` must be greater than 0 (serves as the starting/cliff fee for the market cap scheduler).
     - `baseFeeMode` must be `FeeMarketCapSchedulerLinear` (3) or `FeeMarketCapSchedulerExponential` (4).
@@ -713,9 +714,10 @@ interface BuildCurveParams {
         }
         migratedPoolFee?: {
             // Optional. Configure only for DAMM V2 migration.
-            collectFeeMode: CollectFeeMode // 0: QuoteToken, 1: OutputToken
+            collectFeeMode: MigratedCollectFeeMode // 0: QuoteToken, 1: OutputToken, 2: Compounding
             dynamicFee: DammV2DynamicFeeMode // 0: Disabled, 1: Enabled
             poolFeeBps: number // The pool fee in basis points
+            compoundingFeeBps?: number // Required when collectFeeMode = 2 (Compounding), otherwise must be 0
             baseFeeMode?: DammV2BaseFeeMode // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential
             marketCapFeeSchedulerParams?: {
                 // Configure for market cap-based fee scheduling
@@ -879,7 +881,7 @@ const curveConfigWithScheduler = buildCurve({
         migrationFeeOption: MigrationFeeOption.FixedBps100, // Will be auto-overridden to Customizable
         migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
         migratedPoolFee: {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 120,
             baseFeeMode: DammV2BaseFeeMode.FeeMarketCapSchedulerLinear,
@@ -942,12 +944,13 @@ const transaction = await client.partner.createConfig({
 - `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`. Slot is 400ms, Timestamp is 1000ms.
 - **Migration Fee Option behavior:**
     - **Fixed options (0-5):** Uses default migrated pool fee parameters. Any custom `migratedPoolFee` values are ignored.
-    - **Customizable (6):** Uses your custom `migratedPoolFee` values. Falls back to defaults for any omitted fields.
+    - **Customizable (6):** Uses your custom `migratedPoolFee` values. Falls back to defaults for any omitted fields (including `compoundingFeeBps`, which defaults to `0`).
     - **Auto-override:** When `marketCapFeeSchedulerParams` is configured inside `migratedPoolFee`, the SDK automatically overrides `migrationFeeOption` to `Customizable` regardless of what you set. This is required by the on-chain program.
 - When using `marketCapFeeSchedulerParams`:
     - `baseFeeMode` must be `DammV2BaseFeeMode.FeeMarketCapSchedulerLinear` (3) or `FeeMarketCapSchedulerExponential` (4).
     - `endingBaseFeeBps` must be strictly less than the bonding curve's `baseFeeParams.feeSchedulerParam.endingFeeBps`.
     - `poolFeeBps` must be greater than 0.
+- If `migratedPoolFee.collectFeeMode = MigratedCollectFeeMode.Compounding` (2), `compoundingFeeBps` must be `> 0` and `<= 10_000`; otherwise `compoundingFeeBps` must be `0`.
 - For DAMM V1 migration, all `migratedPoolFee` parameters are ignored and defaults are used.
 
 ---
@@ -1019,7 +1022,7 @@ const curveConfig = buildCurveWithMarketCap({
         migrationFeeOption: MigrationFeeOption.Customizable,
         migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
         migratedPoolFee: {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 120,
         },
@@ -1144,7 +1147,7 @@ const curveConfig = buildCurveWithTwoSegments({
         migrationFeeOption: MigrationFeeOption.Customizable,
         migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
         migratedPoolFee: {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 120,
         },
@@ -1257,7 +1260,7 @@ const curveConfig = buildCurveWithMidPrice({
         migrationFeeOption: MigrationFeeOption.Customizable,
         migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
         migratedPoolFee: {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 120,
         },
@@ -1378,7 +1381,7 @@ const curveConfig = buildCurveWithLiquidityWeights({
         migrationFeeOption: MigrationFeeOption.Customizable,
         migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
         migratedPoolFee: {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 120,
         },
@@ -1514,7 +1517,7 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
         migrationFeeOption: MigrationFeeOption.Customizable,
         migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
         migratedPoolFee: {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 120,
         },
@@ -1697,9 +1700,10 @@ interface CreateConfigAndPoolParams {
     }
     migratedPoolFee: {
         // Only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
-        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken, 2: Compounding
         dynamicFee: number // 0: Disabled, 1: Enabled
         poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+        compoundingFeeBps?: number // Required when collectFeeMode = 2 (Compounding), otherwise must be 0
     }
     migratedPoolBaseFeeMode: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeTimeSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams: {
@@ -1931,9 +1935,10 @@ interface CreateConfigAndPoolWithFirstBuyParams {
     }
     migratedPoolFee: {
         // Only when migrationOption = MET_DAMM_V2 (1) and migrationFeeOption = Customizable (6)
-        collectFeeMode: number // 0: QuoteToken, 1: OutputToken
+        collectFeeMode: number // 0: QuoteToken, 1: OutputToken, 2: Compounding
         dynamicFee: number // 0: Disabled, 1: Enabled
         poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
+        compoundingFeeBps?: number // Required when collectFeeMode = 2 (Compounding), otherwise must be 0
     }
     migratedPoolBaseFeeMode: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeTimeSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams: {

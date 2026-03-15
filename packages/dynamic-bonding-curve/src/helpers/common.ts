@@ -30,7 +30,7 @@ import {
     MAX_FEE_BPS,
     MAX_FEE_NUMERATOR,
     MAX_LOCK_DURATION_IN_SECONDS,
-    MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT,
+    MAX_PRICE_CHANGE_BPS_DEFAULT,
     MAX_RATE_LIMITER_DURATION_IN_SECONDS,
     MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     MAX_SQRT_PRICE,
@@ -1110,15 +1110,15 @@ export function getRateLimiterParams(
  */
 export function getDynamicFeeParams(
     baseFeeBps: number,
-    maxPriceChangePercentage: number = MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT // default 15%
+    maxPriceChangeBps: number = MAX_PRICE_CHANGE_BPS_DEFAULT // default 15%
 ): DynamicFeeParameters {
-    if (maxPriceChangePercentage > MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT) {
+    if (maxPriceChangeBps > MAX_PRICE_CHANGE_BPS_DEFAULT) {
         throw new Error(
-            `maxPriceChangePercentage (${maxPriceChangePercentage}%) must be less than or equal to ${MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT}`
+            `maxPriceChangeBps (${maxPriceChangeBps} bps) must be less than or equal to ${MAX_PRICE_CHANGE_BPS_DEFAULT}`
         )
     }
 
-    const priceRatio = maxPriceChangePercentage / MAX_BASIS_POINT + 1
+    const priceRatio = maxPriceChangeBps / MAX_BASIS_POINT + 1
     // Q64
     const sqrtPriceRatioQ64 = new BN(
         Decimal.sqrt(priceRatio.toString())
@@ -1138,10 +1138,7 @@ export function getDynamicFeeParams(
         .pow(new BN(2))
 
     const baseFeeNumerator = new BN(bpsToFeeNumerator(baseFeeBps))
-
-    const maxDynamicFeeNumerator = baseFeeNumerator
-        .muln(maxPriceChangePercentage)
-        .divn(100) // default max dynamic fee = 20% of min base fee
+    const maxDynamicFeeNumerator = baseFeeNumerator.muln(20).divn(100) // default max dynamic fee = 20% of base fee.
     const vFee = maxDynamicFeeNumerator
         .mul(new BN(100_000_000_000))
         .sub(new BN(99_999_999_999))
@@ -1158,7 +1155,6 @@ export function getDynamicFeeParams(
         variableFeeControl: variableFeeControl.toNumber(),
     }
 }
-
 /**
  * Derive the starting base fee BPS from baseFeeParams
  * For FeeSchedulerLinear/FeeSchedulerExponential: uses endingFeeBps (the fee at end of pre-migration curve)
@@ -1694,6 +1690,7 @@ export function getMigratedPoolFeeParams(
         migratedPoolMarketCapFeeSchedulerParams:
             DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
         migrationFeeOption,
+        compoundingFeeBps: 0,
     }
 
     // for DAMM_V1: always use default parameters
@@ -1710,7 +1707,7 @@ export function getMigratedPoolFeeParams(
         // when marketCapFeeSchedulerParams is configured, use custom values
         if (migratedPoolFee?.marketCapFeeSchedulerParams && baseFeeParams) {
             const schedulerParams = getMigratedPoolMarketCapFeeSchedulerParams(
-                getStartingBaseFeeBpsFromBaseFeeParams(baseFeeParams),
+                migratedPoolFee.poolFeeBps,
                 migratedPoolFee.marketCapFeeSchedulerParams.endingBaseFeeBps,
                 baseFeeMode,
                 migratedPoolFee.marketCapFeeSchedulerParams.numberOfPeriod,
@@ -1727,8 +1724,8 @@ export function getMigratedPoolFeeParams(
                 },
                 migratedPoolBaseFeeMode: baseFeeMode,
                 migratedPoolMarketCapFeeSchedulerParams: schedulerParams,
-                // force Customizable when using market cap fee scheduler
                 migrationFeeOption: MigrationFeeOption.Customizable,
+                compoundingFeeBps: migratedPoolFee.compoundingFeeBps ?? 0,
             }
         }
 
@@ -1750,6 +1747,7 @@ export function getMigratedPoolFeeParams(
                 migratedPoolMarketCapFeeSchedulerParams:
                     DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
                 migrationFeeOption: MigrationFeeOption.Customizable,
+                compoundingFeeBps: migratedPoolFee?.compoundingFeeBps ?? 0,
             }
         }
 
@@ -1760,6 +1758,7 @@ export function getMigratedPoolFeeParams(
             migratedPoolMarketCapFeeSchedulerParams:
                 DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
             migrationFeeOption,
+            compoundingFeeBps: 0,
         }
     }
 

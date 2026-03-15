@@ -266,6 +266,7 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
         migratedPoolMarketCapFeeSchedulerParams:
             migratedPoolFeeResult.migratedPoolMarketCapFeeSchedulerParams,
         enableFirstSwapWithMinFee,
+        compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
         padding: [],
         curve,
     }
@@ -625,6 +626,7 @@ export function buildCurveWithTwoSegments(
         migratedPoolMarketCapFeeSchedulerParams:
             migratedPoolFeeResult.migratedPoolMarketCapFeeSchedulerParams,
         enableFirstSwapWithMinFee,
+        compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
         padding: [],
         curve,
         tokenUpdateAuthority,
@@ -892,6 +894,7 @@ export function buildCurveWithMidPrice(
         migratedPoolMarketCapFeeSchedulerParams:
             migratedPoolFeeResult.migratedPoolMarketCapFeeSchedulerParams,
         enableFirstSwapWithMinFee,
+        compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
         padding: [],
         curve,
         tokenUpdateAuthority,
@@ -1186,6 +1189,7 @@ export function buildCurveWithLiquidityWeights(
         migratedPoolMarketCapFeeSchedulerParams:
             migratedPoolFeeResult.migratedPoolMarketCapFeeSchedulerParams,
         enableFirstSwapWithMinFee,
+        compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
         padding: [],
         curve,
         migrationFee,
@@ -1498,6 +1502,7 @@ export function buildCurveWithCustomSqrtPrices(
         migratedPoolMarketCapFeeSchedulerParams:
             migratedPoolFeeResult.migratedPoolMarketCapFeeSchedulerParams,
         enableFirstSwapWithMinFee,
+        compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
         padding: [],
         curve,
         migrationFee,

@@ -20,15 +20,15 @@ export type CreateConfigAccounts = Accounts<
 >['createConfig']
 
 export type CreateDammV1MigrationMetadataAccounts = Accounts<
-    DynamicBondingCurve['instructions']['19']
+    DynamicBondingCurve['instructions']['20']
 >['migrationMeteoraDammCreateMetadata']
 
 export type InitializeSplPoolAccounts = Accounts<
-    DynamicBondingCurve['instructions']['12']
+    DynamicBondingCurve['instructions']['13']
 >['initializeVirtualPoolWithSplToken']
 
 export type InitializeToken2022PoolAccounts = Accounts<
-    DynamicBondingCurve['instructions']['13']
+    DynamicBondingCurve['instructions']['14']
 >['initializeVirtualPoolWithToken2022']
 
 ///////////////
@@ -111,6 +111,12 @@ export enum TokenType {
 export enum CollectFeeMode {
     QuoteToken = 0,
     OutputToken = 1,
+}
+
+export enum MigratedCollectFeeMode {
+    QuoteToken = 0,
+    OutputToken = 1,
+    Compounding = 2,
 }
 
 export enum DammV2DynamicFeeMode {
@@ -262,9 +268,10 @@ export type MigrationFee = {
 }
 
 export type MigratedPoolFeeConfig = {
-    collectFeeMode: CollectFeeMode
+    collectFeeMode: MigratedCollectFeeMode
     dynamicFee: DammV2DynamicFeeMode
     poolFeeBps: number
+    compoundingFeeBps?: number
     baseFeeMode?: DammV2BaseFeeMode
     marketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParams
 }
@@ -643,13 +650,14 @@ export type ClaimPartnerPoolCreationFeeParams = {
 
 export type MigratedPoolFeeResult = {
     migratedPoolFee: {
-        collectFeeMode: CollectFeeMode
+        collectFeeMode: MigratedCollectFeeMode
         dynamicFee: DammV2DynamicFeeMode
         poolFeeBps: number
     }
     migratedPoolBaseFeeMode: DammV2BaseFeeMode
     migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParameters
     migrationFeeOption: MigrationFeeOption
+    compoundingFeeBps: number
 }
 
 ////////////////
