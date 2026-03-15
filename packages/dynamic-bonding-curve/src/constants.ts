@@ -41,7 +41,7 @@ export const DYNAMIC_FEE_ROUNDING_OFFSET = new BN(99_999_999_999)
 export const BIN_STEP_BPS_DEFAULT = 1
 //  bin_step << 64 / MAX_BASIS_POINT
 export const BIN_STEP_BPS_U128_DEFAULT = new BN('1844674407370955')
-export const MAX_PRICE_CHANGE_PERCENTAGE_DEFAULT = 20 // 20%
+export const MAX_PRICE_CHANGE_BPS_DEFAULT = 1500; // 15%
 
 // Protocol Fee
 export const PROTOCOL_FEE_PERCENT = 20 // 20%

@@ -15,6 +15,10 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - Updated migration flow for DAMM v2 to remove position vesting accounts from `migrateDammV2` remaining accounts.
 - Removed `deriveDammV2PositionVestingAccount` PDA helper.
 
+### Fixed
+
+- Fixed `getDynamicFeeParams` function to correctly calculate the dynamic fee parameters based on the max price change bps
+
 ## [1.5.5] - 2026-02-25
 
 ### Changed
