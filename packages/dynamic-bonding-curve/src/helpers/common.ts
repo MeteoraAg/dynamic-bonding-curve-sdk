@@ -1707,7 +1707,7 @@ export function getMigratedPoolFeeParams(
         // when marketCapFeeSchedulerParams is configured, use custom values
         if (migratedPoolFee?.marketCapFeeSchedulerParams && baseFeeParams) {
             const schedulerParams = getMigratedPoolMarketCapFeeSchedulerParams(
-                getStartingBaseFeeBpsFromBaseFeeParams(baseFeeParams),
+                migratedPoolFee.poolFeeBps,
                 migratedPoolFee.marketCapFeeSchedulerParams.endingBaseFeeBps,
                 baseFeeMode,
                 migratedPoolFee.marketCapFeeSchedulerParams.numberOfPeriod,
