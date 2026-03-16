@@ -2,6 +2,23 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.6] - 2026-03-12
+
+### Added
+
+- Added `MigratedCollectFeeMode` enum with `Compounding` (2) support for migrated DAMM v2 pool configuration.
+- Added `compoundingFeeBps` support in `MigratedPoolFeeConfig` and propagated it through all `buildCurve*` helpers.
+
+### Changed
+
+- Updated migrated pool fee validation to require `compoundingFeeBps > 0` only when `collectFeeMode = MigratedCollectFeeMode.Compounding`, and `0` otherwise.
+- Updated migration flow for DAMM v2 to remove position vesting accounts from `migrateDammV2` remaining accounts.
+- Removed `deriveDammV2PositionVestingAccount` PDA helper.
+
+### Fixed
+
+- Fixed `getDynamicFeeParams` function to correctly calculate the dynamic fee parameters based on the max price change bps
+
 ## [1.5.5] - 2026-02-25
 
 ### Changed

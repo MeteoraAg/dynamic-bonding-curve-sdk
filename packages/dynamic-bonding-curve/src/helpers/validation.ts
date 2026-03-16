@@ -25,6 +25,7 @@ import {
     DynamicFeeParameters,
     LiquidityVestingInfoParameters,
     LockedVestingParameters,
+    MigratedCollectFeeMode,
     MigratedPoolFee,
     MigratedPoolMarketCapFeeSchedulerParameters,
     MigrationFeeOption,
@@ -577,18 +578,38 @@ export function validateMinimumLockedLiquidity(
     return lockedBpsAtDay1 >= MIN_LOCKED_LIQUIDITY_BPS
 }
 
+export function validateMigratedCollectFeeMode(
+    collectFeeMode: number
+): boolean {
+    return Object.values(MigratedCollectFeeMode).includes(collectFeeMode)
+}
+
+export function validateCompoundingFeeBps(
+    collectFeeMode: number,
+    compoundingFeeBps: number
+): boolean {
+    if (collectFeeMode === MigratedCollectFeeMode.Compounding) {
+        return compoundingFeeBps > 0 && compoundingFeeBps <= MAX_BASIS_POINT
+    }
+    return compoundingFeeBps === 0
+}
+
 export function validateMigratedPoolFee(
     migratedPoolFee: MigratedPoolFee,
     migrationOption?: MigrationOption,
     migrationFeeOption?: MigrationFeeOption,
-    migratedPoolMarketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParameters
+    migratedPoolMarketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParameters,
+    compoundingFeeBps?: number
 ): boolean {
+    const effectiveCompoundingFeeBps = compoundingFeeBps ?? 0
+
     // check if migratedPoolFee is empty (all fields are 0)
     const isEmpty = () => {
         return (
             migratedPoolFee.collectFeeMode === 0 &&
             migratedPoolFee.dynamicFee === 0 &&
-            migratedPoolFee.poolFeeBps === 0
+            migratedPoolFee.poolFeeBps === 0 &&
+            effectiveCompoundingFeeBps === 0
         )
     }
 
@@ -637,8 +658,18 @@ export function validateMigratedPoolFee(
         return false
     }
 
-    // validate collect fee mode (0 = QuoteToken, 1 = OutputToken)
-    if (!validateCollectFeeMode(migratedPoolFee.collectFeeMode)) {
+    // validate collect fee mode (0 = QuoteToken, 1 = OutputToken, 2 = Compounding)
+    if (!validateMigratedCollectFeeMode(migratedPoolFee.collectFeeMode)) {
+        return false
+    }
+
+    // validate compounding fee BPS consistency with collect fee mode
+    if (
+        !validateCompoundingFeeBps(
+            migratedPoolFee.collectFeeMode,
+            effectiveCompoundingFeeBps
+        )
+    ) {
         return false
     }
 
@@ -862,7 +893,8 @@ export function validateConfigParameters(
                 configParam.migratedPoolFee,
                 configParam.migrationOption,
                 configParam.migrationFeeOption,
-                configParam.migratedPoolMarketCapFeeSchedulerParams
+                configParam.migratedPoolMarketCapFeeSchedulerParams,
+                configParam.compoundingFeeBps
             )
         ) {
             throw new Error('Invalid migrated pool fee parameters')

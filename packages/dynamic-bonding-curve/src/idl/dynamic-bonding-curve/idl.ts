@@ -8,7 +8,7 @@ export type DynamicBondingCurve = {
     address: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
     metadata: {
         name: 'dynamicBondingCurve'
-        version: '0.1.9'
+        version: '0.1.10'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -214,8 +214,7 @@ export type DynamicBondingCurve = {
                     writable: true
                 },
                 {
-                    name: 'claimFeeOperator'
-                    docs: ['Claim fee operator']
+                    name: 'operator'
                 },
                 {
                     name: 'signer'
@@ -287,12 +286,11 @@ export type DynamicBondingCurve = {
                     writable: true
                 },
                 {
-                    name: 'claimFeeOperator'
-                    docs: ['Claim fee operator']
+                    name: 'operator'
                 },
                 {
                     name: 'signer'
-                    docs: ['Operator']
+                    docs: ['operator']
                     signer: true
                 },
                 {
@@ -491,84 +489,20 @@ export type DynamicBondingCurve = {
             args: []
         },
         {
-            name: 'createClaimProtocolFeeOperator'
-            discriminator: [51, 19, 150, 252, 105, 157, 48, 91]
+            name: 'closeOperatorAccount'
+            discriminator: [171, 9, 213, 74, 120, 23, 3, 29]
             accounts: [
                 {
-                    name: 'claimFeeOperator'
-                    writable: true
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    99,
-                                    102,
-                                    95,
-                                    111,
-                                    112,
-                                    101,
-                                    114,
-                                    97,
-                                    116,
-                                    111,
-                                    114,
-                                ]
-                            },
-                            {
-                                kind: 'account'
-                                path: 'operator'
-                            },
-                        ]
-                    }
-                },
-                {
                     name: 'operator'
+                    writable: true
                 },
                 {
                     name: 'signer'
                     signer: true
                 },
                 {
-                    name: 'payer'
+                    name: 'rentReceiver'
                     writable: true
-                    signer: true
-                },
-                {
-                    name: 'systemProgram'
-                    address: '11111111111111111111111111111111'
-                },
-                {
-                    name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
-                },
-                {
-                    name: 'program'
                 },
             ]
             args: []
@@ -737,6 +671,82 @@ export type DynamicBondingCurve = {
                 },
             ]
             args: []
+        },
+        {
+            name: 'createOperatorAccount'
+            discriminator: [221, 64, 246, 149, 240, 153, 229, 163]
+            accounts: [
+                {
+                    name: 'operator'
+                    writable: true
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [111, 112, 101, 114, 97, 116, 111, 114]
+                            },
+                            {
+                                kind: 'account'
+                                path: 'whitelistedAddress'
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'whitelistedAddress'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                },
+                {
+                    name: 'payer'
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'systemProgram'
+                    address: '11111111111111111111111111111111'
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'permission'
+                    type: 'u128'
+                },
+            ]
         },
         {
             name: 'createPartnerMetadata'
@@ -2654,6 +2664,58 @@ export type DynamicBondingCurve = {
                 },
             ]
         },
+        {
+            name: 'zapProtocolFee'
+            discriminator: [213, 155, 187, 34, 56, 182, 91, 240]
+            accounts: [
+                {
+                    name: 'poolAuthority'
+                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
+                },
+                {
+                    name: 'config'
+                    relations: ['pool']
+                },
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'tokenVault'
+                    writable: true
+                },
+                {
+                    name: 'tokenMint'
+                },
+                {
+                    name: 'receiverToken'
+                    writable: true
+                },
+                {
+                    name: 'operator'
+                    docs: ['zap claim fee operator']
+                },
+                {
+                    name: 'signer'
+                    docs: ['operator']
+                    signer: true
+                },
+                {
+                    name: 'tokenProgram'
+                    docs: ['Token program']
+                },
+                {
+                    name: 'sysvarInstructions'
+                    address: 'Sysvar1nstructions1111111111111111111111111'
+                },
+            ]
+            args: [
+                {
+                    name: 'maxAmount'
+                    type: 'u64'
+                },
+            ]
+        },
     ]
     accounts: [
         {
@@ -2671,6 +2733,10 @@ export type DynamicBondingCurve = {
         {
             name: 'meteoraDammMigrationMetadata'
             discriminator: [17, 155, 141, 215, 207, 4, 133, 156]
+        },
+        {
+            name: 'operator'
+            discriminator: [219, 31, 188, 145, 69, 139, 204, 117]
         },
         {
             name: 'partnerMetadata'
@@ -3079,6 +3145,51 @@ export type DynamicBondingCurve = {
             name: 'incorrectAta'
             msg: 'Incorrect ATA'
         },
+        {
+            code: 6059
+            name: 'insufficientPoolLamports'
+            msg: 'Pool has insufficient lamports to perform the operation'
+        },
+        {
+            code: 6060
+            name: 'invalidPermission'
+            msg: 'Invalid permission'
+        },
+        {
+            code: 6061
+            name: 'invalidWithdrawProtocolFeeZapAccounts'
+            msg: 'Invalid withdraw protocol fee zap accounts'
+        },
+        {
+            code: 6062
+            name: 'mintRestrictedFromZap'
+            msg: 'SOL,USDC protocol fee cannot be withdrawn via zap'
+        },
+        {
+            code: 6063
+            name: 'invalidZapOutParameters'
+            msg: 'Invalid zap out parameters'
+        },
+        {
+            code: 6064
+            name: 'cpiDisabled'
+            msg: 'CPI disabled'
+        },
+        {
+            code: 6065
+            name: 'missingZapOutInstruction'
+            msg: 'Missing zap out instruction'
+        },
+        {
+            code: 6066
+            name: 'invalidZapAccounts'
+            msg: 'Invalid zap accounts'
+        },
+        {
+            code: 6067
+            name: 'invalidCompoundingParameters'
+            msg: 'Invalid compounding parameters'
+        },
     ]
     types: [
         {
@@ -3355,10 +3466,14 @@ export type DynamicBondingCurve = {
                         type: 'bool'
                     },
                     {
+                        name: 'compoundingFeeBps'
+                        type: 'u16'
+                    },
+                    {
                         name: 'padding'
                         docs: ['padding for future use']
                         type: {
-                            array: ['u8', 4]
+                            array: ['u8', 2]
                         }
                     },
                     {
@@ -4525,6 +4640,32 @@ export type DynamicBondingCurve = {
             }
         },
         {
+            name: 'operator'
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'whitelistedAddress'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'permission'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'padding'
+                        type: {
+                            array: ['u64', 2]
+                        }
+                    },
+                ]
+            }
+        },
+        {
             name: 'partnerMetadata'
             docs: ['Metadata for a partner.']
             type: {
@@ -4781,11 +4922,11 @@ export type DynamicBondingCurve = {
                         type: 'u8'
                     },
                     {
-                        name: 'padding1'
-                        docs: ['padding 1']
-                        type: {
-                            array: ['u8', 2]
-                        }
+                        name: 'migratedCompoundingFeeBps'
+                        docs: [
+                            'compounding fee bps for migrated DAMM v2 pool, should only be non-zero if migrated_collect_fee_mode is 2 (Compounding)',
+                        ]
+                        type: 'u16'
                     },
                     {
                         name: 'poolCreationFee'
@@ -4794,7 +4935,9 @@ export type DynamicBondingCurve = {
                     },
                     {
                         name: 'migratedPoolBaseFeeBytes'
-                        docs: ['padding 2']
+                        docs: [
+                            'serialized MigratedPoolMarketCapFeeSchedulerParams, only used when migrated_pool_base_fee_mode is market cap scheduler',
+                        ]
                         type: {
                             array: ['u8', 16]
                         }

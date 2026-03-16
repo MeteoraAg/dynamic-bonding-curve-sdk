@@ -39,7 +39,6 @@ import {
     deriveDammV1LockEscrowAddress,
     deriveDammV1ProtocolFeeAddress,
     deriveLockerEventAuthority,
-    deriveDammV2PositionVestingAccount,
 } from '../helpers'
 import type { DammV1 } from '../idl/damm-v1/idl'
 import type {
@@ -755,27 +754,11 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 ? TOKEN_PROGRAM_ID
                 : TOKEN_2022_PROGRAM_ID
 
-        const firstPositionVestingAddress =
-            deriveDammV2PositionVestingAccount(firstPosition)
-
-        const secondPositionVestingAddress =
-            deriveDammV2PositionVestingAccount(secondPosition)
-
         const remainingAccounts: AccountMeta[] = [
             {
                 isSigner: false,
                 isWritable: false,
                 pubkey: dammConfig,
-            },
-            {
-                isSigner: false,
-                isWritable: true,
-                pubkey: firstPositionVestingAddress,
-            },
-            {
-                isSigner: false,
-                isWritable: true,
-                pubkey: secondPositionVestingAddress,
             },
         ]
 

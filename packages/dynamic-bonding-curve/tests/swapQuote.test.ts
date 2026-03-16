@@ -18,6 +18,7 @@ import {
     DammV2DynamicFeeMode,
     deriveDbcPoolAddress,
     DynamicBondingCurveClient,
+    MigratedCollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
     TokenDecimal,
@@ -100,7 +101,7 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
                     creatorFeePercentage: 50,
                 },
                 migratedPoolFee: {
-                    collectFeeMode: CollectFeeMode.QuoteToken,
+                    collectFeeMode: MigratedCollectFeeMode.QuoteToken,
                     dynamicFee: DammV2DynamicFeeMode.Enabled,
                     poolFeeBps: 120,
                     baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
