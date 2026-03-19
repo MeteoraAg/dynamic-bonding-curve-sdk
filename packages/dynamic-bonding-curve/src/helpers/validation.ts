@@ -599,9 +599,9 @@ export function validateMigratedPoolFee(
     migrationOption?: MigrationOption,
     migrationFeeOption?: MigrationFeeOption,
     migratedPoolMarketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParameters,
-    compoundingFeeBps?: number
+    compoundingFeeBps: number = 0
 ): boolean {
-    const effectiveCompoundingFeeBps = compoundingFeeBps ?? 0
+    const effectiveCompoundingFeeBps = compoundingFeeBps
 
     // check if migratedPoolFee is empty (all fields are 0)
     const isEmpty = () => {

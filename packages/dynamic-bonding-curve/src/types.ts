@@ -1,98 +1,720 @@
-import type {
-    Accounts,
-    BN,
-    IdlAccounts,
-    IdlTypes,
-    Program,
-} from '@coral-xyz/anchor'
+import type { BN, Program } from '@coral-xyz/anchor'
 import type { DynamicBondingCurve } from './idl/dynamic-bonding-curve/idl'
 import type { Keypair, PublicKey, Transaction } from '@solana/web3.js'
-import { DynamicBondingCurve as DynamicBondingCurveIDL } from './idl/dynamic-bonding-curve/idl'
 
-export type DynamicCurveProgram = Program<DynamicBondingCurveIDL>
+export type DynamicCurveProgram = Program<DynamicBondingCurve>
 
 /////////////////
 // IX ACCOUNTS //
 /////////////////
 
-export type CreateConfigAccounts = Accounts<
-    DynamicBondingCurve['instructions']['7']
->['createConfig']
+/**
+ * Accounts for the `createConfig` instruction (IX 7)
+ */
+export interface CreateConfigAccounts {
+    /** The config account to create (writable, signer) */
+    config: PublicKey
+    /** Partner address that receives trading fees */
+    feeClaimer: PublicKey
+    /** Address to receive extra base tokens after migration (for fixed supply tokens) */
+    leftoverReceiver: PublicKey
+    /** Quote token mint address */
+    quoteMint: PublicKey
+    /** Transaction payer (writable, signer) */
+    payer: PublicKey
+    /** System program */
+    systemProgram: PublicKey
+    /** Event authority PDA */
+    eventAuthority: PublicKey
+    /** DBC program */
+    program: PublicKey
+}
 
-export type CreateDammV1MigrationMetadataAccounts = Accounts<
-    DynamicBondingCurve['instructions']['20']
->['migrationMeteoraDammCreateMetadata']
+/**
+ * Accounts for the `initializeVirtualPoolWithSplToken` instruction (IX 13)
+ */
+export interface InitializeSplPoolAccounts {
+    /** Pool config account */
+    config: PublicKey
+    /** Pool authority (fixed address) */
+    poolAuthority: PublicKey
+    /** Pool creator (signer) */
+    creator: PublicKey
+    /** Base token mint (writable, signer) */
+    baseMint: PublicKey
+    /** Quote token mint */
+    quoteMint: PublicKey
+    /** Virtual pool account to create (writable) */
+    pool: PublicKey
+    /** Base token vault (writable) */
+    baseVault: PublicKey
+    /** Quote token vault (writable) */
+    quoteVault: PublicKey
+    /** Token metadata account (writable, optional) */
+    mintMetadata?: PublicKey
+    /** Metadata program */
+    metadataProgram: PublicKey
+    /** Transaction payer (writable, signer) */
+    payer: PublicKey
+    /** Quote token program */
+    tokenQuoteProgram: PublicKey
+    /** SPL Token program */
+    tokenProgram: PublicKey
+    /** System program */
+    systemProgram: PublicKey
+    /** Event authority PDA */
+    eventAuthority: PublicKey
+    /** DBC program */
+    program: PublicKey
+}
 
-export type InitializeSplPoolAccounts = Accounts<
-    DynamicBondingCurve['instructions']['13']
->['initializeVirtualPoolWithSplToken']
+/**
+ * Accounts for the `initializeVirtualPoolWithToken2022` instruction (IX 14)
+ */
+export interface InitializeToken2022PoolAccounts {
+    /** Pool config account */
+    config: PublicKey
+    /** Pool authority (fixed address) */
+    poolAuthority: PublicKey
+    /** Pool creator (signer) */
+    creator: PublicKey
+    /** Base token mint (writable, signer) */
+    baseMint: PublicKey
+    /** Quote token mint */
+    quoteMint: PublicKey
+    /** Virtual pool account to create (writable) */
+    pool: PublicKey
+    /** Base token vault (writable) */
+    baseVault: PublicKey
+    /** Quote token vault (writable) */
+    quoteVault: PublicKey
+    /** Transaction payer (writable, signer) */
+    payer: PublicKey
+    /** Quote token program (Token2022) */
+    tokenQuoteProgram: PublicKey
+    /** Token2022 program */
+    tokenProgram: PublicKey
+    /** System program */
+    systemProgram: PublicKey
+    /** Event authority PDA */
+    eventAuthority: PublicKey
+    /** DBC program */
+    program: PublicKey
+}
 
-export type InitializeToken2022PoolAccounts = Accounts<
-    DynamicBondingCurve['instructions']['14']
->['initializeVirtualPoolWithToken2022']
+/**
+ * Accounts for the `migrationMeteoraDammCreateMetadata` instruction (IX 20)
+ */
+export interface CreateDammV1MigrationMetadataAccounts {
+    /** The virtual pool being migrated */
+    virtualPool: PublicKey
+    /** Pool config account */
+    config: PublicKey
+    /** Migration metadata account to create (writable) */
+    migrationMetadata: PublicKey
+    /** Transaction payer (writable, signer) */
+    payer: PublicKey
+    /** System program */
+    systemProgram: PublicKey
+    /** Event authority PDA */
+    eventAuthority: PublicKey
+    /** DBC program */
+    program: PublicKey
+}
 
 ///////////////
-// IDL Types //
+// IDL TYPES //
 ///////////////
 
-export type ConfigParameters = IdlTypes<DynamicBondingCurve>['configParameters']
-export type LockedVestingParameters =
-    IdlTypes<DynamicBondingCurve>['lockedVestingParams']
+/**
+ * Base fee configuration for pool
+ */
+export interface BaseFeeConfig {
+    /** Base fee numerator in bps (basis points) */
+    cliffFeeNumerator: BN
+    /** Second factor for fee calculation */
+    secondFactor: BN
+    /** Third factor for fee calculation */
+    thirdFactor: BN
+    /** First factor for fee calculation */
+    firstFactor: number
+    /** Base fee mode: 0=Scheduler Linear, 1=Scheduler Exponential, 2=Rate Limiter, etc. */
+    baseFeeMode: number
+}
 
-export type InitializePoolParameters =
-    IdlTypes<DynamicBondingCurve>['initializePoolParameters']
+/**
+ * Base fee parameters for pool creation
+ */
+export interface BaseFeeParameters {
+    /** Base fee numerator in bps */
+    cliffFeeNumerator: BN
+    /** First factor for fee calculation */
+    firstFactor: number
+    /** Second factor for fee calculation */
+    secondFactor: BN
+    /** Third factor for fee calculation */
+    thirdFactor: BN
+    /** Base fee mode */
+    baseFeeMode: number
+}
 
-export type PoolFeeParameters =
-    IdlTypes<DynamicBondingCurve>['poolFeeParameters']
+/**
+ * Dynamic fee configuration for pool
+ */
+export interface DynamicFeeConfig {
+    /** Whether dynamic fee is initialized (0=no, 1=yes) */
+    initialized: number
+    /** Maximum volatility accumulator value */
+    maxVolatilityAccumulator: number
+    /** Variable fee control parameter */
+    variableFeeControl: number
+    /** Bin step for price movement */
+    binStep: number
+    /** Filter period in slots/seconds */
+    filterPeriod: number
+    /** Decay period in slots/seconds */
+    decayPeriod: number
+    /** Reduction factor per period */
+    reductionFactor: number
+    /** Bin step as u128 fixed point */
+    binStepU128: BN
+}
 
-export type DynamicFeeParameters =
-    IdlTypes<DynamicBondingCurve>['dynamicFeeParameters']
+/**
+ * Dynamic fee parameters for pool creation
+ */
+export interface DynamicFeeParameters {
+    /** Bin step for price movement */
+    binStep: number
+    /** Bin step as u128 fixed point */
+    binStepU128: BN
+    /** Filter period in slots/seconds */
+    filterPeriod: number
+    /** Decay period in slots/seconds */
+    decayPeriod: number
+    /** Reduction factor per period */
+    reductionFactor: number
+    /** Maximum volatility accumulator value */
+    maxVolatilityAccumulator: number
+    /** Variable fee control parameter */
+    variableFeeControl: number
+}
 
-export type LiquidityDistributionParameters =
-    IdlTypes<DynamicBondingCurve>['liquidityDistributionParameters']
+/**
+ * Pool fee configuration combining base and dynamic fees
+ */
+export interface PoolFeesConfig {
+    /** Base fee configuration */
+    baseFee: BaseFeeConfig
+    /** Dynamic fee configuration */
+    dynamicFee: DynamicFeeConfig
+}
 
-export type MigratedPoolMarketCapFeeSchedulerParameters =
-    IdlTypes<DynamicBondingCurve>['migratedPoolMarketCapFeeSchedulerParams']
+/**
+ * Pool fee parameters for creation
+ */
+export interface PoolFeeParameters {
+    /** Base fee parameters */
+    baseFee: BaseFeeParameters
+    /** Dynamic fee parameters (optional) */
+    dynamicFee?: DynamicFeeParameters | null
+}
 
-export type LiquidityVestingInfoParameters =
-    IdlTypes<DynamicBondingCurve>['liquidityVestingInfoParams']
+/**
+ * Liquidity distribution at a specific price point
+ */
+export interface LiquidityDistributionParameters {
+    /** Price point as sqrt(price) in Q64.64 format */
+    sqrtPrice: BN
+    /** Liquidity amount at this price point */
+    liquidity: BN
+}
 
-export type CreatePartnerMetadataParameters =
-    IdlTypes<DynamicBondingCurve>['createPartnerMetadataParameters']
+/**
+ * Liquidity distribution configuration for the bonding curve
+ */
+export interface LiquidityDistributionConfig {
+    /** Price point as sqrt(price) in Q64.64 format */
+    sqrtPrice: BN
+    /** Liquidity amount at this price point */
+    liquidity: BN
+}
 
-export type PoolFeesConfig = IdlTypes<DynamicBondingCurve>['poolFeesConfig']
+/**
+ * Liquidity vesting information parameters
+ */
+export interface LiquidityVestingInfoParams {
+    /** Whether this vesting schedule is initialized */
+    isInitialized: number
+    /** Percentage of liquidity subject to vesting (0-100) */
+    vestingPercentage: number
+    /** Basis points released per period (0-10000) */
+    bpsPerPeriod: number
+    /** Number of vesting periods */
+    numberOfPeriods: number
+    /** Cliff duration from migration time in seconds */
+    cliffDurationFromMigrationTime: number
+    /** Frequency of vesting periods in seconds */
+    frequency: number
+}
 
-export type BaseFeeConfig = IdlTypes<DynamicBondingCurve>['baseFeeConfig']
+/**
+ * Locked vesting configuration (strict vesting schedule)
+ */
+export interface LockedVestingConfig {
+    /** Amount released per vesting period */
+    amountPerPeriod: BN
+    /** Cliff duration from migration time in seconds */
+    cliffDurationFromMigrationTime: BN
+    /** Frequency of vesting periods in seconds */
+    frequency: BN
+    /** Total number of vesting periods */
+    numberOfPeriod: BN
+    /** Amount unlocked at cliff */
+    cliffUnlockAmount: BN
+}
 
-export type DynamicFeeConfig = IdlTypes<DynamicBondingCurve>['dynamicFeeConfig']
+/**
+ * Locked vesting parameters for pool creation
+ */
+export interface LockedVestingParameters {
+    /** Total amount per vesting period */
+    amountPerPeriod: BN
+    /** Cliff duration from migration time in seconds */
+    cliffDurationFromMigrationTime: BN
+    /** Frequency of vesting periods in seconds */
+    frequency: BN
+    /** Total number of vesting periods */
+    numberOfPeriod: BN
+    /** Amount unlocked at cliff */
+    cliffUnlockAmount: BN
+}
 
-export type MigratedPoolFee = IdlTypes<DynamicBondingCurve>['migratedPoolFee']
+/**
+ * Pool metrics tracking aggregate fees
+ */
+export interface PoolMetrics {
+    /** Total accumulated protocol base fees */
+    totalProtocolBaseFee: BN
+    /** Total accumulated protocol quote fees */
+    totalProtocolQuoteFee: BN
+    /** Total accumulated trading base fees */
+    totalTradingBaseFee: BN
+    /** Total accumulated trading quote fees */
+    totalTradingQuoteFee: BN
+}
 
-export type SwapResult = IdlTypes<DynamicBondingCurve>['swapResult']
+/**
+ * Token supply parameters
+ */
+export interface TokenSupplyParams {
+    /** Total token supply before migration */
+    preMigrationTokenSupply: BN
+    /** Total token supply after migration */
+    postMigrationTokenSupply: BN
+}
 
-export type SwapResult2 = IdlTypes<DynamicBondingCurve>['swapResult2']
+/**
+ * Migration fee breakdown
+ */
+export interface MigrationFeeOnChain {
+    /** Overall migration fee percentage (0-100) */
+    feePercentage: number
+    /** Creator's share of migration fee (0-100) */
+    creatorFeePercentage: number
+}
 
-export type VolatilityTracker =
-    IdlTypes<DynamicBondingCurve>['volatilityTracker']
+/**
+ * Initialize pool parameters
+ */
+export interface InitializePoolParameters {
+    /** Pool name */
+    name: string
+    /** Pool symbol */
+    symbol: string
+    /** Pool URI/metadata URI */
+    uri: string
+}
+
+/**
+ * Create partner metadata parameters
+ */
+export interface CreatePartnerMetadataParameters {
+    /** Partner name */
+    name: string
+    /** Partner website URL */
+    website: string
+    /** Partner logo URL */
+    logo: string
+}
+
+/**
+ * Migrated pool fee configuration for DAMM v2 pools
+ */
+export interface MigratedPoolFee {
+    /** Fee collection mode: 0=QuoteToken, 1=OutputToken, 2=Compounding */
+    collectFeeMode: number
+    /** Dynamic fee mode for migrated pool */
+    dynamicFee: number
+    /** Pool fee in basis points */
+    poolFeeBps: number
+}
+
+/**
+ * Migrated pool market cap fee scheduler parameters
+ */
+export interface MigratedPoolMarketCapFeeSchedulerParameters {
+    /** Number of fee reduction periods */
+    numberOfPeriod: number
+    /** Basis points per sqrt price step */
+    sqrtPriceStepBps: number
+    /** Scheduler expiration duration in seconds */
+    schedulerExpirationDuration: number
+    /** Fee reduction factor per period */
+    reductionFactor: BN
+}
+
+/**
+ * Configuration parameters for pool creation (all parameters needed to initialize a pool)
+ */
+export interface ConfigParameters {
+    /** Pool fee configuration */
+    poolFees: PoolFeeParameters
+    /** Fee collection mode: 0=QuoteToken, 1=OutputToken */
+    collectFeeMode: number
+    /** Migration option: 0=DAMM v1, 1=DAMM v2 */
+    migrationOption: number
+    /** Activation type: 0=Slot, 1=Timestamp */
+    activationType: number
+    /** Base token type: 0=SPL, 1=Token2022 */
+    tokenType: number
+    /** Base token decimals */
+    tokenDecimal: number
+    /** Partner liquidity percentage of migrated supply */
+    partnerLiquidityPercentage: number
+    /** Partner permanently locked liquidity percentage */
+    partnerPermanentLockedLiquidityPercentage: number
+    /** Creator liquidity percentage of migrated supply */
+    creatorLiquidityPercentage: number
+    /** Creator permanently locked liquidity percentage */
+    creatorPermanentLockedLiquidityPercentage: number
+    /** Migration quote threshold (in quote token units) */
+    migrationQuoteThreshold: BN
+    /** Starting price as sqrt(price) in Q64.64 */
+    sqrtStartPrice: BN
+    /** Locked vesting configuration */
+    lockedVesting: LockedVestingConfig
+    /** Migration fee option: 0-5=Fixed, 6=Customizable */
+    migrationFeeOption: number
+    /** Token supply parameters (optional) */
+    tokenSupply?: TokenSupplyParams | null
+    /** Creator trading fee percentage (0-100) */
+    creatorTradingFeePercentage: number
+    /** Token update authority option */
+    tokenUpdateAuthority: number
+    /** Migration fee configuration */
+    migrationFee: MigrationFeeOnChain
+    /** Migrated pool fee configuration */
+    migratedPoolFee: MigratedPoolFee
+    /** Pool creation fee in lamports */
+    poolCreationFee: BN
+    /** Partner liquidity vesting information */
+    partnerLiquidityVestingInfo: LiquidityVestingInfoParams
+    /** Creator liquidity vesting information */
+    creatorLiquidityVestingInfo: LiquidityVestingInfoParams
+    /** Migrated pool base fee mode */
+    migratedPoolBaseFeeMode: number
+    /** Migrated pool market cap fee scheduler parameters */
+    migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParameters
+    /** Whether creator's first swap gets minimum fee */
+    enableFirstSwapWithMinFee: boolean
+    /** Compounding fee in basis points (for DAMM v2 Compounding mode) */
+    compoundingFeeBps: number
+    /** Bonding curve segments (up to 20 price points) */
+    curve: LiquidityDistributionParameters[]
+}
+
+/**
+ * Swap result with fee breakdown
+ */
+export interface SwapResult {
+    /** Actual input amount swapped */
+    actualInputAmount: BN
+    /** Output amount received */
+    outputAmount: BN
+    /** Next sqrt price after swap */
+    nextSqrtPrice: BN
+    /** Trading fee amount */
+    tradingFee: BN
+    /** Protocol fee amount */
+    protocolFee: BN
+    /** Referral fee amount */
+    referralFee: BN
+}
+
+/**
+ * Swap result for swap2 instruction (with separate fee handling)
+ */
+export interface SwapResult2 {
+    /** Input amount with fee included */
+    includedFeeInputAmount: BN
+    /** Input amount with fee excluded */
+    excludedFeeInputAmount: BN
+    /** Amount remaining after partial fill */
+    amountLeft: BN
+    /** Output amount received */
+    outputAmount: BN
+    /** Next sqrt price after swap */
+    nextSqrtPrice: BN
+    /** Trading fee amount */
+    tradingFee: BN
+    /** Protocol fee amount */
+    protocolFee: BN
+    /** Referral fee amount */
+    referralFee: BN
+}
+
+/**
+ * Volatility tracker for dynamic fee calculation
+ */
+export interface VolatilityTracker {
+    /** Unix timestamp of last update */
+    lastUpdateTimestamp: BN
+    /** Reference sqrt price for volatility calculation */
+    sqrtPriceReference: BN
+    /** Accumulated volatility */
+    volatilityAccumulator: BN
+    /** Reference volatility */
+    volatilityReference: BN
+}
 
 //////////////////
 // IDL ACCOUNTS //
 //////////////////
 
-export type PoolConfig = IdlAccounts<DynamicBondingCurve>['poolConfig']
+/**
+ * Pool configuration account - stores all static and semi-static pool parameters
+ */
+export interface PoolConfig {
+    /** Quote token mint address */
+    quoteMint: PublicKey
+    /** Partner/fee claimer address that receives trading fees */
+    feeClaimer: PublicKey
+    /** Address to receive leftover base tokens after migration (for fixed supply tokens) */
+    leftoverReceiver: PublicKey
+    /** Pool fee configuration */
+    poolFees: PoolFeesConfig
+    /** Partner liquidity vesting information */
+    partnerLiquidityVestingInfo: LiquidityVestingInfoParams
+    /** Creator liquidity vesting information */
+    creatorLiquidityVestingInfo: LiquidityVestingInfoParams
+    /** Fee collection mode: 0=QuoteToken, 1=OutputToken */
+    collectFeeMode: number
+    /** Migration option: 0=DAMM v1, 1=DAMM v2 */
+    migrationOption: number
+    /** Activation type: 0=Slot, 1=Timestamp */
+    activationType: number
+    /** Base token decimals */
+    tokenDecimal: number
+    /** Config version number */
+    version: number
+    /** Base token type: 0=SPL, 1=Token2022 */
+    tokenType: number
+    /** Quote token flag */
+    quoteTokenFlag: number
+    /** Partner permanently locked liquidity percentage */
+    partnerPermanentLockedLiquidityPercentage: number
+    /** Partner liquidity percentage of migrated supply */
+    partnerLiquidityPercentage: number
+    /** Creator permanently locked liquidity percentage */
+    creatorPermanentLockedLiquidityPercentage: number
+    /** Creator liquidity percentage of migrated supply */
+    creatorLiquidityPercentage: number
+    /** Migration fee option: 0-5=Fixed, 6=Customizable */
+    migrationFeeOption: number
+    /** Token supply flag: 0=dynamic, 1=fixed */
+    fixedTokenSupplyFlag: number
+    /** Creator trading fee percentage */
+    creatorTradingFeePercentage: number
+    /** Token update authority option */
+    tokenUpdateAuthority: number
+    /** Migration fee percentage */
+    migrationFeePercentage: number
+    /** Creator's share of migration fee percentage */
+    creatorMigrationFeePercentage: number
+    /** Amount of base tokens available for swaps */
+    swapBaseAmount: BN
+    /** Quote reserve threshold needed to trigger migration */
+    migrationQuoteThreshold: BN
+    /** Base reserve threshold at migration point */
+    migrationBaseThreshold: BN
+    /** Sqrt price at migration point */
+    migrationSqrtPrice: BN
+    /** Locked vesting configuration */
+    lockedVestingConfig: LockedVestingConfig
+    /** Total token supply before migration */
+    preMigrationTokenSupply: BN
+    /** Total token supply after migration */
+    postMigrationTokenSupply: BN
+    /** Migrated pool fee collection mode: 0=QuoteToken, 1=OutputToken, 2=Compounding */
+    migratedCollectFeeMode: number
+    /** Migrated pool dynamic fee mode */
+    migratedDynamicFee: number
+    /** Migrated pool fee in basis points */
+    migratedPoolFeeBps: number
+    /** Migrated pool base fee mode */
+    migratedPoolBaseFeeMode: number
+    /** Whether creator's first swap gets minimum fee */
+    enableFirstSwapWithMinFee: number
+    /** Compounding fee in basis points (for DAMM v2 Compounding mode) */
+    migratedCompoundingFeeBps: number
+    /** Pool creation fee in lamports */
+    poolCreationFee: BN
+    /** Starting price as sqrt(price) in Q64.64 */
+    sqrtStartPrice: BN
+    /** Bonding curve segments (up to 20 price points) */
+    curve: LiquidityDistributionConfig[]
+}
 
-export type VirtualPool = IdlAccounts<DynamicBondingCurve>['virtualPool']
+/**
+ * Virtual pool account - stores dynamic pool state (reserves, fees, prices)
+ */
+export interface VirtualPool {
+    /** Volatility tracker for dynamic fee calculation */
+    volatilityTracker: VolatilityTracker
+    /** Pool configuration account address */
+    config: PublicKey
+    /** Pool creator address */
+    creator: PublicKey
+    /** Base token mint address */
+    baseMint: PublicKey
+    /** Base token vault address */
+    baseVault: PublicKey
+    /** Quote token vault address */
+    quoteVault: PublicKey
+    /** Current base token reserve */
+    baseReserve: BN
+    /** Current quote token reserve */
+    quoteReserve: BN
+    /** Accumulated protocol base fees */
+    protocolBaseFee: BN
+    /** Accumulated protocol quote fees */
+    protocolQuoteFee: BN
+    /** Accumulated partner base fees */
+    partnerBaseFee: BN
+    /** Accumulated partner quote fees */
+    partnerQuoteFee: BN
+    /** Current price as sqrt(price) in Q64.64 */
+    sqrtPrice: BN
+    /** Slot or timestamp when pool becomes active */
+    activationPoint: BN
+    /** Pool type: 0=SPL Token, 1=Token2022 */
+    poolType: number
+    /** Whether pool has been migrated: 0=no, 1=yes */
+    isMigrated: number
+    /** Whether partner has withdrawn surplus: 0=no, 1=yes */
+    isPartnerWithdrawSurplus: number
+    /** Whether protocol has withdrawn surplus: 0=no, 1=yes */
+    isProtocolWithdrawSurplus: number
+    /** Current migration progress (0-100) */
+    migrationProgress: number
+    /** Whether leftover tokens have been withdrawn: 0=no, 1=yes */
+    isWithdrawLeftover: number
+    /** Whether creator has withdrawn surplus: 0=no, 1=yes */
+    isCreatorWithdrawSurplus: number
+    /** Migration fee withdrawal status */
+    migrationFeeWithdrawStatus: number
+    /** Pool usage metrics */
+    metrics: PoolMetrics
+    /** Unix timestamp when bonding curve was completed */
+    finishCurveTimestamp: BN
+    /** Accumulated creator base fees */
+    creatorBaseFee: BN
+    /** Accumulated creator quote fees */
+    creatorQuoteFee: BN
+    /** Pool creation fee claim status flags */
+    creationFeeBits: number
+}
 
-export type MeteoraDammMigrationMetadata =
-    IdlAccounts<DynamicBondingCurve>['meteoraDammMigrationMetadata']
+/**
+ * Migration metadata for DAMM v1 liquidity migration
+ */
+export interface MeteoraDammMigrationMetadata {
+    /** The virtual pool being migrated */
+    virtualPool: PublicKey
+    /** Partner address */
+    partner: PublicKey
+    /** LP token mint from the migrated DAMM v1 pool */
+    lpMint: PublicKey
+    /** Partner's locked LP token amount */
+    partnerLockedLiquidity: BN
+    /** Partner's claimable LP token amount */
+    partnerLiquidity: BN
+    /** Creator's locked LP token amount */
+    creatorLockedLiquidity: BN
+    /** Creator's claimable LP token amount */
+    creatorLiquidity: BN
+    /** Whether creator's liquidity is locked: 0=no, 1=yes */
+    creatorLockedStatus: number
+    /** Whether partner's liquidity is locked: 0=no, 1=yes */
+    partnerLockedStatus: number
+    /** Whether creator has claimed LP tokens: 0=no, 1=yes */
+    creatorClaimStatus: number
+    /** Whether partner has claimed LP tokens: 0=no, 1=yes */
+    partnerClaimStatus: number
+}
 
-export type LockEscrow = IdlAccounts<DynamicBondingCurve>['lockEscrow']
+/**
+ * Lock escrow account for locking LP tokens
+ */
+export interface LockEscrow {
+    /** The pool this lock escrow belongs to */
+    pool: PublicKey
+    /** Owner of this lock escrow */
+    owner: PublicKey
+    /** Token account holding the locked LP tokens */
+    escrowVault: PublicKey
+    /** PDA bump seed */
+    bump: number
+    /** Total LP tokens locked in this escrow */
+    totalLockedAmount: BN
+    /** LP tokens per base token at lock time */
+    lpPerToken: BN
+    /** Pending unclaimed fees */
+    unclaimedFeePending: BN
+    /** Accumulated fees in token A */
+    aFee: BN
+    /** Accumulated fees in token B */
+    bFee: BN
+}
 
-export type PartnerMetadata =
-    IdlAccounts<DynamicBondingCurve>['partnerMetadata']
+/**
+ * Partner metadata account
+ */
+export interface PartnerMetadata {
+    /** Fee claimer address (partner) */
+    feeClaimer: PublicKey
+    /** Partner name */
+    name: string
+    /** Partner website URL */
+    website: string
+    /** Partner logo URL */
+    logo: string
+}
 
-export type VirtualPoolMetadata =
-    IdlAccounts<DynamicBondingCurve>['virtualPoolMetadata']
+/**
+ * Virtual pool metadata account
+ */
+export interface VirtualPoolMetadata {
+    /** The virtual pool this metadata belongs to */
+    virtualPool: PublicKey
+    /** Project name */
+    name: string
+    /** Project website URL */
+    website: string
+    /** Project logo URL */
+    logo: string
+}
 
 ///////////
 // ENUMS //
@@ -276,13 +898,6 @@ export type MigratedPoolFeeConfig = {
     marketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParams
 }
 
-export type MigratedPoolMarketCapFeeSchedulerParams = {
-    endingBaseFeeBps: number
-    numberOfPeriod: number
-    sqrtPriceStepBps: number
-    schedulerExpirationDuration: number
-}
-
 export type MigrationConfig = {
     migrationOption: MigrationOption
     migrationFeeOption: MigrationFeeOption
@@ -290,7 +905,7 @@ export type MigrationConfig = {
     migratedPoolFee?: MigratedPoolFeeConfig
 }
 
-export type LiquidityVestingInfoParams = {
+export type LiquidityVestingInfoParams_Input = {
     vestingPercentage: number
     bpsPerPeriod: number
     numberOfPeriods: number
@@ -298,13 +913,13 @@ export type LiquidityVestingInfoParams = {
     totalDuration: number
 }
 
-export type LiquidityDistributionConfig = {
+export type LiquidityDistributionConfig_Input = {
     partnerPermanentLockedLiquidityPercentage: number
     partnerLiquidityPercentage: number
-    partnerLiquidityVestingInfoParams?: LiquidityVestingInfoParams
+    partnerLiquidityVestingInfoParams?: LiquidityVestingInfoParams_Input
     creatorPermanentLockedLiquidityPercentage: number
     creatorLiquidityPercentage: number
-    creatorLiquidityVestingInfoParams?: LiquidityVestingInfoParams
+    creatorLiquidityVestingInfoParams?: LiquidityVestingInfoParams_Input
 }
 
 export type LockedVestingParams = {
@@ -319,7 +934,7 @@ export type BuildCurveBaseParams = {
     token: TokenConfig
     fee: FeeConfig
     migration: MigrationConfig
-    liquidityDistribution: LiquidityDistributionConfig
+    liquidityDistribution: LiquidityDistributionConfig_Input
     lockedVesting: LockedVestingParams
     activationType: ActivationType
 }
