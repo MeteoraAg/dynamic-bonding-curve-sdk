@@ -279,7 +279,8 @@ export type MigratedPoolFeeConfig = {
 export type MigratedPoolMarketCapFeeSchedulerParams = {
     endingBaseFeeBps: number
     numberOfPeriod: number
-    sqrtPriceStepBps: number
+    startingMarketCap: number
+    endingMarketCap: number
     schedulerExpirationDuration: number
 }
 

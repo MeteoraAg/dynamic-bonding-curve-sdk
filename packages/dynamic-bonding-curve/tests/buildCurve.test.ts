@@ -108,7 +108,8 @@ describe('getMigratedPoolFeeParams Unit Tests', () => {
             marketCapFeeSchedulerParams: {
                 endingBaseFeeBps: 50,
                 numberOfPeriod: 10,
-                sqrtPriceStepBps: 100,
+                startingMarketCap: 20000,
+                endingMarketCap: 20000000,
                 schedulerExpirationDuration: 86400,
             },
         }
@@ -135,9 +136,6 @@ describe('getMigratedPoolFeeParams Unit Tests', () => {
             result.migratedPoolMarketCapFeeSchedulerParams.numberOfPeriod
         ).toBe(10)
         expect(
-            result.migratedPoolMarketCapFeeSchedulerParams.sqrtPriceStepBps
-        ).toBe(100)
-        expect(
             result.migratedPoolMarketCapFeeSchedulerParams
                 .schedulerExpirationDuration
         ).toBe(86400)
@@ -157,7 +155,8 @@ describe('getMigratedPoolFeeParams Unit Tests', () => {
             marketCapFeeSchedulerParams: {
                 endingBaseFeeBps: 100,
                 numberOfPeriod: 10,
-                sqrtPriceStepBps: 100,
+                startingMarketCap: 20000,
+                endingMarketCap: 20000000,
                 schedulerExpirationDuration: 86400,
             },
         }
@@ -684,7 +683,8 @@ describe('Migration Fee Option Tests', () => {
                         marketCapFeeSchedulerParams: {
                             endingBaseFeeBps: 50,
                             numberOfPeriod: 10,
-                            sqrtPriceStepBps: 100,
+                            startingMarketCap: 20000,
+                            endingMarketCap: 20000000,
                             schedulerExpirationDuration: 86400,
                         },
                     },
@@ -705,10 +705,6 @@ describe('Migration Fee Option Tests', () => {
                 curveConfig.migratedPoolMarketCapFeeSchedulerParams
                     .numberOfPeriod
             ).toBe(10)
-            expect(
-                curveConfig.migratedPoolMarketCapFeeSchedulerParams
-                    .sqrtPriceStepBps
-            ).toBe(100)
             expect(
                 curveConfig.migratedPoolMarketCapFeeSchedulerParams
                     .schedulerExpirationDuration
@@ -752,7 +748,8 @@ describe('Migration Fee Option Tests', () => {
                         marketCapFeeSchedulerParams: {
                             endingBaseFeeBps: 50,
                             numberOfPeriod: 15,
-                            sqrtPriceStepBps: 200,
+                            startingMarketCap: 20000,
+                            endingMarketCap: 20000000,
                             schedulerExpirationDuration: 172800,
                         },
                     },
@@ -809,7 +806,8 @@ describe('Migration Fee Option Tests', () => {
                         marketCapFeeSchedulerParams: {
                             endingBaseFeeBps: 50,
                             numberOfPeriod: 5,
-                            sqrtPriceStepBps: 50,
+                            startingMarketCap: 20000,
+                            endingMarketCap: 20000000,
                             schedulerExpirationDuration: 43200,
                         },
                     },
@@ -851,7 +849,8 @@ describe('Migration Fee Option Tests', () => {
                         marketCapFeeSchedulerParams: {
                             endingBaseFeeBps: 100,
                             numberOfPeriod: 10,
-                            sqrtPriceStepBps: 100,
+                            startingMarketCap: 20000,
+                            endingMarketCap: 20000000,
                             schedulerExpirationDuration: 86400,
                         },
                     },

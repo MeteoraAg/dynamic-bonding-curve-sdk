@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.6] - 2026-03-24
+
+### Changed
+
+- Updated `getMigratedPoolMarketCapFeeSchedulerParams` function to use `startingMarketCap` and `endingMarketCap` instead of `sqrtPriceStepBps`
+
 ## [1.5.6] - 2026-03-12
 
 ### Added
