@@ -18,6 +18,7 @@ import {
     deriveDbcPoolAddress,
     DynamicBondingCurveClient,
     DynamicBondingCurveKitClient,
+    MigratedCollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
     TokenDecimal,
@@ -39,8 +40,7 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
         tokenType: TokenType.SPL,
         tokenBaseDecimal: TokenDecimal.SIX,
         tokenQuoteDecimal: TokenDecimal.NINE,
-        tokenUpdateAuthority:
-            TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+        tokenUpdateAuthority: TokenUpdateAuthorityOption.PartnerUpdateAuthority,
         totalTokenSupply: 1_000_000_000,
         leftover: 1000,
     },
@@ -68,7 +68,7 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
             creatorFeePercentage: 50,
         },
         migratedPoolFee: {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 120,
             baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
@@ -147,7 +147,9 @@ describe('Kit migration compatibility', { timeout: 60000 }, () => {
         }
 
         const legacyWithdrawLeftover =
-            await legacyClient.migration.withdrawLeftover(withdrawLeftoverParams)
+            await legacyClient.migration.withdrawLeftover(
+                withdrawLeftoverParams
+            )
         const kitWithdrawLeftover = await kitClient.migration.withdrawLeftover({
             payer: poolCreatorSigner,
             virtualPool: pool.toBase58(),

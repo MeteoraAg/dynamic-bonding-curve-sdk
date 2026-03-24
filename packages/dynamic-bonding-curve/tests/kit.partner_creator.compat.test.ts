@@ -1,6 +1,11 @@
 import { NATIVE_MINT } from '@solana/spl-token'
 import BN from 'bn.js'
-import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js'
+import {
+    Connection,
+    Keypair,
+    PublicKey,
+    sendAndConfirmTransaction,
+} from '@solana/web3.js'
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
     ActivationType,
@@ -13,6 +18,7 @@ import {
     deriveDbcPoolAddress,
     DynamicBondingCurveClient,
     DynamicBondingCurveKitClient,
+    MigratedCollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
     TokenDecimal,
@@ -34,8 +40,7 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
         tokenType: TokenType.SPL,
         tokenBaseDecimal: TokenDecimal.SIX,
         tokenQuoteDecimal: TokenDecimal.NINE,
-        tokenUpdateAuthority:
-            TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+        tokenUpdateAuthority: TokenUpdateAuthorityOption.PartnerUpdateAuthority,
         totalTokenSupply: 1_000_000_000,
         leftover: 1000,
     },
@@ -63,7 +68,7 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
             creatorFeePercentage: 50,
         },
         migratedPoolFee: {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 120,
             baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
@@ -98,7 +103,9 @@ describe('Kit partner and creator compatibility', { timeout: 60000 }, () => {
     let receiver: Keypair
     let tempWSol: Keypair
 
-    let partnerSigner: Awaited<ReturnType<typeof createKitSignerFromLegacyKeypair>>
+    let partnerSigner: Awaited<
+        ReturnType<typeof createKitSignerFromLegacyKeypair>
+    >
     let poolCreatorSigner: Awaited<
         ReturnType<typeof createKitSignerFromLegacyKeypair>
     >
@@ -117,16 +124,13 @@ describe('Kit partner and creator compatibility', { timeout: 60000 }, () => {
             fundSol(connection, partner.publicKey),
             fundSol(connection, poolCreator.publicKey),
         ])
-
-        ;[
-            partnerSigner,
-            poolCreatorSigner,
-            tempWSolSigner,
-        ] = await Promise.all([
-            createKitSignerFromLegacyKeypair(partner),
-            createKitSignerFromLegacyKeypair(poolCreator),
-            createKitSignerFromLegacyKeypair(tempWSol),
-        ])
+        ;[partnerSigner, poolCreatorSigner, tempWSolSigner] = await Promise.all(
+            [
+                createKitSignerFromLegacyKeypair(partner),
+                createKitSignerFromLegacyKeypair(poolCreator),
+                createKitSignerFromLegacyKeypair(tempWSol),
+            ]
+        )
     })
 
     test('partner builders stay compatible with legacy transactions', async () => {
@@ -334,7 +338,9 @@ describe('Kit partner and creator compatibility', { timeout: 60000 }, () => {
         }
 
         const legacyCreatePoolMetadata =
-            await legacyClient.creator.createPoolMetadata(createPoolMetadataParams)
+            await legacyClient.creator.createPoolMetadata(
+                createPoolMetadataParams
+            )
         const kitCreatePoolMetadata =
             await kitClient.creator.createPoolMetadata({
                 ...createPoolMetadataParams,

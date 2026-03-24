@@ -1,4 +1,7 @@
-import { fromLegacyPublicKey, fromLegacyTransactionInstruction } from '@solana/compat'
+import {
+    fromLegacyPublicKey,
+    fromLegacyTransactionInstruction,
+} from '@solana/compat'
 import {
     addSignersToTransactionMessage,
     appendTransactionMessageInstructions,
@@ -39,19 +42,26 @@ export async function executeKitPlan(
     const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
     const message = pipe(
         createTransactionMessage({ version: 0 }),
-        (transaction) => setTransactionMessageFeePayerSigner(feePayer, transaction),
+        (transaction) =>
+            setTransactionMessageFeePayerSigner(feePayer, transaction),
         (transaction) =>
             setTransactionMessageLifetimeUsingBlockhash(
                 latestBlockhash,
                 transaction
             ),
         (transaction) =>
-            appendTransactionMessageInstructions(plan.instructions, transaction),
-        (transaction) => addSignersToTransactionMessage(plan.signers, transaction)
+            appendTransactionMessageInstructions(
+                plan.instructions,
+                transaction
+            ),
+        (transaction) =>
+            addSignersToTransactionMessage(plan.signers, transaction)
     )
 
     const signedTransaction = await signTransactionMessageWithSigners(message)
-    await sendAndConfirm(signedTransaction as never, { commitment: 'confirmed' })
+    await sendAndConfirm(signedTransaction as never, {
+        commitment: 'confirmed',
+    })
 }
 
 export async function expectKitPlanToCompile(

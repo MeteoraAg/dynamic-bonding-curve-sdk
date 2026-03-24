@@ -4405,14 +4405,18 @@ async function swapWithKit(): Promise<void> {
 
     const message = pipe(
         createTransactionMessage({ version: 0 }),
-        (transaction) => setTransactionMessageFeePayerSigner(owner, transaction),
+        (transaction) =>
+            setTransactionMessageFeePayerSigner(owner, transaction),
         (transaction) =>
             setTransactionMessageLifetimeUsingBlockhash(
                 latestBlockhash,
                 transaction
             ),
         (transaction) =>
-            appendTransactionMessageInstructions(plan.instructions, transaction),
+            appendTransactionMessageInstructions(
+                plan.instructions,
+                transaction
+            ),
         (transaction) =>
             addSignersToTransactionMessage(plan.signers, transaction)
     )

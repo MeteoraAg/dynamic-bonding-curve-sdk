@@ -1,6 +1,11 @@
 import { NATIVE_MINT } from '@solana/spl-token'
 import BN from 'bn.js'
-import { Connection, Keypair, PublicKey, sendAndConfirmTransaction } from '@solana/web3.js'
+import {
+    Connection,
+    Keypair,
+    PublicKey,
+    sendAndConfirmTransaction,
+} from '@solana/web3.js'
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
     ActivationType,
@@ -13,6 +18,7 @@ import {
     deriveDbcPoolAddress,
     DynamicBondingCurveClient,
     DynamicBondingCurveKitClient,
+    MigratedCollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
     SwapMode,
@@ -39,8 +45,7 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
         tokenType: TokenType.SPL,
         tokenBaseDecimal: TokenDecimal.SIX,
         tokenQuoteDecimal: TokenDecimal.NINE,
-        tokenUpdateAuthority:
-            TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+        tokenUpdateAuthority: TokenUpdateAuthorityOption.PartnerUpdateAuthority,
         totalTokenSupply: 1_000_000_000,
         leftover: 1000,
     },
@@ -68,7 +73,7 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
             creatorFeePercentage: 50,
         },
         migratedPoolFee: {
-            collectFeeMode: CollectFeeMode.QuoteToken,
+            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
             dynamicFee: DammV2DynamicFeeMode.Enabled,
             poolFeeBps: 120,
             baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
@@ -102,8 +107,12 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
     let poolCreator: Keypair
     let user: Keypair
 
-    let partnerSigner: Awaited<ReturnType<typeof createKitSignerFromLegacyKeypair>>
-    let creatorSigner: Awaited<ReturnType<typeof createKitSignerFromLegacyKeypair>>
+    let partnerSigner: Awaited<
+        ReturnType<typeof createKitSignerFromLegacyKeypair>
+    >
+    let creatorSigner: Awaited<
+        ReturnType<typeof createKitSignerFromLegacyKeypair>
+    >
     let poolCreatorSigner: Awaited<
         ReturnType<typeof createKitSignerFromLegacyKeypair>
     >
@@ -120,7 +129,6 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
             fundSol(connection, poolCreator.publicKey),
             fundSol(connection, user.publicKey),
         ])
-
         ;[partnerSigner, creatorSigner, poolCreatorSigner, userSigner] =
             await Promise.all([
                 createKitSignerFromLegacyKeypair(partner),
@@ -156,7 +164,9 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
         }
 
         const legacyCreateConfigAndPoolTx =
-            await legacyClient.pool.createConfigAndPool(createConfigAndPoolParams)
+            await legacyClient.pool.createConfigAndPool(
+                createConfigAndPoolParams
+            )
         const kitCreateConfigAndPoolPlan =
             await kitClient.pool.createConfigAndPool({
                 ...curveConfig,
@@ -267,11 +277,7 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
             legacyCreateConfigAndPoolWithFirstBuy.createPoolWithFirstBuyTx,
             kitCreateConfigAndPoolWithFirstBuy.createPoolWithFirstBuyPlan,
             poolCreator.publicKey,
-            [
-                partnerSigner,
-                poolCreatorSigner,
-                withFirstBuyBaseMintSigner,
-            ]
+            [partnerSigner, poolCreatorSigner, withFirstBuyBaseMintSigner]
         )
     })
 
@@ -290,9 +296,8 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
             poolCreator: poolCreator.publicKey,
         }
 
-        const legacyCreatePoolTx = await legacyClient.pool.createPool(
-            createPoolParams
-        )
+        const legacyCreatePoolTx =
+            await legacyClient.pool.createPool(createPoolParams)
         const kitCreatePoolPlan = await kitClient.pool.createPool({
             ...createPoolParams,
             baseMint: baseMintSigner,
@@ -311,7 +316,9 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
 
         const createPoolWithFirstBuyBaseMint = Keypair.generate()
         const createPoolWithFirstBuyBaseMintSigner =
-            await createKitSignerFromLegacyKeypair(createPoolWithFirstBuyBaseMint)
+            await createKitSignerFromLegacyKeypair(
+                createPoolWithFirstBuyBaseMint
+            )
         const createPoolWithFirstBuyParams = {
             createPoolParam: {
                 ...createPoolParams,
@@ -353,12 +360,18 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
             legacyCreatePoolWithFirstBuy,
             kitCreatePoolWithFirstBuy,
             poolCreator.publicKey,
-            [partnerSigner, poolCreatorSigner, createPoolWithFirstBuyBaseMintSigner]
+            [
+                partnerSigner,
+                poolCreatorSigner,
+                createPoolWithFirstBuyBaseMintSigner,
+            ]
         )
 
         const partnerCreatorFirstBuyBaseMint = Keypair.generate()
         const partnerCreatorFirstBuyBaseMintSigner =
-            await createKitSignerFromLegacyKeypair(partnerCreatorFirstBuyBaseMint)
+            await createKitSignerFromLegacyKeypair(
+                partnerCreatorFirstBuyBaseMint
+            )
         const createPoolWithPartnerAndCreatorFirstBuyParams = {
             createPoolParam: {
                 ...createPoolParams,
