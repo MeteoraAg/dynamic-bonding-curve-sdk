@@ -1247,6 +1247,12 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
         )
     }
 
+    if (endingMarketCap <= startingMarketCap) {
+        throw new Error(
+            `endingMarketCap (${endingMarketCap}) must be greater than startingMarketCap (${startingMarketCap})`
+        )
+    }
+
     if (startingBaseFeeBps > poolMaxFeeBps) {
         throw new Error(
             `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${poolMaxFeeBps} bps`
