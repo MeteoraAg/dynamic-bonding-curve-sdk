@@ -80,6 +80,7 @@
     - [getDynamicFeeParams](#getDynamicFeeParams)
     - [getLockedVestingParams](#getLockedVestingParams)
     - [getQuoteReserveFromNextSqrtPrice](#getQuoteReserveFromNextSqrtPrice)
+- [Solana Kit Compatibility](#solana-kit-compatibility)
 
 ---
 
@@ -4329,3 +4330,104 @@ const quoteReserve = getQuoteReserveFromNextSqrtPrice(
 
 - The `nextSqrtPrice` is the next sqrt price that you can fetch from swap cpi logs.
 - The `config` is the pool config that the token pool used to launch.
+
+---
+
+## Solana Kit Compatibility
+
+Use `DynamicBondingCurveKitClient` when you want Kit instructions and signers from the existing SDK transaction builders.
+
+- It adapts the existing `partner`, `pool`, `creator`, and `migration` transaction-building services.
+- You can construct it directly with `fromRpcUrl(...)`, or wrap an existing legacy client with `fromLegacyClient(...)`.
+- Address inputs may be passed as base58 strings.
+- Signer-bearing inputs may be passed as Kit `TransactionSigner`s when those signers are part of the builder input.
+- Most transaction builders return `KitTransactionPlan` instead of legacy `Transaction`.
+- `createConfigAndPoolWithFirstBuy` returns a two-plan result with `createConfigPlan` and `createPoolWithFirstBuyPlan`.
+- `plan.signers` carries required signer-bearing inputs that were provided to the builder, plus internally generated signers when the SDK creates them. For example, `migrateToDammV2` already includes its generated signers in `plan.signers`.
+
+**Types**
+
+```typescript
+type KitTransactionPlan = {
+    instructions: Instruction[]
+    signers: TransactionSigner[]
+}
+```
+
+**Example**
+
+```typescript
+import BN from 'bn.js'
+import {
+    DynamicBondingCurveKitClient,
+    SwapMode,
+} from '@meteora-ag/dynamic-bonding-curve-sdk'
+import {
+    addSignersToTransactionMessage,
+    appendTransactionMessageInstructions,
+    createSolanaRpc,
+    createSolanaRpcSubscriptions,
+    createTransactionMessage,
+    generateKeyPairSigner,
+    pipe,
+    sendAndConfirmTransactionFactory,
+    setTransactionMessageFeePayerSigner,
+    setTransactionMessageLifetimeUsingBlockhash,
+    signTransactionMessageWithSigners,
+} from '@solana/kit'
+
+async function swapWithKit(): Promise<void> {
+    const client = DynamicBondingCurveKitClient.fromRpcUrl(
+        'https://api.devnet.solana.com',
+        'confirmed'
+    )
+
+    const rpc = createSolanaRpc('https://api.devnet.solana.com')
+    const rpcSubscriptions = createSolanaRpcSubscriptions(
+        'wss://api.devnet.solana.com'
+    )
+    const sendAndConfirm = sendAndConfirmTransactionFactory({
+        rpc,
+        rpcSubscriptions,
+    })
+
+    const owner = await generateKeyPairSigner()
+    const pool = 'ReplaceWithPoolAddress'
+
+    const plan = await client.pool.swap2({
+        owner,
+        pool,
+        swapBaseForQuote: false,
+        referralTokenAccount: null,
+        payer: owner,
+        swapMode: SwapMode.ExactIn,
+        amountIn: new BN(1_000_000_000),
+        minimumAmountOut: new BN(0),
+    })
+
+    const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
+
+    const message = pipe(
+        createTransactionMessage({ version: 0 }),
+        (transaction) =>
+            setTransactionMessageFeePayerSigner(owner, transaction),
+        (transaction) =>
+            setTransactionMessageLifetimeUsingBlockhash(
+                latestBlockhash,
+                transaction
+            ),
+        (transaction) =>
+            appendTransactionMessageInstructions(
+                plan.instructions,
+                transaction
+            ),
+        (transaction) =>
+            addSignersToTransactionMessage(plan.signers, transaction)
+    )
+
+    const signedTransaction = await signTransactionMessageWithSigners(message)
+    await sendAndConfirm(signedTransaction, { commitment: 'confirmed' })
+}
+```
+
+The Kit client is additive. State and account fetches remain on `DynamicBondingCurveClient` for now.
