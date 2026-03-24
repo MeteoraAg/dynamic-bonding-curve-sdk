@@ -1173,13 +1173,44 @@ export function getStartingBaseFeeBpsFromBaseFeeParams(
 }
 
 /**
+ * Computes the sqrtPriceStepBps needed so that the fee schedule is fully
+ * exhausted when spot price reaches a given multiple of the initial price.
+ * @param priceMultiple - Target spot-price multiple (e.g. 1000 for 1000x)
+ * @param numberOfPeriod - Number of fee reduction periods
+ * @returns The sqrtPriceStepBps value to use on-chain
+ */
+export function computeSqrtPriceStepBps(
+    priceMultiple: number,
+    numberOfPeriod: number
+): number {
+    if (priceMultiple <= 1) {
+        throw new Error('priceMultiple must be greater than 1')
+    }
+    if (numberOfPeriod <= 0) {
+        throw new Error('numberOfPeriod must be greater than 0')
+    }
+    const sqrtPriceStepBps = Math.floor(
+        ((Math.sqrt(priceMultiple) - 1) * MAX_BASIS_POINT) / numberOfPeriod
+    )
+    if (sqrtPriceStepBps <= 0) {
+        throw new Error(
+            'Computed sqrtPriceStepBps is 0 — increase priceMultiple or decrease numberOfPeriod'
+        )
+    }
+    return sqrtPriceStepBps
+}
+
+/**
  * Get the migrated pool market cap fee scheduler parameters
- * @param startingBaseFeeBps - The starting base fee in basis points
- * @param endingBaseFeeBps - The ending base fee in basis points
- * @param dammV2BaseFeeMode - The DAMM V2 base fee mode
- * @param numberOfPeriod - The number of periods
- * @param sqrtPriceStepBps - The sqrt price step in basis points
- * @param schedulerExpirationDuration - The scheduler expiration duration
+ * Derives sqrtPriceStepBps from starting/ending market cap so the fee schedule is
+ * fully exhausted when the token grows from startingMarketCap to endingMarketCap.
+ * @param startingBaseFeeBps - Starting (max) fee in basis points
+ * @param endingBaseFeeBps - Ending (min) fee in basis points
+ * @param baseFeeMode - Linear or exponential decay
+ * @param numberOfPeriod - Number of fee reduction periods
+ * @param startingMarketCap - Initial market cap (e.g. 20_000 for $20k)
+ * @param endingMarketCap - Target market cap (e.g. 20_000_000 for $20M)
+ * @param schedulerExpirationDuration - Seconds after which the schedule expires to the ending fee regardless of price
  * @returns The migrated pool market cap fee scheduler parameters
  */
 export function getMigratedPoolMarketCapFeeSchedulerParams(
@@ -1187,7 +1218,8 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
     endingBaseFeeBps: number,
     dammV2BaseFeeMode: DammV2BaseFeeMode,
     numberOfPeriod: number,
-    sqrtPriceStepBps: number,
+    startingMarketCap: number,
+    endingMarketCap: number,
     schedulerExpirationDuration: number
 ): MigratedPoolMarketCapFeeSchedulerParameters {
     if (
@@ -1215,21 +1247,27 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
         )
     }
 
+    if (endingMarketCap <= startingMarketCap) {
+        throw new Error(
+            `endingMarketCap (${endingMarketCap}) must be greater than startingMarketCap (${startingMarketCap})`
+        )
+    }
+
     if (startingBaseFeeBps > poolMaxFeeBps) {
         throw new Error(
             `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${poolMaxFeeBps} bps`
         )
     }
 
-    if (
-        numberOfPeriod == 0 ||
-        sqrtPriceStepBps == 0 ||
-        schedulerExpirationDuration == 0
-    ) {
-        throw new Error(
-            'numberOfPeriod, sqrtPriceStepBps, and schedulerExpirationDuration must be greater than zero'
-        )
+    if (schedulerExpirationDuration == 0) {
+        throw new Error('schedulerExpirationDuration must be greater than zero')
     }
+
+    const priceMultiple = endingMarketCap / startingMarketCap
+    const sqrtPriceStepBps = computeSqrtPriceStepBps(
+        priceMultiple,
+        numberOfPeriod
+    )
 
     const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
     const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
@@ -1242,16 +1280,10 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
     } else if (
         dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
     ) {
-        const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
-            new Decimal(maxBaseFeeNumerator.toString())
-        )
-        const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
-        reductionFactor = new BN(
-            new Decimal(MAX_BASIS_POINT)
-                .mul(new Decimal(1).sub(decayBase))
-                .floor()
-                .toFixed()
-        )
+        const ratio =
+            minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber()
+        const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
+        reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
     }
 
     return {
@@ -1711,7 +1743,8 @@ export function getMigratedPoolFeeParams(
                 migratedPoolFee.marketCapFeeSchedulerParams.endingBaseFeeBps,
                 baseFeeMode,
                 migratedPoolFee.marketCapFeeSchedulerParams.numberOfPeriod,
-                migratedPoolFee.marketCapFeeSchedulerParams.sqrtPriceStepBps,
+                migratedPoolFee.marketCapFeeSchedulerParams.startingMarketCap,
+                migratedPoolFee.marketCapFeeSchedulerParams.endingMarketCap,
                 migratedPoolFee.marketCapFeeSchedulerParams
                     .schedulerExpirationDuration
             )

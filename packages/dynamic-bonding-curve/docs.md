@@ -723,7 +723,8 @@ interface BuildCurveParams {
                 // Configure for market cap-based fee scheduling
                 endingBaseFeeBps: number // The ending base fee in basis points (must be < bonding curve's endingFeeBps)
                 numberOfPeriod: number // The number of periods
-                sqrtPriceStepBps: number // The square root price step in basis points
+                startingMarketCap: number // Initial market cap used as scheduler start reference
+                endingMarketCap: number // Target market cap where scheduler should be fully exhausted
                 schedulerExpirationDuration: number // The scheduler expiration duration in seconds
             }
         }
@@ -888,7 +889,8 @@ const curveConfigWithScheduler = buildCurve({
             marketCapFeeSchedulerParams: {
                 endingBaseFeeBps: 25, // Must be less than bonding curve's endingFeeBps (100)
                 numberOfPeriod: 100,
-                sqrtPriceStepBps: 10,
+                startingMarketCap: 20_000,
+                endingMarketCap: 20_000_000,
                 schedulerExpirationDuration: 1000000,
             },
         },
@@ -949,6 +951,8 @@ const transaction = await client.partner.createConfig({
 - When using `marketCapFeeSchedulerParams`:
     - `baseFeeMode` must be `DammV2BaseFeeMode.FeeMarketCapSchedulerLinear` (3) or `FeeMarketCapSchedulerExponential` (4).
     - `endingBaseFeeBps` must be strictly less than the bonding curve's `baseFeeParams.feeSchedulerParam.endingFeeBps`.
+    - `startingMarketCap` and `endingMarketCap` are required, and `endingMarketCap` must be greater than `startingMarketCap`.
+    - The SDK derives on-chain `sqrtPriceStepBps` from `startingMarketCap`, `endingMarketCap`, and `numberOfPeriod`.
     - `poolFeeBps` must be greater than 0.
 - If `migratedPoolFee.collectFeeMode = MigratedCollectFeeMode.Compounding` (2), `compoundingFeeBps` must be `> 0` and `<= 10_000`; otherwise `compoundingFeeBps` must be `0`.
 - For DAMM V1 migration, all `migratedPoolFee` parameters are ignored and defaults are used.
