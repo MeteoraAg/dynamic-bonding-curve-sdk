@@ -10,10 +10,7 @@ import {
     type TransactionSigner,
 } from '@solana/kit'
 import { Keypair, PublicKey, Transaction } from '@solana/web3.js'
-import type {
-    KitAddressOrSignerInput,
-    KitTransactionPlan,
-} from './types'
+import type { KitAddressOrSignerInput, KitTransactionPlan } from './types'
 
 export function toLegacyPublicKey(
     value: KitAddressOrSignerInput | PublicKey
@@ -59,23 +56,11 @@ export function createKitTransactionPlan(
     transaction: Transaction,
     signers: readonly TransactionSigner[] = []
 ): KitTransactionPlan {
-    const requiredSignerAddresses = new Set(
-        transaction.instructions.flatMap((instruction) =>
-            instruction.keys
-                .filter((account) => account.isSigner)
-                .map((account) => account.pubkey.toBase58())
-        )
-    )
-
     return {
         instructions: transaction.instructions.map(
             fromLegacyTransactionInstruction
         ),
-        signers: collectKitTransactionSigners(
-            signers.filter((signer) =>
-                requiredSignerAddresses.has(signer.address)
-            )
-        ),
+        signers: collectKitTransactionSigners(signers),
     }
 }
 

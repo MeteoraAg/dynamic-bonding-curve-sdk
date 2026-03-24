@@ -89,18 +89,18 @@ export class DynamicBondingCurveKitPoolService {
             firstBuyParam: toLegacyFirstBuyParams(params.firstBuyParam),
         } satisfies CreateConfigAndPoolWithFirstBuyParams)
 
-        const signers = collectKitTransactionSigners(
-            params.config,
-            params.payer,
-            collectPreCreatePoolSigners(params.preCreatePoolParam),
-            collectFirstBuySigners(params.firstBuyParam)
-        )
-
         return {
-            createConfigPlan: createKitTransactionPlan(result.createConfigTx, signers),
+            createConfigPlan: createKitTransactionPlan(
+                result.createConfigTx,
+                collectKitTransactionSigners(params.config, params.payer)
+            ),
             createPoolWithFirstBuyPlan: createKitTransactionPlan(
                 result.createPoolWithFirstBuyTx,
-                signers
+                collectKitTransactionSigners(
+                    params.payer,
+                    collectPreCreatePoolSigners(params.preCreatePoolParam),
+                    collectFirstBuySigners(params.firstBuyParam)
+                )
             ),
         }
     }
@@ -127,7 +127,9 @@ export class DynamicBondingCurveKitPoolService {
     ): Promise<KitTransactionPlan> {
         const transaction =
             await this.poolService.createPoolWithPartnerAndCreatorFirstBuy({
-                createPoolParam: toLegacyCreatePoolParams(params.createPoolParam),
+                createPoolParam: toLegacyCreatePoolParams(
+                    params.createPoolParam
+                ),
                 partnerFirstBuyParam: toLegacyPartnerFirstBuyParams(
                     params.partnerFirstBuyParam
                 ),
@@ -175,7 +177,9 @@ export class DynamicBondingCurveKitPoolService {
     }
 }
 
-function toLegacyCreatePoolParams(params: KitCreatePoolParams): CreatePoolParams {
+function toLegacyCreatePoolParams(
+    params: KitCreatePoolParams
+): CreatePoolParams {
     return {
         ...params,
         payer: toLegacyPublicKey(params.payer),
@@ -274,9 +278,7 @@ function toLegacyCreatorFirstBuyParams(
     }
 }
 
-function collectCreatePoolSigners(
-    params: KitCreatePoolParams
-) {
+function collectCreatePoolSigners(params: KitCreatePoolParams) {
     return collectKitTransactionSigners(
         params.baseMint,
         params.payer,
