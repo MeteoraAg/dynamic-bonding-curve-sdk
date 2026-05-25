@@ -2,13 +2,16 @@
   "address": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
   "metadata": {
     "name": "dynamic_bonding_curve",
-    "version": "0.1.10",
+    "version": "0.2.0",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
   "instructions": [
     {
       "name": "claim_creator_trading_fee",
+      "docs": [
+        "Accepts: VirtualPool only."
+      ],
       "discriminator": [
         82,
         220,
@@ -47,28 +50,19 @@
           "docs": [
             "The vault token account for input token"
           ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
+          "writable": true
         },
         {
           "name": "quote_vault",
           "docs": [
             "The vault token account for output token"
           ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
+          "writable": true
         },
         {
           "name": "base_mint",
           "docs": [
             "The mint of token a"
-          ],
-          "relations": [
-            "pool"
           ]
         },
         {
@@ -94,33 +88,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -138,7 +106,116 @@
       ]
     },
     {
+      "name": "claim_creator_trading_fee2",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
+      "discriminator": [
+        238,
+        247,
+        213,
+        94,
+        110,
+        145,
+        88,
+        142
+      ],
+      "accounts": [
+        {
+          "name": "pool_authority",
+          "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "token_a_account",
+          "docs": [
+            "The treasury token a account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_b_account",
+          "docs": [
+            "The treasury token b account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "base_vault",
+          "docs": [
+            "The vault token account for input token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "quote_vault",
+          "docs": [
+            "The vault token account for output token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "base_mint",
+          "docs": [
+            "The mint of token a"
+          ]
+        },
+        {
+          "name": "quote_mint",
+          "docs": [
+            "The mint of token b"
+          ]
+        },
+        {
+          "name": "creator",
+          "signer": true
+        },
+        {
+          "name": "token_base_program",
+          "docs": [
+            "Token a program"
+          ]
+        },
+        {
+          "name": "token_quote_program",
+          "docs": [
+            "Token b program"
+          ]
+        },
+        {
+          "name": "event_authority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "max_base_amount",
+          "type": "u64"
+        },
+        {
+          "name": "max_quote_amount",
+          "type": "u64"
+        },
+        {
+          "name": "transfer_hook_accounts_info",
+          "type": {
+            "defined": {
+              "name": "TransferHookAccountsInfo"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "claim_partner_pool_creation_fee",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
       "discriminator": [
         250,
         238,
@@ -151,10 +228,7 @@
       ],
       "accounts": [
         {
-          "name": "config",
-          "relations": [
-            "pool"
-          ]
+          "name": "config"
         },
         {
           "name": "pool",
@@ -169,33 +243,7 @@
           "writable": true
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -205,6 +253,9 @@
     },
     {
       "name": "claim_protocol_fee",
+      "docs": [
+        "Accepts: VirtualPool only."
+      ],
       "discriminator": [
         165,
         228,
@@ -299,33 +350,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -343,7 +368,77 @@
       ]
     },
     {
+      "name": "claim_protocol_fee2",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
+      "discriminator": [
+        235,
+        194,
+        54,
+        69,
+        65,
+        10,
+        236,
+        112
+      ],
+      "accounts": [
+        {
+          "name": "receiver_token_account",
+          "docs": [
+            "receiver token account for the claimed token. validated through the protocol_fee program"
+          ],
+          "writable": true
+        },
+        {
+          "name": "base_mint"
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "token_base_program"
+        },
+        {
+          "name": "token_quote_program"
+        },
+        {
+          "name": "config"
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "base_vault",
+          "writable": true
+        },
+        {
+          "name": "quote_vault",
+          "writable": true
+        },
+        {
+          "name": "pool_authority",
+          "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
+        },
+        {
+          "name": "signer",
+          "signer": true,
+          "address": "FkU5rQCWQM131skHCpcEbK8P1JrQGsBgqXe55w525SSF"
+        }
+      ],
+      "args": [
+        {
+          "name": "max_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "claim_protocol_pool_creation_fee",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
       "discriminator": [
         114,
         205,
@@ -356,10 +451,7 @@
       ],
       "accounts": [
         {
-          "name": "config",
-          "relations": [
-            "pool"
-          ]
+          "name": "config"
         },
         {
           "name": "pool",
@@ -381,33 +473,7 @@
           "address": "6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -417,6 +483,9 @@
     },
     {
       "name": "claim_trading_fee",
+      "docs": [
+        "Accepts: VirtualPool only."
+      ],
       "discriminator": [
         8,
         236,
@@ -433,10 +502,7 @@
           "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
         },
         {
-          "name": "config",
-          "relations": [
-            "pool"
-          ]
+          "name": "config"
         },
         {
           "name": "pool",
@@ -461,37 +527,25 @@
           "docs": [
             "The vault token account for input token"
           ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
+          "writable": true
         },
         {
           "name": "quote_vault",
           "docs": [
             "The vault token account for output token"
           ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
+          "writable": true
         },
         {
           "name": "base_mint",
           "docs": [
             "The mint of token a"
-          ],
-          "relations": [
-            "pool"
           ]
         },
         {
           "name": "quote_mint",
           "docs": [
             "The mint of token b"
-          ],
-          "relations": [
-            "config"
           ]
         },
         {
@@ -511,33 +565,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -551,6 +579,115 @@
         {
           "name": "max_amount_b",
           "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "claim_trading_fee2",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
+      "discriminator": [
+        84,
+        191,
+        71,
+        50,
+        9,
+        162,
+        55,
+        193
+      ],
+      "accounts": [
+        {
+          "name": "pool_authority",
+          "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
+        },
+        {
+          "name": "config"
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "token_a_account",
+          "docs": [
+            "The treasury token a account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_b_account",
+          "docs": [
+            "The treasury token b account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "base_vault",
+          "docs": [
+            "The vault token account for input token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "quote_vault",
+          "docs": [
+            "The vault token account for output token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "base_mint",
+          "docs": [
+            "The mint of token a"
+          ]
+        },
+        {
+          "name": "quote_mint",
+          "docs": [
+            "The mint of token b"
+          ]
+        },
+        {
+          "name": "fee_claimer",
+          "signer": true
+        },
+        {
+          "name": "token_base_program",
+          "docs": [
+            "Token a program"
+          ]
+        },
+        {
+          "name": "token_quote_program",
+          "docs": [
+            "Token b program"
+          ]
+        },
+        {
+          "name": "event_authority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "max_amount_a",
+          "type": "u64"
+        },
+        {
+          "name": "max_amount_b",
+          "type": "u64"
+        },
+        {
+          "name": "transfer_hook_accounts_info",
+          "type": {
+            "defined": {
+              "name": "TransferHookAccountsInfo"
+            }
+          }
         }
       ]
     },
@@ -580,33 +717,7 @@
           "signer": true
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -682,33 +793,67 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
+          "name": "event_authority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "config_parameters",
+          "type": {
+            "defined": {
+              "name": "ConfigParameters"
+            }
           }
+        }
+      ]
+    },
+    {
+      "name": "create_config_with_transfer_hook",
+      "discriminator": [
+        216,
+        37,
+        1,
+        57,
+        88,
+        226,
+        25,
+        41
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "fee_claimer"
+        },
+        {
+          "name": "leftover_receiver"
+        },
+        {
+          "name": "quote_mint",
+          "docs": [
+            "quote mint"
+          ]
+        },
+        {
+          "name": "transfer_hook_program"
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -729,7 +874,8 @@
       "name": "create_locker",
       "docs": [
         "PERMISSIONLESS FUNCTIONS ///",
-        "create locker"
+        "create locker",
+        "Accepts: VirtualPool or TransferHookPool."
       ],
       "discriminator": [
         167,
@@ -744,19 +890,10 @@
       "accounts": [
         {
           "name": "virtual_pool",
-          "docs": [
-            "Virtual pool"
-          ],
           "writable": true
         },
         {
-          "name": "config",
-          "docs": [
-            "Config"
-          ],
-          "relations": [
-            "virtual_pool"
-          ]
+          "name": "config"
         },
         {
           "name": "pool_authority",
@@ -765,17 +902,11 @@
         },
         {
           "name": "base_vault",
-          "writable": true,
-          "relations": [
-            "virtual_pool"
-          ]
+          "writable": true
         },
         {
           "name": "base_mint",
-          "writable": true,
-          "relations": [
-            "virtual_pool"
-          ]
+          "writable": true
         },
         {
           "name": "base",
@@ -806,10 +937,7 @@
           }
         },
         {
-          "name": "creator",
-          "relations": [
-            "virtual_pool"
-          ]
+          "name": "creator"
         },
         {
           "name": "escrow",
@@ -899,33 +1027,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1013,33 +1115,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1058,6 +1134,9 @@
     },
     {
       "name": "create_virtual_pool_metadata",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
       "discriminator": [
         45,
         97,
@@ -1070,8 +1149,7 @@
       ],
       "accounts": [
         {
-          "name": "virtual_pool",
-          "writable": true
+          "name": "virtual_pool"
         },
         {
           "name": "virtual_pool_metadata",
@@ -1134,33 +1212,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1179,6 +1231,9 @@
     },
     {
       "name": "creator_withdraw_surplus",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
       "discriminator": [
         165,
         3,
@@ -1195,10 +1250,7 @@
           "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
         },
         {
-          "name": "config",
-          "relations": [
-            "virtual_pool"
-          ]
+          "name": "config"
         },
         {
           "name": "virtual_pool",
@@ -1216,18 +1268,12 @@
           "docs": [
             "The vault token account for output token"
           ],
-          "writable": true,
-          "relations": [
-            "virtual_pool"
-          ]
+          "writable": true
         },
         {
           "name": "quote_mint",
           "docs": [
             "The mint of quote token"
-          ],
-          "relations": [
-            "config"
           ]
         },
         {
@@ -1241,33 +1287,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1278,7 +1298,8 @@
     {
       "name": "initialize_virtual_pool_with_spl_token",
       "docs": [
-        "POOL CREATOR FUNCTIONS ////"
+        "POOL CREATOR FUNCTIONS ////",
+        "Accepts: VirtualPool only."
       ],
       "discriminator": [
         140,
@@ -1424,33 +1445,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1469,6 +1464,9 @@
     },
     {
       "name": "initialize_virtual_pool_with_token2022",
+      "docs": [
+        "Accepts: VirtualPool only."
+      ],
       "discriminator": [
         169,
         118,
@@ -1608,33 +1606,156 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
+          "name": "event_authority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "InitializePoolParameters"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize_virtual_pool_with_token2022_transfer_hook",
+      "docs": [
+        "Accepts: TransferHookPool only."
+      ],
+      "discriminator": [
+        182,
+        13,
+        233,
+        177,
+        42,
+        145,
+        135,
+        2
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": [
+            "Transfer hook config — contains the transfer hook program set by partner"
+          ]
+        },
+        {
+          "name": "pool_authority",
+          "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
+        },
+        {
+          "name": "creator",
+          "signer": true
+        },
+        {
+          "name": "base_mint",
+          "docs": [
+            "Unique token mint address, initialize in contract"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "quote_mint",
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "base_vault",
+          "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  95,
-                  95,
-                  101,
-                  118,
+                  116,
+                  111,
+                  107,
                   101,
                   110,
-                  116,
                   95,
+                  118,
                   97,
                   117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
+                  108,
+                  116
                 ]
+              },
+              {
+                "kind": "account",
+                "path": "base_mint"
+              },
+              {
+                "kind": "account",
+                "path": "pool"
               }
             ]
           }
+        },
+        {
+          "name": "quote_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  107,
+                  101,
+                  110,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quote_mint"
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "transfer_hook_program"
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_quote_program"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1653,6 +1774,9 @@
     },
     {
       "name": "migrate_meteora_damm",
+      "docs": [
+        "Accepts: VirtualPool only."
+      ],
       "discriminator": [
         27,
         1,
@@ -1812,6 +1936,9 @@
     },
     {
       "name": "migrate_meteora_damm_claim_lp_token",
+      "docs": [
+        "Accepts: VirtualPool only."
+      ],
       "discriminator": [
         139,
         133,
@@ -2046,6 +2173,9 @@
     },
     {
       "name": "migrate_meteora_damm_lock_lp_token",
+      "docs": [
+        "Accepts: VirtualPool only."
+      ],
       "discriminator": [
         177,
         55,
@@ -2226,6 +2356,9 @@
     },
     {
       "name": "migration_damm_v2",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
       "discriminator": [
         156,
         169,
@@ -2239,22 +2372,13 @@
       "accounts": [
         {
           "name": "virtual_pool",
-          "docs": [
-            "virtual pool"
-          ],
           "writable": true
         },
         {
           "name": "migration_metadata"
         },
         {
-          "name": "config",
-          "docs": [
-            "virtual pool config key"
-          ],
-          "relations": [
-            "virtual_pool"
-          ]
+          "name": "config"
         },
         {
           "name": "pool_authority",
@@ -2319,17 +2443,11 @@
         },
         {
           "name": "base_vault",
-          "writable": true,
-          "relations": [
-            "virtual_pool"
-          ]
+          "writable": true
         },
         {
           "name": "quote_vault",
-          "writable": true,
-          "relations": [
-            "virtual_pool"
-          ]
+          "writable": true
         },
         {
           "name": "payer",
@@ -2360,6 +2478,9 @@
     },
     {
       "name": "migration_damm_v2_create_metadata",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
       "discriminator": [
         109,
         189,
@@ -2387,33 +2508,7 @@
           "name": "system_program"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2424,7 +2519,7 @@
     {
       "name": "migration_meteora_damm_create_metadata",
       "docs": [
-        "migrate damm v1"
+        "Accepts: VirtualPool only."
       ],
       "discriminator": [
         47,
@@ -2480,33 +2575,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2516,6 +2585,9 @@
     },
     {
       "name": "partner_withdraw_surplus",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
       "discriminator": [
         168,
         173,
@@ -2532,10 +2604,7 @@
           "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
         },
         {
-          "name": "config",
-          "relations": [
-            "virtual_pool"
-          ]
+          "name": "config"
         },
         {
           "name": "virtual_pool",
@@ -2553,18 +2622,12 @@
           "docs": [
             "The vault token account for output token"
           ],
-          "writable": true,
-          "relations": [
-            "virtual_pool"
-          ]
+          "writable": true
         },
         {
           "name": "quote_mint",
           "docs": [
             "The mint of quote token"
-          ],
-          "relations": [
-            "config"
           ]
         },
         {
@@ -2578,33 +2641,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2615,7 +2652,8 @@
     {
       "name": "swap",
       "docs": [
-        "TRADING BOTS FUNCTIONS ////"
+        "TRADING BOTS FUNCTIONS ////",
+        "Accepts: VirtualPool only."
       ],
       "discriminator": [
         248,
@@ -2633,19 +2671,10 @@
           "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
         },
         {
-          "name": "config",
-          "docs": [
-            "config key"
-          ],
-          "relations": [
-            "pool"
-          ]
+          "name": "config"
         },
         {
           "name": "pool",
-          "docs": [
-            "Pool account"
-          ],
           "writable": true
         },
         {
@@ -2667,20 +2696,14 @@
           "docs": [
             "The vault token account for base token"
           ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
+          "writable": true
         },
         {
           "name": "quote_vault",
           "docs": [
             "The vault token account for quote token"
           ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
+          "writable": true
         },
         {
           "name": "base_mint",
@@ -2722,33 +2745,7 @@
           "optional": true
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2767,6 +2764,9 @@
     },
     {
       "name": "swap2",
+      "docs": [
+        "Accepts: VirtualPool only."
+      ],
       "discriminator": [
         65,
         75,
@@ -2783,19 +2783,10 @@
           "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
         },
         {
-          "name": "config",
-          "docs": [
-            "config key"
-          ],
-          "relations": [
-            "pool"
-          ]
+          "name": "config"
         },
         {
           "name": "pool",
-          "docs": [
-            "Pool account"
-          ],
           "writable": true
         },
         {
@@ -2817,20 +2808,14 @@
           "docs": [
             "The vault token account for base token"
           ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
+          "writable": true
         },
         {
           "name": "quote_vault",
           "docs": [
             "The vault token account for quote token"
           ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
+          "writable": true
         },
         {
           "name": "base_mint",
@@ -2872,33 +2857,7 @@
           "optional": true
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2916,7 +2875,132 @@
       ]
     },
     {
+      "name": "swap2_with_transfer_hook",
+      "docs": [
+        "Accepts: TransferHookPool only."
+      ],
+      "discriminator": [
+        183,
+        93,
+        153,
+        40,
+        24,
+        230,
+        194,
+        151
+      ],
+      "accounts": [
+        {
+          "name": "pool_authority",
+          "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
+        },
+        {
+          "name": "config"
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "input_token_account",
+          "docs": [
+            "The user token account for input token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "output_token_account",
+          "docs": [
+            "The user token account for output token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "base_vault",
+          "docs": [
+            "The vault token account for base token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "quote_vault",
+          "docs": [
+            "The vault token account for quote token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "base_mint",
+          "docs": [
+            "The mint of base token",
+            "must be mutable so we can revoke the transfer hook after the last swap is performed"
+          ],
+          "writable": true
+        },
+        {
+          "name": "quote_mint",
+          "docs": [
+            "The mint of quote token"
+          ]
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "The user performing the swap"
+          ],
+          "signer": true
+        },
+        {
+          "name": "token_base_program",
+          "docs": [
+            "Token base program"
+          ]
+        },
+        {
+          "name": "token_quote_program",
+          "docs": [
+            "Token quote program"
+          ]
+        },
+        {
+          "name": "referral_token_account",
+          "docs": [
+            "referral token account"
+          ],
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "event_authority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "SwapParameters2"
+            }
+          }
+        },
+        {
+          "name": "transfer_hook_accounts_info",
+          "type": {
+            "defined": {
+              "name": "TransferHookAccountsInfo"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "transfer_pool_creator",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
       "discriminator": [
         20,
         7,
@@ -2933,10 +3017,7 @@
           "writable": true
         },
         {
-          "name": "config",
-          "relations": [
-            "virtual_pool"
-          ]
+          "name": "config"
         },
         {
           "name": "creator",
@@ -2946,33 +3027,7 @@
           "name": "new_creator"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2982,6 +3037,9 @@
     },
     {
       "name": "withdraw_leftover",
+      "docs": [
+        "Accepts: VirtualPool or TransferHookPool."
+      ],
       "discriminator": [
         20,
         198,
@@ -2998,10 +3056,7 @@
           "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
         },
         {
-          "name": "config",
-          "relations": [
-            "virtual_pool"
-          ]
+          "name": "config"
         },
         {
           "name": "virtual_pool",
@@ -3072,25 +3127,16 @@
           "docs": [
             "The vault token account for output token"
           ],
-          "writable": true,
-          "relations": [
-            "virtual_pool"
-          ]
+          "writable": true
         },
         {
           "name": "base_mint",
           "docs": [
             "The mint of quote token"
-          ],
-          "relations": [
-            "virtual_pool"
           ]
         },
         {
-          "name": "leftover_receiver",
-          "relations": [
-            "config"
-          ]
+          "name": "leftover_receiver"
         },
         {
           "name": "token_base_program",
@@ -3099,33 +3145,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -3136,7 +3156,8 @@
     {
       "name": "withdraw_migration_fee",
       "docs": [
-        "BOTH partner and creator FUNCTIONS ///"
+        "BOTH partner and creator FUNCTIONS ///",
+        "Accepts: VirtualPool or TransferHookPool."
       ],
       "discriminator": [
         237,
@@ -3154,10 +3175,7 @@
           "address": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM"
         },
         {
-          "name": "config",
-          "relations": [
-            "virtual_pool"
-          ]
+          "name": "config"
         },
         {
           "name": "virtual_pool",
@@ -3175,18 +3193,12 @@
           "docs": [
             "The vault token account for output token"
           ],
-          "writable": true,
-          "relations": [
-            "virtual_pool"
-          ]
+          "writable": true
         },
         {
           "name": "quote_mint",
           "docs": [
             "The mint of quote token"
-          ],
-          "relations": [
-            "config"
           ]
         },
         {
@@ -3200,33 +3212,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -3241,6 +3227,9 @@
     },
     {
       "name": "zap_protocol_fee",
+      "docs": [
+        "Accepts: VirtualPool only."
+      ],
       "discriminator": [
         213,
         155,
@@ -3324,29 +3313,16 @@
       ]
     },
     {
-      "name": "Config",
+      "name": "ConfigWithTransferHook",
       "discriminator": [
-        155,
-        12,
-        170,
-        224,
-        30,
-        250,
-        204,
-        130
-      ]
-    },
-    {
-      "name": "LockEscrow",
-      "discriminator": [
-        190,
-        106,
-        121,
-        6,
-        200,
-        182,
-        21,
-        75
+        40,
+        220,
+        194,
+        251,
+        41,
+        199,
+        123,
+        253
       ]
     },
     {
@@ -3399,6 +3375,19 @@
         230,
         129,
         43
+      ]
+    },
+    {
+      "name": "TransferHookPool",
+      "discriminator": [
+        237,
+        219,
+        184,
+        23,
+        42,
+        189,
+        169,
+        35
       ]
     },
     {
@@ -3469,16 +3458,16 @@
       ]
     },
     {
-      "name": "EvtClaimProtocolLiquidityMigrationFee",
+      "name": "EvtClaimProtocolFee2",
       "discriminator": [
-        81,
-        168,
-        116,
-        31,
+        187,
+        133,
+        66,
+        9,
+        205,
         161,
-        86,
-        27,
-        35
+        84,
+        13
       ]
     },
     {
@@ -3547,6 +3536,19 @@
       ]
     },
     {
+      "name": "EvtCreateConfigV2WithTransferHook",
+      "discriminator": [
+        182,
+        81,
+        135,
+        4,
+        39,
+        46,
+        132,
+        253
+      ]
+    },
+    {
       "name": "EvtCreateMeteoraMigrationMetadata",
       "discriminator": [
         99,
@@ -3570,32 +3572,6 @@
         87,
         53,
         157
-      ]
-    },
-    {
-      "name": "EvtCurveComplete",
-      "discriminator": [
-        229,
-        231,
-        86,
-        84,
-        156,
-        134,
-        75,
-        24
-      ]
-    },
-    {
-      "name": "EvtInitializePool",
-      "discriminator": [
-        228,
-        50,
-        246,
-        85,
-        203,
-        66,
-        134,
-        37
       ]
     },
     {
@@ -3625,19 +3601,6 @@
       ]
     },
     {
-      "name": "EvtPartnerWithdrawMigrationFee",
-      "discriminator": [
-        181,
-        105,
-        127,
-        67,
-        8,
-        187,
-        120,
-        57
-      ]
-    },
-    {
       "name": "EvtPartnerWithdrawSurplus",
       "discriminator": [
         195,
@@ -3661,19 +3624,6 @@
         170,
         187,
         147
-      ]
-    },
-    {
-      "name": "EvtSwap2",
-      "discriminator": [
-        189,
-        66,
-        51,
-        168,
-        38,
-        80,
-        117,
-        153
       ]
     },
     {
@@ -4069,9 +4019,71 @@
       "code": 6067,
       "name": "InvalidCompoundingParameters",
       "msg": "Invalid compounding parameters"
+    },
+    {
+      "code": 6068,
+      "name": "InvalidClaimProtocolFeeAccounts",
+      "msg": "Invalid claim protocol fee accounts"
+    },
+    {
+      "code": 6069,
+      "name": "InvalidInstructionsSysvar",
+      "msg": "Invalid instructions sysvar account"
+    },
+    {
+      "code": 6070,
+      "name": "InvalidRemainingAccountsLength",
+      "msg": "Invalid remaining accounts length"
+    },
+    {
+      "code": 6071,
+      "name": "MissingRemainingAccountForTransferHook",
+      "msg": "Missing remaining account for transfer hook"
+    },
+    {
+      "code": 6072,
+      "name": "NoTransferHookProgram",
+      "msg": "No transfer hook program"
+    },
+    {
+      "code": 6073,
+      "name": "DuplicatedRemainingAccountTypes",
+      "msg": "Duplicated remaining account types"
+    },
+    {
+      "code": 6074,
+      "name": "InvalidTransferHookProgram",
+      "msg": "Invalid transfer hook program"
+    },
+    {
+      "code": 6075,
+      "name": "InvalidPoolAccount",
+      "msg": "Invalid pool account"
+    },
+    {
+      "code": 6076,
+      "name": "PoolTypeMismatch",
+      "msg": "Pool type does not match instruction"
     }
   ],
   "types": [
+    {
+      "name": "AccountsType",
+      "repr": {
+        "kind": "rust"
+      },
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "TransferHookBase"
+          },
+          {
+            "name": "TransferHookBaseReferral"
+          }
+        ]
+      }
+    },
     {
       "name": "BaseFeeConfig",
       "serialization": "bytemuck",
@@ -4392,6 +4404,39 @@
       }
     },
     {
+      "name": "ConfigWithTransferHook",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": {
+              "defined": {
+                "name": "PoolConfig"
+              }
+            }
+          },
+          {
+            "name": "transfer_hook_program",
+            "type": "pubkey"
+          },
+          {
+            "name": "padding_0",
+            "type": {
+              "array": [
+                "u64",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "CreatePartnerMetadataParameters",
       "type": {
         "kind": "struct",
@@ -4608,7 +4653,7 @@
       }
     },
     {
-      "name": "EvtClaimProtocolLiquidityMigrationFee",
+      "name": "EvtClaimProtocolFee2",
       "type": {
         "kind": "struct",
         "fields": [
@@ -4617,11 +4662,15 @@
             "type": "pubkey"
           },
           {
-            "name": "token_base_amount",
-            "type": "u64"
+            "name": "receiver_token_account",
+            "type": "pubkey"
           },
           {
-            "name": "token_quote_amount",
+            "name": "token_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
             "type": "u64"
           }
         ]
@@ -4835,6 +4884,42 @@
       }
     },
     {
+      "name": "EvtCreateConfigV2WithTransferHook",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_claimer",
+            "type": "pubkey"
+          },
+          {
+            "name": "leftover_receiver",
+            "type": "pubkey"
+          },
+          {
+            "name": "config_parameters",
+            "type": {
+              "defined": {
+                "name": "ConfigParameters"
+              }
+            }
+          },
+          {
+            "name": "transfer_hook_program",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
       "name": "EvtCreateMeteoraMigrationMetadata",
       "type": {
         "kind": "struct",
@@ -4857,62 +4942,6 @@
           },
           {
             "name": "surplus_amount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "EvtCurveComplete",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "config",
-            "type": "pubkey"
-          },
-          {
-            "name": "base_reserve",
-            "type": "u64"
-          },
-          {
-            "name": "quote_reserve",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "EvtInitializePool",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "config",
-            "type": "pubkey"
-          },
-          {
-            "name": "creator",
-            "type": "pubkey"
-          },
-          {
-            "name": "base_mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "pool_type",
-            "type": "u8"
-          },
-          {
-            "name": "activation_point",
             "type": "u64"
           }
         ]
@@ -4957,22 +4986,6 @@
           {
             "name": "fee_claimer",
             "type": "pubkey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "EvtPartnerWithdrawMigrationFee",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "fee",
-            "type": "u64"
           }
         ]
       }
@@ -5042,58 +5055,6 @@
       }
     },
     {
-      "name": "EvtSwap2",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "config",
-            "type": "pubkey"
-          },
-          {
-            "name": "trade_direction",
-            "type": "u8"
-          },
-          {
-            "name": "has_referral",
-            "type": "bool"
-          },
-          {
-            "name": "swap_parameters",
-            "type": {
-              "defined": {
-                "name": "SwapParameters2"
-              }
-            }
-          },
-          {
-            "name": "swap_result",
-            "type": {
-              "defined": {
-                "name": "SwapResult2"
-              }
-            }
-          },
-          {
-            "name": "quote_reserve_amount",
-            "type": "u64"
-          },
-          {
-            "name": "migration_threshold",
-            "type": "u64"
-          },
-          {
-            "name": "current_timestamp",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
       "name": "EvtUpdatePoolCreator",
       "type": {
         "kind": "struct",
@@ -5115,9 +5076,6 @@
     },
     {
       "name": "EvtVirtualPoolMetadata",
-      "docs": [
-        "Create virtual pool metadata"
-      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -6129,151 +6087,7 @@
       }
     },
     {
-      "name": "SwapParameters",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "amount_in",
-            "type": "u64"
-          },
-          {
-            "name": "minimum_amount_out",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SwapParameters2",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "amount_0",
-            "docs": [
-              "When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "amount_1",
-            "docs": [
-              "When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "swap_mode",
-            "docs": [
-              "Swap mode, refer [SwapMode]"
-            ],
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SwapResult",
-      "docs": [
-        "Encodes all results of swapping"
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "actual_input_amount",
-            "type": "u64"
-          },
-          {
-            "name": "output_amount",
-            "type": "u64"
-          },
-          {
-            "name": "next_sqrt_price",
-            "type": "u128"
-          },
-          {
-            "name": "trading_fee",
-            "type": "u64"
-          },
-          {
-            "name": "protocol_fee",
-            "type": "u64"
-          },
-          {
-            "name": "referral_fee",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SwapResult2",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "included_fee_input_amount",
-            "type": "u64"
-          },
-          {
-            "name": "excluded_fee_input_amount",
-            "type": "u64"
-          },
-          {
-            "name": "amount_left",
-            "type": "u64"
-          },
-          {
-            "name": "output_amount",
-            "type": "u64"
-          },
-          {
-            "name": "next_sqrt_price",
-            "type": "u128"
-          },
-          {
-            "name": "trading_fee",
-            "type": "u64"
-          },
-          {
-            "name": "protocol_fee",
-            "type": "u64"
-          },
-          {
-            "name": "referral_fee",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "TokenSupplyParams",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pre_migration_token_supply",
-            "docs": [
-              "pre migration token supply"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "post_migration_token_supply",
-            "docs": [
-              "post migration token supply",
-              "because DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve",
-              "that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)"
-            ],
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "VirtualPool",
+      "name": "PoolState",
       "serialization": "bytemuck",
       "repr": {
         "kind": "c"
@@ -6537,6 +6351,188 @@
                 "u64",
                 3
               ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RemainingAccountsSlice",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "accounts_type",
+            "type": {
+              "defined": {
+                "name": "AccountsType"
+              }
+            }
+          },
+          {
+            "name": "length",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SwapParameters",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "minimum_amount_out",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SwapParameters2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount_0",
+            "docs": [
+              "When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "amount_1",
+            "docs": [
+              "When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "swap_mode",
+            "docs": [
+              "Swap mode, refer [SwapMode]"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SwapResult",
+      "docs": [
+        "Encodes all results of swapping"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "actual_input_amount",
+            "type": "u64"
+          },
+          {
+            "name": "output_amount",
+            "type": "u64"
+          },
+          {
+            "name": "next_sqrt_price",
+            "type": "u128"
+          },
+          {
+            "name": "trading_fee",
+            "type": "u64"
+          },
+          {
+            "name": "protocol_fee",
+            "type": "u64"
+          },
+          {
+            "name": "referral_fee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokenSupplyParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pre_migration_token_supply",
+            "docs": [
+              "pre migration token supply"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "post_migration_token_supply",
+            "docs": [
+              "post migration token supply",
+              "because DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve",
+              "that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)"
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TransferHookAccountsInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "slices",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "RemainingAccountsSlice"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "TransferHookPool",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool_state",
+            "type": {
+              "defined": {
+                "name": "PoolState"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "VirtualPool",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool_state",
+            "type": {
+              "defined": {
+                "name": "PoolState"
+              }
             }
           }
         ]

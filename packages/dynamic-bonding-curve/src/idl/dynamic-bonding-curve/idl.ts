@@ -8,13 +8,14 @@ export type DynamicBondingCurve = {
     address: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
     metadata: {
         name: 'dynamicBondingCurve'
-        version: '0.1.10'
+        version: '0.2.0'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
     instructions: [
         {
             name: 'claimCreatorTradingFee'
+            docs: ['Accepts: VirtualPool only.']
             discriminator: [82, 220, 250, 189, 3, 85, 107, 45]
             accounts: [
                 {
@@ -39,18 +40,15 @@ export type DynamicBondingCurve = {
                     name: 'baseVault'
                     docs: ['The vault token account for input token']
                     writable: true
-                    relations: ['pool']
                 },
                 {
                     name: 'quoteVault'
                     docs: ['The vault token account for output token']
                     writable: true
-                    relations: ['pool']
                 },
                 {
                     name: 'baseMint'
                     docs: ['The mint of token a']
-                    relations: ['pool']
                 },
                 {
                     name: 'quoteMint'
@@ -70,32 +68,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -113,12 +85,91 @@ export type DynamicBondingCurve = {
             ]
         },
         {
+            name: 'claimCreatorTradingFee2'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
+            discriminator: [238, 247, 213, 94, 110, 145, 88, 142]
+            accounts: [
+                {
+                    name: 'poolAuthority'
+                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
+                },
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'tokenAAccount'
+                    docs: ['The treasury token a account']
+                    writable: true
+                },
+                {
+                    name: 'tokenBAccount'
+                    docs: ['The treasury token b account']
+                    writable: true
+                },
+                {
+                    name: 'baseVault'
+                    docs: ['The vault token account for input token']
+                    writable: true
+                },
+                {
+                    name: 'quoteVault'
+                    docs: ['The vault token account for output token']
+                    writable: true
+                },
+                {
+                    name: 'baseMint'
+                    docs: ['The mint of token a']
+                },
+                {
+                    name: 'quoteMint'
+                    docs: ['The mint of token b']
+                },
+                {
+                    name: 'creator'
+                    signer: true
+                },
+                {
+                    name: 'tokenBaseProgram'
+                    docs: ['Token a program']
+                },
+                {
+                    name: 'tokenQuoteProgram'
+                    docs: ['Token b program']
+                },
+                {
+                    name: 'eventAuthority'
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'maxBaseAmount'
+                    type: 'u64'
+                },
+                {
+                    name: 'maxQuoteAmount'
+                    type: 'u64'
+                },
+                {
+                    name: 'transferHookAccountsInfo'
+                    type: {
+                        defined: {
+                            name: 'transferHookAccountsInfo'
+                        }
+                    }
+                },
+            ]
+        },
+        {
             name: 'claimPartnerPoolCreationFee'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
             discriminator: [250, 238, 26, 4, 139, 10, 101, 248]
             accounts: [
                 {
                     name: 'config'
-                    relations: ['pool']
                 },
                 {
                     name: 'pool'
@@ -134,32 +185,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -169,6 +194,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'claimProtocolFee'
+            docs: ['Accepts: VirtualPool only.']
             discriminator: [165, 228, 133, 48, 99, 249, 255, 33]
             accounts: [
                 {
@@ -231,32 +257,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -274,12 +274,68 @@ export type DynamicBondingCurve = {
             ]
         },
         {
+            name: 'claimProtocolFee2'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
+            discriminator: [235, 194, 54, 69, 65, 10, 236, 112]
+            accounts: [
+                {
+                    name: 'receiverTokenAccount'
+                    docs: [
+                        'receiver token account for the claimed token. validated through the protocol_fee program',
+                    ]
+                    writable: true
+                },
+                {
+                    name: 'baseMint'
+                },
+                {
+                    name: 'quoteMint'
+                },
+                {
+                    name: 'tokenBaseProgram'
+                },
+                {
+                    name: 'tokenQuoteProgram'
+                },
+                {
+                    name: 'config'
+                },
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'baseVault'
+                    writable: true
+                },
+                {
+                    name: 'quoteVault'
+                    writable: true
+                },
+                {
+                    name: 'poolAuthority'
+                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                    address: 'FkU5rQCWQM131skHCpcEbK8P1JrQGsBgqXe55w525SSF'
+                },
+            ]
+            args: [
+                {
+                    name: 'maxAmount'
+                    type: 'u64'
+                },
+            ]
+        },
+        {
             name: 'claimProtocolPoolCreationFee'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
             discriminator: [114, 205, 83, 188, 240, 153, 25, 54]
             accounts: [
                 {
                     name: 'config'
-                    relations: ['pool']
                 },
                 {
                     name: 'pool'
@@ -300,32 +356,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -335,6 +365,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'claimTradingFee'
+            docs: ['Accepts: VirtualPool only.']
             discriminator: [8, 236, 89, 49, 152, 125, 177, 81]
             accounts: [
                 {
@@ -343,7 +374,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'config'
-                    relations: ['pool']
                 },
                 {
                     name: 'pool'
@@ -363,23 +393,19 @@ export type DynamicBondingCurve = {
                     name: 'baseVault'
                     docs: ['The vault token account for input token']
                     writable: true
-                    relations: ['pool']
                 },
                 {
                     name: 'quoteVault'
                     docs: ['The vault token account for output token']
                     writable: true
-                    relations: ['pool']
                 },
                 {
                     name: 'baseMint'
                     docs: ['The mint of token a']
-                    relations: ['pool']
                 },
                 {
                     name: 'quoteMint'
                     docs: ['The mint of token b']
-                    relations: ['config']
                 },
                 {
                     name: 'feeClaimer'
@@ -395,32 +421,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -434,6 +434,88 @@ export type DynamicBondingCurve = {
                 {
                     name: 'maxAmountB'
                     type: 'u64'
+                },
+            ]
+        },
+        {
+            name: 'claimTradingFee2'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
+            discriminator: [84, 191, 71, 50, 9, 162, 55, 193]
+            accounts: [
+                {
+                    name: 'poolAuthority'
+                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
+                },
+                {
+                    name: 'config'
+                },
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'tokenAAccount'
+                    docs: ['The treasury token a account']
+                    writable: true
+                },
+                {
+                    name: 'tokenBAccount'
+                    docs: ['The treasury token b account']
+                    writable: true
+                },
+                {
+                    name: 'baseVault'
+                    docs: ['The vault token account for input token']
+                    writable: true
+                },
+                {
+                    name: 'quoteVault'
+                    docs: ['The vault token account for output token']
+                    writable: true
+                },
+                {
+                    name: 'baseMint'
+                    docs: ['The mint of token a']
+                },
+                {
+                    name: 'quoteMint'
+                    docs: ['The mint of token b']
+                },
+                {
+                    name: 'feeClaimer'
+                    signer: true
+                },
+                {
+                    name: 'tokenBaseProgram'
+                    docs: ['Token a program']
+                },
+                {
+                    name: 'tokenQuoteProgram'
+                    docs: ['Token b program']
+                },
+                {
+                    name: 'eventAuthority'
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'maxAmountA'
+                    type: 'u64'
+                },
+                {
+                    name: 'maxAmountB'
+                    type: 'u64'
+                },
+                {
+                    name: 'transferHookAccountsInfo'
+                    type: {
+                        defined: {
+                            name: 'transferHookAccountsInfo'
+                        }
+                    }
                 },
             ]
         },
@@ -455,32 +537,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -537,32 +593,55 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'configParameters'
+                    type: {
+                        defined: {
+                            name: 'configParameters'
+                        }
                     }
+                },
+            ]
+        },
+        {
+            name: 'createConfigWithTransferHook'
+            discriminator: [216, 37, 1, 57, 88, 226, 25, 41]
+            accounts: [
+                {
+                    name: 'config'
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'feeClaimer'
+                },
+                {
+                    name: 'leftoverReceiver'
+                },
+                {
+                    name: 'quoteMint'
+                    docs: ['quote mint']
+                },
+                {
+                    name: 'transferHookProgram'
+                },
+                {
+                    name: 'payer'
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'systemProgram'
+                    address: '11111111111111111111111111111111'
+                },
+                {
+                    name: 'eventAuthority'
                 },
                 {
                     name: 'program'
@@ -581,18 +660,19 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'createLocker'
-            docs: ['PERMISSIONLESS FUNCTIONS ///', 'create locker']
+            docs: [
+                'PERMISSIONLESS FUNCTIONS ///',
+                'create locker',
+                'Accepts: VirtualPool or TransferHookPool.',
+            ]
             discriminator: [167, 90, 137, 154, 75, 47, 17, 84]
             accounts: [
                 {
                     name: 'virtualPool'
-                    docs: ['Virtual pool']
                     writable: true
                 },
                 {
                     name: 'config'
-                    docs: ['config']
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'poolAuthority'
@@ -602,12 +682,10 @@ export type DynamicBondingCurve = {
                 {
                     name: 'baseVault'
                     writable: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'baseMint'
                     writable: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'base'
@@ -639,7 +717,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'creator'
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'escrow'
@@ -710,32 +787,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -805,32 +856,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -849,11 +874,11 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'createVirtualPoolMetadata'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
             discriminator: [45, 97, 187, 103, 254, 109, 124, 134]
             accounts: [
                 {
                     name: 'virtualPool'
-                    writable: true
                 },
                 {
                     name: 'virtualPoolMetadata'
@@ -911,32 +936,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -955,6 +954,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'creatorWithdrawSurplus'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
             discriminator: [165, 3, 137, 7, 28, 134, 76, 80]
             accounts: [
                 {
@@ -963,7 +963,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'config'
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'virtualPool'
@@ -978,12 +977,10 @@ export type DynamicBondingCurve = {
                     name: 'quoteVault'
                     docs: ['The vault token account for output token']
                     writable: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'quoteMint'
                     docs: ['The mint of quote token']
-                    relations: ['config']
                 },
                 {
                     name: 'creator'
@@ -995,32 +992,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -1030,7 +1001,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'initializeVirtualPoolWithSplToken'
-            docs: ['POOL CREATOR FUNCTIONS ////']
+            docs: ['POOL CREATOR FUNCTIONS ////', 'Accepts: VirtualPool only.']
             discriminator: [140, 85, 215, 176, 102, 54, 104, 79]
             accounts: [
                 {
@@ -1153,32 +1124,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -1197,6 +1142,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'initializeVirtualPoolWithToken2022'
+            docs: ['Accepts: VirtualPool only.']
             discriminator: [169, 118, 51, 78, 145, 110, 220, 155]
             accounts: [
                 {
@@ -1312,32 +1258,140 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'params'
+                    type: {
+                        defined: {
+                            name: 'initializePoolParameters'
+                        }
+                    }
+                },
+            ]
+        },
+        {
+            name: 'initializeVirtualPoolWithToken2022TransferHook'
+            docs: ['Accepts: TransferHookPool only.']
+            discriminator: [182, 13, 233, 177, 42, 145, 135, 2]
+            accounts: [
+                {
+                    name: 'config'
+                    docs: [
+                        'Transfer hook config — contains the transfer hook program set by partner',
+                    ]
+                },
+                {
+                    name: 'poolAuthority'
+                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
+                },
+                {
+                    name: 'creator'
+                    signer: true
+                },
+                {
+                    name: 'baseMint'
+                    docs: ['Unique token mint address, initialize in contract']
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'quoteMint'
+                    relations: ['config']
+                },
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'baseVault'
+                    writable: true
                     pda: {
                         seeds: [
                             {
                                 kind: 'const'
                                 value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
+                                    116,
+                                    111,
+                                    107,
                                     101,
                                     110,
-                                    116,
                                     95,
+                                    118,
                                     97,
                                     117,
+                                    108,
                                     116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
                                 ]
+                            },
+                            {
+                                kind: 'account'
+                                path: 'baseMint'
+                            },
+                            {
+                                kind: 'account'
+                                path: 'pool'
                             },
                         ]
                     }
+                },
+                {
+                    name: 'quoteVault'
+                    writable: true
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110,
+                                    95,
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116,
+                                ]
+                            },
+                            {
+                                kind: 'account'
+                                path: 'quoteMint'
+                            },
+                            {
+                                kind: 'account'
+                                path: 'pool'
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'transferHookProgram'
+                },
+                {
+                    name: 'payer'
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'tokenQuoteProgram'
+                },
+                {
+                    name: 'tokenProgram'
+                    address: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
+                },
+                {
+                    name: 'systemProgram'
+                    address: '11111111111111111111111111111111'
+                },
+                {
+                    name: 'eventAuthority'
                 },
                 {
                     name: 'program'
@@ -1356,6 +1410,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'migrateMeteoraDamm'
+            docs: ['Accepts: VirtualPool only.']
             discriminator: [27, 1, 48, 22, 180, 63, 118, 217]
             accounts: [
                 {
@@ -1490,6 +1545,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'migrateMeteoraDammClaimLpToken'
+            docs: ['Accepts: VirtualPool only.']
             discriminator: [139, 133, 2, 30, 91, 145, 127, 154]
             accounts: [
                 {
@@ -1707,6 +1763,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'migrateMeteoraDammLockLpToken'
+            docs: ['Accepts: VirtualPool only.']
             discriminator: [177, 55, 238, 157, 251, 88, 165, 42]
             accounts: [
                 {
@@ -1866,11 +1923,11 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'migrationDammV2'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
             discriminator: [156, 169, 230, 103, 53, 228, 80, 64]
             accounts: [
                 {
                     name: 'virtualPool'
-                    docs: ['virtual pool']
                     writable: true
                 },
                 {
@@ -1878,8 +1935,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'config'
-                    docs: ['virtual pool config key']
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'poolAuthority'
@@ -1945,12 +2000,10 @@ export type DynamicBondingCurve = {
                 {
                     name: 'baseVault'
                     writable: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'quoteVault'
                     writable: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'payer'
@@ -1979,6 +2032,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'migrationDammV2CreateMetadata'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
             discriminator: [109, 189, 19, 36, 195, 183, 222, 82]
             accounts: [
                 {
@@ -1998,32 +2052,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -2033,7 +2061,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'migrationMeteoraDammCreateMetadata'
-            docs: ['migrate damm v1']
+            docs: ['Accepts: VirtualPool only.']
             discriminator: [47, 94, 126, 115, 221, 226, 194, 133]
             accounts: [
                 {
@@ -2070,32 +2098,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -2105,6 +2107,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'partnerWithdrawSurplus'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
             discriminator: [168, 173, 72, 100, 201, 98, 38, 92]
             accounts: [
                 {
@@ -2113,7 +2116,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'config'
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'virtualPool'
@@ -2128,12 +2130,10 @@ export type DynamicBondingCurve = {
                     name: 'quoteVault'
                     docs: ['The vault token account for output token']
                     writable: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'quoteMint'
                     docs: ['The mint of quote token']
-                    relations: ['config']
                 },
                 {
                     name: 'feeClaimer'
@@ -2145,32 +2145,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -2180,7 +2154,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'swap'
-            docs: ['TRADING BOTS FUNCTIONS ////']
+            docs: ['TRADING BOTS FUNCTIONS ////', 'Accepts: VirtualPool only.']
             discriminator: [248, 198, 158, 145, 225, 117, 135, 200]
             accounts: [
                 {
@@ -2189,12 +2163,9 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'config'
-                    docs: ['config key']
-                    relations: ['pool']
                 },
                 {
                     name: 'pool'
-                    docs: ['Pool account']
                     writable: true
                 },
                 {
@@ -2211,13 +2182,11 @@ export type DynamicBondingCurve = {
                     name: 'baseVault'
                     docs: ['The vault token account for base token']
                     writable: true
-                    relations: ['pool']
                 },
                 {
                     name: 'quoteVault'
                     docs: ['The vault token account for quote token']
                     writable: true
-                    relations: ['pool']
                 },
                 {
                     name: 'baseMint'
@@ -2248,32 +2217,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -2292,6 +2235,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'swap2'
+            docs: ['Accepts: VirtualPool only.']
             discriminator: [65, 75, 63, 76, 235, 91, 91, 136]
             accounts: [
                 {
@@ -2300,12 +2244,9 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'config'
-                    docs: ['config key']
-                    relations: ['pool']
                 },
                 {
                     name: 'pool'
-                    docs: ['Pool account']
                     writable: true
                 },
                 {
@@ -2322,13 +2263,11 @@ export type DynamicBondingCurve = {
                     name: 'baseVault'
                     docs: ['The vault token account for base token']
                     writable: true
-                    relations: ['pool']
                 },
                 {
                     name: 'quoteVault'
                     docs: ['The vault token account for quote token']
                     writable: true
-                    relations: ['pool']
                 },
                 {
                     name: 'baseMint'
@@ -2359,32 +2298,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -2402,7 +2315,101 @@ export type DynamicBondingCurve = {
             ]
         },
         {
+            name: 'swap2WithTransferHook'
+            docs: ['Accepts: TransferHookPool only.']
+            discriminator: [183, 93, 153, 40, 24, 230, 194, 151]
+            accounts: [
+                {
+                    name: 'poolAuthority'
+                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
+                },
+                {
+                    name: 'config'
+                },
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'inputTokenAccount'
+                    docs: ['The user token account for input token']
+                    writable: true
+                },
+                {
+                    name: 'outputTokenAccount'
+                    docs: ['The user token account for output token']
+                    writable: true
+                },
+                {
+                    name: 'baseVault'
+                    docs: ['The vault token account for base token']
+                    writable: true
+                },
+                {
+                    name: 'quoteVault'
+                    docs: ['The vault token account for quote token']
+                    writable: true
+                },
+                {
+                    name: 'baseMint'
+                    docs: [
+                        'The mint of base token',
+                        'must be mutable so we can revoke the transfer hook after the last swap is performed',
+                    ]
+                    writable: true
+                },
+                {
+                    name: 'quoteMint'
+                    docs: ['The mint of quote token']
+                },
+                {
+                    name: 'payer'
+                    docs: ['The user performing the swap']
+                    signer: true
+                },
+                {
+                    name: 'tokenBaseProgram'
+                    docs: ['Token base program']
+                },
+                {
+                    name: 'tokenQuoteProgram'
+                    docs: ['Token quote program']
+                },
+                {
+                    name: 'referralTokenAccount'
+                    docs: ['referral token account']
+                    writable: true
+                    optional: true
+                },
+                {
+                    name: 'eventAuthority'
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'params'
+                    type: {
+                        defined: {
+                            name: 'swapParameters2'
+                        }
+                    }
+                },
+                {
+                    name: 'transferHookAccountsInfo'
+                    type: {
+                        defined: {
+                            name: 'transferHookAccountsInfo'
+                        }
+                    }
+                },
+            ]
+        },
+        {
             name: 'transferPoolCreator'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
             discriminator: [20, 7, 169, 33, 58, 147, 166, 33]
             accounts: [
                 {
@@ -2411,7 +2418,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'config'
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'creator'
@@ -2422,32 +2428,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -2457,6 +2437,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'withdrawLeftover'
+            docs: ['Accepts: VirtualPool or TransferHookPool.']
             discriminator: [20, 198, 202, 237, 235, 243, 183, 66]
             accounts: [
                 {
@@ -2465,7 +2446,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'config'
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'virtualPool'
@@ -2533,16 +2513,13 @@ export type DynamicBondingCurve = {
                     name: 'baseVault'
                     docs: ['The vault token account for output token']
                     writable: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'baseMint'
                     docs: ['The mint of quote token']
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'leftoverReceiver'
-                    relations: ['config']
                 },
                 {
                     name: 'tokenBaseProgram'
@@ -2550,32 +2527,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -2585,7 +2536,10 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'withdrawMigrationFee'
-            docs: ['BOTH partner and creator FUNCTIONS ///']
+            docs: [
+                'BOTH partner and creator FUNCTIONS ///',
+                'Accepts: VirtualPool or TransferHookPool.',
+            ]
             discriminator: [237, 142, 45, 23, 129, 6, 222, 162]
             accounts: [
                 {
@@ -2594,7 +2548,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'config'
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'virtualPool'
@@ -2609,12 +2562,10 @@ export type DynamicBondingCurve = {
                     name: 'quoteVault'
                     docs: ['The vault token account for output token']
                     writable: true
-                    relations: ['virtualPool']
                 },
                 {
                     name: 'quoteMint'
                     docs: ['The mint of quote token']
-                    relations: ['config']
                 },
                 {
                     name: 'sender'
@@ -2626,32 +2577,6 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
                 },
                 {
                     name: 'program'
@@ -2666,6 +2591,7 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'zapProtocolFee'
+            docs: ['Accepts: VirtualPool only.']
             discriminator: [213, 155, 187, 34, 56, 182, 91, 240]
             accounts: [
                 {
@@ -2723,12 +2649,8 @@ export type DynamicBondingCurve = {
             discriminator: [166, 48, 134, 86, 34, 200, 188, 150]
         },
         {
-            name: 'config'
-            discriminator: [155, 12, 170, 224, 30, 250, 204, 130]
-        },
-        {
-            name: 'lockEscrow'
-            discriminator: [190, 106, 121, 6, 200, 182, 21, 75]
+            name: 'configWithTransferHook'
+            discriminator: [40, 220, 194, 251, 41, 199, 123, 253]
         },
         {
             name: 'meteoraDammMigrationMetadata'
@@ -2745,6 +2667,10 @@ export type DynamicBondingCurve = {
         {
             name: 'poolConfig'
             discriminator: [26, 108, 14, 123, 116, 230, 129, 43]
+        },
+        {
+            name: 'transferHookPool'
+            discriminator: [237, 219, 184, 23, 42, 189, 169, 35]
         },
         {
             name: 'virtualPool'
@@ -2769,8 +2695,8 @@ export type DynamicBondingCurve = {
             discriminator: [186, 244, 75, 251, 188, 13, 25, 33]
         },
         {
-            name: 'evtClaimProtocolLiquidityMigrationFee'
-            discriminator: [81, 168, 116, 31, 161, 86, 27, 35]
+            name: 'evtClaimProtocolFee2'
+            discriminator: [187, 133, 66, 9, 205, 161, 84, 13]
         },
         {
             name: 'evtClaimTradingFee'
@@ -2793,20 +2719,16 @@ export type DynamicBondingCurve = {
             discriminator: [163, 74, 66, 187, 119, 195, 26, 144]
         },
         {
+            name: 'evtCreateConfigV2WithTransferHook'
+            discriminator: [182, 81, 135, 4, 39, 46, 132, 253]
+        },
+        {
             name: 'evtCreateMeteoraMigrationMetadata'
             discriminator: [99, 167, 133, 63, 214, 143, 175, 139]
         },
         {
             name: 'evtCreatorWithdrawSurplus'
             discriminator: [152, 73, 21, 15, 66, 87, 53, 157]
-        },
-        {
-            name: 'evtCurveComplete'
-            discriminator: [229, 231, 86, 84, 156, 134, 75, 24]
-        },
-        {
-            name: 'evtInitializePool'
-            discriminator: [228, 50, 246, 85, 203, 66, 134, 37]
         },
         {
             name: 'evtPartnerClaimPoolCreationFee'
@@ -2817,20 +2739,12 @@ export type DynamicBondingCurve = {
             discriminator: [200, 127, 6, 55, 13, 32, 8, 150]
         },
         {
-            name: 'evtPartnerWithdrawMigrationFee'
-            discriminator: [181, 105, 127, 67, 8, 187, 120, 57]
-        },
-        {
             name: 'evtPartnerWithdrawSurplus'
             discriminator: [195, 56, 152, 9, 232, 72, 35, 22]
         },
         {
             name: 'evtSwap'
             discriminator: [27, 60, 21, 213, 138, 170, 187, 147]
-        },
-        {
-            name: 'evtSwap2'
-            discriminator: [189, 66, 51, 168, 38, 80, 117, 153]
         },
         {
             name: 'evtUpdatePoolCreator'
@@ -3190,8 +3104,70 @@ export type DynamicBondingCurve = {
             name: 'invalidCompoundingParameters'
             msg: 'Invalid compounding parameters'
         },
+        {
+            code: 6068
+            name: 'invalidClaimProtocolFeeAccounts'
+            msg: 'Invalid claim protocol fee accounts'
+        },
+        {
+            code: 6069
+            name: 'invalidInstructionsSysvar'
+            msg: 'Invalid instructions sysvar account'
+        },
+        {
+            code: 6070
+            name: 'invalidRemainingAccountsLength'
+            msg: 'Invalid remaining accounts length'
+        },
+        {
+            code: 6071
+            name: 'missingRemainingAccountForTransferHook'
+            msg: 'Missing remaining account for transfer hook'
+        },
+        {
+            code: 6072
+            name: 'noTransferHookProgram'
+            msg: 'No transfer hook program'
+        },
+        {
+            code: 6073
+            name: 'duplicatedRemainingAccountTypes'
+            msg: 'Duplicated remaining account types'
+        },
+        {
+            code: 6074
+            name: 'invalidTransferHookProgram'
+            msg: 'Invalid transfer hook program'
+        },
+        {
+            code: 6075
+            name: 'invalidPoolAccount'
+            msg: 'Invalid pool account'
+        },
+        {
+            code: 6076
+            name: 'poolTypeMismatch'
+            msg: 'Pool type does not match instruction'
+        },
     ]
     types: [
+        {
+            name: 'accountsType'
+            repr: {
+                kind: 'rust'
+            }
+            type: {
+                kind: 'enum'
+                variants: [
+                    {
+                        name: 'transferHookBase'
+                    },
+                    {
+                        name: 'transferHookBaseReferral'
+                    },
+                ]
+            }
+        },
         {
             name: 'baseFeeConfig'
             serialization: 'bytemuck'
@@ -3490,6 +3466,36 @@ export type DynamicBondingCurve = {
             }
         },
         {
+            name: 'configWithTransferHook'
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'config'
+                        type: {
+                            defined: {
+                                name: 'poolConfig'
+                            }
+                        }
+                    },
+                    {
+                        name: 'transferHookProgram'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'padding0'
+                        type: {
+                            array: ['u64', 6]
+                        }
+                    },
+                ]
+            }
+        },
+        {
             name: 'createPartnerMetadataParameters'
             type: {
                 kind: 'struct'
@@ -3694,7 +3700,7 @@ export type DynamicBondingCurve = {
             }
         },
         {
-            name: 'evtClaimProtocolLiquidityMigrationFee'
+            name: 'evtClaimProtocolFee2'
             type: {
                 kind: 'struct'
                 fields: [
@@ -3703,11 +3709,15 @@ export type DynamicBondingCurve = {
                         type: 'pubkey'
                     },
                     {
-                        name: 'tokenBaseAmount'
-                        type: 'u64'
+                        name: 'receiverTokenAccount'
+                        type: 'pubkey'
                     },
                     {
-                        name: 'tokenQuoteAmount'
+                        name: 'tokenMint'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'amount'
                         type: 'u64'
                     },
                 ]
@@ -3915,6 +3925,42 @@ export type DynamicBondingCurve = {
             }
         },
         {
+            name: 'evtCreateConfigV2WithTransferHook'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'quoteMint'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'feeClaimer'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'leftoverReceiver'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'configParameters'
+                        type: {
+                            defined: {
+                                name: 'configParameters'
+                            }
+                        }
+                    },
+                    {
+                        name: 'transferHookProgram'
+                        type: 'pubkey'
+                    },
+                ]
+            }
+        },
+        {
             name: 'evtCreateMeteoraMigrationMetadata'
             type: {
                 kind: 'struct'
@@ -3937,62 +3983,6 @@ export type DynamicBondingCurve = {
                     },
                     {
                         name: 'surplusAmount'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'evtCurveComplete'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'pool'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'config'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'baseReserve'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'quoteReserve'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'evtInitializePool'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'pool'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'config'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'creator'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'baseMint'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'poolType'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'activationPoint'
                         type: 'u64'
                     },
                 ]
@@ -4035,22 +4025,6 @@ export type DynamicBondingCurve = {
                     {
                         name: 'feeClaimer'
                         type: 'pubkey'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'evtPartnerWithdrawMigrationFee'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'pool'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'fee'
-                        type: 'u64'
                     },
                 ]
             }
@@ -4120,58 +4094,6 @@ export type DynamicBondingCurve = {
             }
         },
         {
-            name: 'evtSwap2'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'pool'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'config'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'tradeDirection'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'hasReferral'
-                        type: 'bool'
-                    },
-                    {
-                        name: 'swapParameters'
-                        type: {
-                            defined: {
-                                name: 'swapParameters2'
-                            }
-                        }
-                    },
-                    {
-                        name: 'swapResult'
-                        type: {
-                            defined: {
-                                name: 'swapResult2'
-                            }
-                        }
-                    },
-                    {
-                        name: 'quoteReserveAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'migrationThreshold'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'currentTimestamp'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
             name: 'evtUpdatePoolCreator'
             type: {
                 kind: 'struct'
@@ -4193,7 +4115,6 @@ export type DynamicBondingCurve = {
         },
         {
             name: 'evtVirtualPoolMetadata'
-            docs: ['Create virtual pool metadata']
             type: {
                 kind: 'struct'
                 fields: [
@@ -5077,145 +4998,7 @@ export type DynamicBondingCurve = {
             }
         },
         {
-            name: 'swapParameters'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'amountIn'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'minimumAmountOut'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'swapParameters2'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'amount0'
-                        docs: [
-                            "When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out",
-                        ]
-                        type: 'u64'
-                    },
-                    {
-                        name: 'amount1'
-                        docs: [
-                            "When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in",
-                        ]
-                        type: 'u64'
-                    },
-                    {
-                        name: 'swapMode'
-                        docs: ['Swap mode, refer [SwapMode]']
-                        type: 'u8'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'swapResult'
-            docs: ['Encodes all results of swapping']
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'actualInputAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'outputAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'nextSqrtPrice'
-                        type: 'u128'
-                    },
-                    {
-                        name: 'tradingFee'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'protocolFee'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'referralFee'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'swapResult2'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'includedFeeInputAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'excludedFeeInputAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'amountLeft'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'outputAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'nextSqrtPrice'
-                        type: 'u128'
-                    },
-                    {
-                        name: 'tradingFee'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'protocolFee'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'referralFee'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'tokenSupplyParams'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'preMigrationTokenSupply'
-                        docs: ['pre migration token supply']
-                        type: 'u64'
-                    },
-                    {
-                        name: 'postMigrationTokenSupply'
-                        docs: [
-                            'post migration token supply',
-                            'because DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve',
-                            'that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)',
-                        ]
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'virtualPool'
+            name: 'poolState'
             serialization: 'bytemuck'
             repr: {
                 kind: 'c'
@@ -5410,6 +5193,182 @@ export type DynamicBondingCurve = {
                         docs: ['Padding for further use']
                         type: {
                             array: ['u64', 3]
+                        }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'remainingAccountsSlice'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'accountsType'
+                        type: {
+                            defined: {
+                                name: 'accountsType'
+                            }
+                        }
+                    },
+                    {
+                        name: 'length'
+                        type: 'u8'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'swapParameters'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'amountIn'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'minimumAmountOut'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'swapParameters2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'amount0'
+                        docs: [
+                            "When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out",
+                        ]
+                        type: 'u64'
+                    },
+                    {
+                        name: 'amount1'
+                        docs: [
+                            "When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in",
+                        ]
+                        type: 'u64'
+                    },
+                    {
+                        name: 'swapMode'
+                        docs: ['Swap mode, refer [SwapMode]']
+                        type: 'u8'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'swapResult'
+            docs: ['Encodes all results of swapping']
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'actualInputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'outputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'nextSqrtPrice'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'tradingFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'protocolFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'referralFee'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'tokenSupplyParams'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'preMigrationTokenSupply'
+                        docs: ['pre migration token supply']
+                        type: 'u64'
+                    },
+                    {
+                        name: 'postMigrationTokenSupply'
+                        docs: [
+                            'post migration token supply',
+                            'because DBC allow user to swap over the migration quote threshold, so in extreme case user may swap more than allowed buffer on curve',
+                            'that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)',
+                        ]
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'transferHookAccountsInfo'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'slices'
+                        type: {
+                            vec: {
+                                defined: {
+                                    name: 'remainingAccountsSlice'
+                                }
+                            }
+                        }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'transferHookPool'
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'poolState'
+                        type: {
+                            defined: {
+                                name: 'poolState'
+                            }
+                        }
+                    },
+                ]
+            }
+        },
+        {
+            name: 'virtualPool'
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'poolState'
+                        type: {
+                            defined: {
+                                name: 'poolState'
+                            }
                         }
                     },
                 ]
