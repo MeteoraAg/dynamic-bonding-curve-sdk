@@ -3575,6 +3575,58 @@
       ]
     },
     {
+      "name": "EvtCurveComplete",
+      "discriminator": [
+        229,
+        231,
+        86,
+        84,
+        156,
+        134,
+        75,
+        24
+      ]
+    },
+    {
+      "name": "EvtCurveCompleteWithTransferHook",
+      "discriminator": [
+        59,
+        47,
+        109,
+        205,
+        13,
+        31,
+        44,
+        159
+      ]
+    },
+    {
+      "name": "EvtInitializePool",
+      "discriminator": [
+        228,
+        50,
+        246,
+        85,
+        203,
+        66,
+        134,
+        37
+      ]
+    },
+    {
+      "name": "EvtInitializePoolWithTransferHook",
+      "discriminator": [
+        213,
+        137,
+        164,
+        53,
+        193,
+        74,
+        15,
+        110
+      ]
+    },
+    {
       "name": "EvtPartnerClaimPoolCreationFee",
       "discriminator": [
         174,
@@ -3624,6 +3676,32 @@
         170,
         187,
         147
+      ]
+    },
+    {
+      "name": "EvtSwap2",
+      "discriminator": [
+        189,
+        66,
+        51,
+        168,
+        38,
+        80,
+        117,
+        153
+      ]
+    },
+    {
+      "name": "EvtSwap2WithTransferHook",
+      "discriminator": [
+        134,
+        59,
+        168,
+        120,
+        94,
+        51,
+        114,
+        231
       ]
     },
     {
@@ -4948,6 +5026,118 @@
       }
     },
     {
+      "name": "EvtCurveComplete",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_reserve",
+            "type": "u64"
+          },
+          {
+            "name": "quote_reserve",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvtCurveCompleteWithTransferHook",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_reserve",
+            "type": "u64"
+          },
+          {
+            "name": "quote_reserve",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvtInitializePool",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "pool_type",
+            "type": "u8"
+          },
+          {
+            "name": "activation_point",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvtInitializePoolWithTransferHook",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "pool_type",
+            "type": "u8"
+          },
+          {
+            "name": "activation_point",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "EvtPartnerClaimPoolCreationFee",
       "type": {
         "kind": "struct",
@@ -5045,6 +5235,110 @@
           },
           {
             "name": "amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "current_timestamp",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvtSwap2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "trade_direction",
+            "type": "u8"
+          },
+          {
+            "name": "has_referral",
+            "type": "bool"
+          },
+          {
+            "name": "swap_parameters",
+            "type": {
+              "defined": {
+                "name": "SwapParameters2"
+              }
+            }
+          },
+          {
+            "name": "swap_result",
+            "type": {
+              "defined": {
+                "name": "SwapResult2"
+              }
+            }
+          },
+          {
+            "name": "quote_reserve_amount",
+            "type": "u64"
+          },
+          {
+            "name": "migration_threshold",
+            "type": "u64"
+          },
+          {
+            "name": "current_timestamp",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvtSwap2WithTransferHook",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "trade_direction",
+            "type": "u8"
+          },
+          {
+            "name": "has_referral",
+            "type": "bool"
+          },
+          {
+            "name": "swap_parameters",
+            "type": {
+              "defined": {
+                "name": "SwapParameters2"
+              }
+            }
+          },
+          {
+            "name": "swap_result",
+            "type": {
+              "defined": {
+                "name": "SwapResult2"
+              }
+            }
+          },
+          {
+            "name": "quote_reserve_amount",
+            "type": "u64"
+          },
+          {
+            "name": "migration_threshold",
             "type": "u64"
           },
           {
@@ -6431,6 +6725,46 @@
         "fields": [
           {
             "name": "actual_input_amount",
+            "type": "u64"
+          },
+          {
+            "name": "output_amount",
+            "type": "u64"
+          },
+          {
+            "name": "next_sqrt_price",
+            "type": "u128"
+          },
+          {
+            "name": "trading_fee",
+            "type": "u64"
+          },
+          {
+            "name": "protocol_fee",
+            "type": "u64"
+          },
+          {
+            "name": "referral_fee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SwapResult2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "included_fee_input_amount",
+            "type": "u64"
+          },
+          {
+            "name": "excluded_fee_input_amount",
+            "type": "u64"
+          },
+          {
+            "name": "amount_left",
             "type": "u64"
           },
           {

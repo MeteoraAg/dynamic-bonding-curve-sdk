@@ -16,19 +16,19 @@ export type DynamicCurveProgram = Program<DynamicBondingCurveIDL>
 /////////////////
 
 export type CreateConfigAccounts = Accounts<
-    DynamicBondingCurve['instructions']['7']
+    DynamicBondingCurve['instructions']['10']
 >['createConfig']
 
 export type CreateDammV1MigrationMetadataAccounts = Accounts<
-    DynamicBondingCurve['instructions']['20']
+    DynamicBondingCurve['instructions']['25']
 >['migrationMeteoraDammCreateMetadata']
 
 export type InitializeSplPoolAccounts = Accounts<
-    DynamicBondingCurve['instructions']['13']
+    DynamicBondingCurve['instructions']['17']
 >['initializeVirtualPoolWithSplToken']
 
 export type InitializeToken2022PoolAccounts = Accounts<
-    DynamicBondingCurve['instructions']['14']
+    DynamicBondingCurve['instructions']['18']
 >['initializeVirtualPoolWithToken2022']
 
 ///////////////
@@ -75,6 +75,8 @@ export type SwapResult2 = IdlTypes<DynamicBondingCurve>['swapResult2']
 export type VolatilityTracker =
     IdlTypes<DynamicBondingCurve>['volatilityTracker']
 
+export type LockEscrow = IdlTypes<DynamicBondingCurve>['lockEscrow']
+
 //////////////////
 // IDL ACCOUNTS //
 //////////////////
@@ -85,8 +87,6 @@ export type VirtualPool = IdlAccounts<DynamicBondingCurve>['virtualPool']
 
 export type MeteoraDammMigrationMetadata =
     IdlAccounts<DynamicBondingCurve>['meteoraDammMigrationMetadata']
-
-export type LockEscrow = IdlAccounts<DynamicBondingCurve>['lockEscrow']
 
 export type PartnerMetadata =
     IdlAccounts<DynamicBondingCurve>['partnerMetadata']

@@ -8,7 +8,7 @@ export type CpAmm = {
     address: 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG'
     metadata: {
         name: 'cpAmm'
-        version: '0.1.7'
+        version: '0.2.0'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -116,107 +116,6 @@ export type CpAmm = {
                             name: 'addLiquidityParameters'
                         }
                     }
-                },
-            ]
-        },
-        {
-            name: 'claimPartnerFee'
-            discriminator: [97, 206, 39, 105, 94, 94, 126, 148]
-            accounts: [
-                {
-                    name: 'poolAuthority'
-                    address: 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC'
-                },
-                {
-                    name: 'pool'
-                    writable: true
-                },
-                {
-                    name: 'tokenAAccount'
-                    docs: ['The treasury token a account']
-                    writable: true
-                },
-                {
-                    name: 'tokenBAccount'
-                    docs: ['The treasury token b account']
-                    writable: true
-                },
-                {
-                    name: 'tokenAVault'
-                    docs: ['The vault token account for input token']
-                    writable: true
-                    relations: ['pool']
-                },
-                {
-                    name: 'tokenBVault'
-                    docs: ['The vault token account for output token']
-                    writable: true
-                    relations: ['pool']
-                },
-                {
-                    name: 'tokenAMint'
-                    docs: ['The mint of token a']
-                    relations: ['pool']
-                },
-                {
-                    name: 'tokenBMint'
-                    docs: ['The mint of token b']
-                    relations: ['pool']
-                },
-                {
-                    name: 'partner'
-                    signer: true
-                    relations: ['pool']
-                },
-                {
-                    name: 'tokenAProgram'
-                    docs: ['Token a program']
-                },
-                {
-                    name: 'tokenBProgram'
-                    docs: ['Token b program']
-                },
-                {
-                    name: 'eventAuthority'
-                    pda: {
-                        seeds: [
-                            {
-                                kind: 'const'
-                                value: [
-                                    95,
-                                    95,
-                                    101,
-                                    118,
-                                    101,
-                                    110,
-                                    116,
-                                    95,
-                                    97,
-                                    117,
-                                    116,
-                                    104,
-                                    111,
-                                    114,
-                                    105,
-                                    116,
-                                    121,
-                                ]
-                            },
-                        ]
-                    }
-                },
-                {
-                    name: 'program'
-                },
-            ]
-            args: [
-                {
-                    name: 'maxAmountA'
-                    type: 'u64'
-                },
-                {
-                    name: 'maxAmountB'
-                    type: 'u64'
                 },
             ]
         },
@@ -1232,6 +1131,78 @@ export type CpAmm = {
             ]
         },
         {
+            name: 'fixConfigFeeParams'
+            discriminator: [38, 30, 216, 81, 250, 177, 243, 254]
+            accounts: [
+                {
+                    name: 'config'
+                    writable: true
+                },
+                {
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                },
+            ]
+            args: [
+                {
+                    name: 'params'
+                    type: {
+                        defined: {
+                            name: 'baseFeeParameters'
+                        }
+                    }
+                },
+            ]
+        },
+        {
+            name: 'fixPoolFeeParams'
+            discriminator: [132, 98, 81, 196, 44, 58, 120, 193]
+            accounts: [
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                },
+            ]
+            args: [
+                {
+                    name: 'params'
+                    type: {
+                        defined: {
+                            name: 'baseFeeParameters'
+                        }
+                    }
+                },
+            ]
+        },
+        {
+            name: 'fixPoolLayoutVersion'
+            discriminator: [166, 158, 69, 35, 81, 167, 200, 215]
+            accounts: [
+                {
+                    name: 'pool'
+                    writable: true
+                },
+                {
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                },
+            ]
+            args: []
+        },
+        {
             name: 'fundReward'
             discriminator: [188, 50, 249, 165, 93, 151, 38, 63]
             accounts: [
@@ -2115,6 +2086,71 @@ export type CpAmm = {
                 {
                     name: 'funder'
                     type: 'pubkey'
+                },
+            ]
+        },
+        {
+            name: 'lockInnerPosition'
+            discriminator: [72, 19, 49, 204, 18, 122, 23, 90]
+            accounts: [
+                {
+                    name: 'pool'
+                    relations: ['position']
+                },
+                {
+                    name: 'position'
+                    writable: true
+                },
+                {
+                    name: 'positionNftAccount'
+                    docs: ['The token account for nft']
+                },
+                {
+                    name: 'owner'
+                    docs: ['owner of position']
+                    signer: true
+                },
+                {
+                    name: 'eventAuthority'
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    95,
+                                    95,
+                                    101,
+                                    118,
+                                    101,
+                                    110,
+                                    116,
+                                    95,
+                                    97,
+                                    117,
+                                    116,
+                                    104,
+                                    111,
+                                    114,
+                                    105,
+                                    116,
+                                    121,
+                                ]
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'params'
+                    type: {
+                        defined: {
+                            name: 'vestingParameters'
+                        }
+                    }
                 },
             ]
         },
@@ -3256,10 +3292,6 @@ export type CpAmm = {
     ]
     events: [
         {
-            name: 'evtClaimPartnerFee'
-            discriminator: [118, 99, 77, 10, 226, 1, 1, 87]
-        },
-        {
             name: 'evtClaimPositionFee'
             discriminator: [198, 182, 183, 52, 97, 12, 49, 56]
         },
@@ -3326,6 +3358,10 @@ export type CpAmm = {
         {
             name: 'evtSplitPosition2'
             discriminator: [165, 32, 203, 174, 72, 100, 233, 103]
+        },
+        {
+            name: 'evtSplitPosition3'
+            discriminator: [232, 117, 190, 218, 85, 162, 207, 78]
         },
         {
             name: 'evtSwap2'
@@ -3684,6 +3720,11 @@ export type CpAmm = {
             name: 'invalidZapAccounts'
             msg: 'Invalid zap accounts'
         },
+        {
+            code: 6067
+            name: 'invalidCompoundingFeeBps'
+            msg: 'Invalid compounding fee bps'
+        },
     ]
     types: [
         {
@@ -3735,7 +3776,7 @@ export type CpAmm = {
                     {
                         name: 'data'
                         type: {
-                            array: ['u8', 30]
+                            array: ['u8', 27]
                         }
                     },
                 ]
@@ -3794,12 +3835,6 @@ export type CpAmm = {
                         name: 'baseFeeMode'
                         type: 'u8'
                     },
-                    {
-                        name: 'padding'
-                        type: {
-                            array: ['u8', 3]
-                        }
-                    },
                 ]
             }
         },
@@ -3845,12 +3880,6 @@ export type CpAmm = {
                         name: 'baseFeeMode'
                         type: 'u8'
                     },
-                    {
-                        name: 'padding'
-                        type: {
-                            array: ['u8', 3]
-                        }
-                    },
                 ]
             }
         },
@@ -3878,12 +3907,6 @@ export type CpAmm = {
                     {
                         name: 'baseFeeMode'
                         type: 'u8'
-                    },
-                    {
-                        name: 'padding'
-                        type: {
-                            array: ['u8', 3]
-                        }
                     },
                 ]
             }
@@ -4163,26 +4186,6 @@ export type CpAmm = {
                     {
                         name: 'volatilityReference'
                         type: 'u128'
-                    },
-                ]
-            }
-        },
-        {
-            name: 'evtClaimPartnerFee'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'pool'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'tokenAAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'tokenBAmount'
-                        type: 'u64'
                     },
                 ]
             }
@@ -4798,6 +4801,70 @@ export type CpAmm = {
             }
         },
         {
+            name: 'evtSplitPosition3'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'firstOwner'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'secondOwner'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'firstPosition'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'secondPosition'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'currentSqrtPrice'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'amountSplits'
+                        type: {
+                            defined: {
+                                name: 'splitAmountInfo2'
+                            }
+                        }
+                    },
+                    {
+                        name: 'firstPositionInfo'
+                        type: {
+                            defined: {
+                                name: 'splitPositionInfo2'
+                            }
+                        }
+                    },
+                    {
+                        name: 'secondPositionInfo'
+                        type: {
+                            defined: {
+                                name: 'splitPositionInfo2'
+                            }
+                        }
+                    },
+                    {
+                        name: 'splitPositionParameters'
+                        type: {
+                            defined: {
+                                name: 'splitPositionParameters3'
+                            }
+                        }
+                    },
+                ]
+            }
+        },
+        {
             name: 'evtSwap2'
             type: {
                 kind: 'struct'
@@ -5042,6 +5109,48 @@ export type CpAmm = {
             }
         },
         {
+            name: 'innerVesting'
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'cliffPoint'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'periodFrequency'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'cliffUnlockLiquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'liquidityPerPeriod'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'totalReleasedLiquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'numberOfPeriod'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'padding'
+                        type: {
+                            array: ['u8', 14]
+                        }
+                    },
+                ]
+            }
+        },
+        {
             name: 'operator'
             serialization: 'bytemuck'
             repr: {
@@ -5235,9 +5344,13 @@ export type CpAmm = {
                         type: 'pubkey'
                     },
                     {
-                        name: 'partner'
-                        docs: ['partner']
-                        type: 'pubkey'
+                        name: 'padding0'
+                        docs: [
+                            'padding, previously partner pubkey, be careful when using this field',
+                        ]
+                        type: {
+                            array: ['u8', 32]
+                        }
                     },
                     {
                         name: 'liquidity'
@@ -5245,7 +5358,7 @@ export type CpAmm = {
                         type: 'u128'
                     },
                     {
-                        name: 'padding'
+                        name: 'padding1'
                         docs: [
                             'padding, previous reserve amount, be careful to use that field',
                         ]
@@ -5262,14 +5375,8 @@ export type CpAmm = {
                         type: 'u64'
                     },
                     {
-                        name: 'partnerAFee'
-                        docs: ['partner a fee']
-                        type: 'u64'
-                    },
-                    {
-                        name: 'partnerBFee'
-                        docs: ['partner b fee']
-                        type: 'u64'
+                        name: 'padding2'
+                        type: 'u128'
                     },
                     {
                         name: 'sqrtMinPrice'
@@ -5326,14 +5433,14 @@ export type CpAmm = {
                         type: 'u8'
                     },
                     {
-                        name: 'version'
+                        name: 'feeVersion'
                         docs: [
-                            'pool version, 0: max_fee is still capped at 50%, 1: max_fee is capped at 99%',
+                            'pool fee version, 0: max_fee is still capped at 50%, 1: max_fee is capped at 99%',
                         ]
                         type: 'u8'
                     },
                     {
-                        name: 'padding0'
+                        name: 'padding3'
                         docs: ['padding']
                         type: 'u8'
                     },
@@ -5370,10 +5477,34 @@ export type CpAmm = {
                         type: 'pubkey'
                     },
                     {
-                        name: 'padding1'
+                        name: 'tokenAAmount'
+                        docs: ['token a amount']
+                        type: 'u64'
+                    },
+                    {
+                        name: 'tokenBAmount'
+                        docs: ['token b amount']
+                        type: 'u64'
+                    },
+                    {
+                        name: 'layoutVersion'
+                        docs: [
+                            "layout version: version 0: haven't track token_a_amount and token_b_amount, version 1: track token_a_amount and token_b_amount",
+                        ]
+                        type: 'u8'
+                    },
+                    {
+                        name: 'padding4'
                         docs: ['Padding for further use']
                         type: {
-                            array: ['u64', 6]
+                            array: ['u8', 7]
+                        }
+                    },
+                    {
+                        name: 'padding5'
+                        docs: ['Padding for further use']
+                        type: {
+                            array: ['u64', 3]
                         }
                     },
                     {
@@ -5407,6 +5538,18 @@ export type CpAmm = {
                                 name: 'baseFeeParameters'
                             }
                         }
+                    },
+                    {
+                        name: 'compoundingFeeBps'
+                        docs: [
+                            'compounding fee bps, only have value if CollectFeeMode::Compounding',
+                        ]
+                        type: 'u16'
+                    },
+                    {
+                        name: 'padding'
+                        docs: ['padding for future use']
+                        type: 'u8'
                     },
                     {
                         name: 'dynamicFee'
@@ -5452,7 +5595,7 @@ export type CpAmm = {
                         type: 'u8'
                     },
                     {
-                        name: 'partnerFeePercent'
+                        name: 'padding0'
                         type: 'u8'
                     },
                     {
@@ -5460,13 +5603,20 @@ export type CpAmm = {
                         type: 'u8'
                     },
                     {
-                        name: 'padding0'
+                        name: 'padding1'
                         type: {
-                            array: ['u8', 5]
+                            array: ['u8', 3]
                         }
                     },
                     {
-                        name: 'padding1'
+                        name: 'compoundingFeeBps'
+                        docs: [
+                            'Compounding fee bps, only non-zero if collect_fee_mode is compounding',
+                        ]
+                        type: 'u16'
+                    },
+                    {
+                        name: 'padding2'
                         type: {
                             array: ['u64', 5]
                         }
@@ -5481,7 +5631,6 @@ export type CpAmm = {
                 'trading_fee = amount * trade_fee_numerator / denominator',
                 'protocol_fee = trading_fee * protocol_fee_percentage / 100',
                 'referral_fee = protocol_fee * referral_percentage / 100',
-                'partner_fee = (protocol_fee - referral_fee) * partner_fee_percentage / denominator',
             ]
             serialization: 'bytemuck'
             repr: {
@@ -5514,8 +5663,8 @@ export type CpAmm = {
                         type: 'u8'
                     },
                     {
-                        name: 'partnerFeePercent'
-                        docs: ['partner fee']
+                        name: 'padding0'
+                        docs: ['padding for future use']
                         type: 'u8'
                     },
                     {
@@ -5524,11 +5673,18 @@ export type CpAmm = {
                         type: 'u8'
                     },
                     {
-                        name: 'padding0'
+                        name: 'padding1'
                         docs: ['padding']
                         type: {
-                            array: ['u8', 5]
+                            array: ['u8', 3]
                         }
+                    },
+                    {
+                        name: 'compoundingFeeBps'
+                        docs: [
+                            'compounding fee bps, only non-zero in CollectFeeMode::Compounding',
+                        ]
+                        type: 'u16'
                     },
                     {
                         name: 'dynamicFee'
@@ -5572,12 +5728,10 @@ export type CpAmm = {
                         type: 'u64'
                     },
                     {
-                        name: 'totalPartnerAFee'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'totalPartnerBFee'
-                        type: 'u64'
+                        name: 'padding0'
+                        type: {
+                            array: ['u64', 2]
+                        }
                     },
                     {
                         name: 'totalPosition'
@@ -5671,11 +5825,18 @@ export type CpAmm = {
                         }
                     },
                     {
+                        name: 'innerVesting'
+                        docs: ['inner vesting info']
+                        type: {
+                            defined: {
+                                name: 'innerVesting'
+                            }
+                        }
+                    },
+                    {
                         name: 'padding'
                         docs: ['padding for future usage']
-                        type: {
-                            array: ['u128', 6]
-                        }
+                        type: 'u128'
                     },
                 ]
             }
@@ -5847,12 +6008,84 @@ export type CpAmm = {
             }
         },
         {
+            name: 'splitAmountInfo2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'permanentLockedLiquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'unlockedLiquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'vestedLiquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'feeA'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'feeB'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reward0'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reward1'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
             name: 'splitPositionInfo'
             type: {
                 kind: 'struct'
                 fields: [
                     {
                         name: 'liquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'feeA'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'feeB'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reward0'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'reward1'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'splitPositionInfo2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'unlockedLiquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'permanentLockedLiquidity'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'vestedLiquidity'
                         type: 'u128'
                     },
                     {
@@ -5922,10 +6155,15 @@ export type CpAmm = {
                         type: 'u8'
                     },
                     {
+                        name: 'innerVestingLiquidityPercentage'
+                        docs: ['Percentage of inner vesting liquidity']
+                        type: 'u8'
+                    },
+                    {
                         name: 'padding'
                         docs: ['padding for future']
                         type: {
-                            array: ['u8', 16]
+                            array: ['u8', 15]
                         }
                     },
                 ]
@@ -5958,6 +6196,42 @@ export type CpAmm = {
                     },
                     {
                         name: 'reward1Numerator'
+                        type: 'u32'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'splitPositionParameters3'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'unlockedLiquidityNumerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'permanentLockedLiquidityNumerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'feeANumerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'feeBNumerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'reward0Numerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'reward1Numerator'
+                        type: 'u32'
+                    },
+                    {
+                        name: 'innerVestingLiquidityNumerator'
                         type: 'u32'
                     },
                 ]
@@ -6072,7 +6346,7 @@ export type CpAmm = {
                         type: 'u128'
                     },
                     {
-                        name: 'tradingFee'
+                        name: 'claimingFee'
                         type: 'u64'
                     },
                     {
@@ -6080,7 +6354,7 @@ export type CpAmm = {
                         type: 'u64'
                     },
                     {
-                        name: 'partnerFee'
+                        name: 'compoundingFee'
                         type: 'u64'
                     },
                     {
@@ -6193,33 +6467,11 @@ export type CpAmm = {
                         type: 'pubkey'
                     },
                     {
-                        name: 'cliffPoint'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'periodFrequency'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'cliffUnlockLiquidity'
-                        type: 'u128'
-                    },
-                    {
-                        name: 'liquidityPerPeriod'
-                        type: 'u128'
-                    },
-                    {
-                        name: 'totalReleasedLiquidity'
-                        type: 'u128'
-                    },
-                    {
-                        name: 'numberOfPeriod'
-                        type: 'u16'
-                    },
-                    {
-                        name: 'padding'
+                        name: 'innerVesting'
                         type: {
-                            array: ['u8', 14]
+                            defined: {
+                                name: 'innerVesting'
+                            }
                         }
                     },
                     {
@@ -6276,6 +6528,11 @@ export type CpAmm = {
             value: '[203, 16, 199, 186, 184, 141, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0]'
         },
         {
+            name: 'currentPoolVersion'
+            type: 'u8'
+            value: '1'
+        },
+        {
             name: 'customizablePoolPrefix'
             type: 'bytes'
             value: '[99, 112, 111, 111, 108]'
@@ -6291,8 +6548,18 @@ export type CpAmm = {
         {
             name: 'maxBasisPoint'
             docs: ['Max basis point. 100% in pct']
-            type: 'u64'
+            type: 'u16'
             value: '10000'
+        },
+        {
+            name: 'maxFeeNumeratorV0'
+            type: 'u64'
+            value: '500000000'
+        },
+        {
+            name: 'maxFeeNumeratorV1'
+            type: 'u64'
+            value: '990000000'
         },
         {
             name: 'maxSqrtPriceLeBytes'
@@ -6300,6 +6567,11 @@ export type CpAmm = {
                 array: ['u8', 16]
             }
             value: '[155, 87, 105, 78, 169, 26, 92, 132, 177, 196, 254, 255, 0, 0, 0, 0]'
+        },
+        {
+            name: 'minFeeNumerator'
+            type: 'u64'
+            value: '100000'
         },
         {
             name: 'minSqrtPriceLeBytes'
