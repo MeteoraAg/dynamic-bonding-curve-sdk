@@ -7,7 +7,6 @@ import {
     getBaseTokenForSwap,
 } from '../helpers'
 import {
-    LockEscrow,
     MeteoraDammMigrationMetadata,
     PartnerMetadata,
     PoolConfig,
@@ -221,23 +220,6 @@ export class StateService extends DynamicBondingCurveProgram {
         const filters = createProgramAccountFilter(partnerAddress, 8)
         const accounts = await this.program.account.partnerMetadata.all(filters)
         return accounts.map((account) => account.account)
-    }
-
-    /**
-     * Get DAMM V1 lock escrow details
-     * @param lockEscrowAddress - The address of the lock escrow
-     * @returns A lock escrow account
-     */
-    async getDammV1LockEscrow(
-        lockEscrowAddress: PublicKey | string
-    ): Promise<LockEscrow | null> {
-        const metadata = await this.program.account.lockEscrow.fetchNullable(
-            lockEscrowAddress instanceof PublicKey
-                ? lockEscrowAddress
-                : new PublicKey(lockEscrowAddress)
-        )
-
-        return metadata
     }
 
     /**

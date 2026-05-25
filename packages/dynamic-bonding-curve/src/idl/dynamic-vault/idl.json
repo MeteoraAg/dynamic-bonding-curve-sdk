@@ -2,83 +2,289 @@
     "address": "24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi",
     "metadata": {
         "name": "vault",
-        "version": "0.7.2",
-        "spec": "0.1.0"
+        "version": "0.9.4",
+        "spec": "0.1.0",
+        "description": "Created with Anchor"
     },
     "docs": [
         "Program for vault"
     ],
     "instructions": [
         {
-            "name": "initialize",
+            "name": "add_strategy",
             "docs": [
-                "initialize new vault"
+                "add a strategy"
             ],
             "discriminator": [
-                175,
-                175,
-                109,
-                31,
-                13,
-                152,
-                155,
-                237
+                64,
+                123,
+                127,
+                227,
+                192,
+                234,
+                198,
+                20
             ],
             "accounts": [
                 {
                     "name": "vault",
                     "docs": [
-                        "This is base account for all vault",
-                        "No need base key now because we only allow 1 vault per token now",
-                        "Vault account"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "payer",
-                    "docs": [
-                        "Payer can be anyone"
+                        "vault"
                     ],
                     "writable": true,
-                    "signer": true
-                },
-                {
-                    "name": "token_vault",
-                    "docs": [
-                        "Token vault account"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "token_mint",
-                    "docs": [
-                        "Token mint account"
+                    "relations": [
+                        "strategy"
                     ]
                 },
                 {
-                    "name": "lp_mint",
-                    "writable": true
+                    "name": "strategy",
+                    "docs": [
+                        "strategy"
+                    ]
                 },
                 {
-                    "name": "rent",
+                    "name": "admin",
                     "docs": [
-                        "rent"
+                        "admin"
+                    ],
+                    "signer": true,
+                    "relations": [
+                        "vault"
+                    ]
+                }
+            ],
+            "args": []
+        },
+        {
+            "name": "claim_rewards",
+            "docs": [
+                "claim rewards from a strategy"
+            ],
+            "discriminator": [
+                4,
+                144,
+                132,
+                71,
+                116,
+                23,
+                151,
+                80
+            ],
+            "accounts": [
+                {
+                    "name": "vault",
+                    "docs": [
+                        "vault"
+                    ]
+                },
+                {
+                    "name": "strategy",
+                    "docs": [
+                        "strategy"
                     ]
                 },
                 {
                     "name": "token_program",
                     "docs": [
                         "token_program"
-                    ]
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
                 },
                 {
-                    "name": "system_program",
+                    "name": "token_reward_acc",
                     "docs": [
-                        "system_program"
-                    ]
+                        "token_reward_acc"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "operator",
+                    "docs": [
+                        "operator"
+                    ],
+                    "signer": true
                 }
             ],
             "args": []
+        },
+        {
+            "name": "deposit",
+            "docs": [
+                "user deposit liquidity to vault"
+            ],
+            "discriminator": [
+                242,
+                35,
+                198,
+                137,
+                82,
+                225,
+                242,
+                182
+            ],
+            "accounts": [
+                {
+                    "name": "vault",
+                    "docs": [
+                        "vault"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "token_vault",
+                    "docs": [
+                        "token_vault"
+                    ],
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
+                },
+                {
+                    "name": "lp_mint",
+                    "docs": [
+                        "lp_mint"
+                    ],
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
+                },
+                {
+                    "name": "user_token",
+                    "docs": [
+                        "user_token"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "user_lp",
+                    "docs": [
+                        "user_lp"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "user",
+                    "docs": [
+                        "user"
+                    ],
+                    "signer": true
+                },
+                {
+                    "name": "token_program",
+                    "docs": [
+                        "token_program"
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                }
+            ],
+            "args": [
+                {
+                    "name": "token_amount",
+                    "type": "u64"
+                },
+                {
+                    "name": "minimum_lp_token_amount",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "deposit_strategy",
+            "docs": [
+                "deposit liquidity to a strategy"
+            ],
+            "discriminator": [
+                246,
+                82,
+                57,
+                226,
+                131,
+                222,
+                253,
+                249
+            ],
+            "accounts": [
+                {
+                    "name": "vault",
+                    "docs": [
+                        "vault"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "strategy",
+                    "docs": [
+                        "strategy"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "token_vault",
+                    "docs": [
+                        "token_vault"
+                    ],
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
+                },
+                {
+                    "name": "fee_vault",
+                    "docs": [
+                        "fee_vault"
+                    ],
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
+                },
+                {
+                    "name": "lp_mint",
+                    "docs": [
+                        "lp_mint"
+                    ],
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
+                },
+                {
+                    "name": "strategy_program"
+                },
+                {
+                    "name": "collateral_vault",
+                    "docs": [
+                        "collateral_vault"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "reserve",
+                    "writable": true
+                },
+                {
+                    "name": "token_program",
+                    "docs": [
+                        "token_program"
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                },
+                {
+                    "name": "operator",
+                    "docs": [
+                        "operator"
+                    ],
+                    "signer": true
+                }
+            ],
+            "args": [
+                {
+                    "name": "amount",
+                    "type": "u64"
+                }
+            ]
         },
         {
             "name": "enable_vault",
@@ -108,7 +314,10 @@
                     "docs": [
                         "Admin account"
                     ],
-                    "signer": true
+                    "signer": true,
+                    "relations": [
+                        "vault"
+                    ]
                 }
             ],
             "args": [
@@ -119,19 +328,220 @@
             ]
         },
         {
-            "name": "set_operator",
+            "name": "get_unlocked_amount",
             "docs": [
-                "set new operator"
+                "get unlocked amount"
             ],
             "discriminator": [
-                238,
-                153,
-                101,
-                169,
-                243,
-                131,
-                36,
-                1
+                22,
+                184,
+                50,
+                213,
+                60,
+                168,
+                181,
+                227
+            ],
+            "accounts": [
+                {
+                    "name": "vault",
+                    "docs": [
+                        "Vault account"
+                    ]
+                }
+            ],
+            "args": []
+        },
+        {
+            "name": "initialize",
+            "docs": [
+                "initialize new vault"
+            ],
+            "discriminator": [
+                175,
+                175,
+                109,
+                31,
+                13,
+                152,
+                155,
+                237
+            ],
+            "accounts": [
+                {
+                    "name": "vault",
+                    "docs": [
+                        "This is base account for all vault",
+                        "No need base key now because we only allow 1 vault per token now",
+                        "Vault account"
+                    ],
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "token_mint"
+                            },
+                            {
+                                "kind": "const",
+                                "value": [
+                                    245,
+                                    105,
+                                    223,
+                                    222,
+                                    32,
+                                    35,
+                                    51,
+                                    89,
+                                    141,
+                                    199,
+                                    215,
+                                    75,
+                                    29,
+                                    148,
+                                    184,
+                                    98,
+                                    71,
+                                    121,
+                                    193,
+                                    248,
+                                    47,
+                                    30,
+                                    37,
+                                    166,
+                                    91,
+                                    110,
+                                    78,
+                                    248,
+                                    163,
+                                    190,
+                                    155,
+                                    155
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "payer",
+                    "docs": [
+                        "Payer can be anyone"
+                    ],
+                    "writable": true,
+                    "signer": true
+                },
+                {
+                    "name": "token_vault",
+                    "docs": [
+                        "Token vault account"
+                    ],
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110,
+                                    95,
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "token_mint",
+                    "docs": [
+                        "Token mint account"
+                    ]
+                },
+                {
+                    "name": "lp_mint",
+                    "docs": [
+                        "LP mint account"
+                    ],
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    108,
+                                    112,
+                                    95,
+                                    109,
+                                    105,
+                                    110,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "rent",
+                    "docs": [
+                        "rent"
+                    ],
+                    "address": "SysvarRent111111111111111111111111111111111"
+                },
+                {
+                    "name": "token_program",
+                    "docs": [
+                        "token_program"
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                },
+                {
+                    "name": "system_program",
+                    "docs": [
+                        "system_program"
+                    ],
+                    "address": "11111111111111111111111111111111"
+                }
+            ],
+            "args": []
+        },
+        {
+            "name": "initialize_idle_vault",
+            "docs": [
+                "initialize idle vault the vault that cannot be rebalanced"
+            ],
+            "discriminator": [
+                100,
+                187,
+                43,
+                147,
+                149,
+                180,
+                117,
+                223
             ],
             "accounts": [
                 {
@@ -139,17 +549,155 @@
                     "docs": [
                         "Vault account"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "token_mint"
+                            },
+                            {
+                                "kind": "const",
+                                "value": [
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            }
+                        ]
+                    }
                 },
                 {
-                    "name": "operator"
-                },
-                {
-                    "name": "admin",
+                    "name": "payer",
                     "docs": [
-                        "admin"
+                        "Payer can be anyone"
                     ],
+                    "writable": true,
                     "signer": true
+                },
+                {
+                    "name": "token_vault",
+                    "docs": [
+                        "Token vault account"
+                    ],
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110,
+                                    95,
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "token_mint",
+                    "docs": [
+                        "Token mint account"
+                    ]
+                },
+                {
+                    "name": "lp_mint",
+                    "docs": [
+                        "LP mint"
+                    ],
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    108,
+                                    112,
+                                    95,
+                                    109,
+                                    105,
+                                    110,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "vault"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "rent",
+                    "docs": [
+                        "rent"
+                    ],
+                    "address": "SysvarRent111111111111111111111111111111111"
+                },
+                {
+                    "name": "token_program",
+                    "docs": [
+                        "token_program"
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                },
+                {
+                    "name": "system_program",
+                    "docs": [
+                        "system_program"
+                    ],
+                    "address": "11111111111111111111111111111111"
                 }
             ],
             "args": []
@@ -196,7 +744,36 @@
                     "docs": [
                         "Collateral vault account"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    99,
+                                    111,
+                                    108,
+                                    108,
+                                    97,
+                                    116,
+                                    101,
+                                    114,
+                                    97,
+                                    108,
+                                    95,
+                                    118,
+                                    97,
+                                    117,
+                                    108,
+                                    116
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "strategy"
+                            }
+                        ]
+                    }
                 },
                 {
                     "name": "collateral_mint",
@@ -210,25 +787,31 @@
                         "Admin account"
                     ],
                     "writable": true,
-                    "signer": true
+                    "signer": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "system_program",
                     "docs": [
                         "System program account"
-                    ]
+                    ],
+                    "address": "11111111111111111111111111111111"
                 },
                 {
                     "name": "rent",
                     "docs": [
                         "Rent account"
-                    ]
+                    ],
+                    "address": "SysvarRent111111111111111111111111111111111"
                 },
                 {
                     "name": "token_program",
                     "docs": [
                         "Token program account"
-                    ]
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
                 }
             ],
             "args": [
@@ -299,34 +882,47 @@
                     "docs": [
                         "token_vault"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "fee_vault",
                     "docs": [
                         "fee_vault"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "lp_mint",
                     "docs": [
                         "lp_mint"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "token_program",
                     "docs": [
                         "token_program"
-                    ]
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
                 },
                 {
                     "name": "admin",
                     "docs": [
                         "admin"
                     ],
-                    "signer": true
+                    "signer": true,
+                    "relations": [
+                        "vault"
+                    ]
                 }
             ],
             "args": []
@@ -380,12 +976,15 @@
                     "docs": [
                         "token_vault"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "token_admin_advance_payment",
                     "docs": [
-                        "token_advance_payemnt",
+                        "token_advance_payment",
                         "the owner of token_advance_payment must be admin"
                     ],
                     "writable": true
@@ -394,7 +993,7 @@
                     "name": "token_vault_advance_payment",
                     "docs": [
                         "token_vault_advance_payment",
-                        "the account must be different from token_vault",
+                        "the account must be different from token_vault and strategy's related token account",
                         "the owner of token_advance_payment must be vault"
                     ],
                     "writable": true
@@ -404,27 +1003,37 @@
                     "docs": [
                         "fee_vault"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "lp_mint",
                     "docs": [
                         "lp_mint"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "token_program",
                     "docs": [
                         "token_program"
-                    ]
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
                 },
                 {
                     "name": "admin",
                     "docs": [
                         "admin"
                     ],
-                    "signer": true
+                    "signer": true,
+                    "relations": [
+                        "vault"
+                    ]
                 }
             ],
             "args": [
@@ -435,417 +1044,166 @@
             ]
         },
         {
-            "name": "collect_dust",
+            "name": "set_operator",
             "docs": [
-                "collect token, that someone send wrongly",
-                "also help in case Mango reimbursement"
+                "set new operator"
             ],
             "discriminator": [
-                246,
-                149,
-                21,
-                82,
-                160,
-                74,
-                254,
-                240
-            ],
-            "accounts": [
-                {
-                    "name": "vault",
-                    "docs": [
-                        "vault"
-                    ]
-                },
-                {
-                    "name": "token_vault",
-                    "docs": [
-                        "Token vault, must be different from vault.token_vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "token_admin",
-                    "docs": [
-                        "token admin, enforce owner is admin to avoid mistake"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "admin",
-                    "docs": [
-                        "admin"
-                    ],
-                    "signer": true
-                },
-                {
-                    "name": "token_program",
-                    "docs": [
-                        "token_program"
-                    ]
-                }
-            ],
-            "args": []
-        },
-        {
-            "name": "add_strategy",
-            "docs": [
-                "add a strategy"
-            ],
-            "discriminator": [
-                64,
-                123,
-                127,
-                227,
-                192,
-                234,
-                198,
-                20
-            ],
-            "accounts": [
-                {
-                    "name": "vault",
-                    "docs": [
-                        "vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "strategy",
-                    "docs": [
-                        "strategy"
-                    ]
-                },
-                {
-                    "name": "admin",
-                    "docs": [
-                        "admin"
-                    ],
-                    "signer": true
-                }
-            ],
-            "args": []
-        },
-        {
-            "name": "deposit_strategy",
-            "docs": [
-                "deposit liquidity to a strategy"
-            ],
-            "discriminator": [
-                246,
-                82,
-                57,
-                226,
+                238,
+                153,
+                101,
+                169,
+                243,
                 131,
-                222,
-                253,
-                249
+                36,
+                1
             ],
             "accounts": [
                 {
                     "name": "vault",
                     "docs": [
+                        "Vault account"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "operator"
+                },
+                {
+                    "name": "admin",
+                    "docs": [
+                        "admin"
+                    ],
+                    "signer": true,
+                    "relations": [
                         "vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "strategy",
-                    "docs": [
-                        "strategy"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "token_vault",
-                    "docs": [
-                        "token_vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "fee_vault",
-                    "docs": [
-                        "fee_vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "lp_mint",
-                    "docs": [
-                        "lp_mint"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "strategy_program"
-                },
-                {
-                    "name": "collateral_vault",
-                    "docs": [
-                        "collateral_vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "reserve",
-                    "writable": true
-                },
-                {
-                    "name": "token_program",
-                    "docs": [
-                        "token_program"
                     ]
-                },
-                {
-                    "name": "operator",
-                    "docs": [
-                        "operator"
-                    ],
-                    "signer": true
                 }
             ],
-            "args": [
-                {
-                    "name": "amount",
-                    "type": "u64"
-                }
-            ]
+            "args": []
         },
         {
-            "name": "withdraw_strategy",
+            "name": "transfer_admin",
             "docs": [
-                "withdraw liquidity from a strategy"
+                "transfer admin"
             ],
             "discriminator": [
-                31,
-                45,
-                162,
-                5,
-                193,
-                217,
-                134,
-                188
-            ],
-            "accounts": [
-                {
-                    "name": "vault",
-                    "docs": [
-                        "vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "strategy",
-                    "docs": [
-                        "strategy"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "token_vault",
-                    "docs": [
-                        "token_vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "fee_vault",
-                    "docs": [
-                        "fee_vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "lp_mint",
-                    "docs": [
-                        "lp_mint"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "strategy_program"
-                },
-                {
-                    "name": "collateral_vault",
-                    "docs": [
-                        "collateral_vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "reserve",
-                    "writable": true
-                },
-                {
-                    "name": "token_program",
-                    "docs": [
-                        "token_program"
-                    ]
-                },
-                {
-                    "name": "operator",
-                    "docs": [
-                        "operator"
-                    ],
-                    "signer": true
-                }
-            ],
-            "args": [
-                {
-                    "name": "amount",
-                    "type": "u64"
-                }
-            ]
-        },
-        {
-            "name": "withdraw2",
-            "docs": [
-                "Withdraw v2. Withdraw from token vault if no remaining accounts are available. Else, it will attempt to withdraw from strategy and token vault. This method just proxy between 2 methods. Protocol integration should be using withdraw instead of this function."
-            ],
-            "discriminator": [
-                80,
-                6,
-                111,
-                73,
-                174,
-                211,
+                42,
+                242,
                 66,
-                132
+                106,
+                228,
+                10,
+                111,
+                156
             ],
             "accounts": [
                 {
                     "name": "vault",
                     "docs": [
+                        "Vault account"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "admin",
+                    "docs": [
+                        "Admin account"
+                    ],
+                    "signer": true,
+                    "relations": [
                         "vault"
-                    ],
-                    "writable": true
+                    ]
                 },
                 {
-                    "name": "token_vault",
+                    "name": "new_admin",
                     "docs": [
-                        "token_vault"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "lp_mint",
-                    "docs": [
-                        "lp_mint"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "user_token",
-                    "docs": [
-                        "user_token"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "user_lp",
-                    "docs": [
-                        "user_lp"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "user",
-                    "docs": [
-                        "user"
+                        "New vault admin"
                     ],
                     "signer": true
-                },
-                {
-                    "name": "token_program",
-                    "docs": [
-                        "token_program"
-                    ]
                 }
             ],
-            "args": [
-                {
-                    "name": "unmint_amount",
-                    "type": "u64"
-                },
-                {
-                    "name": "min_out_amount",
-                    "type": "u64"
-                }
-            ]
+            "args": []
         },
         {
-            "name": "deposit",
+            "name": "transfer_fee_vault",
             "docs": [
-                "user deposit liquidity to vault"
+                "transfer fee account"
             ],
             "discriminator": [
-                242,
-                35,
-                198,
-                137,
-                82,
-                225,
-                242,
-                182
+                24,
+                18,
+                129,
+                149,
+                149,
+                32,
+                45,
+                105
             ],
             "accounts": [
                 {
                     "name": "vault",
                     "docs": [
+                        "Vault account"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "admin",
+                    "docs": [
+                        "Admin account"
+                    ],
+                    "signer": true,
+                    "relations": [
                         "vault"
+                    ]
+                },
+                {
+                    "name": "new_fee_vault",
+                    "docs": [
+                        "New fee vault account"
+                    ]
+                }
+            ],
+            "args": []
+        },
+        {
+            "name": "update_locked_profit_degradation",
+            "docs": [
+                "update locked profit degradation"
+            ],
+            "discriminator": [
+                103,
+                192,
+                9,
+                190,
+                43,
+                209,
+                235,
+                115
+            ],
+            "accounts": [
+                {
+                    "name": "vault",
+                    "docs": [
+                        "Vault account"
                     ],
                     "writable": true
                 },
                 {
-                    "name": "token_vault",
+                    "name": "admin",
                     "docs": [
-                        "token_vault"
+                        "Admin account"
                     ],
-                    "writable": true
-                },
-                {
-                    "name": "lp_mint",
-                    "docs": [
-                        "lp_mint"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "user_token",
-                    "docs": [
-                        "user_token"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "user_lp",
-                    "docs": [
-                        "user_lp"
-                    ],
-                    "writable": true
-                },
-                {
-                    "name": "user",
-                    "docs": [
-                        "user"
-                    ],
-                    "signer": true
-                },
-                {
-                    "name": "token_program",
-                    "docs": [
-                        "token_program"
+                    "signer": true,
+                    "relations": [
+                        "vault"
                     ]
                 }
             ],
             "args": [
                 {
-                    "name": "token_amount",
-                    "type": "u64"
-                },
-                {
-                    "name": "minimum_lp_token_amount",
+                    "name": "locked_profit_degradation",
                     "type": "u64"
                 }
             ]
@@ -878,14 +1236,20 @@
                     "docs": [
                         "token_vault"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "lp_mint",
                     "docs": [
                         "lp_mint"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "user_token",
@@ -912,7 +1276,8 @@
                     "name": "token_program",
                     "docs": [
                         "token_program"
-                    ]
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
                 }
             ],
             "args": [
@@ -975,21 +1340,30 @@
                     "docs": [
                         "token_vault"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "lp_mint",
                     "docs": [
                         "lp_mint"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "fee_vault",
                     "docs": [
                         "fee_vault"
                     ],
-                    "writable": true
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
                 },
                 {
                     "name": "user_token",
@@ -1016,7 +1390,8 @@
                     "name": "token_program",
                     "docs": [
                         "token_program"
-                    ]
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
                 }
             ],
             "args": [
@@ -1029,22 +1404,105 @@
                     "type": "u64"
                 }
             ]
+        },
+        {
+            "name": "withdraw_strategy",
+            "docs": [
+                "withdraw liquidity from a strategy"
+            ],
+            "discriminator": [
+                31,
+                45,
+                162,
+                5,
+                193,
+                217,
+                134,
+                188
+            ],
+            "accounts": [
+                {
+                    "name": "vault",
+                    "docs": [
+                        "vault"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "strategy",
+                    "docs": [
+                        "strategy"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "token_vault",
+                    "docs": [
+                        "token_vault"
+                    ],
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
+                },
+                {
+                    "name": "fee_vault",
+                    "docs": [
+                        "fee_vault"
+                    ],
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
+                },
+                {
+                    "name": "lp_mint",
+                    "docs": [
+                        "lp_mint"
+                    ],
+                    "writable": true,
+                    "relations": [
+                        "vault"
+                    ]
+                },
+                {
+                    "name": "strategy_program"
+                },
+                {
+                    "name": "collateral_vault",
+                    "docs": [
+                        "collateral_vault"
+                    ],
+                    "writable": true
+                },
+                {
+                    "name": "reserve",
+                    "writable": true
+                },
+                {
+                    "name": "token_program",
+                    "docs": [
+                        "token_program"
+                    ],
+                    "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                },
+                {
+                    "name": "operator",
+                    "docs": [
+                        "operator"
+                    ],
+                    "signer": true
+                }
+            ],
+            "args": [
+                {
+                    "name": "amount",
+                    "type": "u64"
+                }
+            ]
         }
     ],
     "accounts": [
-        {
-            "name": "Vault",
-            "discriminator": [
-                211,
-                8,
-                232,
-                43,
-                2,
-                152,
-                117,
-                119
-            ]
-        },
         {
             "name": "Strategy",
             "discriminator": [
@@ -1056,6 +1514,19 @@
                 106,
                 169,
                 102
+            ]
+        },
+        {
+            "name": "Vault",
+            "discriminator": [
+                211,
+                8,
+                232,
+                43,
+                2,
+                152,
+                117,
+                119
             ]
         }
     ],
@@ -1071,45 +1542,6 @@
                 52,
                 61,
                 186
-            ]
-        },
-        {
-            "name": "RemoveLiquidity",
-            "discriminator": [
-                116,
-                244,
-                97,
-                232,
-                103,
-                31,
-                152,
-                58
-            ]
-        },
-        {
-            "name": "StrategyDeposit",
-            "discriminator": [
-                205,
-                53,
-                91,
-                239,
-                34,
-                136,
-                73,
-                47
-            ]
-        },
-        {
-            "name": "StrategyWithdraw",
-            "discriminator": [
-                120,
-                76,
-                208,
-                95,
-                221,
-                210,
-                229,
-                189
             ]
         },
         {
@@ -1139,6 +1571,19 @@
             ]
         },
         {
+            "name": "RemoveLiquidity",
+            "discriminator": [
+                116,
+                244,
+                97,
+                232,
+                103,
+                31,
+                152,
+                58
+            ]
+        },
+        {
             "name": "ReportLoss",
             "discriminator": [
                 154,
@@ -1149,6 +1594,32 @@
                 163,
                 123,
                 126
+            ]
+        },
+        {
+            "name": "StrategyDeposit",
+            "discriminator": [
+                205,
+                53,
+                91,
+                239,
+                34,
+                136,
+                73,
+                47
+            ]
+        },
+        {
+            "name": "StrategyWithdraw",
+            "discriminator": [
+                120,
+                76,
+                208,
+                95,
+                221,
+                210,
+                229,
+                189
             ]
         },
         {
@@ -1248,7 +1719,7 @@
         },
         {
             "code": 6016,
-            "name": "PayAmountIsExeeced",
+            "name": "PayAmountIsExceeded",
             "msg": "Pay amount is exceeded"
         },
         {
@@ -1264,29 +1735,244 @@
         {
             "code": 6019,
             "name": "HaveMoneyInLending",
-            "msg": "Cannot remove strategy becase we have some in lending"
+            "msg": "Cannot remove strategy because we have some in lending"
+        },
+        {
+            "code": 6020,
+            "name": "InvalidPrecisionLoss",
+            "msg": "Invalid precision loss"
+        },
+        {
+            "code": 6021,
+            "name": "UndeterminedError",
+            "msg": "Undetermined error"
         }
     ],
     "types": [
         {
-            "name": "VaultBumps",
+            "name": "AddLiquidity",
             "docs": [
-                "Vault bumps struct"
+                "AddLiquidity event"
             ],
             "type": {
                 "kind": "struct",
                 "fields": [
                     {
-                        "name": "vault_bump",
+                        "name": "lp_mint_amount",
                         "docs": [
-                            "vault_bump"
+                            "lp_mint_amount"
                         ],
-                        "type": "u8"
+                        "type": "u64"
                     },
                     {
-                        "name": "token_vault_bump",
+                        "name": "token_amount",
                         "docs": [
-                            "token_vault_bump"
+                            "token_amount"
+                        ],
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "ClaimReward",
+            "docs": [
+                "ClaimReward event"
+            ],
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "strategy_type",
+                        "docs": [
+                            "strategy_type"
+                        ],
+                        "type": {
+                            "defined": {
+                                "name": "StrategyType"
+                            }
+                        }
+                    },
+                    {
+                        "name": "token_amount",
+                        "docs": [
+                            "token_amount"
+                        ],
+                        "type": "u64"
+                    },
+                    {
+                        "name": "mint_account",
+                        "docs": [
+                            "mint_account"
+                        ],
+                        "type": "pubkey"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "LockedProfitTracker",
+            "docs": [
+                "LockedProfitTracker struct"
+            ],
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "last_updated_locked_profit",
+                        "docs": [
+                            "The total locked profit from the last report"
+                        ],
+                        "type": "u64"
+                    },
+                    {
+                        "name": "last_report",
+                        "docs": [
+                            "The last timestamp (in seconds) rebalancing"
+                        ],
+                        "type": "u64"
+                    },
+                    {
+                        "name": "locked_profit_degradation",
+                        "docs": [
+                            "Rate per second of degradation"
+                        ],
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "PerformanceFee",
+            "docs": [
+                "PerformanceFee event"
+            ],
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "lp_mint_more",
+                        "docs": [
+                            "lp_mint_more"
+                        ],
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "RemoveLiquidity",
+            "docs": [
+                "RemoveLiquidity event"
+            ],
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "lp_unmint_amount",
+                        "docs": [
+                            "lp_unmint_amount"
+                        ],
+                        "type": "u64"
+                    },
+                    {
+                        "name": "token_amount",
+                        "docs": [
+                            "token_amount"
+                        ],
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "ReportLoss",
+            "docs": [
+                "ReportLoss event"
+            ],
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "strategy",
+                        "docs": [
+                            "strategy"
+                        ],
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "loss",
+                        "docs": [
+                            "loss"
+                        ],
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Strategy",
+            "docs": [
+                "Strategy struct"
+            ],
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "reserve",
+                        "docs": [
+                            "Lending pool address, that the strategy will deposit/withdraw balance"
+                        ],
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "collateral_vault",
+                        "docs": [
+                            "The token account, that holds the collateral token"
+                        ],
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "strategy_type",
+                        "docs": [
+                            "Specify type of strategy"
+                        ],
+                        "type": {
+                            "defined": {
+                                "name": "StrategyType"
+                            }
+                        }
+                    },
+                    {
+                        "name": "current_liquidity",
+                        "docs": [
+                            "The liquidity in strategy at the time vault deposit/withdraw from a lending protocol"
+                        ],
+                        "type": "u64"
+                    },
+                    {
+                        "name": "bumps",
+                        "docs": [
+                            "Hold some bumps, in case the strategy needs to use other seeds to sign a CPI call."
+                        ],
+                        "type": {
+                            "array": [
+                                "u8",
+                                10
+                            ]
+                        }
+                    },
+                    {
+                        "name": "vault",
+                        "docs": [
+                            "Vault address, that the strategy belongs"
+                        ],
+                        "type": "pubkey"
+                    },
+                    {
+                        "name": "is_disable",
+                        "docs": [
+                            "If we remove strategy by remove_strategy2 endpoint, this account will be never added again"
                         ],
                         "type": "u8"
                     }
@@ -1324,31 +2010,28 @@
             }
         },
         {
-            "name": "LockedProfitTracker",
+            "name": "StrategyDeposit",
             "docs": [
-                "LockedProfitTracker struct"
+                "StrategyDeposit event"
             ],
             "type": {
                 "kind": "struct",
                 "fields": [
                     {
-                        "name": "last_updated_locked_profit",
+                        "name": "strategy_type",
                         "docs": [
-                            "The total locked profit from the last report"
+                            "strategy_type"
                         ],
-                        "type": "u64"
+                        "type": {
+                            "defined": {
+                                "name": "StrategyType"
+                            }
+                        }
                     },
                     {
-                        "name": "last_report",
+                        "name": "token_amount",
                         "docs": [
-                            "The last timestamp (in seconds) rebalancing"
-                        ],
-                        "type": "u64"
-                    },
-                    {
-                        "name": "locked_profit_degradation",
-                        "docs": [
-                            "Rate per second of degradation"
+                            "token_amount"
                         ],
                         "type": "u64"
                     }
@@ -1398,6 +2081,66 @@
                     },
                     {
                         "name": "Marginfi"
+                    },
+                    {
+                        "name": "Kamino"
+                    },
+                    {
+                        "name": "JupLend"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "StrategyWithdraw",
+            "docs": [
+                "StrategyWithdraw event"
+            ],
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "strategy_type",
+                        "docs": [
+                            "strategy_type"
+                        ],
+                        "type": {
+                            "defined": {
+                                "name": "StrategyType"
+                            }
+                        }
+                    },
+                    {
+                        "name": "collateral_amount",
+                        "docs": [
+                            "collateral_amount"
+                        ],
+                        "type": "u64"
+                    },
+                    {
+                        "name": "estimated_token_amount",
+                        "docs": [
+                            "estimated_token_amount"
+                        ],
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "TotalAmount",
+            "docs": [
+                "TotalAmount event"
+            ],
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "total_amount",
+                        "docs": [
+                            "total_amount"
+                        ],
+                        "type": "u64"
                     }
                 ]
             }
@@ -1511,210 +2254,26 @@
             }
         },
         {
-            "name": "Strategy",
+            "name": "VaultBumps",
             "docs": [
-                "Strategy struct"
+                "Vault bumps struct"
             ],
             "type": {
                 "kind": "struct",
                 "fields": [
                     {
-                        "name": "reserve",
+                        "name": "vault_bump",
                         "docs": [
-                            "Lending pool address, that the strategy will deposit/withdraw balance"
-                        ],
-                        "type": "pubkey"
-                    },
-                    {
-                        "name": "collateral_vault",
-                        "docs": [
-                            "The token account, that holds the collateral token"
-                        ],
-                        "type": "pubkey"
-                    },
-                    {
-                        "name": "strategy_type",
-                        "docs": [
-                            "Specify type of strategy"
-                        ],
-                        "type": {
-                            "defined": {
-                                "name": "StrategyType"
-                            }
-                        }
-                    },
-                    {
-                        "name": "current_liquidity",
-                        "docs": [
-                            "The liquidity in strategy at the time vault deposit/withdraw from a lending protocol"
-                        ],
-                        "type": "u64"
-                    },
-                    {
-                        "name": "bumps",
-                        "docs": [
-                            "Hold some bumps, in case the strategy needs to use other seeds to sign a CPI call."
-                        ],
-                        "type": {
-                            "array": [
-                                "u8",
-                                10
-                            ]
-                        }
-                    },
-                    {
-                        "name": "vault",
-                        "docs": [
-                            "Vault address, that the strategy belongs"
-                        ],
-                        "type": "pubkey"
-                    },
-                    {
-                        "name": "is_disable",
-                        "docs": [
-                            "If we remove strategy by remove_strategy2 endpoint, this account will be never added again"
+                            "vault_bump"
                         ],
                         "type": "u8"
-                    }
-                ]
-            }
-        },
-        {
-            "name": "AddLiquidity",
-            "type": {
-                "kind": "struct",
-                "fields": [
-                    {
-                        "name": "lp_mint_amount",
-                        "type": "u64"
                     },
                     {
-                        "name": "token_amount",
-                        "type": "u64"
-                    }
-                ]
-            }
-        },
-        {
-            "name": "RemoveLiquidity",
-            "type": {
-                "kind": "struct",
-                "fields": [
-                    {
-                        "name": "lp_unmint_amount",
-                        "type": "u64"
-                    },
-                    {
-                        "name": "token_amount",
-                        "type": "u64"
-                    }
-                ]
-            }
-        },
-        {
-            "name": "StrategyDeposit",
-            "type": {
-                "kind": "struct",
-                "fields": [
-                    {
-                        "name": "strategy_type",
-                        "type": {
-                            "defined": {
-                                "name": "StrategyType"
-                            }
-                        }
-                    },
-                    {
-                        "name": "token_amount",
-                        "type": "u64"
-                    }
-                ]
-            }
-        },
-        {
-            "name": "StrategyWithdraw",
-            "type": {
-                "kind": "struct",
-                "fields": [
-                    {
-                        "name": "strategy_type",
-                        "type": {
-                            "defined": {
-                                "name": "StrategyType"
-                            }
-                        }
-                    },
-                    {
-                        "name": "collateral_amount",
-                        "type": "u64"
-                    },
-                    {
-                        "name": "estimated_token_amount",
-                        "type": "u64"
-                    }
-                ]
-            }
-        },
-        {
-            "name": "ClaimReward",
-            "type": {
-                "kind": "struct",
-                "fields": [
-                    {
-                        "name": "strategy_type",
-                        "type": {
-                            "defined": {
-                                "name": "StrategyType"
-                            }
-                        }
-                    },
-                    {
-                        "name": "token_amount",
-                        "type": "u64"
-                    },
-                    {
-                        "name": "mint_account",
-                        "type": "pubkey"
-                    }
-                ]
-            }
-        },
-        {
-            "name": "PerformanceFee",
-            "type": {
-                "kind": "struct",
-                "fields": [
-                    {
-                        "name": "lp_mint_more",
-                        "type": "u64"
-                    }
-                ]
-            }
-        },
-        {
-            "name": "ReportLoss",
-            "type": {
-                "kind": "struct",
-                "fields": [
-                    {
-                        "name": "strategy",
-                        "type": "pubkey"
-                    },
-                    {
-                        "name": "loss",
-                        "type": "u64"
-                    }
-                ]
-            }
-        },
-        {
-            "name": "TotalAmount",
-            "type": {
-                "kind": "struct",
-                "fields": [
-                    {
-                        "name": "total_amount",
-                        "type": "u64"
+                        "name": "token_vault_bump",
+                        "docs": [
+                            "token_vault_bump"
+                        ],
+                        "type": "u8"
                     }
                 ]
             }

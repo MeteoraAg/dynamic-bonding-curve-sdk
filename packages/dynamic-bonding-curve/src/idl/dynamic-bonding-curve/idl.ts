@@ -2731,6 +2731,22 @@ export type DynamicBondingCurve = {
             discriminator: [152, 73, 21, 15, 66, 87, 53, 157]
         },
         {
+            name: 'evtCurveComplete'
+            discriminator: [229, 231, 86, 84, 156, 134, 75, 24]
+        },
+        {
+            name: 'evtCurveCompleteWithTransferHook'
+            discriminator: [59, 47, 109, 205, 13, 31, 44, 159]
+        },
+        {
+            name: 'evtInitializePool'
+            discriminator: [228, 50, 246, 85, 203, 66, 134, 37]
+        },
+        {
+            name: 'evtInitializePoolWithTransferHook'
+            discriminator: [213, 137, 164, 53, 193, 74, 15, 110]
+        },
+        {
             name: 'evtPartnerClaimPoolCreationFee'
             discriminator: [174, 223, 44, 150, 145, 98, 89, 195]
         },
@@ -2745,6 +2761,14 @@ export type DynamicBondingCurve = {
         {
             name: 'evtSwap'
             discriminator: [27, 60, 21, 213, 138, 170, 187, 147]
+        },
+        {
+            name: 'evtSwap2'
+            discriminator: [189, 66, 51, 168, 38, 80, 117, 153]
+        },
+        {
+            name: 'evtSwap2WithTransferHook'
+            discriminator: [134, 59, 168, 120, 94, 51, 114, 231]
         },
         {
             name: 'evtUpdatePoolCreator'
@@ -3989,6 +4013,118 @@ export type DynamicBondingCurve = {
             }
         },
         {
+            name: 'evtCurveComplete'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'baseReserve'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'quoteReserve'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtCurveCompleteWithTransferHook'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'baseReserve'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'quoteReserve'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtInitializePool'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'creator'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'baseMint'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'poolType'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'activationPoint'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtInitializePoolWithTransferHook'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'creator'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'baseMint'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'poolType'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'activationPoint'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
             name: 'evtPartnerClaimPoolCreationFee'
             type: {
                 kind: 'struct'
@@ -4084,6 +4220,110 @@ export type DynamicBondingCurve = {
                     },
                     {
                         name: 'amountIn'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'currentTimestamp'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtSwap2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'tradeDirection'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'hasReferral'
+                        type: 'bool'
+                    },
+                    {
+                        name: 'swapParameters'
+                        type: {
+                            defined: {
+                                name: 'swapParameters2'
+                            }
+                        }
+                    },
+                    {
+                        name: 'swapResult'
+                        type: {
+                            defined: {
+                                name: 'swapResult2'
+                            }
+                        }
+                    },
+                    {
+                        name: 'quoteReserveAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'migrationThreshold'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'currentTimestamp'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtSwap2WithTransferHook'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'tradeDirection'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'hasReferral'
+                        type: 'bool'
+                    },
+                    {
+                        name: 'swapParameters'
+                        type: {
+                            defined: {
+                                name: 'swapParameters2'
+                            }
+                        }
+                    },
+                    {
+                        name: 'swapResult'
+                        type: {
+                            defined: {
+                                name: 'swapResult2'
+                            }
+                        }
+                    },
+                    {
+                        name: 'quoteReserveAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'migrationThreshold'
                         type: 'u64'
                     },
                     {
@@ -5269,6 +5509,46 @@ export type DynamicBondingCurve = {
                 fields: [
                     {
                         name: 'actualInputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'outputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'nextSqrtPrice'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'tradingFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'protocolFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'referralFee'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'swapResult2'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'includedFeeInputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'excludedFeeInputAmount'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'amountLeft'
                         type: 'u64'
                     },
                     {
