@@ -22,7 +22,7 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
 } from '../src'
 import { BN } from 'bn.js'
 import { NATIVE_MINT } from '@solana/spl-token'
@@ -68,11 +68,11 @@ describe('swap Tests', { timeout: 60000 }, () => {
 
         curveConfig = buildCurveWithCustomSqrtPrices({
             token: {
-                tokenType: TokenType.SPL,
+                tokenType: TokenType.SPLToken,
                 tokenBaseDecimal: tokenBaseDecimal,
                 tokenQuoteDecimal: tokenQuoteDecimal,
-                tokenUpdateAuthority:
-                    TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+                tokenAuthorityOption:
+                    TokenAuthorityOption.PartnerUpdateAuthority,
                 totalTokenSupply: 1_000_000_000,
                 leftover: 1000,
             },
@@ -142,7 +142,7 @@ describe('swap Tests', { timeout: 60000 }, () => {
         ])
 
         // Create pool
-        const createPoolTx = await dbcClient.pool.createPool({
+        const createPoolTx = await dbcClient.creator.createPool({
             baseMint: baseMint.publicKey,
             config: config.publicKey,
             name: 'TEST',

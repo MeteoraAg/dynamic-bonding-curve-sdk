@@ -23,9 +23,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get pool config data (partner config)
-     * @param configAddress - The address of the pool config key
-     * @returns A pool config
+     * Fetch a pool config account.
      */
     async getPoolConfig(
         configAddress: PublicKey | string
@@ -39,17 +37,14 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get all config keys
-     * @returns An array of config key accounts
+     * Fetch all pool config accounts.
      */
     async getPoolConfigs(): Promise<ProgramAccount<PoolConfig>[]> {
         return this.program.account.poolConfig.all()
     }
 
     /**
-     * Get all config keys of an owner wallet address
-     * @param owner - The owner of the config keys
-     * @returns An array of config key accounts
+     * Fetch all pool configs owned by a wallet.
      */
     async getPoolConfigsByOwner(
         owner: PublicKey | string
@@ -59,9 +54,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get virtual pool data
-     * @param poolAddress - The address of the pool
-     * @returns A virtual pool or null if not found
+     * Fetch a virtual pool account.
      */
     async getPool(poolAddress: PublicKey | string): Promise<VirtualPool> {
         return getAccountData<VirtualPool>(
@@ -73,17 +66,14 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get all dynamic bonding curve pools
-     * @returns Array of pool accounts with their addresses
+     * Fetch all virtual pool accounts.
      */
     async getPools(): Promise<ProgramAccount<VirtualPool>[]> {
         return this.program.account.virtualPool.all()
     }
 
     /**
-     * Get all dynamic bonding curve pools by config key address
-     * @param configAddress - The address of the config key
-     * @returns Array of pool accounts with their addresses
+     * Fetch all virtual pools that use a config.
      */
     async getPoolsByConfig(
         configAddress: PublicKey | string
@@ -93,9 +83,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get all dynamic bonding curve pools by creator address
-     * @param creatorAddress - The address of the creator
-     * @returns Array of pool accounts with their addresses
+     * Fetch all virtual pools created by a wallet.
      */
     async getPoolsByCreator(
         creatorAddress: PublicKey | string
@@ -105,9 +93,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get pool by base mint
-     * @param baseMint - The base mint address
-     * @returns A virtual pool account
+     * Fetch the first virtual pool that uses a base mint.
      */
     async getPoolByBaseMint(
         baseMint: PublicKey | string
@@ -118,9 +104,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get pool migration quote threshold
-     * @param poolAddress - The address of the pool
-     * @returns The migration quote threshold
+     * Fetch the migration quote threshold for a pool.
      */
     async getPoolMigrationQuoteThreshold(
         poolAddress: PublicKey | string
@@ -135,9 +119,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get the progress of the curve by comparing current quote reserve to migration threshold
-     * @param poolAddress - The address of the pool
-     * @returns The progress as a ratio between 0 and 1
+     * Return quote-token curve progress as a ratio between 0 and 1.
      */
     async getPoolQuoteTokenCurveProgress(
         poolAddress: PublicKey | string
@@ -160,9 +142,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get the progress of the curve based on base tokens sold relative to total base tokens available for trading.
-     * @param poolAddress - The address of the pool
-     * @returns The progress as a ratio between 0 and 1
+     * Return base-token curve progress as a ratio between 0 and 1.
      */
     async getPoolBaseTokenCurveProgress(
         poolAddress: PublicKey | string
@@ -196,9 +176,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get pool metadata
-     * @param poolAddress - The address of the pool
-     * @returns A pool metadata
+     * Fetch metadata accounts for a virtual pool.
      */
     async getPoolMetadata(
         poolAddress: PublicKey | string
@@ -210,9 +188,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get partner metadata
-     * @param partnerAddress - The address of the partner
-     * @returns A partner metadata
+     * Fetch metadata accounts for a partner.
      */
     async getPartnerMetadata(
         partnerAddress: PublicKey | string
@@ -223,9 +199,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get fee metrics for a specific pool
-     * @param poolAddress - The address of the pool
-     * @returns Object containing current and total fee metrics
+     * Fetch current unclaimed fees and lifetime trading fee metrics for a pool.
      */
     async getPoolFeeMetrics(poolAddress: PublicKey | string): Promise<{
         current: {
@@ -260,9 +234,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get fee breakdown for a specific pool
-     * @param poolAddress - The address of the pool
-     * @returns Object containing fee breakdown
+     * Calculate claimed, unclaimed, and total trading fees split by creator and partner.
      */
     async getPoolFeeBreakdown(poolAddress: PublicKey | string): Promise<{
         creator: {
@@ -362,9 +334,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get all fees for pools linked to a specific config key
-     * @param configAddress - The address of the pool config
-     * @returns Array of pools with their quote fees
+     * Fetch fee metrics for every pool linked to a config.
      */
     async getPoolsFeesByConfig(configAddress: PublicKey | string): Promise<
         Array<{
@@ -393,9 +363,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get all fees for pools linked to a specific creator
-     * @param creatorAddress - The address of the creator
-     * @returns Array of pools with their base fees
+     * Fetch fee metrics for every pool linked to a creator.
      */
     async getPoolsFeesByCreator(creatorAddress: PublicKey | string): Promise<
         Array<{
@@ -424,9 +392,7 @@ export class StateService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Get DAMM V1 migration metadata
-     * @param poolAddress - The address of the pool
-     * @returns A DAMM V1 migration metadata
+     * Fetch DAMM V1 migration metadata for a pool.
      */
     async getDammV1MigrationMetadata(
         poolAddress: PublicKey

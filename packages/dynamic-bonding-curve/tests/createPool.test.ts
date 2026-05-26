@@ -50,7 +50,7 @@ describe('createPool tests', { timeout: 60000 }, () => {
 
         const baseMint = Keypair.generate()
 
-        const createPoolTx = await dbcClient.pool.createPool({
+        const createPoolTx = await dbcClient.creator.createPool({
             baseMint: baseMint.publicKey,
             config: config.publicKey,
             name: 'TEST',
@@ -105,7 +105,7 @@ describe('createPool tests', { timeout: 60000 }, () => {
 
         const baseMint = Keypair.generate()
 
-        const createPoolTx = await dbcClient.pool.createPool({
+        const createPoolTx = await dbcClient.creator.createPool({
             baseMint: baseMint.publicKey,
             config: config.publicKey,
             name: 'TEST',
@@ -161,7 +161,7 @@ describe('createPool tests', { timeout: 60000 }, () => {
 
         const baseMint = Keypair.generate()
 
-        const createPoolTx = await dbcClient.pool.createPool({
+        const createPoolTx = await dbcClient.creator.createPool({
             baseMint: baseMint.publicKey,
             config: config.publicKey,
             name: 'TEST',

@@ -33,7 +33,7 @@ import {
     PoolFeeParameters,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
     type CreateConfigParams,
     type PoolConfig,
 } from '../types'
@@ -68,11 +68,7 @@ import {
 } from '../math'
 
 /**
- * Validate the pool fees
- * @param poolFees - The pool fees
- * @param collectFeeMode - The collect fee mode
- * @param activationType - The activation type
- * @returns true if the pool fees are valid, false otherwise
+ * Validate base fee, scheduler, and rate-limiter settings for a pool config.
  */
 export function validatePoolFees(
     poolFees: PoolFeeParameters,
@@ -126,12 +122,7 @@ export function validatePoolFees(
 }
 
 /**
- * Validate fee scheduler parameters
- * @param numberOfPeriod Number of periods
- * @param periodFrequency Period frequency
- * @param reductionFactor Reduction factor
- * @param cliffFeeNumerator Cliff fee numerator
- * @returns Validation result
+ * Validate fee scheduler parameters and resulting fee bounds.
  */
 export function validateFeeScheduler(
     numberOfPeriod: number,
@@ -175,14 +166,7 @@ export function validateFeeScheduler(
 }
 
 /**
- * Validate rate limiter parameters
- * @param cliffFeeNumerator - Cliff fee numerator
- * @param feeIncrementBps - Fee increment bps
- * @param maxLimiterDuration - Max limiter duration
- * @param referenceAmount - Reference amount
- * @param collectFeeMode - Collect fee mode
- * @param activationType - Activation type (slot or timestamp)
- * @returns Validation result
+ * Validate rate-limiter parameters and activation duration bounds.
  */
 export function validateFeeRateLimiter(
     cliffFeeNumerator: BN,
@@ -275,9 +259,7 @@ export function validateDynamicFee(
 }
 
 /**
- * Validate the collect fee mode
- * @param collectFeeMode - The collect fee mode
- * @returns true if the collect fee mode is valid, false otherwise
+ * Return whether the DBC collect fee mode is supported.
  */
 export function validateCollectFeeMode(
     collectFeeMode: CollectFeeMode
@@ -288,25 +270,20 @@ export function validateCollectFeeMode(
 }
 
 /**
- * Validate the migration and token type
- * @param migrationOption - The migration option
- * @param tokenType - The token type
- * @returns true if the migration and token type are valid, false otherwise
+ * Return whether the selected migration path supports the base token type.
  */
 export function validateMigrationAndTokenType(
     migrationOption: MigrationOption,
     tokenType: TokenType
 ): boolean {
     if (migrationOption === MigrationOption.MET_DAMM) {
-        return tokenType === TokenType.SPL
+        return tokenType === TokenType.SPLToken
     }
     return true
 }
 
 /**
- * Validate the activation type
- * @param activationType - The activation type
- * @returns true if the activation type is valid, false otherwise
+ * Return whether the activation type is supported.
  */
 export function validateActivationType(
     activationType: ActivationType
@@ -317,10 +294,7 @@ export function validateActivationType(
 }
 
 /**
- * Validate the migration fee option
- * @param migrationFeeOption - The migration fee option
- * @param migrationOption - The migration option
- * @returns true if the migration fee option is valid, false otherwise
+ * Return whether the migration fee option is supported for the migration path.
  */
 export function validateMigrationFeeOption(
     migrationFeeOption: MigrationFeeOption,
@@ -344,23 +318,14 @@ export function validateMigrationFeeOption(
 }
 
 /**
- * Validate the token decimals
- * @param tokenDecimal - The token decimal
- * @returns true if the token decimal is valid, false otherwise
+ * Return whether the token decimal is within the supported range.
  */
 export function validateTokenDecimals(tokenDecimal: TokenDecimal): boolean {
     return tokenDecimal >= TokenDecimal.SIX && tokenDecimal <= TokenDecimal.NINE
 }
 
 /**
- * Validate the LP percentages
- * @param partnerLiquidityPercentage - The partner liquidity percentage
- * @param partnerPermanentLockedLiquidityPercentage - The partner permanent locked liquidity percentage
- * @param creatorLiquidityPercentage - The creator liquidity percentage
- * @param creatorPermanentLockedLiquidityPercentage - The creator permanent locked liquidity percentage
- * @param partnerVestingPercentage - The partner vesting percentage (optional, defaults to 0)
- * @param creatorVestingPercentage - The creator vesting percentage (optional, defaults to 0)
- * @returns true if the LP percentages are valid, false otherwise
+ * Return whether all liquidity distribution percentages sum to 100.
  */
 export function validateLPPercentages(
     partnerLiquidityPercentage: number,
@@ -381,10 +346,7 @@ export function validateLPPercentages(
 }
 
 /**
- * Validate the curve
- * @param curve - The curve
- * @param sqrtStartPrice - The sqrt start price
- * @returns true if the curve is valid, false otherwise
+ * Validate curve point ordering, liquidity, and supported sqrt price bounds.
  */
 export function validateCurve(
     curve: Array<{ sqrtPrice: BN; liquidity: BN }>,
@@ -425,14 +387,7 @@ export function validateCurve(
 }
 
 /**
- * Validate token supply
- * @param tokenSupply - The token supply
- * @param leftoverReceiver - The leftover receiver
- * @param swapBaseAmount - The swap base amount
- * @param migrationBaseAmount - The migration base amount
- * @param lockedVesting - The locked vesting parameters
- * @param swapBaseAmountBuffer - The swap base amount buffer
- * @returns true if the token supply is valid, false otherwise
+ * Validate token supply can cover swap, migration, vesting, and leftover requirements.
  */
 export function validateTokenSupply(
     tokenSupply: {
@@ -487,26 +442,22 @@ export function validateTokenSupply(
 }
 
 /**
- * Validate the update authority option
- * @param option  - The update authority option
- * @returns true if the token update authority option is valid, false otherwise
+ * Return whether the token authority option is supported.
  */
-export function validateTokenUpdateAuthorityOptions(
-    option: TokenUpdateAuthorityOption
+export function validateTokenAuthorityOptions(
+    option: TokenAuthorityOption
 ): boolean {
     return [
-        TokenUpdateAuthorityOption.CreatorUpdateAuthority,
-        TokenUpdateAuthorityOption.Immutable,
-        TokenUpdateAuthorityOption.PartnerUpdateAuthority,
-        TokenUpdateAuthorityOption.CreatorUpdateAndMintAuthority,
-        TokenUpdateAuthorityOption.PartnerUpdateAndMintAuthority,
+        TokenAuthorityOption.CreatorUpdateAuthority,
+        TokenAuthorityOption.Immutable,
+        TokenAuthorityOption.PartnerUpdateAuthority,
+        TokenAuthorityOption.CreatorUpdateAndMintAuthority,
+        TokenAuthorityOption.PartnerUpdateAndMintAuthority,
     ].includes(option)
 }
 
 /**
- * Validate pool creation fee
- * @param poolCreationFee - The pool creation fee in lamports
- * @returns true if the pool creation fee is valid, false otherwise
+ * Return whether the pool creation fee is zero or within the supported lamport range.
  */
 export function validatePoolCreationFee(poolCreationFee: BN): boolean {
     if (poolCreationFee.eq(new BN(0))) {
@@ -520,9 +471,7 @@ export function validatePoolCreationFee(poolCreationFee: BN): boolean {
 }
 
 /**
- * Validate the liquidity vesting info parameters
- * @param vestingInfo - The liquidity vesting info parameters
- * @returns true if valid, false otherwise
+ * Return whether liquidity vesting info is disabled or internally consistent.
  */
 export function validateLiquidityVestingInfo(
     vestingInfo: LiquidityVestingInfoParameters
@@ -553,13 +502,7 @@ export function validateLiquidityVestingInfo(
 }
 
 /**
- * Validate that the minimum locked liquidity requirement is met at day 1
- * The program requires at least MIN_LOCKED_LIQUIDITY_BPS (1000 = 10%) to be locked at SECONDS_PER_DAY (86400 seconds) after migration.
- * @param partnerPermanentLockedLiquidityPercentage - Partner's permanently locked liquidity percentage
- * @param creatorPermanentLockedLiquidityPercentage - Creator's permanently locked liquidity percentage
- * @param partnerLiquidityVestingInfo - Partner's liquidity vesting info (optional)
- * @param creatorLiquidityVestingInfo - Creator's liquidity vesting info (optional)
- * @returns true if the minimum locked liquidity requirement is met, false otherwise
+ * Validate that at least `MIN_LOCKED_LIQUIDITY_BPS` is locked one day after migration.
  */
 export function validateMinimumLockedLiquidity(
     partnerPermanentLockedLiquidityPercentage: number,
@@ -685,8 +628,7 @@ export function validateMigratedPoolFee(
 }
 
 /**
- * Validate the config parameters
- * @param configParam - The config parameters
+ * Validate config parameters and throw the first actionable error encountered.
  */
 export function validateConfigParameters(
     configParam: Omit<
@@ -714,9 +656,7 @@ export function validateConfigParameters(
     }
 
     // update token authority option validation
-    if (
-        !validateTokenUpdateAuthorityOptions(configParam.tokenUpdateAuthority)
-    ) {
+    if (!validateTokenAuthorityOptions(configParam.tokenUpdateAuthority)) {
         throw new Error('Invalid option for token update authority')
     }
 
@@ -987,10 +927,7 @@ export function validateConfigParameters(
 }
 
 /**
- * Validate that the base token type matches the pool config token type
- * @param baseTokenType - The base token type from create pool parameters
- * @param poolConfig - The pool config state
- * @returns true if the token types match, false otherwise
+ * Return whether a pool creation token type matches its config.
  */
 export function validateBaseTokenType(
     baseTokenType: TokenType,
@@ -1000,13 +937,7 @@ export function validateBaseTokenType(
 }
 
 /**
- * Validate that the user has sufficient balance for the swap
- * @param connection - The Solana connection
- * @param owner - The owner's public key
- * @param inputMint - The mint of the input token
- * @param amountIn - The input amount for the swap
- * @param inputTokenAccount - The token account to check balance for
- * @returns true if the balance is sufficient, throws error if insufficient
+ * Validate that an owner has enough SOL or token balance for a swap.
  */
 export async function validateBalance(
     connection: Connection,
@@ -1048,9 +979,7 @@ export async function validateBalance(
 }
 
 /**
- * Validate that the swap amount is valid
- * @param amountIn - The input amount for the swap
- * @returns true if the amount is valid, throws error if invalid
+ * Validate that a swap amount is greater than zero.
  */
 export function validateSwapAmount(amountIn: BN): boolean {
     if (amountIn.lte(new BN(0))) {
@@ -1060,12 +989,7 @@ export function validateSwapAmount(amountIn: BN): boolean {
 }
 
 /**
- * Validate the migrated pool base fee mode and market cap fee scheduler params
- * @param migratedPoolBaseFeeMode - The base fee mode for the migrated pool
- * @param migratedPoolMarketCapFeeSchedulerParams - The market cap fee scheduler params
- * @param migrationOption - The migration option (optional - only validates for DAMM V2)
- * @returns true if valid
- * @throws Error if invalid
+ * Validate DAMM v2 migrated-pool base fee modes and market-cap scheduler requirements.
  */
 export function validateMigratedPoolBaseFeeMode(
     migratedPoolBaseFeeMode: DammV2BaseFeeMode,
@@ -1149,11 +1073,7 @@ export function validateMigratedPoolBaseFeeMode(
 }
 
 /**
- * Validate that when marketCapFeeSchedulerParams is configured, migratedPoolFee.poolFeeBps is required
- * @param migratedPoolMarketCapFeeSchedulerParams - The market cap fee scheduler params
- * @param migratedPoolFee - The migrated pool fee configuration
- * @returns true if valid
- * @throws Error if marketCapFeeSchedulerParams is configured but poolFeeBps is missing
+ * Validate that market-cap fee scheduling has a starting migrated pool fee.
  */
 export function validateMarketCapFeeSchedulerRequiresPoolFeeBps(
     migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParameters,
