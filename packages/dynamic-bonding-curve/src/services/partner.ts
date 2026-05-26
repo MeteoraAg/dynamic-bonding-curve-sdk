@@ -353,8 +353,6 @@ export class PartnerService extends DynamicBondingCurveProgram {
         }
     }
 
-    async claimPartnerTradingFee2() {}
-
     /**
      * Build a transaction that withdraws partner surplus from a pool.
      */
