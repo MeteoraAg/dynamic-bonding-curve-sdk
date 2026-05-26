@@ -61,7 +61,6 @@
     - [getPoolBaseTokenCurveProgress](#getPoolBaseTokenCurveProgress)
     - [getPoolMetadata](#getPoolMetadata)
     - [getPartnerMetadata](#getPartnerMetadata)
-    - [getDammV1LockEscrow](#getDammV1LockEscrow)
     - [getPoolFeeMetrics](#getPoolFeeMetrics)
     - [getPoolFeeBreakdown](#getPoolFeeBreakdown)
     - [getPoolsFeesByConfig](#getPoolsFeesByConfig)
@@ -3609,48 +3608,6 @@ type partnerMetadata = {
 
 ```typescript
 const metadata = await client.state.getPartnerMetadata(wallet.publicKey)
-```
-
----
-
-### getDammV1LockEscrow
-
-Gets the lock escrow details for a DAMM V1 pool.
-
-**Function**
-
-```typescript
-async getDammV1LockEscrow(lockEscrowAddress: PublicKey | string): Promise<LockEscrow>
-```
-
-**Parameters**
-
-```typescript
-lockEscrowAddress: PublicKey | string // The address of the lock escrow
-```
-
-**Returns**
-
-- A `LockEscrow` object containing the lock escrow details.
-
-```typescript
-type lockEscrow = {
-    pool: PublicKey
-    owner: PublicKey
-    escrowVault: PublicKey
-    bump: number
-    totalLockedAmount: BN
-    lpPerToken: BN
-    unclaimedFeePending: BN
-    aFee: BN
-    bFee: BN
-}
-```
-
-**Example**
-
-```typescript
-const escrow = await client.state.getDammV1LockEscrow(escrowAddress)
 ```
 
 ---
