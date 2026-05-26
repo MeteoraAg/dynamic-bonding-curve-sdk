@@ -37,7 +37,8 @@ import {
 const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
 const TOKEN_NAME = 'TEST'
 const TOKEN_SYMBOL = 'TEST'
-const TOKEN_URI = 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2'
+const TOKEN_URI =
+    'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2'
 
 let partner: Keypair
 let poolCreator: Keypair
@@ -63,8 +64,8 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         const config = Keypair.generate()
         const curveConfig = buildTransferHookCurveConfig()
 
-        const createConfigTx = await dbcClient.partner.createConfigWithTransferHook(
-            {
+        const createConfigTx =
+            await dbcClient.partner.createConfigWithTransferHook({
                 config: config.publicKey,
                 feeClaimer: partner.publicKey,
                 leftoverReceiver: partner.publicKey,
@@ -72,8 +73,7 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
                 quoteMint: NATIVE_MINT,
                 transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
                 ...curveConfig,
-            }
-        )
+            })
 
         createConfigTx.feePayer = partner.publicKey
         await sendAndConfirmTransaction(connection, createConfigTx, [
@@ -87,10 +87,9 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         expect(configState).not.toBeNull()
         expect(configState!.tokenType).toBe(TokenType.Token2022)
 
-        const configWithTransferHook =
-            await createDbcProgram(connection).program.account.configWithTransferHook.fetch(
-                config.publicKey
-            )
+        const configWithTransferHook = await createDbcProgram(
+            connection
+        ).program.account.configWithTransferHook.fetch(config.publicKey)
         expect(configWithTransferHook.transferHookProgram.toString()).toBe(
             TRANSFER_HOOK_COUNTER_PROGRAM_ID.toString()
         )
@@ -152,7 +151,9 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
             baseMint,
         ])
 
-        expect(await dbcClient.state.getPoolConfig(config.publicKey)).not.toBeNull()
+        expect(
+            await dbcClient.state.getPoolConfig(config.publicKey)
+        ).not.toBeNull()
         expect(await dbcClient.state.getPool(pool)).not.toBeNull()
     })
 
@@ -185,10 +186,11 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         })
         const baseMint = Keypair.generate()
         const amountIn = new BN(1)
-        const transferHookAccounts =
-            getTransferHookRemainingAccounts(baseMint.publicKey)
-        const tx = await dbcClient.creator.createPoolWithFirstBuyWithTransferHook(
-            {
+        const transferHookAccounts = getTransferHookRemainingAccounts(
+            baseMint.publicKey
+        )
+        const tx =
+            await dbcClient.creator.createPoolWithFirstBuyWithTransferHook({
                 createPoolParam: {
                     baseMint: baseMint.publicKey,
                     config: config.publicKey,
@@ -206,15 +208,17 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
                     referralTokenAccount: null,
                     ...transferHookAccounts,
                 },
-            }
-        )
+            })
 
         const initMetaTx = await initializeExtraAccountMetaListTx({
             connection,
             payer: poolCreator.publicKey,
             mint: baseMint.publicKey,
         })
-        const bundledTx = insertAfterFirstInstruction(tx, initMetaTx.instructions)
+        const bundledTx = insertAfterFirstInstruction(
+            tx,
+            initMetaTx.instructions
+        )
         bundledTx.feePayer = poolCreator.publicKey
         await sendAndConfirmTransaction(connection, bundledTx, [
             poolCreator,
@@ -225,9 +229,12 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         const poolState = await dbcClient.state.getPool(pool)
         expect(poolState).not.toBeNull()
         expect(await getCounterValue(connection, baseMint.publicKey)).toBe(1)
-        expectMinFee(poolState!.poolState.metrics.totalProtocolQuoteFee.add(
-            poolState!.poolState.metrics.totalTradingQuoteFee
-        ), amountIn)
+        expectMinFee(
+            poolState!.poolState.metrics.totalProtocolQuoteFee.add(
+                poolState!.poolState.metrics.totalTradingQuoteFee
+            ),
+            amountIn
+        )
         expect(curveConfig.enableFirstSwapWithMinFee).toBe(true)
     })
 
@@ -238,8 +245,9 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         const baseMint = Keypair.generate()
         const partnerAmountIn = new BN(1)
         const creatorAmountIn = new BN(1)
-        const transferHookAccounts =
-            getTransferHookRemainingAccounts(baseMint.publicKey)
+        const transferHookAccounts = getTransferHookRemainingAccounts(
+            baseMint.publicKey
+        )
 
         const tx =
             await dbcClient.creator.createPoolWithPartnerAndCreatorFirstBuyWithTransferHook(
@@ -278,7 +286,10 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
             payer: poolCreator.publicKey,
             mint: baseMint.publicKey,
         })
-        const bundledTx = insertAfterFirstInstruction(tx, initMetaTx.instructions)
+        const bundledTx = insertAfterFirstInstruction(
+            tx,
+            initMetaTx.instructions
+        )
         bundledTx.feePayer = poolCreator.publicKey
         await sendAndConfirmTransaction(connection, bundledTx, [
             poolCreator,
@@ -298,8 +309,9 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         const curveConfig = buildTransferHookCurveConfig({
             enableFirstSwapWithMinFee: true,
         })
-        const transferHookAccounts =
-            getTransferHookRemainingAccounts(baseMint.publicKey)
+        const transferHookAccounts = getTransferHookRemainingAccounts(
+            baseMint.publicKey
+        )
 
         const { createConfigTx, createPoolWithFirstBuyTx } =
             await dbcClient.partner.createConfigAndPoolWithFirstBuyWithTransferHook(
@@ -353,9 +365,12 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         const poolState = await dbcClient.state.getPool(pool)
         expect(poolState).not.toBeNull()
         expect(await getCounterValue(connection, baseMint.publicKey)).toBe(1)
-        expectMinFee(poolState!.poolState.metrics.totalProtocolQuoteFee.add(
-            poolState!.poolState.metrics.totalTradingQuoteFee
-        ), amountIn)
+        expectMinFee(
+            poolState!.poolState.metrics.totalProtocolQuoteFee.add(
+                poolState!.poolState.metrics.totalTradingQuoteFee
+            ),
+            amountIn
+        )
     })
 })
 
@@ -446,7 +461,8 @@ function insertAfterFirstInstruction(
     transaction: Transaction,
     instructions: TransactionInstruction[]
 ): Transaction {
-    const [firstInstruction, ...remainingInstructions] = transaction.instructions
+    const [firstInstruction, ...remainingInstructions] =
+        transaction.instructions
     return new Transaction().add(
         firstInstruction,
         ...instructions,

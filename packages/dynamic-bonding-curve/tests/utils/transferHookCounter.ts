@@ -102,9 +102,10 @@ export async function getCounterValue(
     mint: PublicKey
 ): Promise<number> {
     const counterAccount = deriveCounterAccount(mint)
-    const account = await createTransferHookCounterProgram(
-        connection
-    ).account.counterAccount.fetch(counterAccount)
+    const account =
+        await createTransferHookCounterProgram(
+            connection
+        ).account.counterAccount.fetch(counterAccount)
 
     return account.counter
 }
