@@ -6,8 +6,8 @@ import {
     type Connection,
 } from '@solana/web3.js'
 import {
-    ClaimCreatorTradingFee2Params,
     ClaimCreatorTradingFeeParams,
+    ClaimCreatorTradingFeeToReceiverParams,
     CreatePoolParams,
     CreatePoolWithFirstBuyParams,
     CreatePoolWithPartnerAndCreatorFirstBuyParams,
@@ -283,7 +283,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * Build a transaction that claims creator trading fees to an explicit receiver.
      */
     async claimCreatorTradingFeeToReceiver(
-        params: ClaimCreatorTradingFee2Params
+        params: ClaimCreatorTradingFeeToReceiverParams
     ): Promise<Transaction> {
         const {
             creator,
@@ -345,7 +345,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
      * Build a transaction that claims creator trading fees with transfer-hook support.
      */
     async claimCreatorTradingFee2(
-        params: ClaimCreatorTradingFee2Params
+        params: ClaimCreatorTradingFeeToReceiverParams
     ): Promise<Transaction> {
         const { creator, pool, maxBaseAmount, maxQuoteAmount, receiver, payer } =
             params

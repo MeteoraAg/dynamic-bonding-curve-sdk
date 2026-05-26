@@ -555,7 +555,7 @@ export type ClaimPartnerTradingFeeParams = {
     tempWSolAcc?: PublicKey
 }
 
-export type ClaimPartnerTradingFee2Params = {
+export type ClaimPartnerTradingFeeToReceiverParams = {
     feeClaimer: PublicKey
     payer: PublicKey
     pool: PublicKey
@@ -574,7 +574,7 @@ export type ClaimCreatorTradingFeeParams = {
     tempWSolAcc?: PublicKey
 }
 
-export type ClaimCreatorTradingFee2Params = {
+export type ClaimCreatorTradingFeeToReceiverParams = {
     creator: PublicKey
     payer: PublicKey
     pool: PublicKey
