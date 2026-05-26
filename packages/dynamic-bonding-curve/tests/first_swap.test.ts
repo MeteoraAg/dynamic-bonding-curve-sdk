@@ -25,7 +25,7 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
 } from '../src'
 import { BN } from 'bn.js'
 import { NATIVE_MINT } from '@solana/spl-token'
@@ -81,11 +81,11 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
 
         curveConfig = buildCurveWithCustomSqrtPrices({
             token: {
-                tokenType: TokenType.SPL,
+                tokenType: TokenType.SPLToken,
                 tokenBaseDecimal: tokenBaseDecimal,
                 tokenQuoteDecimal: tokenQuoteDecimal,
-                tokenUpdateAuthority:
-                    TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+                tokenAuthorityOption:
+                    TokenAuthorityOption.PartnerUpdateAuthority,
                 totalTokenSupply: 1_000_000_000,
                 leftover: 1000,
             },
@@ -164,7 +164,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         const amountIn = new BN(1_000_000_000) // 1 SOL
 
         const createPoolWithFirstBuyTx =
-            await dbcClient.pool.createPoolWithFirstBuy({
+            await dbcClient.creator.createPoolWithFirstBuy({
                 createPoolParam: {
                     baseMint: baseMint.publicKey,
                     config: config.publicKey,
@@ -220,7 +220,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
     })
 
     test('should charge cliff fee for separate swap transaction using SDK swap()', async () => {
-        const createPoolTx = await dbcClient.pool.createPool({
+        const createPoolTx = await dbcClient.creator.createPool({
             baseMint: baseMint.publicKey,
             config: config.publicKey,
             name: 'TEST',
@@ -284,7 +284,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         const amountIn = new BN(1_000_000_000)
 
         const createPoolWithFirstBuyTx =
-            await dbcClient.pool.createPoolWithFirstBuy({
+            await dbcClient.creator.createPoolWithFirstBuy({
                 createPoolParam: {
                     baseMint: baseMint.publicKey,
                     config: config.publicKey,
@@ -344,7 +344,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         }
 
         const createPoolWithFirstBuyTx =
-            await dbcClient.pool.createPoolWithFirstBuy({
+            await dbcClient.creator.createPoolWithFirstBuy({
                 createPoolParam,
                 firstBuyParam: {
                     buyer: poolCreator.publicKey,
@@ -355,7 +355,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             })
 
         const createOnlyPoolTx =
-            await dbcClient.pool.createPool(createPoolParam)
+            await dbcClient.creator.createPool(createPoolParam)
         const createPoolIxCount = createOnlyPoolTx.instructions.length
         const createPoolIxs = createPoolWithFirstBuyTx.instructions.slice(
             0,
@@ -420,7 +420,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         const amountIn = new BN(1_000_000_000)
 
         const createPoolWithFirstBuyTx =
-            await dbcClient.pool.createPoolWithFirstBuy({
+            await dbcClient.creator.createPoolWithFirstBuy({
                 createPoolParam: {
                     baseMint: baseMint.publicKey,
                     config: config.publicKey,
@@ -518,7 +518,7 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         )
 
         const { createConfigTx, createPoolWithFirstBuyTx } =
-            await dbcClient.pool.createConfigAndPoolWithFirstBuy({
+            await dbcClient.partner.createConfigAndPoolWithFirstBuy({
                 config: newConfig.publicKey,
                 feeClaimer: partner.publicKey,
                 leftoverReceiver: partner.publicKey,

@@ -10,17 +10,17 @@ import {
     TokenType,
     createSqrtPrices,
     BuildCurveBaseParams,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
 } from '../src'
 import BN from 'bn.js'
 
 describe('buildCurveWithCustomSqrtPrices', () => {
     const baseParams: BuildCurveBaseParams = {
         token: {
-            tokenType: TokenType.SPL,
+            tokenType: TokenType.SPLToken,
             tokenBaseDecimal: TokenDecimal.SIX,
             tokenQuoteDecimal: TokenDecimal.NINE,
-            tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+            tokenAuthorityOption: TokenAuthorityOption.Immutable,
             totalTokenSupply: 1000000000,
             leftover: 1000,
         },

@@ -14,17 +14,17 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
 } from '../src'
 import { convertBNToDecimal } from './utils/common'
 
 describe('buildCurveWithMarketCap tests', () => {
     const baseParams: BuildCurveBaseParams = {
         token: {
-            tokenType: TokenType.SPL,
+            tokenType: TokenType.SPLToken,
             tokenBaseDecimal: TokenDecimal.SIX,
             tokenQuoteDecimal: TokenDecimal.NINE,
-            tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+            tokenAuthorityOption: TokenAuthorityOption.Immutable,
             totalTokenSupply: 1000000000,
             leftover: 10000,
         },
@@ -181,10 +181,10 @@ describe('buildCurveWithMarketCap tests', () => {
 
         const config = buildCurveWithMarketCap({
             token: {
-                tokenType: TokenType.SPL,
+                tokenType: TokenType.SPLToken,
                 tokenBaseDecimal: TokenDecimal.SIX,
                 tokenQuoteDecimal: TokenDecimal.SIX,
-                tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                tokenAuthorityOption: TokenAuthorityOption.Immutable,
                 totalTokenSupply: 100000000,
                 leftover: 0,
             },

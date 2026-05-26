@@ -16,7 +16,7 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
 } from '../src'
 import { NATIVE_MINT } from '@solana/spl-token'
 import { MIN_LOCKED_LIQUIDITY_BPS, SECONDS_PER_DAY } from '../src/constants'
@@ -312,10 +312,10 @@ describe('Locked Liquidity Validation Tests', () => {
         test('should throw error for 10% vesting with insufficient locked liquidity', () => {
             const curveConfig = buildCurve({
                 token: {
-                    tokenType: TokenType.SPL,
+                    tokenType: TokenType.SPLToken,
                     tokenBaseDecimal: TokenDecimal.SIX,
                     tokenQuoteDecimal: TokenDecimal.NINE,
-                    tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                    tokenAuthorityOption: TokenAuthorityOption.Immutable,
                     totalTokenSupply: 1_000_000_000,
                     leftover: 0,
                 },
@@ -388,10 +388,10 @@ describe('Locked Liquidity Validation Tests', () => {
         test('should succeed for 11% vesting with sufficient locked liquidity', () => {
             const curveConfig = buildCurve({
                 token: {
-                    tokenType: TokenType.SPL,
+                    tokenType: TokenType.SPLToken,
                     tokenBaseDecimal: TokenDecimal.SIX,
                     tokenQuoteDecimal: TokenDecimal.NINE,
-                    tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                    tokenAuthorityOption: TokenAuthorityOption.Immutable,
                     totalTokenSupply: 1_000_000_000,
                     leftover: 0,
                 },

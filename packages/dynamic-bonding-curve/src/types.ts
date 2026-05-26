@@ -57,6 +57,9 @@ export type MigratedPoolMarketCapFeeSchedulerParameters =
 export type LiquidityVestingInfoParameters =
     IdlTypes<DynamicBondingCurve>['liquidityVestingInfoParams']
 
+export type CreateVirtualPoolMetadataParameters =
+    IdlTypes<DynamicBondingCurve>['createVirtualPoolMetadataParameters']
+
 export type CreatePartnerMetadataParameters =
     IdlTypes<DynamicBondingCurve>['createPartnerMetadataParameters']
 
@@ -104,7 +107,7 @@ export enum ActivationType {
 }
 
 export enum TokenType {
-    SPL = 0,
+    SPLToken = 0,
     Token2022 = 1,
 }
 
@@ -178,7 +181,7 @@ export enum Rounding {
     Down,
 }
 
-export enum TokenUpdateAuthorityOption {
+export enum TokenAuthorityOption {
     // Creator has permission to update update_authority
     CreatorUpdateAuthority = 0,
     // No one has permission to update the authority
@@ -222,7 +225,7 @@ export type TokenConfig = {
     tokenType: TokenType
     tokenBaseDecimal: TokenDecimal
     tokenQuoteDecimal: TokenDecimal
-    tokenUpdateAuthority: TokenUpdateAuthorityOption
+    tokenAuthorityOption: TokenAuthorityOption
     totalTokenSupply: number
     leftover: number
 }
@@ -385,7 +388,7 @@ export type CreatePoolParams = {
 }
 
 export type CreateConfigAndPoolParams = CreateConfigParams & {
-    preCreatePoolParam: PreCreatePoolParams
+    preCreatePoolParam: CreatePoolBaseParams
 }
 
 export type CreateConfigAndPoolWithFirstBuyParams =
@@ -404,7 +407,7 @@ export type CreatePoolWithPartnerAndCreatorFirstBuyParams = {
     creatorFirstBuyParam?: CreatorFirstBuyParams
 }
 
-export type PreCreatePoolParams = {
+export type CreatePoolBaseParams = {
     name: string
     symbol: string
     uri: string
@@ -530,7 +533,7 @@ export type CreateLockerParams = {
     pool: PublicKey
 }
 
-export type ClaimTradingFeeParams = {
+export type ClaimPartnerTradingFeeParams = {
     feeClaimer: PublicKey
     payer: PublicKey
     pool: PublicKey
@@ -540,7 +543,7 @@ export type ClaimTradingFeeParams = {
     tempWSolAcc?: PublicKey
 }
 
-export type ClaimTradingFee2Params = {
+export type ClaimPartnerTradingFee2Params = {
     feeClaimer: PublicKey
     payer: PublicKey
     pool: PublicKey
@@ -548,23 +551,6 @@ export type ClaimTradingFee2Params = {
     maxQuoteAmount: BN
     receiver: PublicKey
 }
-
-export type ClaimPartnerTradingFeeWithQuoteMintNotSolParams = {
-    feeClaimer: PublicKey
-    payer: PublicKey
-    feeReceiver: PublicKey
-    config: PublicKey
-    pool: PublicKey
-    virtualPool: VirtualPool
-    poolConfigState: PoolConfig
-    tokenBaseProgram: PublicKey
-    tokenQuoteProgram: PublicKey
-}
-
-export type ClaimPartnerTradingFeeWithQuoteMintSolParams =
-    ClaimPartnerTradingFeeWithQuoteMintNotSolParams & {
-        tempWSolAcc: PublicKey
-    }
 
 export type ClaimCreatorTradingFeeParams = {
     creator: PublicKey

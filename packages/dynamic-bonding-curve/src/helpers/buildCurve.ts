@@ -40,9 +40,7 @@ import { getInitialLiquidityFromDeltaBase } from '../math/curve'
 import { convertDecimalToBN, convertToLamports, fromDecimalToBN } from './utils'
 
 /**
- * Build a custom constant product curve
- * @param buildCurveParam - The parameters for the custom constant product curve
- * @returns The build custom constant product curve
+ * Build config parameters for a single curve segment constant product curve.
  */
 export function buildCurve(params: BuildCurveParams): ConfigParameters {
     const {
@@ -60,7 +58,7 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
         tokenType,
         tokenBaseDecimal,
         tokenQuoteDecimal,
-        tokenUpdateAuthority,
+        tokenAuthorityOption,
         totalTokenSupply,
         leftover,
     } = token
@@ -256,7 +254,7 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
             postMigrationTokenSupply: totalSupply,
         },
         creatorTradingFeePercentage,
-        tokenUpdateAuthority,
+        tokenUpdateAuthority: tokenAuthorityOption,
         migrationFee,
         migratedPoolFee: migratedPoolFeeResult.migratedPoolFee,
         poolCreationFee: poolCreationFeeInLamports,
@@ -274,9 +272,7 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
 }
 
 /**
- * Build a custom constant product curve by market cap
- * @param buildCurveByMarketCapParam - The parameters for the custom constant product curve by market cap
- * @returns The build custom constant product curve by market cap
+ * Build config parameters from initial and migration market caps for a single curve segment constant product curve.
  */
 export function buildCurveWithMarketCap(
     params: BuildCurveWithMarketCapParams
@@ -349,9 +345,7 @@ export function buildCurveWithMarketCap(
 }
 
 /**
- * Build a custom constant product curve by market cap
- * @param buildCurveWithTwoSegmentsParam - The parameters for the custom constant product curve by market cap
- * @returns The build custom constant product curve by market cap
+ * Build config parameters for a two-segment curve.
  */
 export function buildCurveWithTwoSegments(
     params: BuildCurveWithTwoSegmentsParams
@@ -372,7 +366,7 @@ export function buildCurveWithTwoSegments(
         tokenType,
         tokenBaseDecimal,
         tokenQuoteDecimal,
-        tokenUpdateAuthority,
+        tokenAuthorityOption,
         totalTokenSupply,
         leftover,
     } = token
@@ -629,16 +623,14 @@ export function buildCurveWithTwoSegments(
         compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
         padding: [],
         curve,
-        tokenUpdateAuthority,
+        tokenUpdateAuthority: tokenAuthorityOption,
         migrationFee,
     }
     return instructionParams
 }
 
 /**
- * Build a custom constant product curve with a mid price. This will create a two segment curve with a start price -> mid price, and a mid price -> migration price.
- * @param buildCurveWithMidPriceParam - The parameters for the custom constant product curve with a mid price
- * @returns The build custom constant product curve by mid price
+ * Build config parameters for a two-segment constant product curve that passes through a mid price.
  */
 export function buildCurveWithMidPrice(
     params: BuildCurveWithMidPriceParams
@@ -660,7 +652,7 @@ export function buildCurveWithMidPrice(
         tokenType,
         tokenBaseDecimal,
         tokenQuoteDecimal,
-        tokenUpdateAuthority,
+        tokenAuthorityOption,
         totalTokenSupply,
         leftover,
     } = token
@@ -897,16 +889,14 @@ export function buildCurveWithMidPrice(
         compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
         padding: [],
         curve,
-        tokenUpdateAuthority,
+        tokenUpdateAuthority: tokenAuthorityOption,
         migrationFee,
     }
     return instructionParams
 }
 
 /**
- * Build a custom curve graph with liquidity weights, changing the curve shape based on the liquidity weights
- * @param buildCurveWithLiquidityWeightsParam - The parameters for the custom constant product curve with liquidity weights
- * @returns The build custom constant product curve with liquidity weights
+ * Build config parameters for a sixteen-segment constant product curve whose segment shape is controlled by liquidity weights.
  */
 export function buildCurveWithLiquidityWeights(
     params: BuildCurveWithLiquidityWeightsParams
@@ -927,7 +917,7 @@ export function buildCurveWithLiquidityWeights(
         tokenType,
         tokenBaseDecimal,
         tokenQuoteDecimal,
-        tokenUpdateAuthority,
+        tokenAuthorityOption,
         totalTokenSupply,
         leftover,
     } = token
@@ -1193,17 +1183,14 @@ export function buildCurveWithLiquidityWeights(
         padding: [],
         curve,
         migrationFee,
-        tokenUpdateAuthority,
+        tokenUpdateAuthority: tokenAuthorityOption,
     }
     return instructionParams
 }
 
 /**
- * Build a custom curve with custom sqrt prices instead of liquidity weights.
+ * Build config parameters for an up to sixteen-segment constant product curve with custom sqrt prices instead of liquidity weights.
  * This allows you to specify exactly what price points you want in your curve.
- *
- * @param buildCurveWithCustomSqrtPricesParam - The parameters for the custom curve with sqrt prices
- * @returns The build custom constant product curve with custom sqrt prices
  *
  * @remarks
  * The sqrtPrices array must:
@@ -1240,7 +1227,7 @@ export function buildCurveWithCustomSqrtPrices(
         tokenType,
         tokenBaseDecimal,
         tokenQuoteDecimal,
-        tokenUpdateAuthority,
+        tokenAuthorityOption,
         totalTokenSupply,
         leftover,
     } = token
@@ -1506,7 +1493,7 @@ export function buildCurveWithCustomSqrtPrices(
         padding: [],
         curve,
         migrationFee,
-        tokenUpdateAuthority,
+        tokenUpdateAuthority: tokenAuthorityOption,
     }
     return instructionParams
 }
