@@ -35,10 +35,11 @@ export class StateService extends DynamicBondingCurveProgram {
                 : new PublicKey(configAddress)
 
         try {
-            const poolConfig = await this.program.account.poolConfig.fetchNullable(
-                address,
-                this.commitment
-            )
+            const poolConfig =
+                await this.program.account.poolConfig.fetchNullable(
+                    address,
+                    this.commitment
+                )
             if (poolConfig) {
                 return poolConfig
             }
@@ -83,10 +84,11 @@ export class StateService extends DynamicBondingCurveProgram {
                 : new PublicKey(poolAddress)
 
         try {
-            const virtualPool = await this.program.account.virtualPool.fetchNullable(
-                address,
-                this.commitment
-            )
+            const virtualPool =
+                await this.program.account.virtualPool.fetchNullable(
+                    address,
+                    this.commitment
+                )
             if (virtualPool) {
                 return virtualPool
             }
