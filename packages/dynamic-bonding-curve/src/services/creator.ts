@@ -341,8 +341,6 @@ export class CreatorService extends DynamicBondingCurveProgram {
         }
     }
 
-    async claimCreatorTradingFee2() {}
-
     /**
      * Build a transaction that withdraws creator surplus from a pool.
      */
