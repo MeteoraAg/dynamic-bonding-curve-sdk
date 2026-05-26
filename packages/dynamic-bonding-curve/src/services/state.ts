@@ -3,13 +3,14 @@ import { DynamicBondingCurveProgram } from './program'
 import {
     createProgramAccountFilter,
     deriveDammV1MigrationMetadataAddress,
-    getAccountData,
     getBaseTokenForSwap,
 } from '../helpers'
 import {
+    ConfigWithTransferHook,
     MeteoraDammMigrationMetadata,
     PartnerMetadata,
     PoolConfig,
+    TransferHookPool,
     VirtualPool,
     VirtualPoolMetadata,
 } from '../types'
@@ -28,12 +29,31 @@ export class StateService extends DynamicBondingCurveProgram {
     async getPoolConfig(
         configAddress: PublicKey | string
     ): Promise<PoolConfig> {
-        return getAccountData<PoolConfig>(
-            configAddress,
-            'poolConfig',
-            this.program,
-            this.commitment
-        )
+        const address =
+            configAddress instanceof PublicKey
+                ? configAddress
+                : new PublicKey(configAddress)
+
+        try {
+            const poolConfig = await this.program.account.poolConfig.fetchNullable(
+                address,
+                this.commitment
+            )
+            if (poolConfig) {
+                return poolConfig
+            }
+        } catch {
+            // Transfer-hook configs use a different discriminator but embed PoolConfig.
+        }
+
+        const configWithTransferHook =
+            await this.program.account.configWithTransferHook.fetchNullable(
+                address,
+                this.commitment
+            )
+
+        return (configWithTransferHook as ConfigWithTransferHook | null)
+            ?.config as PoolConfig
     }
 
     /**
@@ -57,12 +77,27 @@ export class StateService extends DynamicBondingCurveProgram {
      * Fetch a virtual pool account.
      */
     async getPool(poolAddress: PublicKey | string): Promise<VirtualPool> {
-        return getAccountData<VirtualPool>(
-            poolAddress,
-            'virtualPool',
-            this.program,
+        const address =
+            poolAddress instanceof PublicKey
+                ? poolAddress
+                : new PublicKey(poolAddress)
+
+        try {
+            const virtualPool = await this.program.account.virtualPool.fetchNullable(
+                address,
+                this.commitment
+            )
+            if (virtualPool) {
+                return virtualPool
+            }
+        } catch {
+            // Transfer-hook pools use a different discriminator but embed PoolState.
+        }
+
+        return (await this.program.account.transferHookPool.fetchNullable(
+            address,
             this.commitment
-        )
+        )) as TransferHookPool
     }
 
     /**
