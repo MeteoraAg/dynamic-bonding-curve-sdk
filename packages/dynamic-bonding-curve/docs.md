@@ -3234,24 +3234,26 @@ A transaction containing transfer-hook pool creation instructions, with first-bu
 **Example**
 
 ```typescript
-const transaction = await client.creator.createPoolWithFirstBuyWithTransferHook({
-    createPoolParam: {
-        baseMint: baseMintKeypair.publicKey,
-        config: config.publicKey,
-        name: 'Meteora',
-        symbol: 'MET',
-        uri: 'https://launch.meteora.ag/icons/logo.svg',
-        payer: poolCreator.publicKey,
-        poolCreator: poolCreator.publicKey,
-        transferHookProgram: transferHookProgramId,
-    },
-    firstBuyParam: {
-        buyer: poolCreator.publicKey,
-        buyAmount: amountIn,
-        minimumAmountOut: new BN(0),
-        referralTokenAccount: null,
-    },
-})
+const transaction = await client.creator.createPoolWithFirstBuyWithTransferHook(
+    {
+        createPoolParam: {
+            baseMint: baseMintKeypair.publicKey,
+            config: config.publicKey,
+            name: 'Meteora',
+            symbol: 'MET',
+            uri: 'https://launch.meteora.ag/icons/logo.svg',
+            payer: poolCreator.publicKey,
+            poolCreator: poolCreator.publicKey,
+            transferHookProgram: transferHookProgramId,
+        },
+        firstBuyParam: {
+            buyer: poolCreator.publicKey,
+            buyAmount: amountIn,
+            minimumAmountOut: new BN(0),
+            referralTokenAccount: null,
+        },
+    }
+)
 ```
 
 **Notes**
@@ -3407,32 +3409,34 @@ A single transaction containing transfer-hook pool creation and optional partner
 
 ```typescript
 const transaction =
-    await client.creator.createPoolWithPartnerAndCreatorFirstBuyWithTransferHook({
-        createPoolParam: {
-            baseMint: baseMintKeypair.publicKey,
-            config: config.publicKey,
-            name: 'Meteora',
-            symbol: 'MET',
-            uri: 'https://launch.meteora.ag/icons/logo.svg',
-            payer: poolCreator.publicKey,
-            poolCreator: poolCreator.publicKey,
-            transferHookProgram: transferHookProgramId,
-        },
-        partnerFirstBuyParam: {
-            partner: partner.publicKey,
-            receiver: partner.publicKey,
-            buyAmount: partnerAmountIn,
-            minimumAmountOut: new BN(1),
-            referralTokenAccount: null,
-        },
-        creatorFirstBuyParam: {
-            creator: poolCreator.publicKey,
-            receiver: poolCreator.publicKey,
-            buyAmount: creatorAmountIn,
-            minimumAmountOut: new BN(1),
-            referralTokenAccount: null,
-        },
-    })
+    await client.creator.createPoolWithPartnerAndCreatorFirstBuyWithTransferHook(
+        {
+            createPoolParam: {
+                baseMint: baseMintKeypair.publicKey,
+                config: config.publicKey,
+                name: 'Meteora',
+                symbol: 'MET',
+                uri: 'https://launch.meteora.ag/icons/logo.svg',
+                payer: poolCreator.publicKey,
+                poolCreator: poolCreator.publicKey,
+                transferHookProgram: transferHookProgramId,
+            },
+            partnerFirstBuyParam: {
+                partner: partner.publicKey,
+                receiver: partner.publicKey,
+                buyAmount: partnerAmountIn,
+                minimumAmountOut: new BN(1),
+                referralTokenAccount: null,
+            },
+            creatorFirstBuyParam: {
+                creator: poolCreator.publicKey,
+                receiver: poolCreator.publicKey,
+                buyAmount: creatorAmountIn,
+                minimumAmountOut: new BN(1),
+                referralTokenAccount: null,
+            },
+        }
+    )
 ```
 
 **Notes**
