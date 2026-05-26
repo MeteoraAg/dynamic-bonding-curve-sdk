@@ -9,7 +9,10 @@ import {
     ClaimCreatorTradingFeeParams,
     ClaimCreatorTradingFeeToReceiverParams,
     CreatePoolParams,
+    CreatePoolWithFirstBuyWithTransferHookParams,
+    CreatePoolWithTransferHookParams,
     CreatePoolWithFirstBuyParams,
+    CreatePoolWithPartnerAndCreatorFirstBuyWithTransferHookParams,
     CreatePoolWithPartnerAndCreatorFirstBuyParams,
     CreateVirtualPoolMetadataParams,
     CreatorWithdrawSurplusParams,
@@ -91,6 +94,30 @@ export class CreatorService extends DynamicBondingCurveProgram {
     }
 
     /**
+     * Build a transaction that initializes a Token-2022 transfer-hook pool from an existing config.
+     */
+    async createPoolWithTransferHook(
+        params: CreatePoolWithTransferHookParams
+    ): Promise<Transaction> {
+        const { config } = params
+
+        const poolConfigState = await this.state.getPoolConfig(config)
+        if (!poolConfigState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
+
+        const tokenQuoteProgram = getTokenProgram(
+            poolConfigState.quoteTokenFlag
+        )
+
+        return this.buildCreatePoolWithTransferHookTx(
+            params,
+            poolConfigState.quoteMint,
+            tokenQuoteProgram
+        )
+    }
+
+    /**
      * Build one transaction that initializes a pool and optionally appends the first buy.
      *
      * The first-buy instruction is only included when `firstBuyParam.buyAmount` is greater than 0.
@@ -121,6 +148,43 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 false,
                 poolConfigState.activationType,
                 poolConfigState.tokenType,
+                poolConfigState.quoteMint,
+                true
+            )
+            createPoolWithFirstBuyTx.add(swapBuyTx)
+        }
+
+        return createPoolWithFirstBuyTx
+    }
+
+    /**
+     * Build one transaction that initializes a transfer-hook pool and optionally appends the first buy.
+     */
+    async createPoolWithFirstBuyWithTransferHook(
+        params: CreatePoolWithFirstBuyWithTransferHookParams
+    ): Promise<Transaction> {
+        const { createPoolParam, firstBuyParam } = params
+        const { config } = createPoolParam
+
+        const poolConfigState = await this.state.getPoolConfig(config)
+        if (!poolConfigState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
+
+        const createPoolWithFirstBuyTx =
+            await this.buildCreatePoolWithTransferHookTx(
+                createPoolParam,
+                poolConfigState.quoteMint,
+                getTokenProgram(poolConfigState.quoteTokenFlag)
+            )
+
+        if (firstBuyParam && firstBuyParam.buyAmount.gt(new BN(0))) {
+            const swapBuyTx = await this.buildSwap2WithTransferHookBuyTx(
+                firstBuyParam,
+                createPoolParam.baseMint,
+                config,
+                poolConfigState.poolFees.baseFee,
+                poolConfigState.activationType,
                 poolConfigState.quoteMint,
                 true
             )
@@ -195,6 +259,85 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 false,
                 poolConfigState.activationType,
                 poolConfigState.tokenType,
+                poolConfigState.quoteMint,
+                true
+            )
+            createPoolWithFirstBuysTx.add(creatorSwapBuyTx)
+        }
+
+        return createPoolWithFirstBuysTx
+    }
+
+    /**
+     * Build one transaction that initializes a transfer-hook pool and optionally appends partner and creator first buys.
+     */
+    async createPoolWithPartnerAndCreatorFirstBuyWithTransferHook(
+        params: CreatePoolWithPartnerAndCreatorFirstBuyWithTransferHookParams
+    ): Promise<Transaction> {
+        const { createPoolParam, partnerFirstBuyParam, creatorFirstBuyParam } =
+            params
+        const { config } = createPoolParam
+
+        const poolConfigState = await this.state.getPoolConfig(config)
+        if (!poolConfigState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
+
+        const createPoolWithFirstBuysTx =
+            await this.buildCreatePoolWithTransferHookTx(
+                createPoolParam,
+                poolConfigState.quoteMint,
+                getTokenProgram(poolConfigState.quoteTokenFlag)
+            )
+
+        if (
+            partnerFirstBuyParam &&
+            partnerFirstBuyParam.buyAmount.gt(new BN(0))
+        ) {
+            const partnerSwapBuyTx = await this.buildSwap2WithTransferHookBuyTx(
+                {
+                    buyer: partnerFirstBuyParam.partner,
+                    receiver: partnerFirstBuyParam.receiver,
+                    buyAmount: partnerFirstBuyParam.buyAmount,
+                    minimumAmountOut: partnerFirstBuyParam.minimumAmountOut,
+                    referralTokenAccount:
+                        partnerFirstBuyParam.referralTokenAccount,
+                    transferHookAccountsInfo:
+                        partnerFirstBuyParam.transferHookAccountsInfo,
+                    transferHookAccounts:
+                        partnerFirstBuyParam.transferHookAccounts,
+                },
+                createPoolParam.baseMint,
+                config,
+                poolConfigState.poolFees.baseFee,
+                poolConfigState.activationType,
+                poolConfigState.quoteMint,
+                true
+            )
+            createPoolWithFirstBuysTx.add(partnerSwapBuyTx)
+        }
+
+        if (
+            creatorFirstBuyParam &&
+            creatorFirstBuyParam.buyAmount.gt(new BN(0))
+        ) {
+            const creatorSwapBuyTx = await this.buildSwap2WithTransferHookBuyTx(
+                {
+                    buyer: creatorFirstBuyParam.creator,
+                    receiver: creatorFirstBuyParam.receiver,
+                    buyAmount: creatorFirstBuyParam.buyAmount,
+                    minimumAmountOut: creatorFirstBuyParam.minimumAmountOut,
+                    referralTokenAccount:
+                        creatorFirstBuyParam.referralTokenAccount,
+                    transferHookAccountsInfo:
+                        creatorFirstBuyParam.transferHookAccountsInfo,
+                    transferHookAccounts:
+                        creatorFirstBuyParam.transferHookAccounts,
+                },
+                createPoolParam.baseMint,
+                config,
+                poolConfigState.poolFees.baseFee,
+                poolConfigState.activationType,
                 poolConfigState.quoteMint,
                 true
             )
@@ -347,8 +490,14 @@ export class CreatorService extends DynamicBondingCurveProgram {
     async claimCreatorTradingFee2(
         params: ClaimCreatorTradingFeeToReceiverParams
     ): Promise<Transaction> {
-        const { creator, pool, maxBaseAmount, maxQuoteAmount, receiver, payer } =
-            params
+        const {
+            creator,
+            pool,
+            maxBaseAmount,
+            maxQuoteAmount,
+            receiver,
+            payer,
+        } = params
 
         const { virtualPool, poolConfigState } =
             await this.getPoolWithConfig(pool)
@@ -380,10 +529,12 @@ export class CreatorService extends DynamicBondingCurveProgram {
                   tokenQuoteProgram,
               })
 
-        const { info: transferHookAccountsInfo, accounts: transferHookAccounts } =
-            await this.getRemainingAccountsForTransferHook(
-                virtualPool.poolState.baseMint
-            )
+        const {
+            info: transferHookAccountsInfo,
+            accounts: transferHookAccounts,
+        } = await this.getRemainingAccountsForTransferHook(
+            virtualPool.poolState.baseMint
+        )
         const postInstructions: TransactionInstruction[] =
             isSOLQuoteMint && 'postInstructions' in result
                 ? (result.postInstructions as TransactionInstruction[])
