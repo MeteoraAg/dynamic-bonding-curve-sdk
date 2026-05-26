@@ -6,7 +6,12 @@ import type {
     Program,
 } from '@coral-xyz/anchor'
 import type { DynamicBondingCurve } from './idl/dynamic-bonding-curve/idl'
-import type { Keypair, PublicKey, Transaction } from '@solana/web3.js'
+import type {
+    AccountMeta,
+    Keypair,
+    PublicKey,
+    Transaction,
+} from '@solana/web3.js'
 import { DynamicBondingCurve as DynamicBondingCurveIDL } from './idl/dynamic-bonding-curve/idl'
 
 export type DynamicCurveProgram = Program<DynamicBondingCurveIDL>
@@ -89,7 +94,13 @@ export type LockEscrow = IdlTypes<DynamicBondingCurve>['lockEscrow']
 
 export type PoolConfig = IdlAccounts<DynamicBondingCurve>['poolConfig']
 
+export type ConfigWithTransferHook =
+    IdlAccounts<DynamicBondingCurve>['configWithTransferHook']
+
 export type VirtualPool = IdlAccounts<DynamicBondingCurve>['virtualPool']
+
+export type TransferHookPool =
+    IdlAccounts<DynamicBondingCurve>['transferHookPool']
 
 export type MeteoraDammMigrationMetadata =
     IdlAccounts<DynamicBondingCurve>['meteoraDammMigrationMetadata']
@@ -221,6 +232,10 @@ export type CreateConfigParams = Omit<
     'program' | 'eventAuthority' | 'systemProgram'
 > &
     ConfigParameters
+
+export type CreateConfigWithTransferHookParams = CreateConfigParams & {
+    transferHookProgram: PublicKey
+}
 
 export type CreateDammV1MigrationMetadataParams = Omit<
     CreateDammV1MigrationMetadataAccounts,
@@ -399,6 +414,10 @@ export type CreatePoolParams = {
     baseMint: PublicKey
 }
 
+export type CreatePoolWithTransferHookParams = CreatePoolParams & {
+    transferHookProgram: PublicKey
+}
+
 export type CreateConfigAndPoolParams = CreateConfigParams & {
     preCreatePoolParam: CreatePoolBaseParams
 }
@@ -408,15 +427,36 @@ export type CreateConfigAndPoolWithFirstBuyParams =
         firstBuyParam?: FirstBuyParams
     }
 
+export type CreateConfigAndPoolWithTransferHookParams =
+    CreateConfigWithTransferHookParams & {
+        preCreatePoolParam: CreatePoolBaseParams
+    }
+
+export type CreateConfigAndPoolWithFirstBuyWithTransferHookParams =
+    CreateConfigAndPoolWithTransferHookParams & {
+        firstBuyParam?: FirstBuyWithTransferHookParams
+    }
+
 export type CreatePoolWithFirstBuyParams = {
     createPoolParam: CreatePoolParams
     firstBuyParam?: FirstBuyParams
+}
+
+export type CreatePoolWithFirstBuyWithTransferHookParams = {
+    createPoolParam: CreatePoolWithTransferHookParams
+    firstBuyParam?: FirstBuyWithTransferHookParams
 }
 
 export type CreatePoolWithPartnerAndCreatorFirstBuyParams = {
     createPoolParam: CreatePoolParams
     partnerFirstBuyParam?: PartnerFirstBuyParams
     creatorFirstBuyParam?: CreatorFirstBuyParams
+}
+
+export type CreatePoolWithPartnerAndCreatorFirstBuyWithTransferHookParams = {
+    createPoolParam: CreatePoolWithTransferHookParams
+    partnerFirstBuyParam?: PartnerFirstBuyWithTransferHookParams
+    creatorFirstBuyParam?: CreatorFirstBuyWithTransferHookParams
 }
 
 export type CreatePoolBaseParams = {
@@ -435,6 +475,14 @@ export type FirstBuyParams = {
     referralTokenAccount: PublicKey | null
 }
 
+export type TransferHookRemainingAccounts = {
+    transferHookAccountsInfo: TransferHookAccountsInfo
+    transferHookAccounts: AccountMeta[]
+}
+
+export type FirstBuyWithTransferHookParams = FirstBuyParams &
+    Partial<TransferHookRemainingAccounts>
+
 export type PartnerFirstBuyParams = {
     partner: PublicKey
     receiver: PublicKey
@@ -443,6 +491,9 @@ export type PartnerFirstBuyParams = {
     referralTokenAccount: PublicKey | null
 }
 
+export type PartnerFirstBuyWithTransferHookParams = PartnerFirstBuyParams &
+    Partial<TransferHookRemainingAccounts>
+
 export type CreatorFirstBuyParams = {
     creator: PublicKey
     receiver: PublicKey
@@ -450,6 +501,9 @@ export type CreatorFirstBuyParams = {
     minimumAmountOut: BN
     referralTokenAccount: PublicKey | null
 }
+
+export type CreatorFirstBuyWithTransferHookParams = CreatorFirstBuyParams &
+    Partial<TransferHookRemainingAccounts>
 
 export type SwapParams = {
     owner: PublicKey
