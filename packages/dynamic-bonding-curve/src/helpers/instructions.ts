@@ -4,7 +4,7 @@ import {
     SYSVAR_RENT_PUBKEY,
     TransactionInstruction,
 } from '@solana/web3.js'
-import { DynamicVault } from '../idl/dynamic-vault/idl'
+import { Vault } from '../idl/dynamic-vault/idl'
 import { Program } from '@coral-xyz/anchor'
 import {
     deriveTokenVaultKey,
@@ -13,7 +13,7 @@ import {
 } from './pda'
 import { BASE_ADDRESS } from '../constants'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
-import { DammV1 } from '../idl/damm-v1/idl'
+import { Amm } from '../idl/damm-v1/idl'
 
 /**
  * Create a permissionless dynamic vault instruction
@@ -25,7 +25,7 @@ import { DammV1 } from '../idl/damm-v1/idl'
 export async function createInitializePermissionlessDynamicVaultIx(
     mint: PublicKey,
     payer: PublicKey,
-    vaultProgram: Program<DynamicVault>
+    vaultProgram: Program<Vault>
 ): Promise<{
     vaultKey: PublicKey
     tokenVaultKey: PublicKey
@@ -77,7 +77,7 @@ export async function createLockEscrowIx(
     lpMint: PublicKey,
     escrowOwner: PublicKey,
     lockEscrowKey: PublicKey,
-    dammV1Program: Program<DammV1>
+    dammV1Program: Program<Amm>
 ): Promise<TransactionInstruction> {
     const ix = await dammV1Program.methods
         .createLockEscrow()

@@ -506,7 +506,7 @@ export type SwapQuote2Params = {
 
 export type MigrateToDammV1Params = {
     payer: PublicKey
-    virtualPool: PublicKey
+    pool: PublicKey
     dammConfig: PublicKey
 }
 
@@ -520,14 +520,14 @@ export type MigrateToDammV2Response = {
 
 export type DammLpTokenParams = {
     payer: PublicKey
-    virtualPool: PublicKey
+    pool: PublicKey
     dammConfig: PublicKey
     isPartner: boolean
 }
 
 export type CreateLockerParams = {
     payer: PublicKey
-    virtualPool: PublicKey
+    pool: PublicKey
 }
 
 export type ClaimTradingFeeParams = {
@@ -555,7 +555,7 @@ export type ClaimPartnerTradingFeeWithQuoteMintNotSolParams = {
     feeReceiver: PublicKey
     config: PublicKey
     pool: PublicKey
-    poolState: VirtualPool
+    virtualPool: VirtualPool
     poolConfigState: PoolConfig
     tokenBaseProgram: PublicKey
     tokenQuoteProgram: PublicKey
@@ -590,7 +590,7 @@ export type ClaimCreatorTradingFeeWithQuoteMintNotSolParams = {
     payer: PublicKey
     feeReceiver: PublicKey
     pool: PublicKey
-    poolState: VirtualPool
+    virtualPool: VirtualPool
     poolConfigState: PoolConfig
     tokenBaseProgram: PublicKey
     tokenQuoteProgram: PublicKey
@@ -603,17 +603,17 @@ export type ClaimCreatorTradingFeeWithQuoteMintSolParams =
 
 export type PartnerWithdrawSurplusParams = {
     feeClaimer: PublicKey
-    virtualPool: PublicKey
+    pool: PublicKey
 }
 
 export type CreatorWithdrawSurplusParams = {
     creator: PublicKey
-    virtualPool: PublicKey
+    pool: PublicKey
 }
 
 export type WithdrawLeftoverParams = {
     payer: PublicKey
-    virtualPool: PublicKey
+    pool: PublicKey
 }
 
 export type CreateVirtualPoolMetadataParams = {
@@ -634,18 +634,18 @@ export type CreatePartnerMetadataParams = {
 }
 
 export type TransferPoolCreatorParams = {
-    virtualPool: PublicKey
+    pool: PublicKey
     creator: PublicKey
     newCreator: PublicKey
 }
 
 export type WithdrawMigrationFeeParams = {
-    virtualPool: PublicKey
+    pool: PublicKey
     sender: PublicKey // sender is creator or partner
 }
 
 export type ClaimPartnerPoolCreationFeeParams = {
-    virtualPool: PublicKey
+    pool: PublicKey
     feeReceiver: PublicKey
 }
 

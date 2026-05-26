@@ -785,12 +785,14 @@ export class PoolService extends DynamicBondingCurveProgram {
             referralTokenAccount,
         } = params
 
-        const poolState = await this.state.getPool(pool)
-        if (!poolState) {
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
@@ -815,7 +817,7 @@ export class PoolService extends DynamicBondingCurveProgram {
 
             rateLimiterApplied = isRateLimiterApplied(
                 currentPoint,
-                poolState.activationPoint,
+                virtualPool.poolState.activationPoint,
                 swapBaseForQuote
                     ? TradeDirection.BaseToQuote
                     : TradeDirection.QuoteToBase,
@@ -826,7 +828,7 @@ export class PoolService extends DynamicBondingCurveProgram {
         }
 
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
-            this.prepareSwapParams(swapBaseForQuote, poolState, poolConfigState)
+            this.prepareSwapParams(swapBaseForQuote, virtualPool.poolState, poolConfigState)
 
         // add preInstructions for ATA creation and SOL wrapping
         const {
@@ -881,12 +883,12 @@ export class PoolService extends DynamicBondingCurveProgram {
                 minimumAmountOut,
             })
             .accountsPartial({
-                baseMint: poolState.baseMint,
+                baseMint: virtualPool.poolState.baseMint,
                 quoteMint: poolConfigState.quoteMint,
                 pool,
-                baseVault: poolState.baseVault,
-                quoteVault: poolState.quoteVault,
-                config: poolState.config,
+                baseVault: virtualPool.poolState.baseVault,
+                quoteVault: virtualPool.poolState.quoteVault,
+                config: virtualPool.poolState.config,
                 poolAuthority: this.poolAuthority,
                 referralTokenAccount,
                 inputTokenAccount,
@@ -943,13 +945,13 @@ export class PoolService extends DynamicBondingCurveProgram {
         // error checks
         validateSwapAmount(amount0)
 
-        const poolState = await this.state.getPool(pool)
+        const virtualPool = await this.state.getPool(pool)
 
-        if (!poolState) {
+        if (!virtualPool) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(virtualPool.poolState.config)
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
@@ -971,7 +973,7 @@ export class PoolService extends DynamicBondingCurveProgram {
 
             rateLimiterApplied = isRateLimiterApplied(
                 currentPoint,
-                poolState.activationPoint,
+                virtualPool.poolState.activationPoint,
                 swapBaseForQuote
                     ? TradeDirection.BaseToQuote
                     : TradeDirection.QuoteToBase,
@@ -982,7 +984,7 @@ export class PoolService extends DynamicBondingCurveProgram {
         }
 
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
-            this.prepareSwapParams(swapBaseForQuote, poolState, poolConfigState)
+            this.prepareSwapParams(swapBaseForQuote, virtualPool.poolState, poolConfigState)
 
         // add preInstructions for ATA creation and SOL wrapping
         const {
@@ -1043,12 +1045,12 @@ export class PoolService extends DynamicBondingCurveProgram {
                 swapMode: swapMode,
             })
             .accountsPartial({
-                baseMint: poolState.baseMint,
+                baseMint: virtualPool.poolState.baseMint,
                 quoteMint: poolConfigState.quoteMint,
                 pool,
-                baseVault: poolState.baseVault,
-                quoteVault: poolState.quoteVault,
-                config: poolState.config,
+                baseVault: virtualPool.poolState.baseVault,
+                quoteVault: virtualPool.poolState.quoteVault,
+                config: virtualPool.poolState.config,
                 poolAuthority: this.poolAuthority,
                 referralTokenAccount: referralTokenAccount,
                 inputTokenAccount,

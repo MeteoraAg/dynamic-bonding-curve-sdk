@@ -1,6 +1,5 @@
 import {
     Keypair,
-    PublicKey,
     Connection,
     sendAndConfirmTransaction,
 } from '@solana/web3.js'
@@ -16,7 +15,6 @@ import {
     createSqrtPrices,
     DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
-    deriveDbcPoolAddress,
     DynamicBondingCurveClient,
     MigratedCollectFeeMode,
     MigrationFeeOption,
@@ -36,7 +34,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
     let poolCreator: Keypair
     let dbcClient: DynamicBondingCurveClient
     let config: Keypair
-    let pool: PublicKey
     let baseMint: Keypair
     let curveConfig: ConfigParameters
 
@@ -73,7 +70,7 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
                 tokenBaseDecimal: tokenBaseDecimal,
                 tokenQuoteDecimal: tokenQuoteDecimal,
                 tokenUpdateAuthority:
-                    TokenUpdateAuthorityOption.PartnerUpdateAndMintAuthority,
+                    TokenUpdateAuthorityOption.PartnerUpdateAuthority,
                 totalTokenSupply: 1_000_000_000,
                 leftover: 1000,
             },
@@ -160,11 +157,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
             poolCreator,
         ])
 
-        pool = deriveDbcPoolAddress(
-            NATIVE_MINT,
-            baseMint.publicKey,
-            config.publicKey
-        )
     })
 
     test('calculateBaseToQuoteFromAmountIn returns amountLeft when input exceeds available liquidity', async () => {

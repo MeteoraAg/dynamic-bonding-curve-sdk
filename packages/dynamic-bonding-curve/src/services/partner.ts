@@ -152,7 +152,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             config,
             tempWSolAcc,
             pool,
-            poolState,
+            virtualPool,
             poolConfigState,
             tokenBaseProgram,
             tokenQuoteProgram,
@@ -163,7 +163,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
         const tokenBaseAccount = findAssociatedTokenAddress(
             feeReceiver,
-            poolState.baseMint,
+            virtualPool.poolState.baseMint,
             tokenBaseProgram
         )
 
@@ -178,7 +178,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 payer,
                 tokenBaseAccount,
                 feeReceiver,
-                poolState.baseMint,
+                virtualPool.poolState.baseMint,
                 tokenBaseProgram
             )
         createTokenBaseAccountIx &&
@@ -204,9 +204,9 @@ export class PartnerService extends DynamicBondingCurveProgram {
             pool,
             tokenAAccount: tokenBaseAccount,
             tokenBAccount: tokenQuoteAccount,
-            baseVault: poolState.baseVault,
-            quoteVault: poolState.quoteVault,
-            baseMint: poolState.baseMint,
+            baseVault: virtualPool.poolState.baseVault,
+            quoteVault: virtualPool.poolState.quoteVault,
+            baseMint: virtualPool.poolState.baseMint,
             quoteMint: poolConfigState.quoteMint,
             feeClaimer,
             tokenBaseProgram,
@@ -254,7 +254,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             feeReceiver,
             config,
             pool,
-            poolState,
+            virtualPool,
             poolConfigState,
             tokenBaseProgram,
             tokenQuoteProgram,
@@ -267,7 +267,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
         } = await this.prepareTokenAccounts(
             feeReceiver,
             payer,
-            poolState.baseMint,
+            virtualPool.poolState.baseMint,
             poolConfigState.quoteMint,
             tokenBaseProgram,
             tokenQuoteProgram
@@ -279,9 +279,9 @@ export class PartnerService extends DynamicBondingCurveProgram {
             pool,
             tokenAAccount: tokenBaseAccount,
             tokenBAccount: tokenQuoteAccount,
-            baseVault: poolState.baseVault,
-            quoteVault: poolState.quoteVault,
-            baseMint: poolState.baseMint,
+            baseVault: virtualPool.poolState.baseVault,
+            quoteVault: virtualPool.poolState.quoteVault,
+            baseMint: virtualPool.poolState.baseMint,
             quoteMint: poolConfigState.quoteMint,
             feeClaimer,
             tokenBaseProgram,
@@ -315,12 +315,14 @@ export class PartnerService extends DynamicBondingCurveProgram {
             tempWSolAcc,
         } = params
 
-        const poolState = await this.state.getPool(pool)
-        if (!poolState) {
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
@@ -345,10 +347,10 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 feeClaimer,
                 payer,
                 feeReceiver,
-                config: poolState.config,
+                config: virtualPool.poolState.config,
                 tempWSolAcc: tempWSol,
                 pool,
-                poolState,
+                virtualPool,
                 poolConfigState,
                 tokenBaseProgram,
                 tokenQuoteProgram,
@@ -367,9 +369,9 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 feeClaimer,
                 payer,
                 feeReceiver,
-                config: poolState.config,
+                config: virtualPool.poolState.config,
                 pool,
-                poolState,
+                virtualPool,
                 poolConfigState,
                 tokenBaseProgram,
                 tokenQuoteProgram,
@@ -405,12 +407,14 @@ export class PartnerService extends DynamicBondingCurveProgram {
             receiver,
         } = params
 
-        const poolState = await this.state.getPool(pool)
-        if (!poolState) {
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(`Pool config not found: ${pool.toString()}`)
         }
@@ -428,7 +432,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
             const tokenBaseAccount = findAssociatedTokenAddress(
                 receiver,
-                poolState.baseMint,
+                virtualPool.poolState.baseMint,
                 tokenBaseProgram
             )
 
@@ -443,7 +447,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
                     payer,
                     tokenBaseAccount,
                     receiver,
-                    poolState.baseMint,
+                    virtualPool.poolState.baseMint,
                     tokenBaseProgram
                 )
             createTokenBaseAccountIx &&
@@ -468,9 +472,9 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 pool,
                 tokenAAccount: tokenBaseAccount,
                 tokenBAccount: tokenQuoteAccount,
-                baseVault: poolState.baseVault,
-                quoteVault: poolState.quoteVault,
-                baseMint: poolState.baseMint,
+                baseVault: virtualPool.poolState.baseVault,
+                quoteVault: virtualPool.poolState.quoteVault,
+                baseMint: virtualPool.poolState.baseMint,
                 quoteMint: poolConfigState.quoteMint,
                 feeClaimer,
                 tokenBaseProgram,
@@ -488,9 +492,9 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 feeClaimer,
                 payer,
                 feeReceiver: receiver,
-                config: poolState.config,
+                config: virtualPool.poolState.config,
                 pool,
-                poolState,
+                virtualPool,
                 poolConfigState,
                 tokenBaseProgram,
                 tokenQuoteProgram,
@@ -513,14 +517,16 @@ export class PartnerService extends DynamicBondingCurveProgram {
     async partnerWithdrawSurplus(
         params: PartnerWithdrawSurplusParams
     ): Promise<Transaction> {
-        const { virtualPool, feeClaimer } = params
+        const { pool, feeClaimer } = params
 
-        const poolState = await this.state.getPool(virtualPool)
-        if (!poolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
@@ -553,10 +559,10 @@ export class PartnerService extends DynamicBondingCurveProgram {
             .partnerWithdrawSurplus()
             .accountsPartial({
                 poolAuthority: this.poolAuthority,
-                config: poolState.config,
-                virtualPool,
+                config: virtualPool.poolState.config,
+                virtualPool: pool,
                 tokenQuoteAccount,
-                quoteVault: poolState.quoteVault,
+                quoteVault: virtualPool.poolState.quoteVault,
                 quoteMint: poolConfigState.quoteMint,
                 feeClaimer,
                 tokenQuoteProgram,
@@ -575,15 +581,15 @@ export class PartnerService extends DynamicBondingCurveProgram {
     async partnerWithdrawMigrationFee(
         params: WithdrawMigrationFeeParams
     ): Promise<Transaction> {
-        const { virtualPool, sender } = params
+        const { pool, sender } = params
 
-        const virtualPoolState = await this.state.getPool(virtualPool)
-        if (!virtualPoolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const configState = await this.state.getPoolConfig(
-            virtualPoolState.config
+            virtualPool.poolState.config
         )
         if (!configState) {
             throw new Error(`Pool config not found for virtual pool`)
@@ -613,10 +619,10 @@ export class PartnerService extends DynamicBondingCurveProgram {
             .withdrawMigrationFee(0) // 0 as partner and 1 as creator
             .accountsPartial({
                 poolAuthority: this.poolAuthority,
-                config: virtualPoolState.config,
-                virtualPool,
+                config: virtualPool.poolState.config,
+                virtualPool: pool,
                 tokenQuoteAccount,
-                quoteVault: virtualPoolState.quoteVault,
+                quoteVault: virtualPool.poolState.quoteVault,
                 quoteMint: configState.quoteMint,
                 sender,
                 tokenQuoteProgram: getTokenProgram(configState.quoteTokenFlag),
@@ -636,17 +642,17 @@ export class PartnerService extends DynamicBondingCurveProgram {
     async claimPartnerPoolCreationFee(
         params: ClaimPartnerPoolCreationFeeParams
     ): Promise<Transaction> {
-        const { virtualPool, feeReceiver } = params
+        const { pool, feeReceiver } = params
 
-        const virtualPoolState = await this.state.getPool(virtualPool)
-        if (!virtualPoolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const config = virtualPoolState.config
+        const config = virtualPool.poolState.config
 
         const configState = await this.state.getPoolConfig(
-            virtualPoolState.config
+            virtualPool.poolState.config
         )
         if (!configState) {
             throw new Error(`Pool config not found for virtual pool`)
@@ -658,7 +664,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             .claimPartnerPoolCreationFee()
             .accountsPartial({
                 config,
-                pool: virtualPool,
+                pool,
                 feeClaimer,
                 feeReceiver,
             })

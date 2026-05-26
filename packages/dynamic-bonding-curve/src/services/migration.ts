@@ -11,7 +11,7 @@ import {
     type Transaction,
 } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
-import type { DynamicVault } from '../idl/dynamic-vault/idl'
+import type { Vault } from '../idl/dynamic-vault/idl'
 import type { Program } from '@coral-xyz/anchor'
 import {
     createDammV1Program,
@@ -40,7 +40,7 @@ import {
     deriveDammV1ProtocolFeeAddress,
     deriveLockerEventAuthority,
 } from '../helpers'
-import type { DammV1 } from '../idl/damm-v1/idl'
+import type { Amm } from '../idl/damm-v1/idl'
 import type {
     CreateDammV1MigrationMetadataParams,
     CreateLockerParams,
@@ -78,7 +78,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * Get vault program instance
      * @returns The vault program instance
      */
-    private getVaultProgram(): Program<DynamicVault> {
+    private getVaultProgram(): Program<Vault> {
         return createVaultProgram(this.connection)
     }
 
@@ -86,7 +86,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * Get DAMM V1 program instance
      * @returns The DAMM V1 program instance
      */
-    private getDammV1Program(): Program<DammV1> {
+    private getDammV1Program(): Program<Amm> {
         return createDammV1Program(this.connection)
     }
 
@@ -97,23 +97,23 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @returns A create locker transaction
      */
     async createLocker(params: CreateLockerParams): Promise<Transaction> {
-        const { virtualPool, payer } = params
+        const { pool, payer } = params
 
         const lockerEventAuthority = deriveLockerEventAuthority()
 
-        const virtualPoolState = await this.state.getPool(virtualPool)
-        if (!virtualPoolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(
-            virtualPoolState.config
+            virtualPool.poolState.config
         )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
 
-        const base = deriveBaseKeyForLocker(virtualPool)
+        const base = deriveBaseKeyForLocker(pool)
 
         const escrow = deriveEscrow(base)
 
@@ -124,7 +124,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
         const escrowToken = findAssociatedTokenAddress(
             escrow,
-            virtualPoolState.baseMint,
+            virtualPool.poolState.baseMint,
             tokenProgram
         )
 
@@ -135,20 +135,20 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 payer,
                 escrowToken,
                 escrow,
-                virtualPoolState.baseMint,
+                virtualPool.poolState.baseMint,
                 tokenProgram
             )
 
         preInstructions.push(createOwnerEscrowVaultTokenXIx)
 
         const accounts = {
-            virtualPool,
-            config: virtualPoolState.config,
+            virtualPool: pool,
+            config: virtualPool.poolState.config,
             poolAuthority: this.poolAuthority,
-            baseVault: virtualPoolState.baseVault,
-            baseMint: virtualPoolState.baseMint,
+            baseVault: virtualPool.poolState.baseVault,
+            baseMint: virtualPool.poolState.baseMint,
             base,
-            creator: virtualPoolState.creator,
+            creator: virtualPool.poolState.creator,
             escrow,
             escrowToken,
             payer,
@@ -174,14 +174,16 @@ export class MigrationService extends DynamicBondingCurveProgram {
     async withdrawLeftover(
         params: WithdrawLeftoverParams
     ): Promise<Transaction> {
-        const { virtualPool, payer } = params
+        const { pool, payer } = params
 
-        const poolState = await this.state.getPool(virtualPool)
-        if (!poolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
@@ -193,7 +195,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
         const { ataPubkey: tokenBaseAccount, ix: createBaseTokenAccountIx } =
             await getOrCreateATAInstruction(
                 this.connection,
-                poolState.baseMint,
+                virtualPool.poolState.baseMint,
                 poolConfigState.leftoverReceiver,
                 payer,
                 true,
@@ -206,11 +208,11 @@ export class MigrationService extends DynamicBondingCurveProgram {
             .withdrawLeftover()
             .accountsPartial({
                 poolAuthority: this.poolAuthority,
-                config: poolState.config,
-                virtualPool,
+                config: virtualPool.poolState.config,
+                virtualPool: pool,
                 tokenBaseAccount,
-                baseVault: poolState.baseVault,
-                baseMint: poolState.baseMint,
+                baseVault: virtualPool.poolState.baseVault,
+                baseMint: virtualPool.poolState.baseMint,
                 leftoverReceiver: poolConfigState.leftoverReceiver,
                 tokenBaseProgram,
             })
@@ -260,26 +262,27 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @returns A migrate transaction
      */
     async migrateToDammV1(params: MigrateToDammV1Params): Promise<Transaction> {
-        const { virtualPool, dammConfig, payer } = params
+        const { pool, dammConfig, payer } = params
 
-        const poolState = await this.state.getPool(virtualPool)
-        if (!poolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(
                 `Pool config not found for virtual pool: ${virtualPool.toString()}`
             )
         }
 
-        const migrationMetadata =
-            deriveDammV1MigrationMetadataAddress(virtualPool)
+        const migrationMetadata = deriveDammV1MigrationMetadataAddress(pool)
 
         const dammPool = deriveDammV1PoolAddress(
             dammConfig,
-            poolState.baseMint,
+            virtualPool.poolState.baseMint,
             poolConfigState.quoteMint
         )
 
@@ -288,7 +291,10 @@ export class MigrationService extends DynamicBondingCurveProgram {
         const mintMetadata = deriveMintMetadata(lpMint)
 
         const [protocolTokenAFee, protocolTokenBFee] = [
-            deriveDammV1ProtocolFeeAddress(poolState.baseMint, dammPool),
+            deriveDammV1ProtocolFeeAddress(
+                virtualPool.poolState.baseMint,
+                dammPool
+            ),
             deriveDammV1ProtocolFeeAddress(poolConfigState.quoteMint, dammPool),
         ]
 
@@ -306,7 +312,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 lpMintPda: bLpMintPda,
             },
         ] = [
-            deriveVaultPdas(poolState.baseMint),
+            deriveVaultPdas(virtualPool.poolState.baseMint),
             deriveVaultPdas(poolConfigState.quoteMint),
         ]
 
@@ -322,7 +328,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
         if (!aVaultAccount) {
             const createVaultAIx =
                 await createInitializePermissionlessDynamicVaultIx(
-                    poolState.baseMint,
+                    virtualPool.poolState.baseMint,
                     payer,
                     vaultProgram
                 )
@@ -362,14 +368,14 @@ export class MigrationService extends DynamicBondingCurveProgram {
         const transaction = await this.program.methods
             .migrateMeteoraDamm()
             .accountsPartial({
-                virtualPool,
+                virtualPool: pool,
                 migrationMetadata,
-                config: poolState.config,
+                config: virtualPool.poolState.config,
                 poolAuthority: this.poolAuthority,
                 pool: dammPool,
                 dammConfig,
                 lpMint,
-                tokenAMint: poolState.baseMint,
+                tokenAMint: virtualPool.poolState.baseMint,
                 tokenBMint: poolConfigState.quoteMint,
                 aVault,
                 bVault,
@@ -379,8 +385,8 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 bVaultLpMint,
                 aVaultLp,
                 bVaultLp,
-                baseVault: poolState.baseVault,
-                quoteVault: poolState.quoteVault,
+                baseVault: virtualPool.poolState.baseVault,
+                quoteVault: virtualPool.poolState.quoteVault,
                 virtualPoolLp,
                 protocolTokenAFee,
                 protocolTokenBFee,
@@ -414,26 +420,27 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @returns A lock transaction
      */
     async lockDammV1LpToken(params: DammLpTokenParams): Promise<Transaction> {
-        const { virtualPool, dammConfig, payer, isPartner } = params
+        const { pool, dammConfig, payer, isPartner } = params
 
-        const poolState = await this.state.getPool(params.virtualPool)
-        if (!poolState) {
-            throw new Error(`Pool not found: ${params.virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
 
         const dammPool = deriveDammV1PoolAddress(
             dammConfig,
-            poolState.baseMint,
+            virtualPool.poolState.baseMint,
             poolConfigState.quoteMint
         )
 
-        const migrationMetadata =
-            deriveDammV1MigrationMetadataAddress(virtualPool)
+        const migrationMetadata = deriveDammV1MigrationMetadataAddress(pool)
 
         const vaultProgram = this.getVaultProgram()
 
@@ -441,7 +448,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
             { vaultPda: aVault, lpMintPda: aLpMintPda },
             { vaultPda: bVault, lpMintPda: bLpMintPda },
         ] = [
-            deriveVaultPdas(poolState.baseMint),
+            deriveVaultPdas(virtualPool.poolState.baseMint),
             deriveVaultPdas(poolConfigState.quoteMint),
         ]
 
@@ -457,7 +464,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
         if (!aVaultAccount) {
             const createVaultAIx =
                 await createInitializePermissionlessDynamicVaultIx(
-                    poolState.baseMint,
+                    virtualPool.poolState.baseMint,
                     payer,
                     vaultProgram
                 )
@@ -515,7 +522,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
         } else {
             lockEscrowKey = deriveDammV1LockEscrowAddress(
                 dammPool,
-                poolState.creator
+                virtualPool.poolState.creator
             )
 
             const lockEscrowData =
@@ -526,7 +533,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
                     payer,
                     dammPool,
                     lpMint,
-                    poolState.creator,
+                    virtualPool.poolState.creator,
                     lockEscrowKey,
                     dammV1Program
                 )
@@ -563,7 +570,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
         return this.program.methods
             .migrateMeteoraDammLockLpToken()
             .accountsPartial({
-                virtualPool,
+                virtualPool: pool,
                 migrationMetadata,
                 poolAuthority: this.poolAuthority,
                 pool: dammPool,
@@ -571,7 +578,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 lockEscrow: lockEscrowKey,
                 owner: isPartner
                     ? poolConfigState.feeClaimer
-                    : poolState.creator,
+                    : virtualPool.poolState.creator,
                 sourceTokens,
                 escrowVault,
                 aVault,
@@ -596,15 +603,15 @@ export class MigrationService extends DynamicBondingCurveProgram {
      * @returns A claim transaction
      */
     async claimDammV1LpToken(params: DammLpTokenParams): Promise<Transaction> {
-        const { virtualPool, dammConfig, payer, isPartner } = params
+        const { pool, dammConfig, payer, isPartner } = params
 
-        const virtualPoolState = await this.state.getPool(virtualPool)
-        if (!virtualPoolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(
-            virtualPoolState.config
+            virtualPool.poolState.config
         )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
@@ -612,12 +619,11 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
         const dammPool = deriveDammV1PoolAddress(
             dammConfig,
-            virtualPoolState.baseMint,
+            virtualPool.poolState.baseMint,
             poolConfigState.quoteMint
         )
 
-        const migrationMetadata =
-            deriveDammV1MigrationMetadataAddress(virtualPool)
+        const migrationMetadata = deriveDammV1MigrationMetadataAddress(pool)
 
         const lpMint = deriveDammV1LpMintAddress(dammPool)
 
@@ -630,7 +636,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
             )
         } else {
             destinationToken = findAssociatedTokenAddress(
-                virtualPoolState.creator,
+                virtualPool.poolState.creator,
                 lpMint,
                 TOKEN_PROGRAM_ID
             )
@@ -644,7 +650,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 destinationToken,
                 isPartner
                     ? poolConfigState.feeClaimer
-                    : virtualPoolState.creator,
+                    : virtualPool.poolState.creator,
                 lpMint,
                 TOKEN_PROGRAM_ID
             )
@@ -658,7 +664,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
         )
 
         const accounts = {
-            virtualPool,
+            virtualPool: pool,
             migrationMetadata,
             poolAuthority: this.poolAuthority,
             lpMint,
@@ -666,7 +672,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
             destinationToken,
             owner: isPartner
                 ? poolConfigState.feeClaimer
-                : virtualPoolState.creator,
+                : virtualPool.poolState.creator,
             sender: payer,
             tokenProgram: TOKEN_PROGRAM_ID,
         }
@@ -692,29 +698,28 @@ export class MigrationService extends DynamicBondingCurveProgram {
     async migrateToDammV2(
         params: MigrateToDammV2Params
     ): Promise<MigrateToDammV2Response> {
-        const { virtualPool, dammConfig, payer } = params
+        const { pool, dammConfig, payer } = params
 
         const dammPoolAuthority = deriveDammV2PoolAuthority()
         const dammEventAuthority = deriveDammV2EventAuthority()
 
-        const virtualPoolState = await this.state.getPool(virtualPool)
-        if (!virtualPoolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const poolConfigState = await this.state.getPoolConfig(
-            virtualPoolState.config
+            virtualPool.poolState.config
         )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
 
-        const migrationMetadata =
-            deriveDammV2MigrationMetadataAddress(virtualPool)
+        const migrationMetadata = deriveDammV2MigrationMetadataAddress(pool)
 
         const dammPool = deriveDammV2PoolAddress(
             dammConfig,
-            virtualPoolState.baseMint,
+            virtualPool.poolState.baseMint,
             poolConfigState.quoteMint
         )
 
@@ -736,7 +741,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
         const tokenAVault = deriveDammV2TokenVaultAddress(
             dammPool,
-            virtualPoolState.baseMint
+            virtualPool.poolState.baseMint
         )
 
         const tokenBVault = deriveDammV2TokenVaultAddress(
@@ -765,9 +770,9 @@ export class MigrationService extends DynamicBondingCurveProgram {
         const tx = await this.program.methods
             .migrationDammV2()
             .accountsStrict({
-                virtualPool,
+                virtualPool: pool,
                 migrationMetadata,
-                config: virtualPoolState.config,
+                config: virtualPool.poolState.config,
                 poolAuthority: this.poolAuthority,
                 pool: dammPool,
                 firstPositionNftMint: firstPositionNftKP.publicKey,
@@ -778,12 +783,12 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 secondPositionNftAccount,
                 dammPoolAuthority,
                 ammProgram: DAMM_V2_PROGRAM_ID,
-                baseMint: virtualPoolState.baseMint,
+                baseMint: virtualPool.poolState.baseMint,
                 quoteMint: poolConfigState.quoteMint,
                 tokenAVault,
                 tokenBVault,
-                baseVault: virtualPoolState.baseVault,
-                quoteVault: virtualPoolState.quoteVault,
+                baseVault: virtualPool.poolState.baseVault,
+                quoteVault: virtualPool.poolState.quoteVault,
                 payer,
                 tokenBaseProgram,
                 tokenQuoteProgram,

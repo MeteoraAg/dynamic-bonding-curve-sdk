@@ -193,11 +193,12 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
             partner,
         ])
 
-        const poolState = await dbcClient.state.getPool(pool)
-        expect(poolState).not.toBeNull()
-        const totalTradingFee = poolState!.metrics.totalProtocolQuoteFee.add(
-            poolState!.metrics.totalTradingQuoteFee
-        )
+        const virtualPool = await dbcClient.state.getPool(pool)
+        expect(virtualPool).not.toBeNull()
+        const totalTradingFee =
+            virtualPool!.poolState.metrics.totalProtocolQuoteFee.add(
+                virtualPool!.poolState.metrics.totalTradingQuoteFee
+            )
         expect(totalTradingFee.gt(new BN(0))).toBe(true)
     })
 
@@ -239,11 +240,12 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
             partner,
         ])
 
-        const poolState = await dbcClient.state.getPool(pool)
-        expect(poolState).not.toBeNull()
-        const totalTradingFee = poolState!.metrics.totalProtocolQuoteFee.add(
-            poolState!.metrics.totalTradingQuoteFee
-        )
+        const virtualPool = await dbcClient.state.getPool(pool)
+        expect(virtualPool).not.toBeNull()
+        const totalTradingFee =
+            virtualPool!.poolState.metrics.totalProtocolQuoteFee.add(
+                virtualPool!.poolState.metrics.totalTradingQuoteFee
+            )
         expect(totalTradingFee.gt(new BN(0))).toBe(true)
     })
 })
