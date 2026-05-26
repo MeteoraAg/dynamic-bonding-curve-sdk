@@ -828,7 +828,11 @@ export class PoolService extends DynamicBondingCurveProgram {
         }
 
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
-            this.prepareSwapParams(swapBaseForQuote, virtualPool.poolState, poolConfigState)
+            this.prepareSwapParams(
+                swapBaseForQuote,
+                virtualPool.poolState,
+                poolConfigState
+            )
 
         // add preInstructions for ATA creation and SOL wrapping
         const {
@@ -951,7 +955,9 @@ export class PoolService extends DynamicBondingCurveProgram {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(virtualPool.poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
@@ -984,7 +990,11 @@ export class PoolService extends DynamicBondingCurveProgram {
         }
 
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
-            this.prepareSwapParams(swapBaseForQuote, virtualPool.poolState, poolConfigState)
+            this.prepareSwapParams(
+                swapBaseForQuote,
+                virtualPool.poolState,
+                poolConfigState
+            )
 
         // add preInstructions for ATA creation and SOL wrapping
         const {
