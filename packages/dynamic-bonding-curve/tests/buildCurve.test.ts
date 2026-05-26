@@ -108,8 +108,7 @@ describe('getMigratedPoolFeeParams Unit Tests', () => {
             marketCapFeeSchedulerParams: {
                 endingBaseFeeBps: 50,
                 numberOfPeriod: 10,
-                startingMarketCap: 20000,
-                endingMarketCap: 20000000,
+                priceMultiple: 1000,
                 schedulerExpirationDuration: 86400,
             },
         }
@@ -155,8 +154,7 @@ describe('getMigratedPoolFeeParams Unit Tests', () => {
             marketCapFeeSchedulerParams: {
                 endingBaseFeeBps: 100,
                 numberOfPeriod: 10,
-                startingMarketCap: 20000,
-                endingMarketCap: 20000000,
+                priceMultiple: 1000,
                 schedulerExpirationDuration: 86400,
             },
         }
@@ -683,8 +681,7 @@ describe('Migration Fee Option Tests', () => {
                         marketCapFeeSchedulerParams: {
                             endingBaseFeeBps: 50,
                             numberOfPeriod: 10,
-                            startingMarketCap: 20000,
-                            endingMarketCap: 20000000,
+                            priceMultiple: 1000,
                             schedulerExpirationDuration: 86400,
                         },
                     },
@@ -748,8 +745,7 @@ describe('Migration Fee Option Tests', () => {
                         marketCapFeeSchedulerParams: {
                             endingBaseFeeBps: 50,
                             numberOfPeriod: 15,
-                            startingMarketCap: 20000,
-                            endingMarketCap: 20000000,
+                            priceMultiple: 1000,
                             schedulerExpirationDuration: 172800,
                         },
                     },
@@ -806,8 +802,7 @@ describe('Migration Fee Option Tests', () => {
                         marketCapFeeSchedulerParams: {
                             endingBaseFeeBps: 50,
                             numberOfPeriod: 5,
-                            startingMarketCap: 20000,
-                            endingMarketCap: 20000000,
+                            priceMultiple: 1000,
                             schedulerExpirationDuration: 43200,
                         },
                     },
@@ -849,8 +844,7 @@ describe('Migration Fee Option Tests', () => {
                         marketCapFeeSchedulerParams: {
                             endingBaseFeeBps: 100,
                             numberOfPeriod: 10,
-                            startingMarketCap: 20000,
-                            endingMarketCap: 20000000,
+                            priceMultiple: 1000,
                             schedulerExpirationDuration: 86400,
                         },
                     },
