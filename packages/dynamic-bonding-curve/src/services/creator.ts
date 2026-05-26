@@ -342,6 +342,67 @@ export class CreatorService extends DynamicBondingCurveProgram {
     }
 
     /**
+     * Build a transaction that claims creator trading fees with transfer-hook support.
+     */
+    async claimCreatorTradingFee2(
+        params: ClaimCreatorTradingFee2Params
+    ): Promise<Transaction> {
+        const { creator, pool, maxBaseAmount, maxQuoteAmount, receiver, payer } =
+            params
+
+        const { virtualPool, poolConfigState } =
+            await this.getPoolWithConfig(pool)
+
+        const tokenBaseProgram = getTokenProgram(poolConfigState.tokenType)
+        const tokenQuoteProgram = getTokenProgram(
+            poolConfigState.quoteTokenFlag
+        )
+
+        const isSOLQuoteMint = isNativeSol(poolConfigState.quoteMint)
+        const result = isSOLQuoteMint
+            ? await this.buildClaimTradingFeeAccountsForSol({
+                  payer,
+                  feeReceiver: receiver,
+                  tempWSolAcc: creator,
+                  pool,
+                  virtualPool,
+                  poolConfigState,
+                  tokenBaseProgram,
+                  tokenQuoteProgram,
+              })
+            : await this.buildClaimTradingFeeAccountsForNonSol({
+                  payer,
+                  feeReceiver: receiver,
+                  pool,
+                  virtualPool,
+                  poolConfigState,
+                  tokenBaseProgram,
+                  tokenQuoteProgram,
+              })
+
+        const { info: transferHookAccountsInfo, accounts: transferHookAccounts } =
+            await this.getRemainingAccountsForTransferHook(
+                virtualPool.poolState.baseMint
+            )
+        const postInstructions: TransactionInstruction[] =
+            isSOLQuoteMint && 'postInstructions' in result
+                ? (result.postInstructions as TransactionInstruction[])
+                : []
+
+        return this.program.methods
+            .claimCreatorTradingFee2(
+                maxBaseAmount,
+                maxQuoteAmount,
+                transferHookAccountsInfo
+            )
+            .accountsPartial({ ...result.accounts, creator })
+            .remainingAccounts(transferHookAccounts)
+            .preInstructions(result.preInstructions)
+            .postInstructions(postInstructions)
+            .transaction()
+    }
+
+    /**
      * Build a transaction that withdraws creator surplus from a pool.
      */
     async creatorWithdrawSurplus(

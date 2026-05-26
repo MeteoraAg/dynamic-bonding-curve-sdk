@@ -354,6 +354,77 @@ export class PartnerService extends DynamicBondingCurveProgram {
     }
 
     /**
+     * Build a transaction that claims partner trading fees with transfer-hook support.
+     */
+    async claimPartnerTradingFee2(
+        params: ClaimPartnerTradingFee2Params
+    ): Promise<Transaction> {
+        const {
+            feeClaimer,
+            payer,
+            pool,
+            maxBaseAmount,
+            maxQuoteAmount,
+            receiver,
+        } = params
+
+        const { virtualPool, poolConfigState } =
+            await this.getPoolWithConfig(pool)
+
+        const tokenBaseProgram = getTokenProgram(poolConfigState.tokenType)
+        const tokenQuoteProgram = getTokenProgram(
+            poolConfigState.quoteTokenFlag
+        )
+
+        const isSOLQuoteMint = isNativeSol(poolConfigState.quoteMint)
+        const result = isSOLQuoteMint
+            ? await this.buildClaimTradingFeeAccountsForSol({
+                  payer,
+                  feeReceiver: receiver,
+                  tempWSolAcc: feeClaimer,
+                  pool,
+                  virtualPool,
+                  poolConfigState,
+                  tokenBaseProgram,
+                  tokenQuoteProgram,
+              })
+            : await this.buildClaimTradingFeeAccountsForNonSol({
+                  payer,
+                  feeReceiver: receiver,
+                  pool,
+                  virtualPool,
+                  poolConfigState,
+                  tokenBaseProgram,
+                  tokenQuoteProgram,
+              })
+
+        const { info: transferHookAccountsInfo, accounts: transferHookAccounts } =
+            await this.getRemainingAccountsForTransferHook(
+                virtualPool.poolState.baseMint
+            )
+        const postInstructions: TransactionInstruction[] =
+            isSOLQuoteMint && 'postInstructions' in result
+                ? (result.postInstructions as TransactionInstruction[])
+                : []
+
+        return this.program.methods
+            .claimTradingFee2(
+                maxBaseAmount,
+                maxQuoteAmount,
+                transferHookAccountsInfo
+            )
+            .accountsPartial({
+                ...result.accounts,
+                config: virtualPool.poolState.config,
+                feeClaimer,
+            })
+            .remainingAccounts(transferHookAccounts)
+            .preInstructions(result.preInstructions)
+            .postInstructions(postInstructions)
+            .transaction()
+    }
+
+    /**
      * Build a transaction that withdraws partner surplus from a pool.
      */
     async partnerWithdrawSurplus(

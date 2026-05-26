@@ -27,6 +27,7 @@ import type { Program } from '@coral-xyz/anchor'
 import type { DynamicBondingCurve as DynamicBondingCurveIDL } from '../idl/dynamic-bonding-curve/idl'
 import {
     ActivationType,
+    AccountsType,
     BaseFee,
     BaseFeeMode,
     ConfigParameters,
@@ -37,14 +38,18 @@ import {
     PrepareSwapParams,
     TokenType,
     TradeDirection,
+    TransferHookAccountsInfo,
     VirtualPool,
 } from '../types'
 import { METAPLEX_PROGRAM_ID } from '../constants'
 import {
     createAssociatedTokenAccountIdempotentInstruction,
+    createTransferCheckedWithTransferHookInstruction,
+    getTransferHook,
     NATIVE_MINT,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
+    unpackMint,
 } from '@solana/spl-token'
 import { isRateLimiterApplied } from '../math'
 import BN from 'bn.js'
@@ -63,6 +68,8 @@ type ClaimTradingFeeAccountParams = {
 type ClaimTradingFeeSolAccountParams = ClaimTradingFeeAccountParams & {
     tempWSolAcc: PublicKey
 }
+
+type AccountsTypeValue = (typeof AccountsType)[keyof typeof AccountsType]
 
 export class DynamicBondingCurveProgram {
     program: Program<DynamicBondingCurveIDL>
@@ -544,6 +551,60 @@ export class DynamicBondingCurveProgram {
         }
 
         return { accounts, preInstructions }
+    }
+
+    protected async getRemainingAccountsForTransferHook(
+        mint: PublicKey,
+        accountTypes: AccountsTypeValue[] = [AccountsType.TransferHookBase]
+    ): Promise<{
+        info: TransferHookAccountsInfo
+        accounts: AccountMeta[]
+    }> {
+        const emptyAccounts: {
+            info: TransferHookAccountsInfo
+            accounts: AccountMeta[]
+        } = { info: { slices: [] }, accounts: [] }
+        const mintInfo = await this.connection.getAccountInfo(
+            mint,
+            this.commitment
+        )
+
+        if (!mintInfo) {
+            throw new Error(`Invalid mint: ${mint.toString()}`)
+        }
+
+        if (mintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+            return emptyAccounts
+        }
+
+        const mintState = unpackMint(mint, mintInfo, TOKEN_2022_PROGRAM_ID)
+        const transferHook = getTransferHook(mintState)
+        if (!transferHook || transferHook.programId.equals(PublicKey.default)) {
+            return emptyAccounts
+        }
+
+        const transferWithHookIx =
+            await createTransferCheckedWithTransferHookInstruction(
+                this.connection,
+                PublicKey.default,
+                mint,
+                PublicKey.default,
+                PublicKey.default,
+                BigInt(0),
+                mintState.decimals,
+                [],
+                this.commitment,
+                TOKEN_2022_PROGRAM_ID
+            )
+
+        const transferHookAccounts = transferWithHookIx.keys.slice(4)
+        const slices = accountTypes.map((accountsType) => ({
+            accountsType,
+            length: transferHookAccounts.length,
+        }))
+        const accounts = accountTypes.flatMap(() => transferHookAccounts)
+
+        return { info: { slices }, accounts }
     }
 
     protected async buildWithdrawMigrationFeeTx(
