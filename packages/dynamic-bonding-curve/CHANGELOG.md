@@ -2,7 +2,100 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
-## [1.5.6] - 2026-03-24
+## [1.5.8] - 2026-05-26
+
+### Added
+
+- Added Token-2022 transfer-hook support for DBC pool configs and pools:
+    - `client.partner.createConfigWithTransferHook`
+    - `client.partner.createConfigAndPoolWithTransferHook`
+    - `client.partner.createConfigAndPoolWithFirstBuyWithTransferHook`
+    - `client.creator.createPoolWithTransferHook`
+    - `client.creator.createPoolWithFirstBuyWithTransferHook`
+    - `client.creator.createPoolWithPartnerAndCreatorFirstBuyWithTransferHook`
+- Added transfer-hook swap and fee claim endpoints:
+    - `client.pool.swap2WithTransferHook`
+    - `client.partner.claimPartnerTradingFee2`
+    - `client.creator.claimCreatorTradingFee2`
+- Added transfer-hook account helper types:
+    - `TransferHookAccountsInfo`
+    - `TransferHookRemainingAccounts`
+    - `FirstBuyWithTransferHookParams`
+    - `PartnerFirstBuyWithTransferHookParams`
+    - `CreatorFirstBuyWithTransferHookParams`
+    - `AccountsType`
+- Added account types for transfer-hook program accounts:
+    - `ConfigWithTransferHook`
+    - `TransferHookPool`
+- Added `CreateVirtualPoolMetadataParameters` as an exported IDL-derived type.
+- Added `client.partner.createConfigAndPool` and `client.partner.createConfigAndPoolWithFirstBuy` so partner-owned config-and-pool flows live under the partner service.
+- Added `client.creator.createPool`, `client.creator.createPoolWithFirstBuy`, and `client.creator.createPoolWithPartnerAndCreatorFirstBuy` so creator-owned pool initialization flows live under the creator service.
+- Added `client.partner.claimPartnerTradingFeeToReceiver` and `client.creator.claimCreatorTradingFeeToReceiver` for the non-transfer-hook fee claim flows that do not require `tempWSolAcc`.
+- Added test coverage for transfer-hook config creation, pool creation, swaps, first buys, and fee claims using the new `transfer_hook_counter` test program.
+
+### Changed
+
+- Bumped the SDK package version to `1.5.7`.
+- Updated the DBC IDL and generated types to include transfer-hook instructions and account layouts.
+- Updated DAMM V1, DAMM V2, and Dynamic Vault IDLs and generated types.
+- Updated `DynamicBondingCurveClient` so all services share one `StateService` instance.
+- Updated `StateService.getPoolConfig` to fetch both regular `poolConfig` accounts and transfer-hook config accounts.
+- Updated `StateService.getPool` to fetch both regular `virtualPool` accounts and transfer-hook pool accounts.
+- Updated swap quote math and state helpers to read virtual pool fields from the new nested `poolState` layout.
+- Updated `buildCurve*` helpers to accept `token.tokenAuthorityOption` and map it to the on-chain `tokenUpdateAuthority` field.
+- Renamed `createVaultProgram` to `createDynamicVaultProgram` to match the Dynamic Vault IDL naming.
+- Renamed internal/public DAMM V1 and Dynamic Vault generated IDL program types from `DammV1` and `DynamicVault` to `Amm` and `Vault`.
+- Updated validator and CI setup to use the `mercurial_vault.so` fixture and include the `transfer_hook_counter.so` fixture.
+- Updated CI to use Node `22.13` and pnpm `11.3.0`.
+- Reworked `docs.md` with the current SDK service layout and transfer-hook function documentation.
+
+### Breaking Changes
+
+- **Pool creation methods moved service namespaces.** Existing callers must update:
+    - `client.pool.createPool(...)` -> `client.creator.createPool(...)`
+    - `client.pool.createPoolWithFirstBuy(...)` -> `client.creator.createPoolWithFirstBuy(...)`
+    - `client.pool.createPoolWithPartnerAndCreatorFirstBuy(...)` -> `client.creator.createPoolWithPartnerAndCreatorFirstBuy(...)`
+    - `client.pool.createConfigAndPool(...)` -> `client.partner.createConfigAndPool(...)`
+    - `client.pool.createConfigAndPoolWithFirstBuy(...)` -> `client.partner.createConfigAndPoolWithFirstBuy(...)`
+- **Pool address params were renamed from `virtualPool` to `pool` across SDK request types.** Update call sites for:
+    - `CreateLockerParams`
+    - `WithdrawLeftoverParams`
+    - `MigrateToDammV1Params`
+    - `MigrateToDammV2Params`
+    - `DammLpTokenParams`
+    - `PartnerWithdrawSurplusParams`
+    - `CreatorWithdrawSurplusParams`
+    - `TransferPoolCreatorParams`
+    - `WithdrawMigrationFeeParams`
+    - `ClaimPartnerPoolCreationFeeParams`
+- **Virtual pool account data now uses the nested `poolState` layout.** Code that directly reads `VirtualPool` fields must migrate from flat fields like `pool.config`, `pool.baseMint`, `pool.quoteReserve`, `pool.sqrtPrice`, and `pool.metrics` to `pool.poolState.config`, `pool.poolState.baseMint`, `pool.poolState.quoteReserve`, `pool.poolState.sqrtPrice`, and `pool.poolState.metrics`.
+- **`TokenType.SPL` was renamed to `TokenType.SPLToken`.** The enum value remains `0`, but TypeScript callers must update the enum member name.
+- **`TokenUpdateAuthorityOption` was renamed to `TokenAuthorityOption`.** Update imports and references.
+- **`TokenConfig.tokenUpdateAuthority` was renamed to `tokenAuthorityOption` for all `buildCurve*` helpers.** The helper still maps this value to the on-chain `tokenUpdateAuthority` config field.
+- **`PreCreatePoolParams` was renamed to `CreatePoolBaseParams`.** Update imports and any explicit type annotations.
+- **The old no-`tempWSolAcc` trading fee claim types were renamed.**
+    - `ClaimTradingFeeParams` -> `ClaimPartnerTradingFeeParams`
+    - `ClaimTradingFee2Params` -> `ClaimPartnerTradingFeeToReceiverParams`
+    - `ClaimCreatorTradingFee2Params` -> `ClaimCreatorTradingFeeToReceiverParams`
+- **The old `claimPartnerTradingFee2` and `claimCreatorTradingFee2` non-transfer-hook behavior moved to `claimPartnerTradingFeeToReceiver` and `claimCreatorTradingFeeToReceiver`.** In `1.5.7`, `claimPartnerTradingFee2` and `claimCreatorTradingFee2` build transfer-hook fee claim instructions and should be used only for transfer-hook pools.
+- **`createVaultProgram` was renamed to `createDynamicVaultProgram`.** Update helper imports.
+- **`StateService.getDammV1LockEscrow` was removed.** Consumers that need lock escrow data must fetch it through the relevant generated program client.
+- **`LockEscrow` now comes from IDL types instead of IDL accounts.** Update assumptions if you were treating it as an Anchor account object.
+- **Raw IDL instruction indexes changed.** Code using `DynamicBondingCurve['instructions'][index]` directly must be updated because transfer-hook instructions shifted the generated instruction order.
+
+### Fixed
+
+- Fixed state and quote helpers to work with the new nested virtual pool account layout.
+- Fixed transfer-hook pool state reads so `getPoolConfig`, `getPool`, fee metrics, fee breakdowns, and curve progress helpers work with both regular and transfer-hook pools.
+- Fixed SOL quote handling in transfer-hook fee claim flows by preserving the wrapped SOL post-instructions where needed.
+
+### Tooling and Tests
+
+- Added the transfer-hook counter test IDL, generated type, fixture binary, and utilities.
+- Updated local validator startup scripts and CI validator startup to load the Dynamic Vault and transfer-hook counter fixtures.
+- Added pnpm `allowBuilds` entries for native/build-time dependencies used by the workspace.
+
+## [1.5.7] - 2026-03-24
 
 ### Changed
 
