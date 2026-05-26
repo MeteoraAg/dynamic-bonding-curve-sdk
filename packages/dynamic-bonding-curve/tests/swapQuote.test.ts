@@ -1,8 +1,4 @@
-import {
-    Keypair,
-    Connection,
-    sendAndConfirmTransaction,
-} from '@solana/web3.js'
+import { Keypair, Connection, sendAndConfirmTransaction } from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
 import { fundSol, LOCALNET_RPC_URL } from './utils/common'
 import {
@@ -156,7 +152,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
             baseMint,
             poolCreator,
         ])
-
     })
 
     test('calculateBaseToQuoteFromAmountIn returns amountLeft when input exceeds available liquidity', async () => {

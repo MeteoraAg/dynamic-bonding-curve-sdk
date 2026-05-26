@@ -157,7 +157,9 @@ export function swapQuote(
     currentPoint: BN,
     eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuoteResult {
-    if (virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)) {
+    if (
+        virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)
+    ) {
         throw new Error('Virtual pool is completed')
     }
 
@@ -1028,7 +1030,9 @@ export function swapQuoteExactIn(
     currentPoint: BN,
     eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuote2Result {
-    if (virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)) {
+    if (
+        virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)
+    ) {
         throw new Error('Virtual pool is completed')
     }
 
@@ -1098,7 +1102,9 @@ export function swapQuotePartialFill(
     currentPoint: BN,
     eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuote2Result {
-    if (virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)) {
+    if (
+        virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)
+    ) {
         throw new Error('Virtual pool is completed')
     }
 
@@ -1169,7 +1175,9 @@ export function swapQuoteExactOut(
     currentPoint: BN,
     eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuote2Result {
-    if (virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)) {
+    if (
+        virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)
+    ) {
         throw new Error('Virtual pool is completed')
     }
 
