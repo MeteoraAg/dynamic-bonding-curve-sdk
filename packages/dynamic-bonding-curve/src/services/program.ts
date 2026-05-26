@@ -551,11 +551,12 @@ export class DynamicBondingCurveProgram {
         pool: PublicKey,
         sender: PublicKey
     ): Promise<Transaction> {
-        const { virtualPool, poolConfigState } = await this.getPoolWithConfig(
-            pool
-        )
+        const { virtualPool, poolConfigState } =
+            await this.getPoolWithConfig(pool)
 
-        const tokenQuoteProgram = getTokenProgram(poolConfigState.quoteTokenFlag)
+        const tokenQuoteProgram = getTokenProgram(
+            poolConfigState.quoteTokenFlag
+        )
         const preInstructions: TransactionInstruction[] = []
         const postInstructions: TransactionInstruction[] = []
 

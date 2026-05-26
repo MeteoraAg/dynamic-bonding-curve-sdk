@@ -84,8 +84,7 @@ export function buildTestCurveConfig(options?: {
             tokenType: TokenType.SPLToken,
             tokenBaseDecimal,
             tokenQuoteDecimal,
-            tokenAuthorityOption:
-                TokenAuthorityOption.PartnerUpdateAuthority,
+            tokenAuthorityOption: TokenAuthorityOption.PartnerUpdateAuthority,
             totalTokenSupply: 1_000_000_000,
             leftover: 1000,
         },
