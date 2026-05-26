@@ -1202,14 +1202,11 @@ export function computeSqrtPriceStepBps(
 
 /**
  * Get the migrated pool market cap fee scheduler parameters
- * Derives sqrtPriceStepBps from starting/ending market cap so the fee schedule is
- * fully exhausted when the token grows from startingMarketCap to endingMarketCap.
  * @param startingBaseFeeBps - Starting (max) fee in basis points
  * @param endingBaseFeeBps - Ending (min) fee in basis points
  * @param baseFeeMode - Linear or exponential decay
  * @param numberOfPeriod - Number of fee reduction periods
- * @param startingMarketCap - Initial market cap (e.g. 20_000 for $20k)
- * @param endingMarketCap - Target market cap (e.g. 20_000_000 for $20M)
+ * @param priceMultiple - Target spot-price multiple from the initial price (e.g. 1000 for 1000x). Must be > 1.
  * @param schedulerExpirationDuration - Seconds after which the schedule expires to the ending fee regardless of price
  * @returns The migrated pool market cap fee scheduler parameters
  */
@@ -1218,8 +1215,7 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
     endingBaseFeeBps: number,
     dammV2BaseFeeMode: DammV2BaseFeeMode,
     numberOfPeriod: number,
-    startingMarketCap: number,
-    endingMarketCap: number,
+    priceMultiple: number,
     schedulerExpirationDuration: number
 ): MigratedPoolMarketCapFeeSchedulerParameters {
     if (
@@ -1247,10 +1243,8 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
         )
     }
 
-    if (endingMarketCap <= startingMarketCap) {
-        throw new Error(
-            `endingMarketCap (${endingMarketCap}) must be greater than startingMarketCap (${startingMarketCap})`
-        )
+    if (priceMultiple <= 1) {
+        throw new Error('priceMultiple must be greater than 1')
     }
 
     if (startingBaseFeeBps > poolMaxFeeBps) {
@@ -1263,7 +1257,6 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
         throw new Error('schedulerExpirationDuration must be greater than zero')
     }
 
-    const priceMultiple = endingMarketCap / startingMarketCap
     const sqrtPriceStepBps = computeSqrtPriceStepBps(
         priceMultiple,
         numberOfPeriod
@@ -1743,8 +1736,7 @@ export function getMigratedPoolFeeParams(
                 migratedPoolFee.marketCapFeeSchedulerParams.endingBaseFeeBps,
                 baseFeeMode,
                 migratedPoolFee.marketCapFeeSchedulerParams.numberOfPeriod,
-                migratedPoolFee.marketCapFeeSchedulerParams.startingMarketCap,
-                migratedPoolFee.marketCapFeeSchedulerParams.endingMarketCap,
+                migratedPoolFee.marketCapFeeSchedulerParams.priceMultiple,
                 migratedPoolFee.marketCapFeeSchedulerParams
                     .schedulerExpirationDuration
             )
