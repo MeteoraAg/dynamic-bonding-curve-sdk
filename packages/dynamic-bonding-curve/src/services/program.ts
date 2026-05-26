@@ -20,6 +20,7 @@ import {
     unwrapSOLInstruction,
     validateConfigParameters,
     validateSwapAmount,
+    validateTransferHookProgram,
     wrapSOLInstruction,
     findAssociatedTokenAddress,
 } from '../helpers'
@@ -174,7 +175,10 @@ export class DynamicBondingCurveProgram {
         transferHookProgram: PublicKey,
         payer: PublicKey
     ): Promise<Transaction> {
-        validateConfigParameters({ ...configParam, leftoverReceiver })
+        validateConfigParameters(
+            { ...configParam, leftoverReceiver },
+            { isTransferHook: true, transferHookProgram }
+        )
 
         return this.program.methods
             .createConfigWithTransferHook(configParam)
@@ -364,6 +368,12 @@ export class DynamicBondingCurveProgram {
             payer,
             transferHookProgram,
         } = createPoolParam
+
+        if (!validateTransferHookProgram(transferHookProgram)) {
+            throw new Error(
+                'Invalid transfer hook program: cannot be the DBC program, SPL Token, SPL Token-2022, or the default pubkey'
+            )
+        }
 
         const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
         const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
