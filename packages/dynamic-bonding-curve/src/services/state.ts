@@ -129,7 +129,7 @@ export class StateService extends DynamicBondingCurveProgram {
         if (!pool) {
             throw new Error(`Pool not found: ${poolAddress.toString()}`)
         }
-        const configAddress = pool.config
+        const configAddress = pool.poolState.config
         const config = await this.getPoolConfig(configAddress)
         return config.migrationQuoteThreshold
     }
@@ -147,8 +147,8 @@ export class StateService extends DynamicBondingCurveProgram {
             throw new Error(`Pool not found: ${poolAddress.toString()}`)
         }
 
-        const config = await this.getPoolConfig(pool.config)
-        const quoteReserve = pool.quoteReserve
+        const config = await this.getPoolConfig(pool.poolState.config)
+        const quoteReserve = pool.poolState.quoteReserve
         const migrationThreshold = config.migrationQuoteThreshold
 
         const quoteReserveDecimal = new Decimal(quoteReserve.toString())
@@ -172,12 +172,12 @@ export class StateService extends DynamicBondingCurveProgram {
             throw new Error(`Pool not found: ${poolAddress.toString()}`)
         }
 
-        const config = await this.getPoolConfig(pool.config)
+        const config = await this.getPoolConfig(pool.poolState.config)
 
         const baseSold = new Decimal(
             getBaseTokenForSwap(
                 config.sqrtStartPrice,
-                pool.sqrtPrice,
+                pool.poolState.sqrtPrice,
                 config.curve
             ).toString()
         )
@@ -246,14 +246,15 @@ export class StateService extends DynamicBondingCurveProgram {
 
         return {
             current: {
-                partnerBaseFee: pool.partnerBaseFee,
-                partnerQuoteFee: pool.partnerQuoteFee,
-                creatorBaseFee: pool.creatorBaseFee,
-                creatorQuoteFee: pool.creatorQuoteFee,
+                partnerBaseFee: pool.poolState.partnerBaseFee,
+                partnerQuoteFee: pool.poolState.partnerQuoteFee,
+                creatorBaseFee: pool.poolState.creatorBaseFee,
+                creatorQuoteFee: pool.poolState.creatorQuoteFee,
             },
             total: {
-                totalTradingBaseFee: pool.metrics.totalTradingBaseFee,
-                totalTradingQuoteFee: pool.metrics.totalTradingQuoteFee,
+                totalTradingBaseFee: pool.poolState.metrics.totalTradingBaseFee,
+                totalTradingQuoteFee:
+                    pool.poolState.metrics.totalTradingQuoteFee,
             },
         }
     }
@@ -289,15 +290,17 @@ export class StateService extends DynamicBondingCurveProgram {
             throw new Error(`Pool not found: ${poolAddress.toString()}`)
         }
 
-        const config = await this.getPoolConfig(pool.config)
+        const config = await this.getPoolConfig(pool.poolState.config)
         if (!config) {
-            throw new Error(`Config not found: ${pool.config.toString()}`)
+            throw new Error(
+                `Config not found: ${pool.poolState.config.toString()}`
+            )
         }
 
         const creatorTradingFeePercentage = config.creatorTradingFeePercentage
 
-        const totalTradingBaseFee = pool.metrics.totalTradingBaseFee
-        const totalTradingQuoteFee = pool.metrics.totalTradingQuoteFee
+        const totalTradingBaseFee = pool.poolState.metrics.totalTradingBaseFee
+        const totalTradingQuoteFee = pool.poolState.metrics.totalTradingQuoteFee
 
         let creatorTotalTradingBaseFee = new BN(0)
         let creatorTotalTradingQuoteFee = new BN(0)
@@ -319,11 +322,11 @@ export class StateService extends DynamicBondingCurveProgram {
             )
         }
 
-        const creatorUnclaimedBaseFee = pool.creatorBaseFee
-        const creatorUnclaimedQuoteFee = pool.creatorQuoteFee
+        const creatorUnclaimedBaseFee = pool.poolState.creatorBaseFee
+        const creatorUnclaimedQuoteFee = pool.poolState.creatorQuoteFee
 
-        const partnerUnclaimedBaseFee = pool.partnerBaseFee
-        const partnerUnclaimedQuoteFee = pool.partnerQuoteFee
+        const partnerUnclaimedBaseFee = pool.poolState.partnerBaseFee
+        const partnerUnclaimedQuoteFee = pool.poolState.partnerQuoteFee
 
         const creatorClaimedBaseFee = creatorTotalTradingBaseFee.sub(
             creatorUnclaimedBaseFee
@@ -378,12 +381,14 @@ export class StateService extends DynamicBondingCurveProgram {
 
         return filteredPools.map((pool) => ({
             poolAddress: pool.publicKey,
-            partnerBaseFee: pool.account.partnerBaseFee,
-            partnerQuoteFee: pool.account.partnerQuoteFee,
-            creatorBaseFee: pool.account.creatorBaseFee,
-            creatorQuoteFee: pool.account.creatorQuoteFee,
-            totalTradingBaseFee: pool.account.metrics.totalTradingBaseFee,
-            totalTradingQuoteFee: pool.account.metrics.totalTradingQuoteFee,
+            partnerBaseFee: pool.account.poolState.partnerBaseFee,
+            partnerQuoteFee: pool.account.poolState.partnerQuoteFee,
+            creatorBaseFee: pool.account.poolState.creatorBaseFee,
+            creatorQuoteFee: pool.account.poolState.creatorQuoteFee,
+            totalTradingBaseFee:
+                pool.account.poolState.metrics.totalTradingBaseFee,
+            totalTradingQuoteFee:
+                pool.account.poolState.metrics.totalTradingQuoteFee,
         }))
     }
 
@@ -407,12 +412,14 @@ export class StateService extends DynamicBondingCurveProgram {
 
         return filteredPools.map((pool) => ({
             poolAddress: pool.publicKey,
-            partnerBaseFee: pool.account.partnerBaseFee,
-            partnerQuoteFee: pool.account.partnerQuoteFee,
-            creatorBaseFee: pool.account.creatorBaseFee,
-            creatorQuoteFee: pool.account.creatorQuoteFee,
-            totalTradingBaseFee: pool.account.metrics.totalTradingBaseFee,
-            totalTradingQuoteFee: pool.account.metrics.totalTradingQuoteFee,
+            partnerBaseFee: pool.account.poolState.partnerBaseFee,
+            partnerQuoteFee: pool.account.poolState.partnerQuoteFee,
+            creatorBaseFee: pool.account.poolState.creatorBaseFee,
+            creatorQuoteFee: pool.account.poolState.creatorQuoteFee,
+            totalTradingBaseFee:
+                pool.account.poolState.metrics.totalTradingBaseFee,
+            totalTradingQuoteFee:
+                pool.account.poolState.metrics.totalTradingQuoteFee,
         }))
     }
 

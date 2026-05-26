@@ -187,9 +187,9 @@ describe('swap2 Tests', { timeout: 60000 }, () => {
         await sendAndConfirmTransaction(connection, swapTx, [user])
 
         // Verify pool state after swap
-        const poolState = await dbcClient.state.getPool(pool)
-        expect(poolState).not.toBeNull()
-        expect(poolState!.quoteReserve.gt(new BN(0))).toBe(true)
+        const virtualPool = await dbcClient.state.getPool(pool)
+        expect(virtualPool).not.toBeNull()
+        expect(virtualPool!.poolState.quoteReserve.gt(new BN(0))).toBe(true)
     })
 
     test('swap2PartialFill', async () => {

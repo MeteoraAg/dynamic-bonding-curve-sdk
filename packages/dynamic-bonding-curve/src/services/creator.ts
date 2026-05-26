@@ -113,7 +113,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             feeReceiver,
             tempWSolAcc,
             pool,
-            poolState,
+            virtualPool,
             poolConfigState,
             tokenBaseProgram,
             tokenQuoteProgram,
@@ -124,7 +124,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
         const tokenBaseAccount = findAssociatedTokenAddress(
             feeReceiver,
-            poolState.baseMint,
+            virtualPool.poolState.baseMint,
             tokenBaseProgram
         )
 
@@ -139,7 +139,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 payer,
                 tokenBaseAccount,
                 feeReceiver,
-                poolState.baseMint,
+                virtualPool.poolState.baseMint,
                 tokenBaseProgram
             )
         createTokenBaseAccountIx &&
@@ -164,9 +164,9 @@ export class CreatorService extends DynamicBondingCurveProgram {
             pool,
             tokenAAccount: tokenBaseAccount,
             tokenBAccount: tokenQuoteAccount,
-            baseVault: poolState.baseVault,
-            quoteVault: poolState.quoteVault,
-            baseMint: poolState.baseMint,
+            baseVault: virtualPool.poolState.baseVault,
+            quoteVault: virtualPool.poolState.quoteVault,
+            baseMint: virtualPool.poolState.baseMint,
             quoteMint: poolConfigState.quoteMint,
             creator,
             tokenBaseProgram,
@@ -211,7 +211,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             payer,
             feeReceiver,
             pool,
-            poolState,
+            virtualPool,
             poolConfigState,
             tokenBaseProgram,
             tokenQuoteProgram,
@@ -224,7 +224,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
         } = await this.prepareTokenAccounts(
             feeReceiver,
             payer,
-            poolState.baseMint,
+            virtualPool.poolState.baseMint,
             poolConfigState.quoteMint,
             tokenBaseProgram,
             tokenQuoteProgram
@@ -235,9 +235,9 @@ export class CreatorService extends DynamicBondingCurveProgram {
             pool,
             tokenAAccount: tokenBaseAccount,
             tokenBAccount: tokenQuoteAccount,
-            baseVault: poolState.baseVault,
-            quoteVault: poolState.quoteVault,
-            baseMint: poolState.baseMint,
+            baseVault: virtualPool.poolState.baseVault,
+            quoteVault: virtualPool.poolState.quoteVault,
+            baseMint: virtualPool.poolState.baseMint,
             quoteMint: poolConfigState.quoteMint,
             creator,
             tokenBaseProgram,
@@ -271,12 +271,14 @@ export class CreatorService extends DynamicBondingCurveProgram {
             tempWSolAcc,
         } = params
 
-        const poolState = await this.state.getPool(pool)
-        if (!poolState) {
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
@@ -301,7 +303,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 feeReceiver,
                 tempWSolAcc: tempWSol,
                 pool,
-                poolState,
+                virtualPool,
                 poolConfigState,
                 tokenBaseProgram,
                 tokenQuoteProgram,
@@ -322,7 +324,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 payer,
                 feeReceiver,
                 pool,
-                poolState,
+                virtualPool,
                 poolConfigState,
                 tokenBaseProgram,
                 tokenQuoteProgram,
@@ -358,12 +360,14 @@ export class CreatorService extends DynamicBondingCurveProgram {
             payer,
         } = params
 
-        const poolState = await this.state.getPool(pool)
-        if (!poolState) {
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
@@ -381,7 +385,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
             const tokenBaseAccount = findAssociatedTokenAddress(
                 receiver,
-                poolState.baseMint,
+                virtualPool.poolState.baseMint,
                 tokenBaseProgram
             )
 
@@ -396,7 +400,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
                     payer,
                     tokenBaseAccount,
                     receiver,
-                    poolState.baseMint,
+                    virtualPool.poolState.baseMint,
                     tokenBaseProgram
                 )
             createTokenBaseAccountIx &&
@@ -421,9 +425,9 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 pool,
                 tokenAAccount: tokenBaseAccount,
                 tokenBAccount: tokenQuoteAccount,
-                baseVault: poolState.baseVault,
-                quoteVault: poolState.quoteVault,
-                baseMint: poolState.baseMint,
+                baseVault: virtualPool.poolState.baseVault,
+                quoteVault: virtualPool.poolState.quoteVault,
+                baseMint: virtualPool.poolState.baseMint,
                 quoteMint: poolConfigState.quoteMint,
                 creator,
                 tokenBaseProgram,
@@ -442,7 +446,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 payer,
                 feeReceiver: receiver,
                 pool,
-                poolState,
+                virtualPool,
                 poolConfigState,
                 tokenBaseProgram,
                 tokenQuoteProgram,
@@ -465,14 +469,16 @@ export class CreatorService extends DynamicBondingCurveProgram {
     async creatorWithdrawSurplus(
         params: CreatorWithdrawSurplusParams
     ): Promise<Transaction> {
-        const { creator, virtualPool } = params
+        const { creator, pool } = params
 
-        const poolState = await this.state.getPool(virtualPool)
-        if (!poolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const poolConfigState = await this.state.getPoolConfig(poolState.config)
+        const poolConfigState = await this.state.getPoolConfig(
+            virtualPool.poolState.config
+        )
         if (!poolConfigState) {
             throw new Error(`Pool config not found for virtual pool`)
         }
@@ -510,10 +516,10 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
         const accounts = {
             poolAuthority: this.poolAuthority,
-            config: poolState.config,
-            virtualPool,
+            config: virtualPool.poolState.config,
+            virtualPool: pool,
             tokenQuoteAccount,
-            quoteVault: poolState.quoteVault,
+            quoteVault: virtualPool.poolState.quoteVault,
             quoteMint: poolConfigState.quoteMint,
             creator,
             tokenQuoteProgram: TOKEN_PROGRAM_ID,
@@ -537,21 +543,20 @@ export class CreatorService extends DynamicBondingCurveProgram {
     async transferPoolCreator(
         params: TransferPoolCreatorParams
     ): Promise<Transaction> {
-        const { virtualPool, creator, newCreator } = params
+        const { pool, creator, newCreator } = params
 
-        const virtualPoolState = await this.state.getPool(virtualPool)
-        if (!virtualPoolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
-        const migrationMetadata =
-            deriveDammV1MigrationMetadataAddress(virtualPool)
+        const migrationMetadata = deriveDammV1MigrationMetadataAddress(pool)
         const transaction = await this.program.methods
             .transferPoolCreator()
             .accountsPartial({
-                virtualPool,
+                virtualPool: pool,
                 newCreator,
-                config: virtualPoolState.config,
+                config: virtualPool.poolState.config,
                 creator,
             })
             .remainingAccounts([
@@ -575,15 +580,15 @@ export class CreatorService extends DynamicBondingCurveProgram {
     async creatorWithdrawMigrationFee(
         params: WithdrawMigrationFeeParams
     ): Promise<Transaction> {
-        const { virtualPool, sender } = params
+        const { pool, sender } = params
 
-        const virtualPoolState = await this.state.getPool(virtualPool)
-        if (!virtualPoolState) {
-            throw new Error(`Pool not found: ${virtualPool.toString()}`)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
         const configState = await this.state.getPoolConfig(
-            virtualPoolState.config
+            virtualPool.poolState.config
         )
         if (!configState) {
             throw new Error(`Pool config not found for virtual pool`)
@@ -613,10 +618,10 @@ export class CreatorService extends DynamicBondingCurveProgram {
             .withdrawMigrationFee(1) // 0 as partner and 1 as creator
             .accountsPartial({
                 poolAuthority: this.poolAuthority,
-                config: virtualPoolState.config,
-                virtualPool,
+                config: virtualPool.poolState.config,
+                virtualPool: pool,
                 tokenQuoteAccount,
-                quoteVault: virtualPoolState.quoteVault,
+                quoteVault: virtualPool.poolState.quoteVault,
                 quoteMint: configState.quoteMint,
                 sender,
                 tokenQuoteProgram: getTokenProgram(configState.quoteTokenFlag),

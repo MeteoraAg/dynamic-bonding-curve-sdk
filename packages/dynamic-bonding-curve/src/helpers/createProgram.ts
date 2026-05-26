@@ -1,9 +1,9 @@
 import { AnchorProvider, Program, Wallet } from '@coral-xyz/anchor'
 import { Commitment, type Connection } from '@solana/web3.js'
 import DynamicBondingCurveIDL from '../idl/dynamic-bonding-curve/idl.json'
-import type { DynamicVault } from '../idl/dynamic-vault/idl'
+import type { Vault } from '../idl/dynamic-vault/idl'
 import DynamicVaultIDL from '../idl/dynamic-vault/idl.json'
-import type { DammV1 } from '../idl/damm-v1/idl'
+import type { Amm } from '../idl/damm-v1/idl'
 import DammV1IDL from '../idl/damm-v1/idl.json'
 import type { DynamicBondingCurve } from '../idl/dynamic-bonding-curve/idl'
 import { CpAmm } from '../idl/damm-v2/idl'
@@ -37,12 +37,12 @@ export function createDbcProgram(
 export function createVaultProgram(
     connection: Connection,
     commitment: Commitment = 'confirmed'
-): Program<DynamicVault> {
+): Program<Vault> {
     const provider = new AnchorProvider(connection, null as unknown as Wallet, {
         commitment,
     })
 
-    const program = new Program<DynamicVault>(DynamicVaultIDL, provider)
+    const program = new Program<Vault>(DynamicVaultIDL, provider)
     return program
 }
 
@@ -54,12 +54,12 @@ export function createVaultProgram(
 export function createDammV1Program(
     connection: Connection,
     commitment: Commitment = 'confirmed'
-): Program<DammV1> {
+): Program<Amm> {
     const provider = new AnchorProvider(connection, null as unknown as Wallet, {
         commitment,
     })
 
-    const program = new Program<DammV1>(DammV1IDL, provider)
+    const program = new Program<Amm>(DammV1IDL, provider)
     return program
 }
 

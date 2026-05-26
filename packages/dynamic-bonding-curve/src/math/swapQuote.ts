@@ -41,7 +41,7 @@ import {
  * @returns Swap result
  */
 export function getSwapResult(
-    poolState: VirtualPool,
+    virtualPool: VirtualPool,
     configState: PoolConfig,
     amountIn: BN,
     feeMode: FeeMode,
@@ -65,9 +65,9 @@ export function getSwapResult(
         ? baseFeeHandler.getMinBaseFeeNumerator()
         : getTotalFeeNumeratorFromIncludedFeeAmount(
               configState.poolFees,
-              poolState.volatilityTracker,
+              virtualPool.poolState.volatilityTracker,
               currentPoint,
-              poolState.activationPoint,
+              virtualPool.poolState.activationPoint,
               amountIn,
               tradeDirection
           )
@@ -93,12 +93,12 @@ export function getSwapResult(
         tradeDirection === TradeDirection.BaseToQuote
             ? calculateBaseToQuoteFromAmountIn(
                   configState,
-                  poolState.sqrtPrice,
+                  virtualPool.poolState.sqrtPrice,
                   actualAmountIn
               )
             : calculateQuoteToBaseFromAmountIn(
                   configState,
-                  poolState.sqrtPrice,
+                  virtualPool.poolState.sqrtPrice,
                   actualAmountIn,
                   configState.migrationSqrtPrice
               )
@@ -157,7 +157,7 @@ export function swapQuote(
     currentPoint: BN,
     eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuoteResult {
-    if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
+    if (virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)) {
         throw new Error('Virtual pool is completed')
     }
 
@@ -243,9 +243,9 @@ export function getSwapResultFromExactInput(
         ? baseFeeHandler.getMinBaseFeeNumerator()
         : getTotalFeeNumeratorFromIncludedFeeAmount(
               config.poolFees,
-              virtualPool.volatilityTracker,
+              virtualPool.poolState.volatilityTracker,
               currentPoint,
-              virtualPool.activationPoint,
+              virtualPool.poolState.activationPoint,
               amountIn,
               tradeDirection
           )
@@ -271,12 +271,12 @@ export function getSwapResultFromExactInput(
         tradeDirection === TradeDirection.BaseToQuote
             ? calculateBaseToQuoteFromAmountIn(
                   config,
-                  virtualPool.sqrtPrice,
+                  virtualPool.poolState.sqrtPrice,
                   actualAmountIn
               )
             : calculateQuoteToBaseFromAmountIn(
                   config,
-                  virtualPool.sqrtPrice,
+                  virtualPool.poolState.sqrtPrice,
                   actualAmountIn,
                   config.migrationSqrtPrice
               )
@@ -352,9 +352,9 @@ export function getSwapResultFromPartialInput(
         ? baseFeeHandler.getMinBaseFeeNumerator()
         : getTotalFeeNumeratorFromIncludedFeeAmount(
               config.poolFees,
-              virtualPool.volatilityTracker,
+              virtualPool.poolState.volatilityTracker,
               currentPoint,
-              virtualPool.activationPoint,
+              virtualPool.poolState.activationPoint,
               amountIn,
               tradeDirection
           )
@@ -380,12 +380,12 @@ export function getSwapResultFromPartialInput(
         tradeDirection === TradeDirection.BaseToQuote
             ? calculateBaseToQuoteFromAmountIn(
                   config,
-                  virtualPool.sqrtPrice,
+                  virtualPool.poolState.sqrtPrice,
                   actualAmountIn
               )
             : calculateQuoteToBaseFromAmountIn(
                   config,
-                  virtualPool.sqrtPrice,
+                  virtualPool.poolState.sqrtPrice,
                   actualAmountIn,
                   config.migrationSqrtPrice
               )
@@ -403,9 +403,9 @@ export function getSwapResultFromPartialInput(
                           ? baseFeeHandler.getMinBaseFeeNumerator()
                           : getTotalFeeNumeratorFromExcludedFeeAmount(
                                 config.poolFees,
-                                virtualPool.volatilityTracker,
+                                virtualPool.poolState.volatilityTracker,
                                 currentPoint,
-                                virtualPool.activationPoint,
+                                virtualPool.poolState.activationPoint,
                                 actualAmountIn,
                                 tradeDirection
                             )
@@ -727,9 +727,9 @@ export function getSwapResultFromExactOutput(
                   ? baseFeeHandler.getMinBaseFeeNumerator()
                   : getTotalFeeNumeratorFromExcludedFeeAmount(
                         config.poolFees,
-                        virtualPool.volatilityTracker,
+                        virtualPool.poolState.volatilityTracker,
                         currentPoint,
-                        virtualPool.activationPoint,
+                        virtualPool.poolState.activationPoint,
                         amountOut,
                         tradeDirection
                     )
@@ -756,13 +756,13 @@ export function getSwapResultFromExactOutput(
             case TradeDirection.BaseToQuote:
                 return calculateBaseToQuoteFromAmountOut(
                     config,
-                    virtualPool.sqrtPrice,
+                    virtualPool.poolState.sqrtPrice,
                     includedFeeOutAmount
                 )
             case TradeDirection.QuoteToBase:
                 return calculateQuoteToBaseFromAmountOut(
                     config,
-                    virtualPool.sqrtPrice,
+                    virtualPool.poolState.sqrtPrice,
                     includedFeeOutAmount
                 )
         }
@@ -780,9 +780,9 @@ export function getSwapResultFromExactOutput(
                   ? baseFeeHandler.getMinBaseFeeNumerator()
                   : getTotalFeeNumeratorFromExcludedFeeAmount(
                         config.poolFees,
-                        virtualPool.volatilityTracker,
+                        virtualPool.poolState.volatilityTracker,
                         currentPoint,
-                        virtualPool.activationPoint,
+                        virtualPool.poolState.activationPoint,
                         amountIn,
                         tradeDirection
                     )
@@ -1028,7 +1028,7 @@ export function swapQuoteExactIn(
     currentPoint: BN,
     eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuote2Result {
-    if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
+    if (virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)) {
         throw new Error('Virtual pool is completed')
     }
 
@@ -1098,7 +1098,7 @@ export function swapQuotePartialFill(
     currentPoint: BN,
     eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuote2Result {
-    if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
+    if (virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)) {
         throw new Error('Virtual pool is completed')
     }
 
@@ -1169,7 +1169,7 @@ export function swapQuoteExactOut(
     currentPoint: BN,
     eligibleForFirstSwapWithMinFee: boolean
 ): SwapQuote2Result {
-    if (virtualPool.quoteReserve.gte(config.migrationQuoteThreshold)) {
+    if (virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)) {
         throw new Error('Virtual pool is completed')
     }
 

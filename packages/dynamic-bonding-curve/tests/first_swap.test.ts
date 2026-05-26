@@ -189,12 +189,13 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             baseMint,
         ])
 
-        const poolState = await dbcClient.state.getPool(pool)
-        expect(poolState).not.toBeNull()
+        const virtualPool = await dbcClient.state.getPool(pool)
+        expect(virtualPool).not.toBeNull()
 
-        const totalTradingFee = poolState!.metrics.totalProtocolQuoteFee.add(
-            poolState!.metrics.totalTradingQuoteFee
-        )
+        const totalTradingFee =
+            virtualPool!.poolState.metrics.totalProtocolQuoteFee.add(
+                virtualPool!.poolState.metrics.totalTradingQuoteFee
+            )
 
         const expectedFee = amountIn
             .mul(endFeeNumerator)
@@ -210,11 +211,11 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         console.log('  Total fee charged:', totalTradingFee.toString())
         console.log(
             '  Protocol quote fee:',
-            poolState!.metrics.totalProtocolQuoteFee.toString()
+            virtualPool!.poolState.metrics.totalProtocolQuoteFee.toString()
         )
         console.log(
             '  Trading quote fee:',
-            poolState!.metrics.totalTradingQuoteFee.toString()
+            virtualPool!.poolState.metrics.totalTradingQuoteFee.toString()
         )
     })
 
@@ -255,16 +256,16 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
 
         await sendAndConfirmTransaction(connection, swapTx, [user])
 
-        const poolStateAfterSwap = await dbcClient.state.getPool(pool)
-        expect(poolStateAfterSwap).not.toBeNull()
+        const virtualPoolAfterSwap = await dbcClient.state.getPool(pool)
+        expect(virtualPoolAfterSwap).not.toBeNull()
 
         const expectedFee = amountIn
             .mul(cliffFeeNumerator)
             .div(new BN(FEE_DENOMINATOR))
 
         const totalTradingFee =
-            poolStateAfterSwap!.metrics.totalProtocolQuoteFee.add(
-                poolStateAfterSwap!.metrics.totalTradingQuoteFee
+            virtualPoolAfterSwap!.poolState.metrics.totalProtocolQuoteFee.add(
+                virtualPoolAfterSwap!.poolState.metrics.totalTradingQuoteFee
             )
 
         console.log('SDK swap() in separate transaction:')
@@ -308,16 +309,17 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             baseMint,
         ])
 
-        const poolState = await dbcClient.state.getPool(pool)
-        expect(poolState).not.toBeNull()
+        const virtualPool = await dbcClient.state.getPool(pool)
+        expect(virtualPool).not.toBeNull()
 
         const expectedFee = amountIn
             .mul(endFeeNumerator)
             .div(new BN(FEE_DENOMINATOR))
 
-        const totalTradingFee = poolState!.metrics.totalProtocolQuoteFee.add(
-            poolState!.metrics.totalTradingQuoteFee
-        )
+        const totalTradingFee =
+            virtualPool!.poolState.metrics.totalProtocolQuoteFee.add(
+                virtualPool!.poolState.metrics.totalTradingQuoteFee
+            )
 
         const feeDiff = totalTradingFee.sub(expectedFee).abs()
         expect(feeDiff.lte(new BN(1))).toBe(true)
@@ -391,17 +393,18 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             baseMint,
         ])
 
-        const poolState = await dbcClient.state.getPool(pool)
-        expect(poolState).not.toBeNull()
+        const virtualPool = await dbcClient.state.getPool(pool)
+        expect(virtualPool).not.toBeNull()
 
         // calculate expected fee (cliff fee since no SYSVAR)
         const expectedFee = amountIn
             .mul(cliffFeeNumerator)
             .div(new BN(FEE_DENOMINATOR))
 
-        const totalTradingFee = poolState!.metrics.totalProtocolQuoteFee.add(
-            poolState!.metrics.totalTradingQuoteFee
-        )
+        const totalTradingFee =
+            virtualPool!.poolState.metrics.totalProtocolQuoteFee.add(
+                virtualPool!.poolState.metrics.totalTradingQuoteFee
+            )
 
         // verify the fee charged is close to the expected cliff fee
         const feeDiff = totalTradingFee.sub(expectedFee).abs()
@@ -442,12 +445,12 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             baseMint,
         ])
 
-        const poolStateAfterFirst = await dbcClient.state.getPool(pool)
-        expect(poolStateAfterFirst).not.toBeNull()
+        const virtualPoolAfterFirst = await dbcClient.state.getPool(pool)
+        expect(virtualPoolAfterFirst).not.toBeNull()
 
         const firstSwapFee =
-            poolStateAfterFirst!.metrics.totalProtocolQuoteFee.add(
-                poolStateAfterFirst!.metrics.totalTradingQuoteFee
+            virtualPoolAfterFirst!.poolState.metrics.totalProtocolQuoteFee.add(
+                virtualPoolAfterFirst!.poolState.metrics.totalTradingQuoteFee
             )
         const expectedFirstFee = amountIn
             .mul(endFeeNumerator)
@@ -471,12 +474,12 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
 
         await sendAndConfirmTransaction(connection, secondSwapTx, [user])
 
-        const poolStateAfterSecond = await dbcClient.state.getPool(pool)
-        expect(poolStateAfterSecond).not.toBeNull()
+        const virtualPoolAfterSecond = await dbcClient.state.getPool(pool)
+        expect(virtualPoolAfterSecond).not.toBeNull()
 
         const totalFeeAfterSecond =
-            poolStateAfterSecond!.metrics.totalProtocolQuoteFee.add(
-                poolStateAfterSecond!.metrics.totalTradingQuoteFee
+            virtualPoolAfterSecond!.poolState.metrics.totalProtocolQuoteFee.add(
+                virtualPoolAfterSecond!.poolState.metrics.totalTradingQuoteFee
             )
         const secondSwapFee = totalFeeAfterSecond.sub(firstSwapFee)
         const expectedSecondFee = amountIn
@@ -555,12 +558,13 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         ])
 
         // verify pool was created
-        const poolState = await dbcClient.state.getPool(newPool)
-        expect(poolState).not.toBeNull()
+        const virtualPool = await dbcClient.state.getPool(newPool)
+        expect(virtualPool).not.toBeNull()
 
-        const totalTradingFee = poolState!.metrics.totalProtocolQuoteFee.add(
-            poolState!.metrics.totalTradingQuoteFee
-        )
+        const totalTradingFee =
+            virtualPool!.poolState.metrics.totalProtocolQuoteFee.add(
+                virtualPool!.poolState.metrics.totalTradingQuoteFee
+            )
 
         // calculate expected fee (end/min fee for bundled swap)
         const expectedFee = amountIn
