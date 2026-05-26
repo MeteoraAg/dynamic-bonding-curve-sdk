@@ -9,9 +9,12 @@ import {
 import { DynamicBondingCurveProgram } from './program'
 import {
     type ClaimPartnerTradingFeeParams,
+    type CreateConfigAndPoolWithTransferHookParams,
     type CreateConfigAndPoolParams,
+    type CreateConfigAndPoolWithFirstBuyWithTransferHookParams,
     type CreateConfigAndPoolWithFirstBuyParams,
     type CreateConfigParams,
+    type CreateConfigWithTransferHookParams,
     type CreatePoolParams,
     type CreatePartnerMetadataParams,
     type CreatePartnerMetadataParameters,
@@ -26,6 +29,7 @@ import {
     getTokenProgram,
     getOrCreateATAInstruction,
     isNativeSol,
+    getTokenType,
 } from '../helpers'
 import { NATIVE_MINT } from '@solana/spl-token'
 import { StateService } from './state'
@@ -68,6 +72,33 @@ export class PartnerService extends DynamicBondingCurveProgram {
     }
 
     /**
+     * Build a transaction that creates a partner-owned transfer-hook pool config.
+     */
+    async createConfigWithTransferHook(
+        params: CreateConfigWithTransferHookParams
+    ): Promise<Transaction> {
+        const {
+            config,
+            feeClaimer,
+            leftoverReceiver,
+            quoteMint,
+            transferHookProgram,
+            payer,
+            ...configParam
+        } = params
+
+        return this.buildCreateConfigWithTransferHookTx(
+            configParam,
+            new PublicKey(config),
+            new PublicKey(feeClaimer),
+            new PublicKey(leftoverReceiver),
+            new PublicKey(quoteMint),
+            new PublicKey(transferHookProgram),
+            new PublicKey(payer)
+        )
+    }
+
+    /**
      * Build one transaction that creates a config and initializes its pool.
      */
     async createConfigAndPool(
@@ -105,6 +136,57 @@ export class PartnerService extends DynamicBondingCurveProgram {
             },
             params.tokenType,
             quoteMintToken
+        )
+
+        tx.add(createConfigTx, createPoolTx)
+        return tx
+    }
+
+    /**
+     * Build one transaction that creates a transfer-hook config and initializes its pool.
+     */
+    async createConfigAndPoolWithTransferHook(
+        params: CreateConfigAndPoolWithTransferHookParams
+    ): Promise<Transaction> {
+        const {
+            config,
+            feeClaimer,
+            leftoverReceiver,
+            quoteMint,
+            transferHookProgram,
+            payer,
+            preCreatePoolParam,
+            ...configParam
+        } = params
+
+        const tx = new Transaction()
+        const configKey = new PublicKey(config)
+        const quoteMintToken = new PublicKey(quoteMint)
+        const payerAddress = new PublicKey(payer)
+
+        const createConfigTx = await this.buildCreateConfigWithTransferHookTx(
+            configParam,
+            configKey,
+            new PublicKey(feeClaimer),
+            new PublicKey(leftoverReceiver),
+            quoteMintToken,
+            new PublicKey(transferHookProgram),
+            payerAddress
+        )
+
+        const tokenQuoteProgram = getTokenProgram(
+            await getTokenType(this.connection, quoteMintToken)
+        )
+
+        const createPoolTx = await this.buildCreatePoolWithTransferHookTx(
+            {
+                ...preCreatePoolParam,
+                config: configKey,
+                payer: payerAddress,
+                transferHookProgram: new PublicKey(transferHookProgram),
+            },
+            quoteMintToken,
+            tokenQuoteProgram
         )
 
         tx.add(createConfigTx, createPoolTx)
@@ -167,6 +249,77 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 false,
                 configParam.activationType,
                 params.tokenType,
+                quoteMintToken,
+                true
+            )
+            createPoolWithFirstBuyTx.add(swapBuyTx)
+        }
+
+        return {
+            createConfigTx,
+            createPoolWithFirstBuyTx,
+        }
+    }
+
+    /**
+     * Build separate transactions for transfer-hook config creation and pool creation with an optional first buy.
+     */
+    async createConfigAndPoolWithFirstBuyWithTransferHook(
+        params: CreateConfigAndPoolWithFirstBuyWithTransferHookParams
+    ): Promise<{
+        createConfigTx: Transaction
+        createPoolWithFirstBuyTx: Transaction
+    }> {
+        const {
+            config,
+            feeClaimer,
+            leftoverReceiver,
+            quoteMint,
+            transferHookProgram,
+            payer,
+            preCreatePoolParam,
+            firstBuyParam,
+            ...configParam
+        } = params
+
+        const configKey = new PublicKey(config)
+        const quoteMintToken = new PublicKey(quoteMint)
+        const payerAddress = new PublicKey(payer)
+        const transferHookProgramKey = new PublicKey(transferHookProgram)
+
+        const createConfigTx = await this.buildCreateConfigWithTransferHookTx(
+            configParam,
+            configKey,
+            new PublicKey(feeClaimer),
+            new PublicKey(leftoverReceiver),
+            quoteMintToken,
+            transferHookProgramKey,
+            payerAddress
+        )
+
+        const tokenQuoteProgram = getTokenProgram(
+            await getTokenType(this.connection, quoteMintToken)
+        )
+
+        const createPoolWithFirstBuyTx =
+            await this.buildCreatePoolWithTransferHookTx(
+                {
+                    ...preCreatePoolParam,
+                    config: configKey,
+                    payer: payerAddress,
+                    transferHookProgram: transferHookProgramKey,
+                },
+                quoteMintToken,
+                tokenQuoteProgram
+            )
+
+        if (firstBuyParam && firstBuyParam.buyAmount.gt(new BN(0))) {
+            const swapBuyTx = await this.buildSwap2WithTransferHookBuyTx(
+                firstBuyParam,
+                preCreatePoolParam.baseMint,
+                configKey,
+                configParam.poolFees.baseFee,
+                configParam.activationType,
                 quoteMintToken,
                 true
             )
@@ -398,10 +551,12 @@ export class PartnerService extends DynamicBondingCurveProgram {
                   tokenQuoteProgram,
               })
 
-        const { info: transferHookAccountsInfo, accounts: transferHookAccounts } =
-            await this.getRemainingAccountsForTransferHook(
-                virtualPool.poolState.baseMint
-            )
+        const {
+            info: transferHookAccountsInfo,
+            accounts: transferHookAccounts,
+        } = await this.getRemainingAccountsForTransferHook(
+            virtualPool.poolState.baseMint
+        )
         const postInstructions: TransactionInstruction[] =
             isSOLQuoteMint && 'postInstructions' in result
                 ? (result.postInstructions as TransactionInstruction[])

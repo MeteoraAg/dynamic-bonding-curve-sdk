@@ -32,10 +32,13 @@ import {
     BaseFeeMode,
     ConfigParameters,
     CreatePoolParams,
+    CreatePoolWithTransferHookParams,
     FirstBuyParams,
+    FirstBuyWithTransferHookParams,
     InitializePoolBaseParams,
     PoolConfig,
     PrepareSwapParams,
+    SwapMode,
     TokenType,
     TradeDirection,
     TransferHookAccountsInfo,
@@ -162,6 +165,30 @@ export class DynamicBondingCurveProgram {
             .transaction()
     }
 
+    protected async buildCreateConfigWithTransferHookTx(
+        configParam: ConfigParameters,
+        config: PublicKey,
+        feeClaimer: PublicKey,
+        leftoverReceiver: PublicKey,
+        quoteMint: PublicKey,
+        transferHookProgram: PublicKey,
+        payer: PublicKey
+    ): Promise<Transaction> {
+        validateConfigParameters({ ...configParam, leftoverReceiver })
+
+        return this.program.methods
+            .createConfigWithTransferHook(configParam)
+            .accountsPartial({
+                config,
+                feeClaimer,
+                leftoverReceiver,
+                quoteMint,
+                transferHookProgram,
+                payer,
+            })
+            .transaction()
+    }
+
     protected async initializeSplPool(
         params: InitializePoolBaseParams
     ): Promise<Transaction> {
@@ -243,6 +270,51 @@ export class DynamicBondingCurveProgram {
             .transaction()
     }
 
+    protected async initializeToken2022PoolWithTransferHook(
+        params: InitializePoolBaseParams & {
+            transferHookProgram: PublicKey
+            tokenQuoteProgram: PublicKey
+        }
+    ): Promise<Transaction> {
+        const {
+            name,
+            symbol,
+            uri,
+            pool,
+            config,
+            payer,
+            poolCreator,
+            baseMint,
+            baseVault,
+            quoteVault,
+            quoteMint,
+            transferHookProgram,
+            tokenQuoteProgram,
+        } = params
+
+        return this.program.methods
+            .initializeVirtualPoolWithToken2022TransferHook({
+                name,
+                symbol,
+                uri,
+            })
+            .accountsPartial({
+                pool,
+                config,
+                payer,
+                creator: poolCreator,
+                baseMint,
+                poolAuthority: this.poolAuthority,
+                baseVault,
+                quoteVault,
+                quoteMint,
+                transferHookProgram,
+                tokenQuoteProgram,
+                tokenProgram: TOKEN_2022_PROGRAM_ID,
+            })
+            .transaction()
+    }
+
     protected async buildCreatePoolTx(
         createPoolParam: CreatePoolParams,
         tokenType: TokenType,
@@ -275,6 +347,43 @@ export class DynamicBondingCurveProgram {
         }
 
         return this.initializeToken2022Pool(baseParams)
+    }
+
+    protected async buildCreatePoolWithTransferHookTx(
+        createPoolParam: CreatePoolWithTransferHookParams,
+        quoteMint: PublicKey,
+        tokenQuoteProgram: PublicKey
+    ): Promise<Transaction> {
+        const {
+            baseMint,
+            name,
+            symbol,
+            uri,
+            poolCreator,
+            config,
+            payer,
+            transferHookProgram,
+        } = createPoolParam
+
+        const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
+        const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
+        const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
+
+        return this.initializeToken2022PoolWithTransferHook({
+            name,
+            symbol,
+            uri,
+            pool,
+            config,
+            payer,
+            poolCreator,
+            baseMint,
+            baseVault,
+            quoteVault,
+            quoteMint,
+            transferHookProgram,
+            tokenQuoteProgram,
+        })
     }
 
     protected async buildSwapBuyTx(
@@ -396,6 +505,180 @@ export class DynamicBondingCurveProgram {
                 amountIn: buyAmount,
                 minimumAmountOut,
             })
+            .accountsPartial({
+                baseMint,
+                quoteMint,
+                pool,
+                baseVault,
+                quoteVault,
+                config,
+                poolAuthority: this.poolAuthority,
+                referralTokenAccount,
+                inputTokenAccount,
+                outputTokenAccount,
+                payer: buyer,
+                tokenBaseProgram: outputTokenProgram,
+                tokenQuoteProgram: inputTokenProgram,
+            })
+            .remainingAccounts(remainingAccounts)
+            .preInstructions(preInstructions)
+            .postInstructions(postInstructions)
+            .transaction()
+    }
+
+    protected async buildSwap2WithTransferHookBuyTx(
+        firstBuyParam: FirstBuyWithTransferHookParams,
+        baseMint: PublicKey,
+        config: PublicKey,
+        baseFee: BaseFee,
+        activationType: ActivationType,
+        quoteMint: PublicKey,
+        enableFirstSwapWithMinFee: boolean
+    ): Promise<Transaction> {
+        const {
+            buyer,
+            receiver,
+            buyAmount,
+            minimumAmountOut,
+            referralTokenAccount,
+        } = firstBuyParam
+
+        validateSwapAmount(buyAmount)
+
+        let rateLimiterApplied = false
+        if (baseFee.baseFeeMode === BaseFeeMode.RateLimiter) {
+            const currentPoint = await getCurrentPoint(
+                this.connection,
+                activationType
+            )
+
+            rateLimiterApplied = isRateLimiterApplied(
+                currentPoint,
+                new BN(0),
+                TradeDirection.QuoteToBase,
+                baseFee.secondFactor,
+                baseFee.thirdFactor,
+                new BN(baseFee.firstFactor)
+            )
+        }
+
+        const quoteTokenFlag = await getTokenType(this.connection, quoteMint)
+        const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
+            this.prepareSwapParams(
+                false,
+                {
+                    baseMint,
+                    poolType: TokenType.Token2022,
+                },
+                {
+                    quoteMint,
+                    quoteTokenFlag,
+                }
+            )
+
+        const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
+        const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
+        const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
+        const preInstructions: TransactionInstruction[] = []
+
+        const [
+            { ataPubkey: inputTokenAccount, ix: createAtaTokenAIx },
+            { ataPubkey: outputTokenAccount, ix: createAtaTokenBIx },
+        ] = await Promise.all([
+            getOrCreateATAInstruction(
+                this.connection,
+                inputMint,
+                buyer,
+                buyer,
+                true,
+                inputTokenProgram
+            ),
+            getOrCreateATAInstruction(
+                this.connection,
+                outputMint,
+                receiver ? receiver : buyer,
+                buyer,
+                true,
+                outputTokenProgram
+            ),
+        ])
+        createAtaTokenAIx && preInstructions.push(createAtaTokenAIx)
+        createAtaTokenBIx && preInstructions.push(createAtaTokenBIx)
+
+        if (inputMint.equals(NATIVE_MINT)) {
+            preInstructions.push(
+                ...wrapSOLInstruction(
+                    buyer,
+                    inputTokenAccount,
+                    BigInt(buyAmount.toString())
+                )
+            )
+        }
+
+        const postInstructions: TransactionInstruction[] = []
+        if (
+            [inputMint.toBase58(), outputMint.toBase58()].includes(
+                NATIVE_MINT.toBase58()
+            )
+        ) {
+            const unwrapIx = unwrapSOLInstruction(buyer, buyer)
+            unwrapIx && postInstructions.push(unwrapIx)
+        }
+
+        const remainingAccounts: AccountMeta[] = []
+        if (rateLimiterApplied || enableFirstSwapWithMinFee) {
+            remainingAccounts.push({
+                isSigner: false,
+                isWritable: false,
+                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+            })
+        }
+
+        const transferHookAccountTypes =
+            referralTokenAccount != null
+                ? [
+                      AccountsType.TransferHookBase,
+                      AccountsType.TransferHookBaseReferral,
+                  ]
+                : [AccountsType.TransferHookBase]
+        let transferHookAccountsResult: {
+            info: TransferHookAccountsInfo
+            accounts: AccountMeta[]
+        }
+        if (
+            firstBuyParam.transferHookAccountsInfo &&
+            firstBuyParam.transferHookAccounts
+        ) {
+            transferHookAccountsResult = {
+                info: firstBuyParam.transferHookAccountsInfo,
+                accounts: firstBuyParam.transferHookAccounts,
+            }
+        } else {
+            try {
+                transferHookAccountsResult =
+                    await this.getRemainingAccountsForTransferHook(
+                        baseMint,
+                        transferHookAccountTypes
+                    )
+            } catch {
+                throw new Error(
+                    `Unable to resolve transfer-hook remaining accounts for ${baseMint.toString()}. ` +
+                        `When bundling pool initialization with the first buy, pass transferHookAccountsInfo and transferHookAccounts on the first-buy params.`
+                )
+            }
+        }
+
+        remainingAccounts.push(...transferHookAccountsResult.accounts)
+
+        return this.program.methods
+            .swap2WithTransferHook(
+                {
+                    amount0: buyAmount,
+                    amount1: minimumAmountOut,
+                    swapMode: SwapMode.ExactIn,
+                },
+                transferHookAccountsResult.info
+            )
             .accountsPartial({
                 baseMint,
                 quoteMint,
