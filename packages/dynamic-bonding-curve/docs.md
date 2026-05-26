@@ -8,7 +8,7 @@
     - [createConfigAndPoolWithFirstBuy](#createConfigAndPoolWithFirstBuy)
     - [createPartnerMetadata](#createPartnerMetadata)
     - [claimPartnerTradingFee](#claimPartnerTradingFee)
-    - [claimPartnerTradingFee2](#claimPartnerTradingFee2)
+    - [claimPartnerTradingFeeToReceiver](#claimPartnerTradingFeeToReceiver)
     - [partnerWithdrawSurplus](#partnerWithdrawSurplus)
     - [partnerWithdrawMigrationFee](#partnerWithdrawMigrationFee)
     - [claimPartnerPoolCreationFee](#claimPartnerPoolCreationFee)
@@ -42,7 +42,7 @@
     - [createPoolWithPartnerAndCreatorFirstBuy](#createPoolWithPartnerAndCreatorFirstBuy)
     - [createPoolMetadata](#createPoolMetadata)
     - [claimCreatorTradingFee](#claimCreatorTradingFee)
-    - [claimCreatorTradingFee2](#claimCreatorTradingFee2)
+    - [claimCreatorTradingFeeToReceiver](#claimCreatorTradingFeeToReceiver)
     - [creatorWithdrawSurplus](#creatorWithdrawSurplus)
     - [creatorWithdrawMigrationFee](#creatorWithdrawMigrationFee)
     - [transferPoolCreator](#transferPoolCreator)
@@ -997,20 +997,20 @@ const transaction = await client.partner.claimPartnerTradingFee({
 
 ---
 
-### claimPartnerTradingFee2
+### claimPartnerTradingFeeToReceiver
 
 Claims the trading fee for the partner. A partner is the `feeClaimer` in the config key.
 
 **Function**
 
 ```typescript
-async claimPartnerTradingFee2(params: ClaimTradingFee2Params): Promise<Transaction>
+async claimPartnerTradingFeeToReceiver(params: ClaimPartnerTradingFee2Params): Promise<Transaction>
 ```
 
 **Parameters**
 
 ```typescript
-interface ClaimTradingFee2Params {
+interface ClaimPartnerTradingFee2Params {
     pool: PublicKey // The pool address
     feeClaimer: PublicKey // The wallet that will claim the fee
     payer: PublicKey // The wallet that will pay for the transaction
@@ -1027,7 +1027,7 @@ interface ClaimTradingFee2Params {
 **Example**
 
 ```typescript
-const transaction = await client.partner.claimPartnerTradingFee2({
+const transaction = await client.partner.claimPartnerTradingFeeToReceiver({
     pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     feeClaimer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     payer: new PublicKey('payer1234567890abcdefghijklmnopqrstuvwxyz'),
@@ -1039,7 +1039,7 @@ const transaction = await client.partner.claimPartnerTradingFee2({
 
 **Notes**
 
-- The feeClaimer of the pool must be the same as the feeClaimer in the `ClaimTradingFee2Param` params.
+- The feeClaimer of the pool must be the same as the feeClaimer in the `ClaimPartnerTradingFee2Params` params.
 - You can indicate maxBaseAmount or maxQuoteAmount to be 0 to not claim Base or Quote tokens respectively.
 - Can be used in case the partner is a squad multisig account.
 
@@ -3024,14 +3024,14 @@ const transaction = await client.creator.claimCreatorTradingFee({
 
 ---
 
-### claimCreatorTradingFee2
+### claimCreatorTradingFeeToReceiver
 
 Claims a creator trading fee. If your pool's config key has `creatorTradingFeePercentage` > 0, you can use this function to claim the trading fee for the pool creator.
 
 **Function**
 
 ```typescript
-async claimCreatorTradingFee2(params: ClaimCreatorTradingFee2Params): Promise<Transaction>
+async claimCreatorTradingFeeToReceiver(params: ClaimCreatorTradingFee2Params): Promise<Transaction>
 ```
 
 **Parameters**
@@ -3054,7 +3054,7 @@ interface ClaimCreatorTradingFee2Params {
 **Example**
 
 ```typescript
-const transaction = await client.creator.claimCreatorTradingFee2({
+const transaction = await client.creator.claimCreatorTradingFeeToReceiver({
     creator: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     payer: new PublicKey('payer1234567890abcdefghijklmnopqrstuvwxyz'),
     pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),

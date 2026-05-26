@@ -294,7 +294,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
     /**
      * Build a transaction that claims partner trading fees to an explicit receiver.
      */
-    async claimPartnerTradingFee2(
+    async claimPartnerTradingFeeToReceiver(
         params: ClaimPartnerTradingFee2Params
     ): Promise<Transaction> {
         const {
@@ -352,6 +352,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 .transaction()
         }
     }
+
+    async claimPartnerTradingFee2() {}
 
     /**
      * Build a transaction that withdraws partner surplus from a pool.

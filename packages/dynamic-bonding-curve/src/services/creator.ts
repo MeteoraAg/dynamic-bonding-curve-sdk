@@ -282,7 +282,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
     /**
      * Build a transaction that claims creator trading fees to an explicit receiver.
      */
-    async claimCreatorTradingFee2(
+    async claimCreatorTradingFeeToReceiver(
         params: ClaimCreatorTradingFee2Params
     ): Promise<Transaction> {
         const {
@@ -340,6 +340,8 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 .transaction()
         }
     }
+
+    async claimCreatorTradingFee2() {}
 
     /**
      * Build a transaction that withdraws creator surplus from a pool.
