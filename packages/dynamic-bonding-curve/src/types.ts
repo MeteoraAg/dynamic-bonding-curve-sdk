@@ -75,6 +75,9 @@ export type SwapResult = IdlTypes<DynamicBondingCurve>['swapResult']
 
 export type SwapResult2 = IdlTypes<DynamicBondingCurve>['swapResult2']
 
+export type TransferHookAccountsInfo =
+    IdlTypes<DynamicBondingCurve>['transferHookAccountsInfo']
+
 export type VolatilityTracker =
     IdlTypes<DynamicBondingCurve>['volatilityTracker']
 
@@ -199,6 +202,15 @@ export enum SwapMode {
     PartialFill = 1,
     ExactOut = 2,
 }
+
+export const AccountsType = {
+    TransferHookBase: {
+        transferHookBase: {},
+    },
+    TransferHookBaseReferral: {
+        transferHookBaseReferral: {},
+    },
+} as const
 
 ///////////
 // TYPES //
