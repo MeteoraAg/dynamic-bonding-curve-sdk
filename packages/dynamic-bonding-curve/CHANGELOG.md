@@ -46,6 +46,7 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - Renamed internal/public DAMM V1 and Dynamic Vault generated IDL program types from `DammV1` and `DynamicVault` to `Amm` and `Vault`.
 - Updated validator and CI setup to use the `mercurial_vault.so` fixture and include the `transfer_hook_counter.so` fixture.
 - Reworked `docs.md` with the current SDK service layout and transfer-hook function documentation.
+- Updated `getMigratedPoolMarketCapFeeSchedulerParams` and `MigratedPoolMarketCapFeeSchedulerParams` to use `priceMultiple` directly.
 
 ### Breaking Changes
 
@@ -75,11 +76,12 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
     - `ClaimTradingFeeParams` -> `ClaimPartnerTradingFeeParams`
     - `ClaimTradingFee2Params` -> `ClaimPartnerTradingFeeToReceiverParams`
     - `ClaimCreatorTradingFee2Params` -> `ClaimCreatorTradingFeeToReceiverParams`
-- **The old `claimPartnerTradingFee2` and `claimCreatorTradingFee2` non-transfer-hook behavior moved to `claimPartnerTradingFeeToReceiver` and `claimCreatorTradingFeeToReceiver`.** In `1.5.7`, `claimPartnerTradingFee2` and `claimCreatorTradingFee2` build transfer-hook fee claim instructions and should be used only for transfer-hook pools.
+- **The old `claimPartnerTradingFee2` and `claimCreatorTradingFee2` non-transfer-hook behavior moved to `claimPartnerTradingFeeToReceiver` and `claimCreatorTradingFeeToReceiver`.** In `1.5.8`, `claimPartnerTradingFee2` and `claimCreatorTradingFee2` build transfer-hook fee claim instructions and should be used only for transfer-hook pools.
 - **`createVaultProgram` was renamed to `createDynamicVaultProgram`.** Update helper imports.
 - **`StateService.getDammV1LockEscrow` was removed.** Consumers that need lock escrow data must fetch it through the relevant generated program client.
 - **`LockEscrow` now comes from IDL types instead of IDL accounts.** Update assumptions if you were treating it as an Anchor account object.
 - **Raw IDL instruction indexes changed.** Code using `DynamicBondingCurve['instructions'][index]` directly must be updated because transfer-hook instructions shifted the generated instruction order.
+- **Market cap fee scheduler config now uses `priceMultiple`.** Replace `marketCapFeeSchedulerParams.startingMarketCap` and `marketCapFeeSchedulerParams.endingMarketCap` with `marketCapFeeSchedulerParams.priceMultiple`.
 
 ### Fixed
 
