@@ -10,9 +10,7 @@ import { CpAmm } from '../idl/damm-v2/idl'
 import DammV2IDL from '../idl/damm-v2/idl.json'
 
 /**
- * Create a DBC program instance
- * @param connection - The connection to the network
- * @returns The program instance
+ * Create an Anchor client for the DBC program.
  */
 export function createDbcProgram(
     connection: Connection,
@@ -30,11 +28,9 @@ export function createDbcProgram(
 }
 
 /**
- * Create a vault program instance
- * @param connection - The connection to the network
- * @returns The vault program instance
+ * Create an Anchor client for the Dynamic Vault program.
  */
-export function createVaultProgram(
+export function createDynamicVaultProgram(
     connection: Connection,
     commitment: Commitment = 'confirmed'
 ): Program<Vault> {
@@ -47,9 +43,7 @@ export function createVaultProgram(
 }
 
 /**
- * Create a DAMM V1 program instance
- * @param connection - The connection to the network
- * @returns The DAMM V1 program instance
+ * Create an Anchor client for the DAMM V1 program.
  */
 export function createDammV1Program(
     connection: Connection,
@@ -64,10 +58,7 @@ export function createDammV1Program(
 }
 
 /**
- * Create a DAMM V2 program instance
- * @param connection - The connection to the network
- * @param commitment - The commitment level
- * @returns The DAMM V2 program instance
+ * Create an Anchor client for the DAMM V2 program.
  */
 export function createDammV2Program(
     connection: Connection,

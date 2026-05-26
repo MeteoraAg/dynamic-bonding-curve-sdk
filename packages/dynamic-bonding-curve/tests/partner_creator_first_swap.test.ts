@@ -22,7 +22,7 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
 } from '../src'
 import { BN } from 'bn.js'
 import { NATIVE_MINT } from '@solana/spl-token'
@@ -69,11 +69,11 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
 
         curveConfig = buildCurveWithCustomSqrtPrices({
             token: {
-                tokenType: TokenType.SPL,
+                tokenType: TokenType.SPLToken,
                 tokenBaseDecimal: tokenBaseDecimal,
                 tokenQuoteDecimal: tokenQuoteDecimal,
-                tokenUpdateAuthority:
-                    TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+                tokenAuthorityOption:
+                    TokenAuthorityOption.PartnerUpdateAuthority,
                 totalTokenSupply: 1_000_000_000,
                 leftover: 1000,
             },
@@ -161,9 +161,9 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
         }
 
         const createOnlyPoolTx =
-            await dbcClient.pool.createPool(createPoolParam)
+            await dbcClient.creator.createPool(createPoolParam)
         const bundledTx =
-            await dbcClient.pool.createPoolWithPartnerAndCreatorFirstBuy({
+            await dbcClient.creator.createPoolWithPartnerAndCreatorFirstBuy({
                 createPoolParam,
                 partnerFirstBuyParam: {
                     partner: partner.publicKey,
@@ -216,9 +216,9 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
         }
 
         const createOnlyPoolTx =
-            await dbcClient.pool.createPool(createPoolParam)
+            await dbcClient.creator.createPool(createPoolParam)
         const bundledTx =
-            await dbcClient.pool.createPoolWithPartnerAndCreatorFirstBuy({
+            await dbcClient.creator.createPoolWithPartnerAndCreatorFirstBuy({
                 createPoolParam,
                 partnerFirstBuyParam: {
                     partner: partner.publicKey,

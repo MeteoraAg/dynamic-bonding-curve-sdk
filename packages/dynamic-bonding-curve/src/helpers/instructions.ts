@@ -16,11 +16,7 @@ import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { Amm } from '../idl/damm-v1/idl'
 
 /**
- * Create a permissionless dynamic vault instruction
- * @param mint - The mint of the vault
- * @param payer - The payer of the vault
- * @param vaultProgram - The vault program
- * @returns The vault key, token vault key, and lp mint key
+ * Build the instruction and derived addresses for a permissionless dynamic vault.
  */
 export async function createInitializePermissionlessDynamicVaultIx(
     mint: PublicKey,
@@ -61,15 +57,7 @@ export async function createInitializePermissionlessDynamicVaultIx(
 }
 
 /**
- * Create a lock escrow instruction
- * @param connection - The connection to the Solana network
- * @param payer - The payer of the lock escrow
- * @param pool - The pool address
- * @param lpMint - The lp mint address
- * @param escrowOwner - The owner of the escrow
- * @param lockEscrowKey - The lock escrow key
- * @param dammV1Program - The DAMM V1 program
- * @returns The lock escrow instruction
+ * Build the DAMM V1 lock escrow instruction.
  */
 export async function createLockEscrowIx(
     payer: PublicKey,

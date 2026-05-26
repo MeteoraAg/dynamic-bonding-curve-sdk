@@ -17,20 +17,21 @@ export class DynamicBondingCurveClient {
     public connection: Connection
 
     constructor(connection: Connection, commitment: Commitment) {
-        this.pool = new PoolService(connection, commitment)
-        this.partner = new PartnerService(connection, commitment)
-        this.creator = new CreatorService(connection, commitment)
-        this.migration = new MigrationService(connection, commitment)
         this.state = new StateService(connection, commitment)
+        this.pool = new PoolService(connection, commitment, this.state)
+        this.partner = new PartnerService(connection, commitment, this.state)
+        this.creator = new CreatorService(connection, commitment, this.state)
+        this.migration = new MigrationService(
+            connection,
+            commitment,
+            this.state
+        )
         this.commitment = commitment
         this.connection = connection
     }
 
     /**
-     * Static method to create a client instance for a specific pool
-     * @param connection - The connection to the Solana network
-     * @param commitment - The commitment to the Solana network
-     * @returns A DynamicBondingCurveClient instance
+     * Create a client with shared service state.
      */
     static create(
         connection: Connection,

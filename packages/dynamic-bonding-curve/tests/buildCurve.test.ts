@@ -18,7 +18,7 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
 } from '../src'
 import { convertBNToDecimal } from './utils/common'
 import {
@@ -29,10 +29,10 @@ import {
 describe('buildCurve tests', () => {
     const baseParams: BuildCurveBaseParams = {
         token: {
-            tokenType: TokenType.SPL,
+            tokenType: TokenType.SPLToken,
             tokenBaseDecimal: TokenDecimal.SIX,
             tokenQuoteDecimal: TokenDecimal.NINE,
-            tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+            tokenAuthorityOption: TokenAuthorityOption.Immutable,
             totalTokenSupply: 1000000000,
             leftover: 0,
         },
@@ -396,10 +396,10 @@ describe('validateMigratedPoolFee with Compounding mode', () => {
 
 describe('Migration Fee Option Tests', () => {
     const baseTokenParams = {
-        tokenType: TokenType.SPL,
+        tokenType: TokenType.SPLToken,
         tokenBaseDecimal: TokenDecimal.SIX,
         tokenQuoteDecimal: TokenDecimal.NINE,
-        tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+        tokenAuthorityOption: TokenAuthorityOption.Immutable,
         totalTokenSupply: 1_000_000_000,
         leftover: 0,
     }

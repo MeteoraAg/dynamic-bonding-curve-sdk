@@ -10,7 +10,7 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
 } from '../src'
 import Decimal from 'decimal.js'
 import { convertBNToDecimal } from './utils/common'
@@ -18,10 +18,10 @@ import { convertBNToDecimal } from './utils/common'
 describe('buildCurveWithLiquidityWeights tests', () => {
     const baseParams: BuildCurveBaseParams = {
         token: {
-            tokenType: TokenType.SPL,
+            tokenType: TokenType.SPLToken,
             tokenBaseDecimal: TokenDecimal.SIX,
             tokenQuoteDecimal: TokenDecimal.NINE,
-            tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+            tokenAuthorityOption: TokenAuthorityOption.Immutable,
             totalTokenSupply: 1000000000,
             leftover: 1000,
         },
@@ -143,10 +143,10 @@ describe('buildCurveWithLiquidityWeights tests', () => {
         const curveGraphParams = {
             ...baseParams,
             token: {
-                tokenType: TokenType.SPL,
+                tokenType: TokenType.SPLToken,
                 tokenBaseDecimal: TokenDecimal.NINE,
                 tokenQuoteDecimal: TokenDecimal.SIX,
-                tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                tokenAuthorityOption: TokenAuthorityOption.Immutable,
                 totalTokenSupply: 1000000000,
                 leftover: 200000000,
             },
@@ -196,10 +196,10 @@ describe('buildCurveWithLiquidityWeights tests', () => {
         const curveGraphParams = {
             ...baseParams,
             token: {
-                tokenType: TokenType.SPL,
+                tokenType: TokenType.SPLToken,
                 tokenBaseDecimal: TokenDecimal.SIX,
                 tokenQuoteDecimal: TokenDecimal.SIX,
-                tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                tokenAuthorityOption: TokenAuthorityOption.Immutable,
                 totalTokenSupply: 100000000,
                 leftover: 50000000,
             },

@@ -15,7 +15,7 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
 } from '../../src'
 
 export const LOCALNET_RPC_URL = 'http://127.0.0.1:8899'
@@ -81,11 +81,11 @@ export function buildTestCurveConfig(options?: {
 
     return buildCurveWithCustomSqrtPrices({
         token: {
-            tokenType: TokenType.SPL,
+            tokenType: TokenType.SPLToken,
             tokenBaseDecimal,
             tokenQuoteDecimal,
-            tokenUpdateAuthority:
-                TokenUpdateAuthorityOption.PartnerUpdateAuthority,
+            tokenAuthorityOption:
+                TokenAuthorityOption.PartnerUpdateAuthority,
             totalTokenSupply: 1_000_000_000,
             leftover: 1000,
         },

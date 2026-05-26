@@ -22,14 +22,7 @@ import {
 import { TokenType } from '../types'
 
 /**
- * Get or create an ATA instruction
- * @param connection - The connection
- * @param tokenMint - The token mint
- * @param owner - The owner
- * @param payer - The payer
- * @param allowOwnerOffCurve - Whether to allow the owner to be off curve
- * @param tokenProgram - The token program
- * @returns The ATA instruction
+ * Return an ATA address and an idempotent create instruction when the account is missing.
  */
 export const getOrCreateATAInstruction = async (
     connection: Connection,
@@ -72,11 +65,7 @@ export const getOrCreateATAInstruction = async (
 }
 
 /**
- * Unwrap SOL instruction
- * @param owner - The owner of the SOL
- * @param receiver - The receiver of the SOL
- * @param allowOwnerOffCurve - Whether to allow the owner to be off curve
- * @returns The unwrap SOL instruction
+ * Build an instruction that closes the owner's wrapped SOL ATA into a receiver.
  */
 export function unwrapSOLInstruction(
     owner: PublicKey,
@@ -102,11 +91,7 @@ export function unwrapSOLInstruction(
 }
 
 /**
- * Wrap SOL instruction
- * @param from - The from address
- * @param to - The to address
- * @param amount - The amount to wrap
- * @returns The wrap SOL instruction
+ * Build transfer and sync instructions that wrap SOL into an existing wrapped SOL account.
  */
 export function wrapSOLInstruction(
     from: PublicKey,
@@ -134,11 +119,7 @@ export function wrapSOLInstruction(
 }
 
 /**
- * Find the associated token address for a wallet and token mint
- * @param walletAddress - The wallet address
- * @param tokenMintAddress - The token mint address
- * @param tokenProgramId - The token program ID
- * @returns The associated token address
+ * Derive the associated token address for a wallet, mint, and token program.
  */
 export function findAssociatedTokenAddress(
     walletAddress: PublicKey,
@@ -156,10 +137,7 @@ export function findAssociatedTokenAddress(
 }
 
 /**
- * Get token decimals for a particular mint
- * @param connection - The connection
- * @param mintAddress - The mint address to get decimals for
- * @returns The number of decimals for the token
+ * Fetch a mint account and return its token decimals.
  */
 export async function getTokenDecimals(
     connection: Connection,
@@ -182,21 +160,16 @@ export async function getTokenDecimals(
 }
 
 /**
- * Get the token program for a given token type
- * @param tokenType - The token type
- * @returns The token program
+ * Return the SPL Token program ID for a token type.
  */
 export function getTokenProgram(tokenType: TokenType): PublicKey {
-    return tokenType === TokenType.SPL
+    return tokenType === TokenType.SPLToken
         ? TOKEN_PROGRAM_ID
         : TOKEN_2022_PROGRAM_ID
 }
 
 /**
- * Get the token type based on the token mint's program owner
- * @param connection - The connection
- * @param tokenMint - The token mint
- * @returns The token type (SPL [0] or Token2022 [1])
+ * Return the token type from the mint account owner, or `null` if the mint is missing.
  */
 export async function getTokenType(
     connection: Connection,
@@ -208,19 +181,12 @@ export async function getTokenType(
     }
 
     return accountInfo.owner.equals(TOKEN_PROGRAM_ID)
-        ? TokenType.SPL
+        ? TokenType.SPLToken
         : TokenType.Token2022
 }
 
 /**
- * Prepare token accounts instruction
- * @param connection - The connection
- * @param owner - The owner of the token account
- * @param payer - The payer of the token account
- * @param tokenMint - The mint of the token account
- * @param amount - The amount of the token account
- * @param tokenProgram - The token program ID.
- * @returns The transaction and token account public key
+ * Build a setup transaction for a token account, including SOL wrapping when needed.
  */
 export async function prepareTokenAccountTx(
     connection: Connection,
@@ -260,11 +226,7 @@ export async function prepareTokenAccountTx(
 }
 
 /**
- * Clean up token account instruction
- * @param owner - The owner of the token account
- * @param receiver - The receiver of the token account
- * @param tokenMint - The mint of the token account
- * @returns The transaction
+ * Build a cleanup transaction for wrapped SOL accounts.
  */
 export async function cleanUpTokenAccountTx(
     owner: PublicKey,

@@ -10,17 +10,17 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenType,
-    TokenUpdateAuthorityOption,
+    TokenAuthorityOption,
 } from '../src'
 import { convertBNToDecimal } from './utils/common'
 
 describe('buildCurveWithTwoSegments tests', () => {
     const baseParams: BuildCurveBaseParams = {
         token: {
-            tokenType: TokenType.SPL,
+            tokenType: TokenType.SPLToken,
             tokenBaseDecimal: TokenDecimal.SIX,
             tokenQuoteDecimal: TokenDecimal.NINE,
-            tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+            tokenAuthorityOption: TokenAuthorityOption.Immutable,
             totalTokenSupply: 1000000000,
             leftover: 10000,
         },
@@ -70,10 +70,10 @@ describe('buildCurveWithTwoSegments tests', () => {
         const config = buildCurveWithTwoSegments({
             ...baseParams,
             token: {
-                tokenType: TokenType.SPL,
+                tokenType: TokenType.SPLToken,
                 tokenBaseDecimal: TokenDecimal.NINE,
                 tokenQuoteDecimal: TokenDecimal.NINE,
-                tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+                tokenAuthorityOption: TokenAuthorityOption.Immutable,
                 totalTokenSupply: 1000000000,
                 leftover: 350000000,
             },
