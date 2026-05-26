@@ -18,7 +18,7 @@ import {
     type PartnerWithdrawSurplusParams,
     WithdrawMigrationFeeParams,
     ClaimPartnerPoolCreationFeeParams,
-    ClaimPartnerTradingFee2Params,
+    ClaimPartnerTradingFeeToReceiverParams,
 } from '../types'
 import {
     derivePartnerMetadata,
@@ -295,7 +295,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * Build a transaction that claims partner trading fees to an explicit receiver.
      */
     async claimPartnerTradingFeeToReceiver(
-        params: ClaimPartnerTradingFee2Params
+        params: ClaimPartnerTradingFeeToReceiverParams
     ): Promise<Transaction> {
         const {
             feeClaimer,
@@ -357,7 +357,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
      * Build a transaction that claims partner trading fees with transfer-hook support.
      */
     async claimPartnerTradingFee2(
-        params: ClaimPartnerTradingFee2Params
+        params: ClaimPartnerTradingFeeToReceiverParams
     ): Promise<Transaction> {
         const {
             feeClaimer,
