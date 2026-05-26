@@ -35,7 +35,6 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 
 ### Changed
 
-- Bumped the SDK package version to `1.5.7`.
 - Updated the DBC IDL and generated types to include transfer-hook instructions and account layouts.
 - Updated DAMM V1, DAMM V2, and Dynamic Vault IDLs and generated types.
 - Updated `DynamicBondingCurveClient` so all services share one `StateService` instance.
@@ -46,7 +45,6 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - Renamed `createVaultProgram` to `createDynamicVaultProgram` to match the Dynamic Vault IDL naming.
 - Renamed internal/public DAMM V1 and Dynamic Vault generated IDL program types from `DammV1` and `DynamicVault` to `Amm` and `Vault`.
 - Updated validator and CI setup to use the `mercurial_vault.so` fixture and include the `transfer_hook_counter.so` fixture.
-- Updated CI to use Node `22.13` and pnpm `11.3.0`.
 - Reworked `docs.md` with the current SDK service layout and transfer-hook function documentation.
 
 ### Breaking Changes
