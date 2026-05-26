@@ -1,9 +1,9 @@
 packages:
   - 'packages/*'
 
-onlyBuiltDependencies:
-  - bigint-buffer
-  - bufferutil
-  - esbuild
-  - protobufjs
-  - utf-8-validate
+allowBuilds:
+  bigint-buffer: true
+  bufferutil: true
+  esbuild: true
+  protobufjs: true
+  utf-8-validate: true
