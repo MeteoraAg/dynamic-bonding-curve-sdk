@@ -483,7 +483,11 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
             return this.program.methods
                 .claimTradingFee(maxBaseAmount, maxQuoteAmount)
-                .accountsPartial({ ...result.accounts, feeClaimer })
+                .accountsPartial({
+                    ...result.accounts,
+                    config: virtualPool.poolState.config,
+                    feeClaimer,
+                })
                 .preInstructions(result.preInstructions)
                 .postInstructions(result.postInstructions)
                 .transaction()
@@ -499,7 +503,11 @@ export class PartnerService extends DynamicBondingCurveProgram {
             })
             return this.program.methods
                 .claimTradingFee(maxBaseAmount, maxQuoteAmount)
-                .accountsPartial({ ...result.accounts, feeClaimer })
+                .accountsPartial({
+                    ...result.accounts,
+                    config: virtualPool.poolState.config,
+                    feeClaimer,
+                })
                 .preInstructions(result.preInstructions)
                 .postInstructions([])
                 .transaction()
