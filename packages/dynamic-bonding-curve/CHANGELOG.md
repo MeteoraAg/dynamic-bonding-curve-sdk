@@ -68,18 +68,18 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
     - `WithdrawMigrationFeeParams`
     - `ClaimPartnerPoolCreationFeeParams`
 - **Virtual pool account data now uses the nested `poolState` layout.** Code that directly reads `VirtualPool` fields must migrate from flat fields like `pool.config`, `pool.baseMint`, `pool.quoteReserve`, `pool.sqrtPrice`, and `pool.metrics` to `pool.poolState.config`, `pool.poolState.baseMint`, `pool.poolState.quoteReserve`, `pool.poolState.sqrtPrice`, and `pool.poolState.metrics`.
-- `**TokenType.SPL` was renamed to `TokenType.SPLToken`.\*\* The enum value remains `0`, but TypeScript callers must update the enum member name.
-- `**TokenUpdateAuthorityOption` was renamed to `TokenAuthorityOption`.\*\* Update imports and references.
-- `**TokenConfig.tokenUpdateAuthority` was renamed to `tokenAuthorityOption` for all `buildCurve`\* helpers.\*\* The helper still maps this value to the on-chain `tokenUpdateAuthority` config field.
-- `**PreCreatePoolParams` was renamed to `CreatePoolBaseParams`.\*\* Update imports and any explicit type annotations.
+- **`TokenType.SPL` was renamed to `TokenType.SPLToken`.** The enum value remains `0`, but TypeScript callers must update the enum member name.
+- **`TokenUpdateAuthorityOption` was renamed to `TokenAuthorityOption`.** Update imports and references.
+- **`TokenConfig.tokenUpdateAuthority` was renamed to `tokenAuthorityOption` for all `buildCurve*` helpers.** The helper still maps this value to the on-chain `tokenUpdateAuthority` config field.
+- **`PreCreatePoolParams` was renamed to `CreatePoolBaseParams`.** Update imports and any explicit type annotations.
 - **The old no-`tempWSolAcc` trading fee claim types were renamed.**
     - `ClaimTradingFeeParams` -> `ClaimPartnerTradingFeeParams`
     - `ClaimTradingFee2Params` -> `ClaimPartnerTradingFeeToReceiverParams`
     - `ClaimCreatorTradingFee2Params` -> `ClaimCreatorTradingFeeToReceiverParams`
 - **The old `claimPartnerTradingFee2` and `claimCreatorTradingFee2` non-transfer-hook behavior moved to `claimPartnerTradingFeeToReceiver` and `claimCreatorTradingFeeToReceiver`.** In `1.5.8`, `claimPartnerTradingFee2` and `claimCreatorTradingFee2` build transfer-hook fee claim instructions and should be used only for transfer-hook pools.
-- `**createVaultProgram` was renamed to `createDynamicVaultProgram`.\*\* Update helper imports.
-- `**StateService.getDammV1LockEscrow` was removed.\*\* Consumers that need lock escrow data must fetch it through the relevant generated program client.
-- `**LockEscrow` now comes from IDL types instead of IDL accounts.\*\* Update assumptions if you were treating it as an Anchor account object.
+- **`createVaultProgram` was renamed to `createDynamicVaultProgram`.** Update helper imports.
+- **`StateService.getDammV1LockEscrow` was removed.** Consumers that need lock escrow data must fetch it through the relevant generated program client.
+- **`LockEscrow` now comes from IDL types instead of IDL accounts.** Update assumptions if you were treating it as an Anchor account object.
 - **Raw IDL instruction indexes changed.** Code using `DynamicBondingCurve['instructions'][index]` directly must be updated because transfer-hook instructions shifted the generated instruction order.
 - **Market cap fee scheduler config now uses `priceMultiple`.** Replace `marketCapFeeSchedulerParams.startingMarketCap` and `marketCapFeeSchedulerParams.endingMarketCap` with `marketCapFeeSchedulerParams.priceMultiple`.
 
@@ -100,7 +100,7 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 ### Added
 
 - Added `MigratedCollectFeeMode` enum with `Compounding` (2) support for migrated DAMM v2 pool configuration.
-- Added `compoundingFeeBps` support in `MigratedPoolFeeConfig` and propagated it through all `buildCurve`\* helpers.
+- Added `compoundingFeeBps` support in `MigratedPoolFeeConfig` and propagated it through all `buildCurve*` helpers.
 
 ### Changed
 
@@ -149,7 +149,7 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 
 ### Breaking Changes
 
-- `**BuildCurveBaseParams` restructured\*_ from flat parameters to nested groups: `token: TokenConfig`, `fee: FeeConfig`, `migration: MigrationConfig`, `liquidityDistribution: LiquidityDistributionConfig`, `lockedVesting: LockedVestingParams`, `activationType: ActivationType`. This affects all `buildCurve`_ functions: `buildCurve`, `buildCurveWithMarketCap`, `buildCurveWithTwoSegments`, `buildCurveWithMidPrice`, `buildCurveWithLiquidityWeights`, `buildCurveWithCustomSqrtPrices`.
+- **`BuildCurveBaseParams` restructured** from flat parameters to nested groups: `token: TokenConfig`, `fee: FeeConfig`, `migration: MigrationConfig`, `liquidityDistribution: LiquidityDistributionConfig`, `lockedVesting: LockedVestingParams`, `activationType: ActivationType`. This affects all `buildCurve*` functions: `buildCurve`, `buildCurveWithMarketCap`, `buildCurveWithTwoSegments`, `buildCurveWithMidPrice`, `buildCurveWithLiquidityWeights`, `buildCurveWithCustomSqrtPrices`.
 
 ## [1.5.2] - 2026-01-27
 
