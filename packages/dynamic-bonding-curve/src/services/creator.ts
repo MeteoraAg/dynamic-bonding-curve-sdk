@@ -622,7 +622,10 @@ export class CreatorService extends DynamicBondingCurveProgram {
     ): Promise<Transaction> {
         const { pool, creator, newCreator } = params
 
-        const { virtualPool } = await this.getPoolWithConfig(pool)
+        const virtualPool = await this.state.getPool(pool)
+        if (!virtualPool) {
+            throw new Error(`Pool not found: ${pool.toString()}`)
+        }
 
         const migrationMetadata = deriveDammV1MigrationMetadataAddress(pool)
         const transaction = await this.program.methods
