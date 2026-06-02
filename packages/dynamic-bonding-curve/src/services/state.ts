@@ -28,7 +28,7 @@ export class StateService extends DynamicBondingCurveProgram {
      */
     async getPoolConfig(
         configAddress: PublicKey | string
-    ): Promise<PoolConfig> {
+    ): Promise<PoolConfig | null> {
         const address =
             configAddress instanceof PublicKey
                 ? configAddress
@@ -53,8 +53,7 @@ export class StateService extends DynamicBondingCurveProgram {
                 this.commitment
             )
 
-        return (configWithTransferHook as ConfigWithTransferHook | null)
-            ?.config as PoolConfig
+        return configWithTransferHook?.config ?? null
     }
 
     /**
@@ -77,7 +76,9 @@ export class StateService extends DynamicBondingCurveProgram {
     /**
      * Fetch a virtual pool account.
      */
-    async getPool(poolAddress: PublicKey | string): Promise<VirtualPool> {
+    async getPool(
+        poolAddress: PublicKey | string
+    ): Promise<VirtualPool | null> {
         const address =
             poolAddress instanceof PublicKey
                 ? poolAddress
@@ -96,10 +97,10 @@ export class StateService extends DynamicBondingCurveProgram {
             // Transfer-hook pools use a different discriminator but embed PoolState.
         }
 
-        return (await this.program.account.transferHookPool.fetchNullable(
+        return await this.program.account.transferHookPool.fetchNullable(
             address,
             this.commitment
-        )) as TransferHookPool
+        )
     }
 
     /**
