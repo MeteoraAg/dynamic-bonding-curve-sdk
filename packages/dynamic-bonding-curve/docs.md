@@ -134,7 +134,7 @@ interface CreateConfigParams {
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
     migrationOption: number // 0: DAMM V1, 1: DAMM v2
     activationType: number // 0: Slot, 1: Timestamp
-    tokenType: number // 0: SPL, 1: Token2022
+    tokenType: number // 0: SPLToken, 1: Token2022
     tokenDecimal: number // The number of decimals for the token
     partnerLiquidityPercentage: number // The percentage of the LP that will be allocated to the partner in the graduated pool (0-100)
     partnerPermanentLockedLiquidityPercentage: number // The percentage of the locked LP that will be allocated to the partner in the graduated pool (0-100)
@@ -329,7 +329,7 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 
 **Migration and Token Type**
 
-- For migration to DAMM v1 (MigrationOption: 0), token type must be type SPL (TokenType: 0)
+- For migration to DAMM v1 (MigrationOption: 0), token type must be type SPLToken (TokenType: 0)
 
 **Activation Type**
 
@@ -511,7 +511,7 @@ interface CreateConfigAndPoolParams {
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
     migrationOption: number // 0: DAMM V1, 1: DAMM v2
     activationType: number // 0: Slot, 1: Timestamp
-    tokenType: number // 0: SPL, 1: Token2022
+    tokenType: number // 0: SPLToken, 1: Token2022
     tokenDecimal: number // The number of decimals for the token
     partnerLiquidityPercentage: number // The percentage of the LP that will be allocated to the partner in the graduated pool (0-100)
     partnerPermanentLockedLiquidityPercentage: number // The percentage of the locked LP that will be allocated to the partner in the graduated pool (0-100)
@@ -808,7 +808,7 @@ interface CreateConfigAndPoolWithFirstBuyParams {
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
     migrationOption: number // 0: DAMM V1, 1: DAMM v2
     activationType: number // 0: Slot, 1: Timestamp
-    tokenType: number // 0: SPL, 1: Token2022
+    tokenType: number // 0: SPLToken, 1: Token2022
     tokenDecimal: number // The number of decimals for the token
     partnerLiquidityPercentage: number // The percentage of the LP that will be allocated to the partner in the graduated pool (0-100)
     partnerPermanentLockedLiquidityPercentage: number // The percentage of the locked LP that will be allocated to the partner in the graduated pool (0-100)
@@ -1304,7 +1304,7 @@ async partnerWithdrawSurplus(params: PartnerWithdrawSurplusParams): Promise<Tran
 ```typescript
 interface PartnerWithdrawSurplusParams {
     feeClaimer: PublicKey // The wallet that will claim the fee
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
 }
 ```
 
@@ -1317,7 +1317,7 @@ interface PartnerWithdrawSurplusParams {
 ```typescript
 const transaction = await client.partner.partnerWithdrawSurplus({
     feeClaimer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
 })
 ```
 
@@ -1341,7 +1341,7 @@ async partnerWithdrawMigrationFee(params: WithdrawMigrationFeeParams): Promise<T
 
 ```typescript
 interface WithdrawMigrationFeeParams {
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
     sender: PublicKey // The wallet that will claim the fee
 }
 ```
@@ -1354,7 +1354,7 @@ interface WithdrawMigrationFeeParams {
 
 ```typescript
 const transaction = await client.partner.partnerWithdrawMigrationFee({
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     sender: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
 })
 ```
@@ -1379,7 +1379,7 @@ async claimPartnerPoolCreationFee(params: ClaimPartnerPoolCreationFeeParams): Pr
 
 ```typescript
 interface ClaimPartnerPoolCreationFeeParams {
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
     feeReceiver: PublicKey // The wallet that will claim the fee
 }
 ```
@@ -1392,14 +1392,14 @@ interface ClaimPartnerPoolCreationFeeParams {
 
 ```typescript
 const transaction = await client.partner.claimPartnerPoolCreationFee({
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     feeReceiver: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
 })
 ```
 
 **Notes**
 
-- The signer of the transaction must be the same as the feeClaimer in the `virtualPool`'s config.
+- The signer of the transaction must be the same as the feeClaimer in the `pool`'s config.
 
 ---
 
@@ -1423,7 +1423,7 @@ All `buildCurve*` functions share the same base parameters (`BuildCurveBaseParam
 interface BuildCurveParams {
     // Token configuration
     token: {
-        tokenType: TokenType // 0: SPL, 1: Token2022
+        tokenType: TokenType // 0: SPLToken, 1: Token2022
         tokenBaseDecimal: TokenDecimal // 6, 7, 8, or 9
         tokenQuoteDecimal: TokenDecimal // 6, 7, 8, or 9
         tokenAuthorityOption: TokenAuthorityOption // 0: CreatorUpdateAuthority, 1: Immutable, 2: PartnerUpdateAuthority, 3: CreatorUpdateAndMintAuthority, 4: PartnerUpdateAndMintAuthority
@@ -2724,7 +2724,7 @@ async createLocker(params: CreateLockerParams): Promise<Transaction>
 ```typescript
 interface CreateLockerParams {
     payer: PublicKey // The payer of the transaction
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
 }
 ```
 
@@ -2737,7 +2737,7 @@ interface CreateLockerParams {
 ```typescript
 const transaction = await client.migration.createLocker({
     payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
 })
 ```
 
@@ -2762,7 +2762,7 @@ async withdrawLeftover(params: WithdrawLeftoverParams): Promise<Transaction>
 ```typescript
 interface WithdrawLeftoverParams {
     payer: PublicKey // The payer of the transaction
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
 }
 ```
 
@@ -2775,7 +2775,7 @@ interface WithdrawLeftoverParams {
 ```typescript
 const transaction = await client.migration.withdrawLeftover({
     payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
 })
 ```
 
@@ -2841,7 +2841,7 @@ async migrateToDammV1(params: MigrateToDammV1Params): Promise<Transaction>
 ```typescript
 interface MigrateToDammV1Params {
     payer: PublicKey // The payer of the transaction
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
     dammConfig: PublicKey // The damm graduation fee config address
 }
 ```
@@ -2855,7 +2855,7 @@ interface MigrateToDammV1Params {
 ```typescript
 const transaction = await client.migration.migrateToDammV1({
     payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     dammConfig: new PublicKey('8f848CEy8eY6PhJ3VcemtBDzPPSD4Vq7aJczLZ3o8MmX'),
 })
 ```
@@ -2895,7 +2895,7 @@ async lockDammV1LpToken(params: DammLpTokenParams): Promise<Transaction>
 ```typescript
 interface DammLpTokenParams {
     payer: PublicKey // The payer of the transaction
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
     dammConfig: PublicKey // The damm graduation fee config address
     isPartner: boolean // Whether the LP token is a partner
 }
@@ -2910,7 +2910,7 @@ interface DammLpTokenParams {
 ```typescript
 const transaction = await client.migration.lockDammV1LpToken({
     payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     dammConfig: new PublicKey('1234567890abcdefghijklmnopqrstuvwxyz'),
     isPartner: true,
 })
@@ -2938,7 +2938,7 @@ async claimDammV1LpToken(params: DammLpTokenParams): Promise<Transaction>
 ```typescript
 interface DammLpTokenParams {
     payer: PublicKey // The payer of the transaction
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
     dammConfig: PublicKey // The damm graduation fee config address
     isPartner: boolean // Whether the LP token is a partner
 }
@@ -2953,7 +2953,7 @@ interface DammLpTokenParams {
 ```typescript
 const transaction = await client.migration.claimDammV1LpToken({
     payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     dammConfig: new PublicKey('1234567890abcdefghijklmnopqrstuvwxyz'),
     isPartner: true,
 })
@@ -2981,7 +2981,7 @@ async migrateToDammV2(params: MigrateToDammV2Params): Promise<Transaction>
 ```typescript
 interface MigrateToDammV2Params {
     payer: PublicKey // The payer of the transaction
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
     dammConfig: PublicKey // The damm graduation fee config address
 }
 ```
@@ -2995,7 +2995,7 @@ interface MigrateToDammV2Params {
 ```typescript
 const transaction = await client.migration.migrateToDammV2({
     payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     dammConfig: new PublicKey('7F6dnUcRuyM2TwR8myT1dYypFXpPSxqwKNSFNkxyNESd'),
 })
 ```
@@ -3654,7 +3654,7 @@ async creatorWithdrawSurplus(params: CreatorWithdrawSurplusParams): Promise<Tran
 ```typescript
 interface CreatorWithdrawSurplusParams {
     creator: PublicKey // The creator of the pool
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
 }
 ```
 
@@ -3667,7 +3667,7 @@ interface CreatorWithdrawSurplusParams {
 ```typescript
 const transaction = await client.creator.creatorWithdrawSurplus({
     creator: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
 })
 ```
 
@@ -3691,7 +3691,7 @@ async creatorWithdrawMigrationFee(params: WithdrawMigrationFeeParams): Promise<T
 
 ```typescript
 interface WithdrawMigrationFeeParams {
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
     sender: PublicKey // The wallet that will claim the fee
 }
 ```
@@ -3704,7 +3704,7 @@ interface WithdrawMigrationFeeParams {
 
 ```typescript
 const transaction = await client.creator.creatorWithdrawMigrationFee({
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     sender: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
 })
 ```
@@ -3729,7 +3729,7 @@ async transferPoolCreator(params: TransferPoolCreatorParams): Promise<Transactio
 
 ```typescript
 interface TransferPoolCreatorParams {
-    virtualPool: PublicKey // The virtual pool address
+    pool: PublicKey // The pool address
     creator: PublicKey // The current creator of the pool
     newCreator: PublicKey // The new creator of the pool
 }
@@ -3743,7 +3743,7 @@ interface TransferPoolCreatorParams {
 
 ```typescript
 const transaction = await client.creator.transferPoolCreator({
-    virtualPool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
     creator: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     newCreator: new PublicKey('newCreator1234567890abcdefghijklmnopqrstuvwxyz'),
 })
