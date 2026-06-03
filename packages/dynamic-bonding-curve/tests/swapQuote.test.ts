@@ -11,10 +11,12 @@ import {
     createSqrtPrices,
     DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
+    deriveDbcPoolAddress,
     DynamicBondingCurveClient,
     MigratedCollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
+    SwapMode,
     TokenDecimal,
     TokenType,
     TokenAuthorityOption,
@@ -153,6 +155,100 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
             poolCreator,
         ])
     })
+
+    test('swapQuote returns an exact-in quote for the buy direction', async () => {
+        const pool = deriveDbcPoolAddress(
+            NATIVE_MINT,
+            baseMint.publicKey,
+            config.publicKey
+        )
+        const virtualPool = await dbcClient.state.getPool(pool)
+        const poolConfigState = await dbcClient.state.getPoolConfig(
+            config.publicKey
+        )
+        expect(virtualPool).not.toBeNull()
+        expect(poolConfigState).not.toBeNull()
+
+        const currentPoint = new BN(await getCurrentTimestamp())
+
+        const quote = dbcClient.pool.swapQuote({
+            virtualPool: virtualPool!,
+            config: poolConfigState!,
+            swapBaseForQuote: false,
+            amountIn: new BN(1_000_000_000),
+            slippageBps: 50,
+            hasReferral: false,
+            currentPoint,
+            eligibleForFirstSwapWithMinFee: false,
+        })
+
+        expect(quote.outputAmount.gt(new BN(0))).toBe(true)
+        expect(quote.minimumAmountOut.lte(quote.outputAmount)).toBe(true)
+    })
+
+    test('swapQuote2 supports ExactIn, PartialFill, and ExactOut modes', async () => {
+        const pool = deriveDbcPoolAddress(
+            NATIVE_MINT,
+            baseMint.publicKey,
+            config.publicKey
+        )
+        const virtualPool = await dbcClient.state.getPool(pool)
+        const poolConfigState = await dbcClient.state.getPoolConfig(
+            config.publicKey
+        )
+        expect(virtualPool).not.toBeNull()
+        expect(poolConfigState).not.toBeNull()
+
+        const currentPoint = new BN(await getCurrentTimestamp())
+
+        const exactInQuote = dbcClient.pool.swapQuote2({
+            virtualPool: virtualPool!,
+            config: poolConfigState!,
+            swapBaseForQuote: false,
+            swapMode: SwapMode.ExactIn,
+            amountIn: new BN(1_000_000_000),
+            slippageBps: 50,
+            hasReferral: false,
+            currentPoint,
+            eligibleForFirstSwapWithMinFee: false,
+        })
+        expect(exactInQuote.outputAmount.gt(new BN(0))).toBe(true)
+
+        const partialFillQuote = dbcClient.pool.swapQuote2({
+            virtualPool: virtualPool!,
+            config: poolConfigState!,
+            swapBaseForQuote: false,
+            swapMode: SwapMode.PartialFill,
+            amountIn: new BN(1_000_000_000),
+            slippageBps: 50,
+            hasReferral: false,
+            currentPoint,
+            eligibleForFirstSwapWithMinFee: false,
+        })
+        expect(partialFillQuote.outputAmount.gt(new BN(0))).toBe(true)
+
+        const exactOutQuote = dbcClient.pool.swapQuote2({
+            virtualPool: virtualPool!,
+            config: poolConfigState!,
+            swapBaseForQuote: false,
+            swapMode: SwapMode.ExactOut,
+            amountOut: new BN(1_000_000),
+            slippageBps: 50,
+            hasReferral: false,
+            currentPoint,
+            eligibleForFirstSwapWithMinFee: false,
+        })
+        expect(exactOutQuote.maximumAmountIn!.gt(new BN(0))).toBe(true)
+    })
+
+    async function getCurrentTimestamp(): Promise<number> {
+        const slot = await connection.getSlot()
+        const time = await connection.getBlockTime(slot)
+        if (!time) {
+            throw new Error('Current time is null')
+        }
+        return time
+    }
 
     test('calculateBaseToQuoteFromAmountIn returns amountLeft when input exceeds available liquidity', async () => {
         const configState = {

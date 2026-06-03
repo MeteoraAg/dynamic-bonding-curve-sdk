@@ -141,4 +141,64 @@ describe('Claim Partner Trading Fee Tests', { timeout: 60000 }, () => {
         const balanceAfter = await connection.getBalance(receiver.publicKey)
         expect(balanceAfter).toBeGreaterThan(balanceBefore)
     })
+
+    test('claimPartnerTradingFee2 (SOL quote, no transfer hook)', async () => {
+        const receiver = Keypair.generate()
+
+        const tx = await dbcClient.partner.claimPartnerTradingFee2({
+            feeClaimer: partner.publicKey,
+            payer: partner.publicKey,
+            pool,
+            maxBaseAmount: new BN(0),
+            maxQuoteAmount: new BN('18446744073709551615'),
+            receiver: receiver.publicKey,
+        })
+        tx.feePayer = partner.publicKey
+        await sendAndConfirmTransaction(connection, tx, [partner])
+
+        const balanceAfter = await connection.getBalance(receiver.publicKey)
+        expect(balanceAfter).toBeGreaterThan(0)
+    })
+
+    test('claimCreatorTradingFee (SOL quote, receiver defaults to creator)', async () => {
+        const tx = await dbcClient.creator.claimCreatorTradingFee({
+            creator: poolCreator.publicKey,
+            payer: poolCreator.publicKey,
+            pool,
+            maxBaseAmount: new BN(0),
+            maxQuoteAmount: new BN('18446744073709551615'),
+        })
+        tx.feePayer = poolCreator.publicKey
+        await sendAndConfirmTransaction(connection, tx, [poolCreator])
+    })
+
+    test('claimCreatorTradingFeeToReceiver (SOL quote)', async () => {
+        const receiver = Keypair.generate()
+
+        const tx = await dbcClient.creator.claimCreatorTradingFeeToReceiver({
+            creator: poolCreator.publicKey,
+            payer: poolCreator.publicKey,
+            pool,
+            maxBaseAmount: new BN(0),
+            maxQuoteAmount: new BN('18446744073709551615'),
+            receiver: receiver.publicKey,
+        })
+        tx.feePayer = poolCreator.publicKey
+        await sendAndConfirmTransaction(connection, tx, [poolCreator])
+    })
+
+    test('claimCreatorTradingFee2 (SOL quote, no transfer hook)', async () => {
+        const receiver = Keypair.generate()
+
+        const tx = await dbcClient.creator.claimCreatorTradingFee2({
+            creator: poolCreator.publicKey,
+            payer: poolCreator.publicKey,
+            pool,
+            maxBaseAmount: new BN(0),
+            maxQuoteAmount: new BN('18446744073709551615'),
+            receiver: receiver.publicKey,
+        })
+        tx.feePayer = poolCreator.publicKey
+        await sendAndConfirmTransaction(connection, tx, [poolCreator])
+    })
 })
