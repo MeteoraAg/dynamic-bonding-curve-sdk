@@ -1,4 +1,9 @@
-import { Commitment, Connection, PublicKey } from '@solana/web3.js'
+import {
+    Commitment,
+    Connection,
+    GetProgramAccountsFilter,
+    PublicKey,
+} from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
 import {
     createProgramAccountFilter,
@@ -6,11 +11,9 @@ import {
     getBaseTokenForSwap,
 } from '../helpers'
 import {
-    ConfigWithTransferHook,
     MeteoraDammMigrationMetadata,
     PartnerMetadata,
     PoolConfig,
-    TransferHookPool,
     VirtualPool,
     VirtualPoolMetadata,
 } from '../types'
@@ -21,6 +24,38 @@ import Decimal from 'decimal.js'
 export class StateService extends DynamicBondingCurveProgram {
     constructor(connection: Connection, commitment: Commitment) {
         super(connection, commitment)
+    }
+
+    /**
+     * Fetch virtual pools across both the standard and transfer-hook account variants.
+     */
+    private async fetchVirtualPools(
+        filters?: GetProgramAccountsFilter[]
+    ): Promise<ProgramAccount<VirtualPool>[]> {
+        const [pools, transferHookPools] = await Promise.all([
+            this.program.account.virtualPool.all(filters),
+            this.program.account.transferHookPool.all(filters),
+        ])
+        return [...pools, ...transferHookPools]
+    }
+
+    /**
+     * Fetch pool configs across both the standard and transfer-hook account variants.
+     */
+    private async fetchPoolConfigs(
+        filters?: GetProgramAccountsFilter[]
+    ): Promise<ProgramAccount<PoolConfig>[]> {
+        const [configs, transferHookConfigs] = await Promise.all([
+            this.program.account.poolConfig.all(filters),
+            this.program.account.configWithTransferHook.all(filters),
+        ])
+        return [
+            ...configs,
+            ...transferHookConfigs.map((account) => ({
+                publicKey: account.publicKey,
+                account: account.account.config,
+            })),
+        ]
     }
 
     /**
@@ -60,7 +95,7 @@ export class StateService extends DynamicBondingCurveProgram {
      * Fetch all pool config accounts.
      */
     async getPoolConfigs(): Promise<ProgramAccount<PoolConfig>[]> {
-        return this.program.account.poolConfig.all()
+        return this.fetchPoolConfigs()
     }
 
     /**
@@ -70,7 +105,7 @@ export class StateService extends DynamicBondingCurveProgram {
         owner: PublicKey | string
     ): Promise<ProgramAccount<PoolConfig>[]> {
         const filters = createProgramAccountFilter(owner, 72)
-        return this.program.account.poolConfig.all(filters)
+        return this.fetchPoolConfigs(filters)
     }
 
     /**
@@ -107,7 +142,7 @@ export class StateService extends DynamicBondingCurveProgram {
      * Fetch all virtual pool accounts.
      */
     async getPools(): Promise<ProgramAccount<VirtualPool>[]> {
-        return this.program.account.virtualPool.all()
+        return this.fetchVirtualPools()
     }
 
     /**
@@ -117,7 +152,7 @@ export class StateService extends DynamicBondingCurveProgram {
         configAddress: PublicKey | string
     ): Promise<ProgramAccount<VirtualPool>[]> {
         const filters = createProgramAccountFilter(configAddress, 72)
-        return this.program.account.virtualPool.all(filters)
+        return this.fetchVirtualPools(filters)
     }
 
     /**
@@ -127,7 +162,7 @@ export class StateService extends DynamicBondingCurveProgram {
         creatorAddress: PublicKey | string
     ): Promise<ProgramAccount<VirtualPool>[]> {
         const filters = createProgramAccountFilter(creatorAddress, 104)
-        return this.program.account.virtualPool.all(filters)
+        return this.fetchVirtualPools(filters)
     }
 
     /**
@@ -137,7 +172,7 @@ export class StateService extends DynamicBondingCurveProgram {
         baseMint: PublicKey | string
     ): Promise<ProgramAccount<VirtualPool> | null> {
         const filters = createProgramAccountFilter(baseMint, 136)
-        const pools = await this.program.account.virtualPool.all(filters)
+        const pools = await this.fetchVirtualPools(filters)
         return pools.length > 0 ? pools[0] : null
     }
 
