@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.9] - 2026-06-03
+
+### Fixed
+
+- Fixed `StateService` endpoints to correctly fetch both regular and transfer-hook pool and config accounts.
+
 ## [1.5.8] - 2026-05-26
 
 ### Added
