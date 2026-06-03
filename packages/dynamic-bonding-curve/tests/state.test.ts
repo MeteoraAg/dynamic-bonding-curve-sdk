@@ -206,8 +206,8 @@ describe('state query endpoints', { timeout: 90000 }, () => {
             config,
         ])
 
-        const createPoolTx =
-            await dbcClient.creator.createPoolWithTransferHook({
+        const createPoolTx = await dbcClient.creator.createPoolWithTransferHook(
+            {
                 baseMint: baseMint.publicKey,
                 config: config.publicKey,
                 name: TOKEN_NAME,
@@ -216,7 +216,8 @@ describe('state query endpoints', { timeout: 90000 }, () => {
                 payer: poolCreator.publicKey,
                 poolCreator: poolCreator.publicKey,
                 transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-            })
+            }
+        )
         createPoolTx.feePayer = poolCreator.publicKey
         await sendAndConfirmTransaction(connection, createPoolTx, [
             baseMint,
