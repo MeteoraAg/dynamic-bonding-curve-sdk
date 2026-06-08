@@ -31,6 +31,8 @@
     - [swap2](#swap2)
     - [swap2WithTransferHook](#swap2WithTransferHook)
     - [swapQuote2](#swapQuote2)
+    - [getQuoteFromInputAmount](#getQuoteFromInputAmount)
+    - [getQuoteFromOutputAmount](#getQuoteFromOutputAmount)
 
 - [Migration Functions](#migration-functions)
     - [createLocker](#createLocker)
@@ -2704,6 +2706,134 @@ const quote = await client.pool.swapQuote2({
 - The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
 - The `slippageBps` parameter protects against slippage. Set it to a value slightly lower than the expected output.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+
+---
+
+### getQuoteFromInputAmount
+
+Quotes a launch-state swap from an input amount before a pool exists. This is useful when a builder has a curve/config but has not deployed the pool yet.
+
+**Function**
+
+```typescript
+getQuoteFromInputAmount(params: SimulatedQuoteFromInputAmountParams): SwapQuote2Result
+```
+
+**Parameters**
+
+```typescript
+interface SwapQuoteConfig {
+    poolFees: {
+        baseFee: {
+            cliffFeeNumerator: BN
+            firstFactor: number
+            secondFactor: BN
+            thirdFactor: BN
+            baseFeeMode: number
+        }
+        dynamicFee?: {
+            initialized?: number
+            binStep: number
+            variableFeeControl: number
+        } | null
+    }
+    collectFeeMode: number
+    sqrtStartPrice: BN
+    migrationQuoteThreshold: BN
+    curve: Array<{ sqrtPrice: BN; liquidity: BN }>
+    migrationSqrtPrice?: BN
+}
+
+type SimulatedQuoteFromInputAmountParams = {
+    config: SwapQuoteConfig
+    swapBaseForQuote: boolean // True for base->quote, false for quote->base
+    amountIn: BN
+    swapMode?: SwapMode.ExactIn | SwapMode.PartialFill
+    slippageBps?: number
+    hasReferral?: boolean
+    currentPoint?: BN // Elapsed slot/timestamp since launch; defaults to 0
+    eligibleForFirstSwapWithMinFee?: boolean
+}
+```
+
+**Returns**
+
+`SwapQuote2Result`, including `includedFeeInputAmount`, `excludedFeeInputAmount`, `outputAmount`, `amountLeft`, `minimumAmountOut`, fees, and `nextSqrtPrice`.
+
+**Example**
+
+```typescript
+const curveConfig = buildCurve({
+    // token, fee, migration, liquidity distribution, and activation params
+})
+
+const quote = client.pool.getQuoteFromInputAmount({
+    config: curveConfig,
+    swapBaseForQuote: false, // quote -> base
+    amountIn: new BN(10_000_000_000),
+    swapMode: SwapMode.ExactIn,
+    slippageBps: 100,
+})
+```
+
+**Notes**
+
+- `config` can be a `buildCurve` output or a fetched pool config from `client.state.getPoolConfig(...)`.
+- If `migrationSqrtPrice` is omitted, it is derived from `migrationQuoteThreshold`, `sqrtStartPrice`, and `curve`.
+- `SwapMode.ExactIn` throws if the full input cannot be absorbed by the launch-state curve. Use `SwapMode.PartialFill` to fill up to the available curve liquidity and inspect `amountLeft`.
+- `currentPoint` is only needed when simulating fee-scheduler or rate-limiter behavior after launch. It defaults to `0`, which represents the launch/cliff fee.
+
+---
+
+### getQuoteFromOutputAmount
+
+Quotes a launch-state exact-out swap before a pool exists. This is useful when a builder wants to know how much input is required to receive a target output amount.
+
+**Function**
+
+```typescript
+getQuoteFromOutputAmount(params: SimulatedQuoteFromOutputAmountParams): SwapQuote2Result
+```
+
+**Parameters**
+
+```typescript
+type SimulatedQuoteFromOutputAmountParams = {
+    config: SwapQuoteConfig
+    swapBaseForQuote: boolean // True for base->quote, false for quote->base
+    amountOut: BN
+    slippageBps?: number
+    hasReferral?: boolean
+    currentPoint?: BN // Elapsed slot/timestamp since launch; defaults to 0
+    eligibleForFirstSwapWithMinFee?: boolean
+}
+```
+
+**Returns**
+
+`SwapQuote2Result`, including `includedFeeInputAmount`, `excludedFeeInputAmount`, `outputAmount`, `maximumAmountIn`, fees, and `nextSqrtPrice`.
+
+**Example**
+
+```typescript
+const config = await client.state.getPoolConfig(configAddress)
+
+const quote = client.pool.getQuoteFromOutputAmount({
+    config,
+    swapBaseForQuote: false, // quote -> base
+    amountOut: new BN(1_000_000_000_000),
+    slippageBps: 100,
+})
+
+console.log('required input:', quote.includedFeeInputAmount.toString())
+console.log('maximum input with slippage:', quote.maximumAmountIn?.toString())
+```
+
+**Notes**
+
+- This helper uses the same exact-out quote math as `swapQuote2` with `SwapMode.ExactOut`, but simulates a fresh pool at `sqrtStartPrice`.
+- It throws if the requested output is not fillable by the launch-state curve.
+- Amounts are returned in token base units. Use token decimals when displaying human-readable values.
 
 ---
 

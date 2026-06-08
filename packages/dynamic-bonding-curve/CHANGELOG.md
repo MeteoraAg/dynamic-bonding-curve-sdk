@@ -2,6 +2,17 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.10] - 2026-06-08
+
+### Added
+
+- Added `client.pool.getQuoteFromInputAmount` and `client.pool.getQuoteFromOutputAmount` for quoting launch-state swaps before a pool exists.
+- Added `SwapQuoteConfig`, `SimulatedQuoteFromInputAmountParams`, and `SimulatedQuoteFromOutputAmountParams` types for pre-pool swap quote simulations.
+
+### Changed
+
+- Updated pool quote simulation to accept either an existing pool config or a `buildCurve` output, deriving `migrationSqrtPrice` when it is not present.
+
 ## [1.5.9] - 2026-06-03
 
 ### Fixed
