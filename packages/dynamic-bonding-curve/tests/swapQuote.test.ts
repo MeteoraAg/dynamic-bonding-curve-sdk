@@ -287,7 +287,11 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(quoteFromBuildCurve.includedFeeInputAmount.eq(amountIn)).toBe(
             true
         )
-        expect(quoteFromBuildCurve.excludedFeeInputAmount.eq(expected.excludedFeeInputAmount)).toBe(true)
+        expect(
+            quoteFromBuildCurve.excludedFeeInputAmount.eq(
+                expected.excludedFeeInputAmount
+            )
+        ).toBe(true)
         expect(quoteFromBuildCurve.outputAmount.eq(expected.outputAmount)).toBe(
             true
         )
@@ -303,9 +307,9 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(quoteFromBuildCurve.referralFee.eq(expected.referralFee)).toBe(
             true
         )
-        expect(quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)).toBe(
-            true
-        )
+        expect(
+            quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)
+        ).toBe(true)
 
         expect(quoteFromPoolConfig.outputAmount.eq(expected.outputAmount)).toBe(
             true
@@ -369,7 +373,9 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(quoteFromBuildCurve.outputAmount.eq(expected.outputAmount)).toBe(
             true
         )
-        expect(quoteFromBuildCurve.maximumAmountIn!.eq(expected.maximumAmountIn!)).toBe(true)
+        expect(
+            quoteFromBuildCurve.maximumAmountIn!.eq(expected.maximumAmountIn!)
+        ).toBe(true)
         expect(quoteFromBuildCurve.tradingFee.eq(expected.tradingFee)).toBe(
             true
         )
@@ -379,16 +385,18 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(quoteFromBuildCurve.referralFee.eq(expected.referralFee)).toBe(
             true
         )
-        expect(quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)).toBe(
-            true
-        )
+        expect(
+            quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)
+        ).toBe(true)
 
         expect(
             quoteFromPoolConfig.includedFeeInputAmount.eq(
                 expected.includedFeeInputAmount
             )
         ).toBe(true)
-        expect(quoteFromPoolConfig.maximumAmountIn!.eq(expected.maximumAmountIn!)).toBe(true)
+        expect(
+            quoteFromPoolConfig.maximumAmountIn!.eq(expected.maximumAmountIn!)
+        ).toBe(true)
     })
 
     test('getQuoteFromInputAmount supports partial fill before pool creation', () => {
