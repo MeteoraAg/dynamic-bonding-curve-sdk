@@ -572,6 +572,46 @@ export type SwapQuote2Params = {
       }
 )
 
+export interface SwapQuoteConfig {
+    poolFees: {
+        baseFee: {
+            cliffFeeNumerator: BN
+            firstFactor: number
+            secondFactor: BN
+            thirdFactor: BN
+            baseFeeMode: number
+        }
+        dynamicFee?: {
+            initialized?: number
+            binStep: number
+            variableFeeControl: number
+        } | null
+    }
+    collectFeeMode: number
+    sqrtStartPrice: BN
+    migrationQuoteThreshold: BN
+    curve: Array<{ sqrtPrice: BN; liquidity: BN }>
+    migrationSqrtPrice?: BN
+}
+
+export type SimulatedQuoteBaseParams = {
+    config: SwapQuoteConfig
+    swapBaseForQuote: boolean
+    slippageBps?: number
+    hasReferral?: boolean
+    currentPoint?: BN
+    eligibleForFirstSwapWithMinFee?: boolean
+}
+
+export type SimulatedQuoteFromInputAmountParams = SimulatedQuoteBaseParams & {
+    amountIn: BN
+    swapMode?: SwapMode.ExactIn | SwapMode.PartialFill
+}
+
+export type SimulatedQuoteFromOutputAmountParams = SimulatedQuoteBaseParams & {
+    amountOut: BN
+}
+
 export type MigrateToDammV1Params = {
     payer: PublicKey
     pool: PublicKey
