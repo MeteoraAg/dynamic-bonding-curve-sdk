@@ -241,6 +241,180 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(exactOutQuote.maximumAmountIn!.gt(new BN(0))).toBe(true)
     })
 
+    test('getQuoteFromInputAmount matches swapQuote2 at launch', async () => {
+        const pool = deriveDbcPoolAddress(
+            NATIVE_MINT,
+            baseMint.publicKey,
+            config.publicKey
+        )
+        const virtualPool = await dbcClient.state.getPool(pool)
+        const poolConfigState = await dbcClient.state.getPoolConfig(
+            config.publicKey
+        )
+        expect(virtualPool).not.toBeNull()
+        expect(poolConfigState).not.toBeNull()
+
+        const amountIn = new BN(1_000_000_000)
+
+        const expected = dbcClient.pool.swapQuote2({
+            virtualPool: virtualPool!,
+            config: poolConfigState!,
+            swapBaseForQuote: false,
+            swapMode: SwapMode.ExactIn,
+            amountIn,
+            slippageBps: 50,
+            hasReferral: false,
+            currentPoint: virtualPool!.poolState.activationPoint,
+            eligibleForFirstSwapWithMinFee: false,
+        })
+
+        const quoteFromBuildCurve = dbcClient.pool.getQuoteFromInputAmount({
+            config: curveConfig,
+            swapBaseForQuote: false,
+            swapMode: SwapMode.ExactIn,
+            amountIn,
+            slippageBps: 50,
+        })
+
+        const quoteFromPoolConfig = dbcClient.pool.getQuoteFromInputAmount({
+            config: poolConfigState!,
+            swapBaseForQuote: false,
+            swapMode: SwapMode.ExactIn,
+            amountIn,
+            slippageBps: 50,
+        })
+
+        expect(quoteFromBuildCurve.includedFeeInputAmount.eq(amountIn)).toBe(
+            true
+        )
+        expect(quoteFromBuildCurve.excludedFeeInputAmount.eq(expected.excludedFeeInputAmount)).toBe(true)
+        expect(quoteFromBuildCurve.outputAmount.eq(expected.outputAmount)).toBe(
+            true
+        )
+        expect(
+            quoteFromBuildCurve.minimumAmountOut!.eq(expected.minimumAmountOut!)
+        ).toBe(true)
+        expect(quoteFromBuildCurve.tradingFee.eq(expected.tradingFee)).toBe(
+            true
+        )
+        expect(quoteFromBuildCurve.protocolFee.eq(expected.protocolFee)).toBe(
+            true
+        )
+        expect(quoteFromBuildCurve.referralFee.eq(expected.referralFee)).toBe(
+            true
+        )
+        expect(quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)).toBe(
+            true
+        )
+
+        expect(quoteFromPoolConfig.outputAmount.eq(expected.outputAmount)).toBe(
+            true
+        )
+        expect(
+            quoteFromPoolConfig.minimumAmountOut!.eq(expected.minimumAmountOut!)
+        ).toBe(true)
+    })
+
+    test('getQuoteFromOutputAmount matches swapQuote2 at launch', async () => {
+        const pool = deriveDbcPoolAddress(
+            NATIVE_MINT,
+            baseMint.publicKey,
+            config.publicKey
+        )
+        const virtualPool = await dbcClient.state.getPool(pool)
+        const poolConfigState = await dbcClient.state.getPoolConfig(
+            config.publicKey
+        )
+        expect(virtualPool).not.toBeNull()
+        expect(poolConfigState).not.toBeNull()
+
+        const amountOut = new BN(1_000_000)
+
+        const expected = dbcClient.pool.swapQuote2({
+            virtualPool: virtualPool!,
+            config: poolConfigState!,
+            swapBaseForQuote: false,
+            swapMode: SwapMode.ExactOut,
+            amountOut,
+            slippageBps: 50,
+            hasReferral: false,
+            currentPoint: virtualPool!.poolState.activationPoint,
+            eligibleForFirstSwapWithMinFee: false,
+        })
+
+        const quoteFromBuildCurve = dbcClient.pool.getQuoteFromOutputAmount({
+            config: curveConfig,
+            swapBaseForQuote: false,
+            amountOut,
+            slippageBps: 50,
+        })
+
+        const quoteFromPoolConfig = dbcClient.pool.getQuoteFromOutputAmount({
+            config: poolConfigState!,
+            swapBaseForQuote: false,
+            amountOut,
+            slippageBps: 50,
+        })
+
+        expect(
+            quoteFromBuildCurve.includedFeeInputAmount.eq(
+                expected.includedFeeInputAmount
+            )
+        ).toBe(true)
+        expect(
+            quoteFromBuildCurve.excludedFeeInputAmount.eq(
+                expected.excludedFeeInputAmount
+            )
+        ).toBe(true)
+        expect(quoteFromBuildCurve.outputAmount.eq(expected.outputAmount)).toBe(
+            true
+        )
+        expect(quoteFromBuildCurve.maximumAmountIn!.eq(expected.maximumAmountIn!)).toBe(true)
+        expect(quoteFromBuildCurve.tradingFee.eq(expected.tradingFee)).toBe(
+            true
+        )
+        expect(quoteFromBuildCurve.protocolFee.eq(expected.protocolFee)).toBe(
+            true
+        )
+        expect(quoteFromBuildCurve.referralFee.eq(expected.referralFee)).toBe(
+            true
+        )
+        expect(quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)).toBe(
+            true
+        )
+
+        expect(
+            quoteFromPoolConfig.includedFeeInputAmount.eq(
+                expected.includedFeeInputAmount
+            )
+        ).toBe(true)
+        expect(quoteFromPoolConfig.maximumAmountIn!.eq(expected.maximumAmountIn!)).toBe(true)
+    })
+
+    test('getQuoteFromInputAmount supports partial fill before pool creation', () => {
+        const amountIn = new BN('100000000000000000000')
+
+        expect(() =>
+            dbcClient.pool.getQuoteFromInputAmount({
+                config: curveConfig,
+                swapBaseForQuote: false,
+                swapMode: SwapMode.ExactIn,
+                amountIn,
+            })
+        ).toThrow('Insufficient Liquidity')
+
+        const quote = dbcClient.pool.getQuoteFromInputAmount({
+            config: curveConfig,
+            swapBaseForQuote: false,
+            swapMode: SwapMode.PartialFill,
+            amountIn,
+        })
+
+        expect(quote.outputAmount.gt(new BN(0))).toBe(true)
+        expect(quote.amountLeft.gt(new BN(0))).toBe(true)
+        expect(quote.includedFeeInputAmount.lt(amountIn)).toBe(true)
+    })
+
     async function getCurrentTimestamp(): Promise<number> {
         const slot = await connection.getSlot()
         const time = await connection.getBlockTime(slot)
