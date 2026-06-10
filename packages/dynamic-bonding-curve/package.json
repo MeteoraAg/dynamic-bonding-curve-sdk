@@ -11,6 +11,10 @@
     "url": "git+https://github.com/MeteoraAg/dynamic-bonding-curve-sdk.git",
     "directory": "packages/dynamic-bonding-curve"
   },
+  "homepage": "https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/tree/main/packages/dynamic-bonding-curve#readme",
+  "bugs": {
+    "url": "https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/issues"
+  },
   "keywords": [
     "meteora-ag",
     "dynamic-bonding-curve",
