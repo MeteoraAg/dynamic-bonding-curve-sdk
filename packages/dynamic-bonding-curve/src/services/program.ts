@@ -57,7 +57,7 @@ import {
 } from '@solana/spl-token'
 import { isRateLimiterApplied } from '../math'
 import BN from 'bn.js'
-import type { StateService } from './state'
+import { StateService } from './state'
 
 type ClaimTradingFeeAccountParams = {
     payer: PublicKey
@@ -82,17 +82,13 @@ export class DynamicBondingCurveProgram {
     protected commitment: Commitment
     protected state: StateService
 
-    constructor(
-        connection: Connection,
-        commitment: Commitment,
-        state?: StateService
-    ) {
+    constructor(connection: Connection, commitment: Commitment) {
         const { program } = createDbcProgram(connection, commitment)
         this.program = program
         this.connection = connection
         this.poolAuthority = deriveDbcPoolAuthority()
         this.commitment = commitment
-        this.state = state as StateService
+        this.state = new StateService(connection, commitment)
     }
 
     protected async getPoolWithConfig(pool: PublicKey | string): Promise<{

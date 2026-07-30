@@ -2,6 +2,18 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.11] - 2026-07-30
+
+### Changed
+
+- Updated `StateService` to be a standalone read-only service that no longer extends `DynamicBondingCurveProgram`, removing the circular inheritance between the two.
+- Updated `PoolService`, `PartnerService`, `CreatorService`, and `MigrationService` to create their own internal `StateService`, since `StateService` holds no shared state or caching.
+
+### Breaking Changes
+
+- **Service constructors no longer accept a `StateService` argument.** `DynamicBondingCurveProgram`, `PoolService`, `PartnerService`, `CreatorService`, and `MigrationService` are now constructed with `(connection, commitment)` only. Callers passing a third `StateService` argument must drop it; runtime behavior is unchanged because `StateService` is stateless and each service now creates its own.
+- **`StateService` no longer inherits `DynamicBondingCurveProgram` members.** It keeps `program` and `getProgram()`, but code relying on inherited members such as `connection`, `poolAuthority`, or `instanceof DynamicBondingCurveProgram` checks must be updated.
+
 ## [1.5.10] - 2026-06-08
 
 ### Added

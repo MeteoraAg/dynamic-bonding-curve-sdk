@@ -1,10 +1,8 @@
 import {
-    Commitment,
     PublicKey,
     SystemProgram,
     Transaction,
     TransactionInstruction,
-    type Connection,
 } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
 import {
@@ -32,22 +30,9 @@ import {
     getTokenType,
 } from '../helpers'
 import { NATIVE_MINT } from '@solana/spl-token'
-import { StateService } from './state'
 import BN from 'bn.js'
 
 export class PartnerService extends DynamicBondingCurveProgram {
-    constructor(
-        connection: Connection,
-        commitment: Commitment,
-        state?: StateService
-    ) {
-        super(
-            connection,
-            commitment,
-            state ?? new StateService(connection, commitment)
-        )
-    }
-
     /**
      * Build a transaction that creates a partner-owned pool config.
      */

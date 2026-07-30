@@ -1,9 +1,7 @@
 import {
-    Commitment,
     SystemProgram,
     Transaction,
     TransactionInstruction,
-    type Connection,
 } from '@solana/web3.js'
 import {
     ClaimCreatorTradingFeeParams,
@@ -32,22 +30,9 @@ import {
     isNativeSol,
     unwrapSOLInstruction,
 } from '../helpers'
-import { StateService } from './state'
 import BN from 'bn.js'
 
 export class CreatorService extends DynamicBondingCurveProgram {
-    constructor(
-        connection: Connection,
-        commitment: Commitment,
-        state?: StateService
-    ) {
-        super(
-            connection,
-            commitment,
-            state ?? new StateService(connection, commitment)
-        )
-    }
-
     /**
      * Build a transaction that creates metadata for a virtual pool.
      */

@@ -4,12 +4,13 @@ import {
     GetProgramAccountsFilter,
     PublicKey,
 } from '@solana/web3.js'
-import { DynamicBondingCurveProgram } from './program'
 import {
+    createDbcProgram,
     createProgramAccountFilter,
     deriveDammV1MigrationMetadataAddress,
     getBaseTokenForSwap,
 } from '../helpers'
+import type { DynamicBondingCurve as DynamicBondingCurveIDL } from '../idl/dynamic-bonding-curve/idl'
 import {
     MeteoraDammMigrationMetadata,
     PartnerMetadata,
@@ -17,13 +18,22 @@ import {
     VirtualPool,
     VirtualPoolMetadata,
 } from '../types'
-import { ProgramAccount } from '@coral-xyz/anchor'
+import type { Program, ProgramAccount } from '@coral-xyz/anchor'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
 
-export class StateService extends DynamicBondingCurveProgram {
+export class StateService {
+    program: Program<DynamicBondingCurveIDL>
+    private commitment: Commitment
+
     constructor(connection: Connection, commitment: Commitment) {
-        super(connection, commitment)
+        const { program } = createDbcProgram(connection, commitment)
+        this.program = program
+        this.commitment = commitment
+    }
+
+    getProgram(): Program<DynamicBondingCurveIDL> {
+        return this.program
     }
 
     /**
