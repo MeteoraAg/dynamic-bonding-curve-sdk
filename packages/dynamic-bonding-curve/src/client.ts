@@ -18,20 +18,16 @@ export class DynamicBondingCurveClient {
 
     constructor(connection: Connection, commitment: Commitment) {
         this.state = new StateService(connection, commitment)
-        this.pool = new PoolService(connection, commitment, this.state)
-        this.partner = new PartnerService(connection, commitment, this.state)
-        this.creator = new CreatorService(connection, commitment, this.state)
-        this.migration = new MigrationService(
-            connection,
-            commitment,
-            this.state
-        )
+        this.pool = new PoolService(connection, commitment)
+        this.partner = new PartnerService(connection, commitment)
+        this.creator = new CreatorService(connection, commitment)
+        this.migration = new MigrationService(connection, commitment)
         this.commitment = commitment
         this.connection = connection
     }
 
     /**
-     * Create a client with shared service state.
+     * Create a client with all DBC services.
      */
     static create(
         connection: Connection,

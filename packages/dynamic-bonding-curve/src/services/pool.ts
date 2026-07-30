@@ -1,7 +1,5 @@
 import {
-    Commitment,
     TransactionInstruction,
-    type Connection,
     Transaction,
     SYSVAR_INSTRUCTIONS_PUBKEY,
     AccountMeta,
@@ -39,22 +37,9 @@ import {
     swapQuote,
     isRateLimiterApplied,
 } from '../math'
-import { StateService } from './state'
 import BN from 'bn.js'
 
 export class PoolService extends DynamicBondingCurveProgram {
-    constructor(
-        connection: Connection,
-        commitment: Commitment,
-        state?: StateService
-    ) {
-        super(
-            connection,
-            commitment,
-            state ?? new StateService(connection, commitment)
-        )
-    }
-
     /**
      * Build an exact-in swap transaction for an existing pool.
      *

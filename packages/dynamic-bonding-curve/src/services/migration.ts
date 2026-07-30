@@ -1,13 +1,11 @@
 import {
     AccountMeta,
-    Commitment,
     ComputeBudgetProgram,
     Keypair,
     PublicKey,
     SystemProgram,
     SYSVAR_RENT_PUBKEY,
     TransactionInstruction,
-    type Connection,
     type Transaction,
 } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
@@ -64,21 +62,8 @@ import {
     METAPLEX_PROGRAM_ID,
     VAULT_PROGRAM_ID,
 } from '../constants'
-import { StateService } from './state'
 
 export class MigrationService extends DynamicBondingCurveProgram {
-    constructor(
-        connection: Connection,
-        commitment: Commitment,
-        state?: StateService
-    ) {
-        super(
-            connection,
-            commitment,
-            state ?? new StateService(connection, commitment)
-        )
-    }
-
     /**
      * Create a Dynamic Vault program client.
      */
