@@ -5,8 +5,8 @@
     "resolveJsonModule": true,
     "strictNullChecks": false,
     "target": "es2020",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true
