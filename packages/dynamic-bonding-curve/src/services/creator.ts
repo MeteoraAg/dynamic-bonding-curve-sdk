@@ -14,6 +14,7 @@ import {
     CreatePoolWithPartnerAndCreatorFirstBuyParams,
     CreateVirtualPoolMetadataParams,
     CreatorWithdrawSurplusParams,
+    PoolConfig,
     TransferPoolCreatorParams,
     WithdrawMigrationFeeParams,
 } from '../types'
@@ -29,10 +30,27 @@ import {
     getTokenProgram,
     isNativeSol,
     unwrapSOLInstruction,
+    assertConfigAllowsNewPool,
 } from '../helpers'
 import BN from 'bn.js'
 
 export class CreatorService extends DynamicBondingCurveProgram {
+    private async getPoolConfigForNewPool(
+        config: CreatePoolParams['config']
+    ): Promise<PoolConfig> {
+        const poolConfigState = await this.state.getPoolConfig(config)
+        if (!poolConfigState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
+
+        assertConfigAllowsNewPool({
+            baseFeeMode: poolConfigState.poolFees.baseFee.baseFeeMode,
+            migrationOption: poolConfigState.migrationOption,
+        })
+
+        return poolConfigState
+    }
+
     /**
      * Build a transaction that creates metadata for a virtual pool.
      */
@@ -66,10 +84,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
     async createPool(params: CreatePoolParams): Promise<Transaction> {
         const { config } = params
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         return this.buildCreatePoolTx(
             params,
@@ -86,10 +101,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
     ): Promise<Transaction> {
         const { config } = params
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         const tokenQuoteProgram = getTokenProgram(
             poolConfigState.quoteTokenFlag
@@ -113,10 +125,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
         const { createPoolParam, firstBuyParam } = params
         const { config } = createPoolParam
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         const createPoolWithFirstBuyTx = await this.buildCreatePoolTx(
             createPoolParam,
@@ -151,10 +160,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
         const { createPoolParam, firstBuyParam } = params
         const { config } = createPoolParam
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         const createPoolWithFirstBuyTx =
             await this.buildCreatePoolWithTransferHookTx(
@@ -189,10 +195,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             params
         const { config } = createPoolParam
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         const createPoolWithFirstBuysTx = await this.buildCreatePoolTx(
             createPoolParam,
@@ -263,10 +266,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             params
         const { config } = createPoolParam
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         const createPoolWithFirstBuysTx =
             await this.buildCreatePoolWithTransferHookTx(

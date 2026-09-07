@@ -88,11 +88,7 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
         creatorLiquidityVestingInfoParams,
     } = liquidityDistribution
 
-    const baseFee = getBaseFeeParams(
-        baseFeeParams,
-        tokenQuoteDecimal,
-        activationType
-    )
+    const baseFee = getBaseFeeParams(baseFeeParams)
 
     const {
         totalLockedVestingAmount,
@@ -396,11 +392,7 @@ export function buildCurveWithTwoSegments(
         creatorLiquidityVestingInfoParams,
     } = liquidityDistribution
 
-    const baseFee = getBaseFeeParams(
-        baseFeeParams,
-        tokenQuoteDecimal,
-        activationType
-    )
+    const baseFee = getBaseFeeParams(baseFeeParams)
 
     const {
         totalLockedVestingAmount,
@@ -682,11 +674,7 @@ export function buildCurveWithMidPrice(
         creatorLiquidityVestingInfoParams,
     } = liquidityDistribution
 
-    const baseFee = getBaseFeeParams(
-        baseFeeParams,
-        tokenQuoteDecimal,
-        activationType
-    )
+    const baseFee = getBaseFeeParams(baseFeeParams)
 
     const {
         totalLockedVestingAmount,
@@ -947,11 +935,7 @@ export function buildCurveWithLiquidityWeights(
         creatorLiquidityVestingInfoParams,
     } = liquidityDistribution
 
-    const baseFee = getBaseFeeParams(
-        baseFeeParams,
-        tokenQuoteDecimal,
-        activationType
-    )
+    const baseFee = getBaseFeeParams(baseFeeParams)
 
     const {
         totalLockedVestingAmount,
@@ -1280,11 +1264,7 @@ export function buildCurveWithCustomSqrtPrices(
         )
     }
 
-    const baseFee = getBaseFeeParams(
-        baseFeeParams,
-        tokenQuoteDecimal,
-        activationType
-    )
+    const baseFee = getBaseFeeParams(baseFeeParams)
 
     const {
         totalLockedVestingAmount,

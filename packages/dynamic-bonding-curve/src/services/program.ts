@@ -17,6 +17,7 @@ import {
     getOrCreateATAInstruction,
     getTokenProgram,
     getTokenType,
+    getTokenBadgeRemainingAccounts,
     unwrapSOLInstruction,
     validateConfigParameters,
     validateSwapAmount,
@@ -146,7 +147,8 @@ export class DynamicBondingCurveProgram {
         feeClaimer: PublicKey,
         leftoverReceiver: PublicKey,
         quoteMint: PublicKey,
-        payer: PublicKey
+        payer: PublicKey,
+        tokenBadge?: PublicKey
     ): Promise<Transaction> {
         validateConfigParameters({ ...configParam, leftoverReceiver })
 
@@ -159,6 +161,7 @@ export class DynamicBondingCurveProgram {
                 quoteMint,
                 payer,
             })
+            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
             .transaction()
     }
 
@@ -169,7 +172,8 @@ export class DynamicBondingCurveProgram {
         leftoverReceiver: PublicKey,
         quoteMint: PublicKey,
         transferHookProgram: PublicKey,
-        payer: PublicKey
+        payer: PublicKey,
+        tokenBadge?: PublicKey
     ): Promise<Transaction> {
         validateConfigParameters(
             { ...configParam, leftoverReceiver },
@@ -186,6 +190,7 @@ export class DynamicBondingCurveProgram {
                 transferHookProgram,
                 payer,
             })
+            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
             .transaction()
     }
 
@@ -205,6 +210,7 @@ export class DynamicBondingCurveProgram {
             baseVault,
             quoteVault,
             quoteMint,
+            tokenBadge,
         } = params
 
         return this.program.methods
@@ -228,6 +234,7 @@ export class DynamicBondingCurveProgram {
                 metadataProgram: METAPLEX_PROGRAM_ID,
                 tokenProgram: TOKEN_PROGRAM_ID,
             })
+            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
             .transaction()
     }
 
@@ -246,6 +253,7 @@ export class DynamicBondingCurveProgram {
             baseVault,
             quoteVault,
             quoteMint,
+            tokenBadge,
         } = params
 
         return this.program.methods
@@ -267,6 +275,7 @@ export class DynamicBondingCurveProgram {
                 tokenQuoteProgram: TOKEN_PROGRAM_ID,
                 tokenProgram: TOKEN_2022_PROGRAM_ID,
             })
+            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
             .transaction()
     }
 
@@ -290,6 +299,7 @@ export class DynamicBondingCurveProgram {
             quoteMint,
             transferHookProgram,
             tokenQuoteProgram,
+            tokenBadge,
         } = params
 
         return this.program.methods
@@ -312,6 +322,7 @@ export class DynamicBondingCurveProgram {
                 tokenQuoteProgram,
                 tokenProgram: TOKEN_2022_PROGRAM_ID,
             })
+            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
             .transaction()
     }
 
@@ -320,7 +331,7 @@ export class DynamicBondingCurveProgram {
         tokenType: TokenType,
         quoteMint: PublicKey
     ): Promise<Transaction> {
-        const { baseMint, name, symbol, uri, poolCreator, config, payer } =
+        const { baseMint, name, symbol, uri, poolCreator, config, payer, tokenBadge } =
             createPoolParam
 
         const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
@@ -339,6 +350,7 @@ export class DynamicBondingCurveProgram {
             baseVault,
             quoteVault,
             quoteMint,
+            tokenBadge,
         }
 
         if (tokenType === TokenType.SPLToken) {
@@ -363,6 +375,7 @@ export class DynamicBondingCurveProgram {
             config,
             payer,
             transferHookProgram,
+            tokenBadge,
         } = createPoolParam
 
         if (!validateTransferHookProgram(transferHookProgram)) {
@@ -389,6 +402,7 @@ export class DynamicBondingCurveProgram {
             quoteMint,
             transferHookProgram,
             tokenQuoteProgram,
+            tokenBadge,
         })
     }
 

@@ -151,7 +151,7 @@ describe('buildCurveWithLiquidityWeights tests', () => {
                 leftover: 200000000,
             },
             migration: {
-                migrationOption: MigrationOption.MET_DAMM,
+                migrationOption: MigrationOption.MET_DAMM_V2,
                 migrationFeeOption: MigrationFeeOption.FixedBps100,
                 migrationFee: {
                     feePercentage: 0,
@@ -204,7 +204,7 @@ describe('buildCurveWithLiquidityWeights tests', () => {
                 leftover: 50000000,
             },
             migration: {
-                migrationOption: MigrationOption.MET_DAMM,
+                migrationOption: MigrationOption.MET_DAMM_V2,
                 migrationFeeOption: MigrationFeeOption.FixedBps100,
                 migrationFee: {
                     feePercentage: 0,

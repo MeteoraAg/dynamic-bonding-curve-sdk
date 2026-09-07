@@ -1,6 +1,7 @@
 import {
     ActivationType,
     getRateLimiterParams,
+    getBaseFeeParams,
     BaseFeeMode,
     bpsToFeeNumerator,
     getFeeNumeratorFromIncludedAmount,
@@ -73,5 +74,19 @@ describe('Rate Limiter tests', () => {
         expect(fee.toNumber()).toBeGreaterThan(fee2.toNumber())
         expect(fee2.toNumber()).toBe(fee3.toNumber())
         expect(fee4.toNumber()).toBeGreaterThan(fee.toNumber())
+    })
+
+    test('getBaseFeeParams rejects RateLimiter for new configs', () => {
+        expect(() =>
+            getBaseFeeParams({
+                baseFeeMode: BaseFeeMode.RateLimiter,
+                rateLimiterParam: {
+                    baseFeeBps: 100,
+                    feeIncrementBps: 10,
+                    referenceAmount: 0.2,
+                    maxLimiterDuration: 100000,
+                },
+            })
+        ).toThrow(/RateLimiter is deprecated/)
     })
 })

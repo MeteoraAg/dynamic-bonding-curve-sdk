@@ -1011,7 +1011,8 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
 }
 
 /**
- * Get the rate limiter parameters
+ * Get the rate limiter parameters.
+ * @deprecated New configs cannot use RateLimiter. Kept for quoting existing rate-limiter pools.
  * @param baseFeeBps - The base fee in basis points
  * @param feeIncrementBps - The fee increment in basis points
  * @param referenceAmount - The reference amount
@@ -1558,43 +1559,25 @@ export function checkRateLimiterApplied(
 /**
  * Get base fee parameters based on the base fee mode
  * @param baseFeeParams - The base fee parameters
- * @param tokenQuoteDecimal - The token quote decimal
- * @param activationType - The activation type
  * @returns The base fee parameters
  */
-export function getBaseFeeParams(
-    baseFeeParams: BaseFeeParams,
-    tokenQuoteDecimal: TokenDecimal,
-    activationType: ActivationType
-): BaseFee {
+export function getBaseFeeParams(baseFeeParams: BaseFeeParams): BaseFee {
     if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
-        const {
-            baseFeeBps,
-            feeIncrementBps,
-            referenceAmount,
-            maxLimiterDuration,
-        } = baseFeeParams.rateLimiterParam
-
-        return getRateLimiterParams(
-            baseFeeBps,
-            feeIncrementBps,
-            referenceAmount,
-            maxLimiterDuration,
-            tokenQuoteDecimal,
-            activationType
-        )
-    } else {
-        const { startingFeeBps, endingFeeBps, numberOfPeriod, totalDuration } =
-            baseFeeParams.feeSchedulerParam
-
-        return getFeeSchedulerParams(
-            startingFeeBps,
-            endingFeeBps,
-            baseFeeParams.baseFeeMode,
-            numberOfPeriod,
-            totalDuration
+        throw new Error(
+            'BaseFeeMode.RateLimiter is deprecated. New configs must use FeeSchedulerLinear or FeeSchedulerExponential.'
         )
     }
+
+    const { startingFeeBps, endingFeeBps, numberOfPeriod, totalDuration } =
+        baseFeeParams.feeSchedulerParam
+
+    return getFeeSchedulerParams(
+        startingFeeBps,
+        endingFeeBps,
+        baseFeeParams.baseFeeMode,
+        numberOfPeriod,
+        totalDuration
+    )
 }
 
 /**
@@ -1718,9 +1701,10 @@ export function getMigratedPoolFeeParams(
         compoundingFeeBps: 0,
     }
 
-    // for DAMM_V1: always use default parameters
     if (migrationOption === MigrationOption.MET_DAMM) {
-        return defaultResult
+        throw new Error(
+            'MigrationOption.MET_DAMM (DAMM v1) is deprecated. New configs must use MigrationOption.MET_DAMM_V2.'
+        )
     }
 
     // for DAMM_V2: use custom parameters based on configuration

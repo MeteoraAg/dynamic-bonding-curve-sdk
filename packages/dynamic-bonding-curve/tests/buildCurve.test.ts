@@ -867,37 +867,31 @@ describe('Migration Fee Option Tests', () => {
     })
 
     describe('DAMM V1 Migration Option', () => {
-        test('DAMM V1 should always use default params regardless of settings', () => {
-            const curveConfig = buildCurve({
-                token: baseTokenParams,
-                fee: baseFeeParams,
-                migration: {
-                    migrationOption: MigrationOption.MET_DAMM, // V1
-                    migrationFeeOption: MigrationFeeOption.Customizable,
-                    migrationFee: {
-                        feePercentage: 10,
-                        creatorFeePercentage: 50,
+        test('DAMM V1 is rejected for new configs', () => {
+            expect(() =>
+                buildCurve({
+                    token: baseTokenParams,
+                    fee: baseFeeParams,
+                    migration: {
+                        migrationOption: MigrationOption.MET_DAMM, // V1
+                        migrationFeeOption: MigrationFeeOption.Customizable,
+                        migrationFee: {
+                            feePercentage: 10,
+                            creatorFeePercentage: 50,
+                        },
+                        migratedPoolFee: {
+                            collectFeeMode: MigratedCollectFeeMode.OutputToken,
+                            dynamicFee: DammV2DynamicFeeMode.Enabled,
+                            poolFeeBps: 999,
+                        },
                     },
-                    migratedPoolFee: {
-                        collectFeeMode: MigratedCollectFeeMode.OutputToken,
-                        dynamicFee: DammV2DynamicFeeMode.Enabled,
-                        poolFeeBps: 999, // Should be ignored for DAMM V1
-                    },
-                },
-                liquidityDistribution: baseLiquidityDistribution,
-                lockedVesting: baseLockedVesting,
-                activationType: ActivationType.Timestamp,
-                percentageSupplyOnMigration: 25,
-                migrationQuoteThreshold: 1,
-            })
-
-            // for DAMM V1, customizable option should work but params are defaults
-            expect(curveConfig.migratedPoolFee).toEqual(
-                DEFAULT_MIGRATED_POOL_FEE_PARAMS
-            )
-            expect(curveConfig.migratedPoolMarketCapFeeSchedulerParams).toEqual(
-                DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS
-            )
+                    liquidityDistribution: baseLiquidityDistribution,
+                    lockedVesting: baseLockedVesting,
+                    activationType: ActivationType.Timestamp,
+                    percentageSupplyOnMigration: 25,
+                    migrationQuoteThreshold: 1,
+                })
+            ).toThrow(/MET_DAMM \(DAMM v1\) is deprecated/)
         })
     })
 })
