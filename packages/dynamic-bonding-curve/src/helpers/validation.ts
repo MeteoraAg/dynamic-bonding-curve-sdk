@@ -80,6 +80,27 @@ const DAMM_V2_MIN_FEE_NUMERATOR = 100_000
 const DAMM_V2_MAX_FEE_NUMERATOR = 990_000_000
 
 /**
+ * Reject deprecated rate-limiter and DAMM v1 options for new configs and pools.
+ * Existing on-chain configs/pools are unaffected.
+ */
+export function assertConfigAllowsNewPool(params: {
+    baseFeeMode: number
+    migrationOption: number
+}): void {
+    if (params.baseFeeMode === BaseFeeMode.RateLimiter) {
+        throw new Error(
+            'BaseFeeMode.RateLimiter is deprecated. New configs and pools must use FeeSchedulerLinear or FeeSchedulerExponential. Existing rate-limiter pools are unaffected.'
+        )
+    }
+
+    if (params.migrationOption === MigrationOption.MET_DAMM) {
+        throw new Error(
+            'MigrationOption.MET_DAMM (DAMM v1) is deprecated. New configs and pools must use MigrationOption.MET_DAMM_V2. Existing DAMM v1 pools can still migrate.'
+        )
+    }
+}
+
+/**
  * Validate base fee, scheduler, rate-limiter, and dynamic fee settings for a pool config.
  */
 export function validatePoolFees(
@@ -789,7 +810,7 @@ export function validateMigratedPoolFee(
 export function validateConfigParameters(
     configParam: Omit<
         CreateConfigParams,
-        'config' | 'feeClaimer' | 'quoteMint' | 'payer'
+        'config' | 'feeClaimer' | 'quoteMint' | 'payer' | 'tokenBadge'
     >,
     options:
         | boolean
@@ -805,6 +826,11 @@ export function validateConfigParameters(
                   isTransferHook: options.isTransferHook ?? false,
                   transferHookProgram: options.transferHookProgram,
               }
+
+    assertConfigAllowsNewPool({
+        baseFeeMode: configParam.poolFees?.baseFee?.baseFeeMode,
+        migrationOption: configParam.migrationOption,
+    })
 
     // pool fees validation
     if (!configParam.poolFees) {

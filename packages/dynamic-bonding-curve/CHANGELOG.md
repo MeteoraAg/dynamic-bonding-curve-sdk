@@ -2,6 +2,31 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.12] - 2026-09-07
+
+### Added
+
+- Added optional `tokenBadge` remaining account support on config and pool creation. Required when the quote mint is not permissionless-supported.
+- Added `deriveTokenBadgeAddress` and `getTokenBadgeRemainingAccounts` helpers.
+- Added `TokenBadge` account type and `client.state.getTokenBadge`.
+
+### Changed
+
+- Updated the DBC IDL to program version 0.2.1.
+- `getOrCreateATAInstruction` and `prepareTokenAccountTx` now accept an optional `commitment` (defaults to `confirmed`) and pass it through to the token account fetch.
+- Synced the DAMM v2 IDL and test-validator `cp_amm.so` fixture to cp_amm 0.2.4. DAMM v2 configs now include a `permission` bitmask. Migration tests create a private DAMM v2 config with `CreatePoolWithoutMintValidation` so Token-2022 quote mints that need a DBC token badge can still migrate. Token-2022 wrapped SOL is still rejected.
+
+### Deprecated
+
+- Deprecated `BaseFeeMode.RateLimiter` for new configs and new pools. Existing rate-limiter pools can still be quoted and swapped.
+- Deprecated `MigrationOption.MET_DAMM` (DAMM v1) for new configs and new pools. Existing DAMM v1 pools can still migrate.
+
+### Breaking Changes
+
+- `createConfig`, `createPool`, and `buildCurve*` now reject `BaseFeeMode.RateLimiter` and `MigrationOption.MET_DAMM`.
+- `getMigratedPoolFeeParams` now rejects `MigrationOption.MET_DAMM`.
+- `getBaseFeeParams` no longer takes `tokenQuoteDecimal` or `activationType`. Those arguments were only used to encode RateLimiter params, which this helper now rejects.
+
 ## [1.5.11] - 2026-07-30
 
 ### Changed

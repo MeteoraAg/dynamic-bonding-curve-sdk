@@ -43,6 +43,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             leftoverReceiver,
             quoteMint,
             payer,
+            tokenBadge,
             ...configParam
         } = params
 
@@ -52,7 +53,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
             new PublicKey(feeClaimer),
             new PublicKey(leftoverReceiver),
             new PublicKey(quoteMint),
-            new PublicKey(payer)
+            new PublicKey(payer),
+            tokenBadge ? new PublicKey(tokenBadge) : undefined
         )
     }
 
@@ -69,6 +71,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             quoteMint,
             transferHookProgram,
             payer,
+            tokenBadge,
             ...configParam
         } = params
 
@@ -79,7 +82,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
             new PublicKey(leftoverReceiver),
             new PublicKey(quoteMint),
             new PublicKey(transferHookProgram),
-            new PublicKey(payer)
+            new PublicKey(payer),
+            tokenBadge ? new PublicKey(tokenBadge) : undefined
         )
     }
 
@@ -96,6 +100,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             quoteMint,
             payer,
             preCreatePoolParam,
+            tokenBadge,
             ...configParam
         } = params
 
@@ -103,6 +108,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
         const configKey = new PublicKey(config)
         const quoteMintToken = new PublicKey(quoteMint)
         const payerAddress = new PublicKey(payer)
+        const tokenBadgeKey = tokenBadge ? new PublicKey(tokenBadge) : undefined
 
         const createConfigTx = await this.buildCreateConfigTx(
             configParam,
@@ -110,7 +116,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
             new PublicKey(feeClaimer),
             new PublicKey(leftoverReceiver),
             quoteMintToken,
-            payerAddress
+            payerAddress,
+            tokenBadgeKey
         )
 
         const createPoolTx = await this.buildCreatePoolTx(
@@ -118,6 +125,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 ...preCreatePoolParam,
                 config: configKey,
                 payer: payerAddress,
+                tokenBadge: tokenBadgeKey,
             },
             params.tokenType,
             quoteMintToken
@@ -141,6 +149,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             transferHookProgram,
             payer,
             preCreatePoolParam,
+            tokenBadge,
             ...configParam
         } = params
 
@@ -148,6 +157,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
         const configKey = new PublicKey(config)
         const quoteMintToken = new PublicKey(quoteMint)
         const payerAddress = new PublicKey(payer)
+        const tokenBadgeKey = tokenBadge ? new PublicKey(tokenBadge) : undefined
 
         const createConfigTx = await this.buildCreateConfigWithTransferHookTx(
             configParam,
@@ -156,7 +166,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
             new PublicKey(leftoverReceiver),
             quoteMintToken,
             new PublicKey(transferHookProgram),
-            payerAddress
+            payerAddress,
+            tokenBadgeKey
         )
 
         const tokenQuoteProgram = getTokenProgram(
@@ -169,6 +180,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 config: configKey,
                 payer: payerAddress,
                 transferHookProgram: new PublicKey(transferHookProgram),
+                tokenBadge: tokenBadgeKey,
             },
             quoteMintToken,
             tokenQuoteProgram
@@ -197,12 +209,14 @@ export class PartnerService extends DynamicBondingCurveProgram {
             payer,
             preCreatePoolParam,
             firstBuyParam,
+            tokenBadge,
             ...configParam
         } = params
 
         const configKey = new PublicKey(config)
         const quoteMintToken = new PublicKey(quoteMint)
         const payerAddress = new PublicKey(payer)
+        const tokenBadgeKey = tokenBadge ? new PublicKey(tokenBadge) : undefined
 
         const createConfigTx = await this.buildCreateConfigTx(
             configParam,
@@ -210,13 +224,15 @@ export class PartnerService extends DynamicBondingCurveProgram {
             new PublicKey(feeClaimer),
             new PublicKey(leftoverReceiver),
             quoteMintToken,
-            payerAddress
+            payerAddress,
+            tokenBadgeKey
         )
 
         const createPoolParam: CreatePoolParams = {
             ...preCreatePoolParam,
             config: configKey,
             payer: payerAddress,
+            tokenBadge: tokenBadgeKey,
         }
 
         const createPoolWithFirstBuyTx = await this.buildCreatePoolTx(
@@ -264,6 +280,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
             payer,
             preCreatePoolParam,
             firstBuyParam,
+            tokenBadge,
             ...configParam
         } = params
 
@@ -271,6 +288,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
         const quoteMintToken = new PublicKey(quoteMint)
         const payerAddress = new PublicKey(payer)
         const transferHookProgramKey = new PublicKey(transferHookProgram)
+        const tokenBadgeKey = tokenBadge ? new PublicKey(tokenBadge) : undefined
 
         const createConfigTx = await this.buildCreateConfigWithTransferHookTx(
             configParam,
@@ -279,7 +297,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
             new PublicKey(leftoverReceiver),
             quoteMintToken,
             transferHookProgramKey,
-            payerAddress
+            payerAddress,
+            tokenBadgeKey
         )
 
         const tokenQuoteProgram = getTokenProgram(
@@ -293,6 +312,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
                     config: configKey,
                     payer: payerAddress,
                     transferHookProgram: transferHookProgramKey,
+                    tokenBadge: tokenBadgeKey,
                 },
                 quoteMintToken,
                 tokenQuoteProgram
@@ -597,7 +617,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 feeClaimer,
                 feeClaimer,
                 true,
-                tokenQuoteProgram
+                tokenQuoteProgram,
+                this.commitment
             )
 
         createQuoteTokenAccountIx &&

@@ -77,12 +77,14 @@
     - [getPoolsFeesByConfig](#getPoolsFeesByConfig)
     - [getPoolsFeesByCreator](#getPoolsFeesByCreator)
     - [getDammV1MigrationMetadata](#getDammV1MigrationMetadata)
+    - [getTokenBadge](#getTokenBadge)
 
 - [Helper Functions](#helper-functions)
     - [deriveDbcPoolAddress](#deriveDbcPoolAddress)
     - [deriveDammV1PoolAddress](#deriveDammV1PoolAddress)
     - [deriveDammV2PoolAddress](#deriveDammV2PoolAddress)
     - [deriveDbcTokenVaultAddress](#deriveDbcTokenVaultAddress)
+    - [deriveTokenBadgeAddress](#deriveTokenBadgeAddress)
 
 - [Calculation Functions](#calculation-functions)
     - [getFeeSchedulerParams](#getFeeSchedulerParams)
@@ -114,13 +116,14 @@ interface CreateConfigParams {
     feeClaimer: PublicKey // The wallet that will be able to claim the fee
     leftoverReceiver: PublicKey // The wallet that will receive the bonding curve leftover
     quoteMint: PublicKey // The quote mint address
+    tokenBadge?: PublicKey // Optional. Required remaining account when the quote mint is not permissionless-supported
     poolFees: {
         baseFee: {
             cliffFeeNumerator: BN // Initial fee numerator (base fee)
             firstFactor: number // feeScheduler: numberOfPeriod, rateLimiter: feeIncrementBps
             secondFactor: BN // feeScheduler: periodFrequency, rateLimiter: maxLimiterDuration
             thirdFactor: BN // feeScheduler: reductionFactor, rateLimiter: referenceAmount
-            baseFeeMode: number // 0: FeeSchedulerLinear, 1: FeeSchedulerExponential, 2: RateLimiter
+            baseFeeMode: number // 0: FeeSchedulerLinear, 1: FeeSchedulerExponential. RateLimiter (2) is deprecated for new configs
         }
         dynamicFee: {
             // Optional dynamic fee
@@ -134,7 +137,7 @@ interface CreateConfigParams {
         } | null
     }
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationOption: number // 0: DAMM V1, 1: DAMM v2
+    migrationOption: number // 1: DAMM v2. DAMM v1 (0) is deprecated for new configs
     activationType: number // 0: Slot, 1: Timestamp
     tokenType: number // 0: SPLToken, 1: Token2022
     tokenDecimal: number // The number of decimals for the token
@@ -238,7 +241,7 @@ const transaction = await client.partner.createConfig({
     },
     activationType: 0,
     collectFeeMode: 0,
-    migrationOption: 0,
+    migrationOption: 1,
     tokenType: 0,
     tokenDecimal: 9,
     migrationQuoteThreshold: new BN('1000000000'),
@@ -318,12 +321,7 @@ When creating a new configuration for a dynamic bonding curve, several validatio
     - Min and max fee numerators must be within valid range (MIN_FEE_NUMERATOR to MAX_FEE_NUMERATOR)
     - Fee numerators must be less than FEE_DENOMINATOR
 - If using Rate Limiter:
-    - Can only be used with QuoteToken collect fee mode
-    - All parameters must be set for non-zero rate limiter
-    - Max limiter duration must be within limits based on activation type
-    - Fee increment numerator must be less than FEE_DENOMINATOR
-    - Cliff fee numerator must be within valid range
-    - Min and max fee numerators must be within valid range
+    - Deprecated for new configs and new pools. Existing rate-limiter pools can still be quoted and swapped.
 
 **Fee Mode**
 
@@ -331,7 +329,8 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 
 **Migration and Token Type**
 
-- For migration to DAMM v1 (MigrationOption: 0), token type must be type SPLToken (TokenType: 0)
+- New configs must use DAMM v2 (`MigrationOption.MET_DAMM_V2`). DAMM v1 migration is deprecated for new configs and new pools. Existing DAMM v1 pools can still migrate.
+- Token-badge remaining account is required when the quote mint is not permissionless-supported. Use `deriveTokenBadgeAddress(quoteMint)` and pass it as `tokenBadge`. A token badge does not allow a non-zero transfer fee.
 
 **Activation Type**
 
@@ -491,13 +490,14 @@ interface CreateConfigAndPoolParams {
     feeClaimer: PublicKey // The wallet that will be able to claim the fee
     leftoverReceiver: PublicKey // The wallet that will receive the bonding curve leftover
     quoteMint: PublicKey // The quote mint address
+    tokenBadge?: PublicKey // Optional. Required remaining account when the quote mint is not permissionless-supported
     poolFees: {
         baseFee: {
             cliffFeeNumerator: BN // Initial fee numerator (base fee)
             firstFactor: number // feeScheduler: numberOfPeriod, rateLimiter: feeIncrementBps
             secondFactor: BN // feeScheduler: periodFrequency, rateLimiter: maxLimiterDuration
             thirdFactor: BN // feeScheduler: reductionFactor, rateLimiter: referenceAmount
-            baseFeeMode: number // 0: FeeSchedulerLinear, 1: FeeSchedulerExponential, 2: RateLimiter
+            baseFeeMode: number // 0: FeeSchedulerLinear, 1: FeeSchedulerExponential. RateLimiter (2) is deprecated for new configs
         }
         dynamicFee: {
             // Optional dynamic fee
@@ -511,7 +511,7 @@ interface CreateConfigAndPoolParams {
         } | null
     }
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationOption: number // 0: DAMM V1, 1: DAMM v2
+    migrationOption: number // 1: DAMM v2. DAMM v1 (0) is deprecated for new configs
     activationType: number // 0: Slot, 1: Timestamp
     tokenType: number // 0: SPLToken, 1: Token2022
     tokenDecimal: number // The number of decimals for the token
@@ -622,7 +622,7 @@ const transaction = await client.partner.createConfigAndPool({
     },
     activationType: 0,
     collectFeeMode: 0,
-    migrationOption: 0,
+    migrationOption: 1,
     tokenType: 0,
     tokenDecimal: 9,
     migrationQuoteThreshold: new BN('1000000000'),
@@ -788,13 +788,14 @@ interface CreateConfigAndPoolWithFirstBuyParams {
     feeClaimer: PublicKey // The wallet that will be able to claim the fee
     leftoverReceiver: PublicKey // The wallet that will receive the bonding curve leftover
     quoteMint: PublicKey // The quote mint address
+    tokenBadge?: PublicKey // Optional. Required remaining account when the quote mint is not permissionless-supported
     poolFees: {
         baseFee: {
             cliffFeeNumerator: BN // Initial fee numerator (base fee)
             firstFactor: number // feeScheduler: numberOfPeriod, rateLimiter: feeIncrementBps
             secondFactor: BN // feeScheduler: periodFrequency, rateLimiter: maxLimiterDuration
             thirdFactor: BN // feeScheduler: reductionFactor, rateLimiter: referenceAmount
-            baseFeeMode: number // 0: FeeSchedulerLinear, 1: FeeSchedulerExponential, 2: RateLimiter
+            baseFeeMode: number // 0: FeeSchedulerLinear, 1: FeeSchedulerExponential. RateLimiter (2) is deprecated for new configs
         }
         dynamicFee: {
             // Optional dynamic fee
@@ -808,7 +809,7 @@ interface CreateConfigAndPoolWithFirstBuyParams {
         } | null
     }
     collectFeeMode: number // 0: QuoteToken, 1: OutputToken
-    migrationOption: number // 0: DAMM V1, 1: DAMM v2
+    migrationOption: number // 1: DAMM v2. DAMM v1 (0) is deprecated for new configs
     activationType: number // 0: Slot, 1: Timestamp
     tokenType: number // 0: SPLToken, 1: Token2022
     tokenDecimal: number // The number of decimals for the token
@@ -935,7 +936,7 @@ const { createConfigTx, createPoolWithFirstBuyTx } =
         },
         activationType: 0,
         collectFeeMode: 0,
-        migrationOption: 0,
+        migrationOption: 1,
         tokenType: 0,
         tokenDecimal: 9,
         migrationQuoteThreshold: new BN('1000000000'),
@@ -1443,7 +1444,7 @@ interface BuildCurveParams {
     }
     // Migration configuration
     migration: {
-        migrationOption: MigrationOption // 0: DAMM V1, 1: DAMM V2
+        migrationOption: MigrationOption // 1: DAMM V2. DAMM V1 (0) is deprecated for new configs
         migrationFeeOption: MigrationFeeOption // 0-5: Fixed fee options, 6: Customizable (DAMM V2 only)
         migrationFee: {
             feePercentage: number // Percentage of fee taken from migration quote threshold (0-99)
@@ -1519,7 +1520,7 @@ type BaseFeeParams =
               totalDuration: number // The total duration of the fee scheduler
           }
       }
-    // OR RateLimiter mode:
+    // OR RateLimiter mode (deprecated for new configs; existing pools can still be quoted):
     | {
           baseFeeMode: BaseFeeMode.RateLimiter
           rateLimiterParam: {
@@ -3176,6 +3177,7 @@ interface CreatePoolParams {
     uri: string // The uri of the pool
     payer: PublicKey // The payer of the transaction
     poolCreator: PublicKey // The pool creator of the transaction
+    tokenBadge?: PublicKey // Optional. Required remaining account when the quote mint is not permissionless-supported
 }
 ```
 
@@ -3202,6 +3204,8 @@ const transaction = await client.creator.createPool({
 - The payer must be the same as the payer in the `CreatePoolParam` params.
 - The poolCreator is required to sign when creating the pool.
 - The baseMint token type must be the same as the config key's token type.
+- Existing configs with `BaseFeeMode.RateLimiter` or `MigrationOption.MET_DAMM` cannot create new pools.
+- Pass `tokenBadge` when the quote mint is not permissionless-supported.
 
 ---
 
@@ -4359,6 +4363,41 @@ const metadata = await client.state.getDammV1MigrationMetadata(poolAddress)
 
 ---
 
+### getTokenBadge
+
+Fetches the DBC token badge for a mint, if one exists.
+
+**Function**
+
+```typescript
+async getTokenBadge(tokenMint: PublicKey | string): Promise<TokenBadge | null>
+```
+
+**Parameters**
+
+```typescript
+tokenMint: PublicKey | string // The quote mint whose badge should be fetched
+```
+
+**Returns**
+
+- The `TokenBadge` account, or `null` if no badge exists for that mint.
+
+```typescript
+type TokenBadge = {
+    tokenMint: PublicKey
+    padding: number[]
+}
+```
+
+**Example**
+
+```typescript
+const tokenBadge = await client.state.getTokenBadge(quoteMint)
+```
+
+---
+
 ### getPoolFeeMetrics
 
 Gets the fee metrics for a specific pool.
@@ -4712,6 +4751,41 @@ const dbcTokenVaultAddress = deriveDbcTokenVaultAddress(
 
 ---
 
+### deriveTokenBadgeAddress
+
+Derives the DBC token badge PDA for a mint. Pass this as `tokenBadge` when creating a config or pool whose quote mint is not permissionless-supported.
+
+**Function**
+
+```typescript
+function deriveTokenBadgeAddress(tokenMint: PublicKey): PublicKey
+```
+
+**Parameters**
+
+```typescript
+tokenMint: PublicKey // The token mint
+```
+
+**Returns**
+
+- The token badge address.
+
+**Example**
+
+```typescript
+const tokenBadge = deriveTokenBadgeAddress(quoteMint)
+
+const transaction = await client.partner.createConfig({
+    // ...
+    quoteMint,
+    tokenBadge,
+    ...curveConfig,
+})
+```
+
+---
+
 ## Calculation Functions
 
 ### getFeeSchedulerParams
@@ -4831,6 +4905,7 @@ const baseFeeParams = getRateLimiterParams(
 
 **Notes**
 
+- Deprecated for new configs and new pools. Existing rate-limiter pools can still be quoted and swapped.
 - The `maxLimiterDuration` is the max duration of the rate limiter. It must be calculated based on your `activationType`. If you use `ActivationType.Slot`, the `maxLimiterDuration` is denominated in terms of 400ms (slot). If you use `ActivationType.Timestamp`, the `maxLimiterDuration` is denominated in terms of 1000ms (timestamp).
 - `referenceAmount` must always be greater than 0. This parameter takes into account the quoteMint decimals. For example, if you use `TokenDecimal.NINE`, the `referenceAmount` must be 1 (1 SOL).
 - `maxLimiterDuration` must always be greater than 0.

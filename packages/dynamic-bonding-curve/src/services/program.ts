@@ -17,6 +17,7 @@ import {
     getOrCreateATAInstruction,
     getTokenProgram,
     getTokenType,
+    getTokenBadgeRemainingAccounts,
     unwrapSOLInstruction,
     validateConfigParameters,
     validateSwapAmount,
@@ -146,7 +147,8 @@ export class DynamicBondingCurveProgram {
         feeClaimer: PublicKey,
         leftoverReceiver: PublicKey,
         quoteMint: PublicKey,
-        payer: PublicKey
+        payer: PublicKey,
+        tokenBadge?: PublicKey
     ): Promise<Transaction> {
         validateConfigParameters({ ...configParam, leftoverReceiver })
 
@@ -159,6 +161,7 @@ export class DynamicBondingCurveProgram {
                 quoteMint,
                 payer,
             })
+            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
             .transaction()
     }
 
@@ -169,7 +172,8 @@ export class DynamicBondingCurveProgram {
         leftoverReceiver: PublicKey,
         quoteMint: PublicKey,
         transferHookProgram: PublicKey,
-        payer: PublicKey
+        payer: PublicKey,
+        tokenBadge?: PublicKey
     ): Promise<Transaction> {
         validateConfigParameters(
             { ...configParam, leftoverReceiver },
@@ -186,11 +190,12 @@ export class DynamicBondingCurveProgram {
                 transferHookProgram,
                 payer,
             })
+            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
             .transaction()
     }
 
     protected async initializeSplPool(
-        params: InitializePoolBaseParams
+        params: InitializePoolBaseParams & { tokenQuoteProgram: PublicKey }
     ): Promise<Transaction> {
         const {
             name,
@@ -205,6 +210,8 @@ export class DynamicBondingCurveProgram {
             baseVault,
             quoteVault,
             quoteMint,
+            tokenBadge,
+            tokenQuoteProgram,
         } = params
 
         return this.program.methods
@@ -224,15 +231,16 @@ export class DynamicBondingCurveProgram {
                 baseVault,
                 quoteVault,
                 quoteMint,
-                tokenQuoteProgram: TOKEN_PROGRAM_ID,
+                tokenQuoteProgram,
                 metadataProgram: METAPLEX_PROGRAM_ID,
                 tokenProgram: TOKEN_PROGRAM_ID,
             })
+            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
             .transaction()
     }
 
     protected async initializeToken2022Pool(
-        params: InitializePoolBaseParams
+        params: InitializePoolBaseParams & { tokenQuoteProgram: PublicKey }
     ): Promise<Transaction> {
         const {
             name,
@@ -246,6 +254,8 @@ export class DynamicBondingCurveProgram {
             baseVault,
             quoteVault,
             quoteMint,
+            tokenBadge,
+            tokenQuoteProgram,
         } = params
 
         return this.program.methods
@@ -264,9 +274,10 @@ export class DynamicBondingCurveProgram {
                 baseVault,
                 quoteVault,
                 quoteMint,
-                tokenQuoteProgram: TOKEN_PROGRAM_ID,
+                tokenQuoteProgram,
                 tokenProgram: TOKEN_2022_PROGRAM_ID,
             })
+            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
             .transaction()
     }
 
@@ -290,6 +301,7 @@ export class DynamicBondingCurveProgram {
             quoteMint,
             transferHookProgram,
             tokenQuoteProgram,
+            tokenBadge,
         } = params
 
         return this.program.methods
@@ -312,6 +324,7 @@ export class DynamicBondingCurveProgram {
                 tokenQuoteProgram,
                 tokenProgram: TOKEN_2022_PROGRAM_ID,
             })
+            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
             .transaction()
     }
 
@@ -320,12 +333,26 @@ export class DynamicBondingCurveProgram {
         tokenType: TokenType,
         quoteMint: PublicKey
     ): Promise<Transaction> {
-        const { baseMint, name, symbol, uri, poolCreator, config, payer } =
-            createPoolParam
+        const {
+            baseMint,
+            name,
+            symbol,
+            uri,
+            poolCreator,
+            config,
+            payer,
+            tokenBadge,
+        } = createPoolParam
 
         const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
         const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
         const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
+
+        const quoteTokenType = await getTokenType(this.connection, quoteMint)
+        if (quoteTokenType === null) {
+            throw new Error(`Invalid quote mint: ${quoteMint.toString()}`)
+        }
+        const tokenQuoteProgram = getTokenProgram(quoteTokenType)
 
         const baseParams: InitializePoolBaseParams = {
             name,
@@ -339,14 +366,22 @@ export class DynamicBondingCurveProgram {
             baseVault,
             quoteVault,
             quoteMint,
+            tokenBadge,
         }
 
         if (tokenType === TokenType.SPLToken) {
             const mintMetadata = deriveMintMetadata(baseMint)
-            return this.initializeSplPool({ ...baseParams, mintMetadata })
+            return this.initializeSplPool({
+                ...baseParams,
+                mintMetadata,
+                tokenQuoteProgram,
+            })
         }
 
-        return this.initializeToken2022Pool(baseParams)
+        return this.initializeToken2022Pool({
+            ...baseParams,
+            tokenQuoteProgram,
+        })
     }
 
     protected async buildCreatePoolWithTransferHookTx(
@@ -363,6 +398,7 @@ export class DynamicBondingCurveProgram {
             config,
             payer,
             transferHookProgram,
+            tokenBadge,
         } = createPoolParam
 
         if (!validateTransferHookProgram(transferHookProgram)) {
@@ -389,6 +425,7 @@ export class DynamicBondingCurveProgram {
             quoteMint,
             transferHookProgram,
             tokenQuoteProgram,
+            tokenBadge,
         })
     }
 
@@ -463,7 +500,8 @@ export class DynamicBondingCurveProgram {
                 buyer,
                 buyer,
                 true,
-                inputTokenProgram
+                inputTokenProgram,
+                this.commitment
             ),
             getOrCreateATAInstruction(
                 this.connection,
@@ -471,7 +509,8 @@ export class DynamicBondingCurveProgram {
                 receiver ? receiver : buyer,
                 buyer,
                 true,
-                outputTokenProgram
+                outputTokenProgram,
+                this.commitment
             ),
         ])
         createAtaTokenAIx && preInstructions.push(createAtaTokenAIx)
@@ -597,7 +636,8 @@ export class DynamicBondingCurveProgram {
                 buyer,
                 buyer,
                 true,
-                inputTokenProgram
+                inputTokenProgram,
+                this.commitment
             ),
             getOrCreateATAInstruction(
                 this.connection,
@@ -605,7 +645,8 @@ export class DynamicBondingCurveProgram {
                 receiver ? receiver : buyer,
                 buyer,
                 true,
-                outputTokenProgram
+                outputTokenProgram,
+                this.commitment
             ),
         ])
         createAtaTokenAIx && preInstructions.push(createAtaTokenAIx)
@@ -917,7 +958,8 @@ export class DynamicBondingCurveProgram {
                 sender,
                 sender,
                 true,
-                tokenQuoteProgram
+                tokenQuoteProgram,
+                this.commitment
             )
         createTokenQuoteAccountIx &&
             preInstructions.push(createTokenQuoteAccountIx)
@@ -967,7 +1009,8 @@ export class DynamicBondingCurveProgram {
                 owner,
                 payer,
                 true,
-                tokenAProgram
+                tokenAProgram,
+                this.commitment
             ),
             getOrCreateATAInstruction(
                 this.connection,
@@ -975,7 +1018,8 @@ export class DynamicBondingCurveProgram {
                 owner,
                 payer,
                 true,
-                tokenBProgram
+                tokenBProgram,
+                this.commitment
             ),
         ])
         createAtaTokenAIx && instructions.push(createAtaTokenAIx)

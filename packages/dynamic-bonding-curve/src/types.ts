@@ -16,24 +16,28 @@ import { DynamicBondingCurve as DynamicBondingCurveIDL } from './idl/dynamic-bon
 
 export type DynamicCurveProgram = Program<DynamicBondingCurveIDL>
 
+type DbcInstruction<
+    TName extends DynamicBondingCurve['instructions'][number]['name'],
+> = Extract<DynamicBondingCurve['instructions'][number], { name: TName }>
+
 /////////////////
 // IX ACCOUNTS //
 /////////////////
 
 export type CreateConfigAccounts = Accounts<
-    DynamicBondingCurve['instructions']['10']
+    DbcInstruction<'createConfig'>
 >['createConfig']
 
 export type CreateDammV1MigrationMetadataAccounts = Accounts<
-    DynamicBondingCurve['instructions']['25']
+    DbcInstruction<'migrationMeteoraDammCreateMetadata'>
 >['migrationMeteoraDammCreateMetadata']
 
 export type InitializeSplPoolAccounts = Accounts<
-    DynamicBondingCurve['instructions']['17']
+    DbcInstruction<'initializeVirtualPoolWithSplToken'>
 >['initializeVirtualPoolWithSplToken']
 
 export type InitializeToken2022PoolAccounts = Accounts<
-    DynamicBondingCurve['instructions']['18']
+    DbcInstruction<'initializeVirtualPoolWithToken2022'>
 >['initializeVirtualPoolWithToken2022']
 
 ///////////////
@@ -111,6 +115,8 @@ export type PartnerMetadata =
 export type VirtualPoolMetadata =
     IdlAccounts<DynamicBondingCurve>['virtualPoolMetadata']
 
+export type TokenBadge = IdlAccounts<DynamicBondingCurve>['tokenBadge']
+
 ///////////
 // ENUMS //
 ///////////
@@ -158,6 +164,7 @@ export enum DammV2BaseFeeMode {
 }
 
 export enum MigrationOption {
+    /** @deprecated New configs and pools cannot use DAMM v1 migration. Existing pools can still migrate. */
     MET_DAMM = 0,
     MET_DAMM_V2 = 1,
 }
@@ -165,6 +172,7 @@ export enum MigrationOption {
 export enum BaseFeeMode {
     FeeSchedulerLinear = 0,
     FeeSchedulerExponential = 1,
+    /** @deprecated New configs and pools cannot use RateLimiter. Existing pools are unaffected. */
     RateLimiter = 2,
 }
 
@@ -231,7 +239,14 @@ export type CreateConfigParams = Omit<
     CreateConfigAccounts,
     'program' | 'eventAuthority' | 'systemProgram'
 > &
-    ConfigParameters
+    ConfigParameters & {
+        /**
+         * Optional DBC token badge for the quote mint.
+         * Required as remaining account index 0 when the quote mint is not
+         * permissionless-supported (for example Token-2022 mints with extra extensions).
+         */
+        tokenBadge?: PublicKey
+    }
 
 export type CreateConfigWithTransferHookParams = CreateConfigParams & {
     transferHookProgram: PublicKey
@@ -401,6 +416,7 @@ export type InitializePoolBaseParams = {
     quoteVault: PublicKey
     quoteMint: PublicKey
     mintMetadata?: PublicKey
+    tokenBadge?: PublicKey
 }
 
 export type CreatePoolParams = {
@@ -411,6 +427,7 @@ export type CreatePoolParams = {
     poolCreator: PublicKey
     config: PublicKey
     baseMint: PublicKey
+    tokenBadge?: PublicKey
 }
 
 export type CreatePoolWithTransferHookParams = CreatePoolParams & {

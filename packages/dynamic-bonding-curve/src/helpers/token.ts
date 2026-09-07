@@ -1,4 +1,5 @@
 import {
+    Commitment,
     Connection,
     PublicKey,
     SystemProgram,
@@ -30,7 +31,8 @@ export const getOrCreateATAInstruction = async (
     owner: PublicKey,
     payer: PublicKey,
     allowOwnerOffCurve = true,
-    tokenProgram: PublicKey
+    tokenProgram: PublicKey,
+    commitment: Commitment = 'confirmed'
 ): Promise<{ ataPubkey: PublicKey; ix?: TransactionInstruction }> => {
     const toAccount = getAssociatedTokenAddressSync(
         tokenMint,
@@ -40,7 +42,7 @@ export const getOrCreateATAInstruction = async (
     )
 
     try {
-        await getAccount(connection, toAccount)
+        await getAccount(connection, toAccount, commitment, tokenProgram)
         return { ataPubkey: toAccount, ix: undefined }
     } catch (e) {
         if (
@@ -194,7 +196,8 @@ export async function prepareTokenAccountTx(
     payer: PublicKey,
     tokenMint: PublicKey,
     amount: bigint,
-    tokenProgram: PublicKey
+    tokenProgram: PublicKey,
+    commitment: Commitment = 'confirmed'
 ): Promise<{
     tokenAccount: PublicKey
     transaction: Transaction
@@ -207,7 +210,8 @@ export async function prepareTokenAccountTx(
             owner,
             payer,
             true,
-            tokenProgram
+            tokenProgram,
+            commitment
         )
 
     createAtaIx && instructions.push(createAtaIx)

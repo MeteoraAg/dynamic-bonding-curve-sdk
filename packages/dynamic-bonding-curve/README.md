@@ -37,8 +37,8 @@ The generic flow of how Dynamic Bonding Curve works is as follows:
 1. The partner creates a config key for the pool.
 2. The creator creates a pool.
 3. The pool is tradeable on the Dynamic Bonding Curve.
-4. Meteora's migrator service migrates the pool to either DAMM V1 or DAMM V2 based on the config key once the quote reserve is more than or equals to the migration quote threshold.
-5. The graduated pool is tradeable on either DAMM V1 or DAMM V2.
+4. Meteora's migrator service migrates the pool to DAMM V2 based on the config key once the quote reserve is more than or equals to the migration quote threshold. Existing DBC pools created with `MigrationOption.MET_DAMM` can still graduate to DAMM V1; new configs and new pools cannot use that option.
+5. The graduated pool is tradeable on DAMM V2. Existing DAMM V1-graduated pools remain tradeable on DAMM V1.
 
 ## Flow of migration
 

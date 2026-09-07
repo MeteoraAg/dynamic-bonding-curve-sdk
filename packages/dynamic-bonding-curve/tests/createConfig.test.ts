@@ -9,6 +9,7 @@ import {
     CollectFeeMode,
     DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
+    deriveTokenBadgeAddress,
     DynamicBondingCurveClient,
     MigratedCollectFeeMode,
     getVestingLockedLiquidityBpsAtNSeconds,
@@ -58,6 +59,27 @@ describe('createConfig tests', { timeout: 60000 }, () => {
             config.publicKey
         )
         expect(configState).not.toBeNull()
+    })
+
+    test('createConfig includes tokenBadge remaining account when provided', async () => {
+        const curveConfig = buildTestCurveConfig()
+        const config = Keypair.generate()
+        const tokenBadge = deriveTokenBadgeAddress(NATIVE_MINT)
+        const createConfigTx = await dbcClient.partner.createConfig({
+            config: config.publicKey,
+            feeClaimer: partner.publicKey,
+            leftoverReceiver: partner.publicKey,
+            payer: partner.publicKey,
+            quoteMint: NATIVE_MINT,
+            tokenBadge,
+            ...curveConfig,
+        })
+
+        const createConfigIx = createConfigTx.instructions[0]
+        expect(
+            createConfigIx.keys.some((key) => key.pubkey.equals(tokenBadge))
+        ).toBe(true)
+        expect(await dbcClient.state.getTokenBadge(NATIVE_MINT)).toBeNull()
     })
 
     test('createConfig with output token fee mode', async () => {

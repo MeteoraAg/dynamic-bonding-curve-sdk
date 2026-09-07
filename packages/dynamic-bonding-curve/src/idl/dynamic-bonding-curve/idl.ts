@@ -8,7 +8,7 @@ export type DynamicBondingCurve = {
     address: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
     metadata: {
         name: 'dynamicBondingCurve'
-        version: '0.2.0'
+        version: '0.2.1'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -191,87 +191,6 @@ export type DynamicBondingCurve = {
                 },
             ]
             args: []
-        },
-        {
-            name: 'claimProtocolFee'
-            docs: ['Accepts: VirtualPool only.']
-            discriminator: [165, 228, 133, 48, 99, 249, 255, 33]
-            accounts: [
-                {
-                    name: 'poolAuthority'
-                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
-                },
-                {
-                    name: 'config'
-                    relations: ['pool']
-                },
-                {
-                    name: 'pool'
-                    writable: true
-                },
-                {
-                    name: 'baseVault'
-                    docs: ['The vault token account for input token']
-                    writable: true
-                    relations: ['pool']
-                },
-                {
-                    name: 'quoteVault'
-                    docs: ['The vault token account for output token']
-                    writable: true
-                    relations: ['pool']
-                },
-                {
-                    name: 'baseMint'
-                    docs: ['The mint of token a']
-                    relations: ['pool']
-                },
-                {
-                    name: 'quoteMint'
-                    docs: ['The mint of token b']
-                    relations: ['config']
-                },
-                {
-                    name: 'tokenBaseAccount'
-                    writable: true
-                },
-                {
-                    name: 'tokenQuoteAccount'
-                    writable: true
-                },
-                {
-                    name: 'operator'
-                },
-                {
-                    name: 'signer'
-                    docs: ['Signer']
-                    signer: true
-                },
-                {
-                    name: 'tokenBaseProgram'
-                    docs: ['Token a program']
-                },
-                {
-                    name: 'tokenQuoteProgram'
-                    docs: ['Token b program']
-                },
-                {
-                    name: 'eventAuthority'
-                },
-                {
-                    name: 'program'
-                },
-            ]
-            args: [
-                {
-                    name: 'maxBaseAmount'
-                    type: 'u64'
-                },
-                {
-                    name: 'maxQuoteAmount'
-                    type: 'u64'
-                },
-            ]
         },
         {
             name: 'claimProtocolFee2'
@@ -559,6 +478,34 @@ export type DynamicBondingCurve = {
                 {
                     name: 'rentReceiver'
                     writable: true
+                },
+            ]
+            args: []
+        },
+        {
+            name: 'closeTokenBadge'
+            discriminator: [108, 146, 86, 110, 179, 254, 10, 104]
+            accounts: [
+                {
+                    name: 'tokenBadge'
+                    writable: true
+                },
+                {
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
+                    signer: true
+                },
+                {
+                    name: 'rentReceiver'
+                    writable: true
+                },
+                {
+                    name: 'eventAuthority'
+                },
+                {
+                    name: 'program'
                 },
             ]
             args: []
@@ -871,6 +818,67 @@ export type DynamicBondingCurve = {
                     }
                 },
             ]
+        },
+        {
+            name: 'createTokenBadge'
+            discriminator: [88, 206, 0, 91, 60, 175, 151, 118]
+            accounts: [
+                {
+                    name: 'tokenBadge'
+                    writable: true
+                    pda: {
+                        seeds: [
+                            {
+                                kind: 'const'
+                                value: [
+                                    116,
+                                    111,
+                                    107,
+                                    101,
+                                    110,
+                                    95,
+                                    98,
+                                    97,
+                                    100,
+                                    103,
+                                    101,
+                                ]
+                            },
+                            {
+                                kind: 'account'
+                                path: 'tokenMint'
+                            },
+                        ]
+                    }
+                },
+                {
+                    name: 'tokenMint'
+                },
+                {
+                    name: 'operator'
+                },
+                {
+                    name: 'signer'
+                    docs: ['operator']
+                    signer: true
+                },
+                {
+                    name: 'payer'
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'systemProgram'
+                    address: '11111111111111111111111111111111'
+                },
+                {
+                    name: 'eventAuthority'
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: []
         },
         {
             name: 'createVirtualPoolMetadata'
@@ -2589,59 +2597,6 @@ export type DynamicBondingCurve = {
                 },
             ]
         },
-        {
-            name: 'zapProtocolFee'
-            docs: ['Accepts: VirtualPool only.']
-            discriminator: [213, 155, 187, 34, 56, 182, 91, 240]
-            accounts: [
-                {
-                    name: 'poolAuthority'
-                    address: 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'
-                },
-                {
-                    name: 'config'
-                    relations: ['pool']
-                },
-                {
-                    name: 'pool'
-                    writable: true
-                },
-                {
-                    name: 'tokenVault'
-                    writable: true
-                },
-                {
-                    name: 'tokenMint'
-                },
-                {
-                    name: 'receiverToken'
-                    writable: true
-                },
-                {
-                    name: 'operator'
-                    docs: ['zap claim fee operator']
-                },
-                {
-                    name: 'signer'
-                    docs: ['operator']
-                    signer: true
-                },
-                {
-                    name: 'tokenProgram'
-                    docs: ['Token program']
-                },
-                {
-                    name: 'sysvarInstructions'
-                    address: 'Sysvar1nstructions1111111111111111111111111'
-                },
-            ]
-            args: [
-                {
-                    name: 'maxAmount'
-                    type: 'u64'
-                },
-            ]
-        },
     ]
     accounts: [
         {
@@ -2669,6 +2624,10 @@ export type DynamicBondingCurve = {
             discriminator: [26, 108, 14, 123, 116, 230, 129, 43]
         },
         {
+            name: 'tokenBadge'
+            discriminator: [116, 219, 204, 229, 249, 116, 255, 150]
+        },
+        {
             name: 'transferHookPool'
             discriminator: [237, 219, 184, 23, 42, 189, 169, 35]
         },
@@ -2691,10 +2650,6 @@ export type DynamicBondingCurve = {
             discriminator: [149, 111, 149, 44, 136, 64, 175, 62]
         },
         {
-            name: 'evtClaimProtocolFee'
-            discriminator: [186, 244, 75, 251, 188, 13, 25, 33]
-        },
-        {
             name: 'evtClaimProtocolFee2'
             discriminator: [187, 133, 66, 9, 205, 161, 84, 13]
         },
@@ -2705,6 +2660,10 @@ export type DynamicBondingCurve = {
         {
             name: 'evtCloseClaimFeeOperator'
             discriminator: [111, 39, 37, 55, 110, 216, 194, 23]
+        },
+        {
+            name: 'evtCloseTokenBadge'
+            discriminator: [60, 217, 34, 82, 183, 10, 89, 188]
         },
         {
             name: 'evtCreateClaimFeeOperator'
@@ -2725,6 +2684,10 @@ export type DynamicBondingCurve = {
         {
             name: 'evtCreateMeteoraMigrationMetadata'
             discriminator: [99, 167, 133, 63, 214, 143, 175, 139]
+        },
+        {
+            name: 'evtCreateTokenBadge'
+            discriminator: [141, 120, 134, 116, 34, 28, 114, 160]
         },
         {
             name: 'evtCreatorWithdrawSurplus'
@@ -3172,6 +3135,36 @@ export type DynamicBondingCurve = {
             code: 6076
             name: 'poolTypeMismatch'
             msg: 'Pool type does not match instruction'
+        },
+        {
+            code: 6077
+            name: 'invalidRemainingAccountSliceType'
+            msg: 'Invalid remaining account slice type for this instruction'
+        },
+        {
+            code: 6078
+            name: 'deprecatedBaseFeeMode'
+            msg: 'Deprecated base fee mode'
+        },
+        {
+            code: 6079
+            name: 'cannotCreateTokenBadgeOnSupportedMint'
+            msg: 'Cannot create token badge on supported mint'
+        },
+        {
+            code: 6080
+            name: 'invalidTokenBadge'
+            msg: 'Invalid token badge'
+        },
+        {
+            code: 6081
+            name: 'quoteMintHasNonZeroTransferFee'
+            msg: 'Quote mint has a non zero transfer fee'
+        },
+        {
+            code: 6082
+            name: 'deprecatedMigrationOption'
+            msg: 'Deprecated migration option'
         },
     ]
     types: [
@@ -3704,26 +3697,6 @@ export type DynamicBondingCurve = {
             }
         },
         {
-            name: 'evtClaimProtocolFee'
-            type: {
-                kind: 'struct'
-                fields: [
-                    {
-                        name: 'pool'
-                        type: 'pubkey'
-                    },
-                    {
-                        name: 'tokenBaseAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'tokenQuoteAmount'
-                        type: 'u64'
-                    },
-                ]
-            }
-        },
-        {
             name: 'evtClaimProtocolFee2'
             type: {
                 kind: 'struct'
@@ -3779,6 +3752,18 @@ export type DynamicBondingCurve = {
                     },
                     {
                         name: 'operator'
+                        type: 'pubkey'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtCloseTokenBadge'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'tokenMint'
                         type: 'pubkey'
                     },
                 ]
@@ -3991,6 +3976,18 @@ export type DynamicBondingCurve = {
                 fields: [
                     {
                         name: 'virtualPool'
+                        type: 'pubkey'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtCreateTokenBadge'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'tokenMint'
                         type: 'pubkey'
                     },
                 ]
@@ -5570,6 +5567,31 @@ export type DynamicBondingCurve = {
                     {
                         name: 'referralFee'
                         type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'tokenBadge'
+            docs: ['Parameter that set by the protocol']
+            serialization: 'bytemuck'
+            repr: {
+                kind: 'c'
+            }
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'tokenMint'
+                        docs: ['token mint']
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'padding'
+                        docs: ['Reserve']
+                        type: {
+                            array: ['u8', 128]
+                        }
                     },
                 ]
             }

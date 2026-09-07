@@ -14,25 +14,39 @@ import {
     CreatePoolWithPartnerAndCreatorFirstBuyParams,
     CreateVirtualPoolMetadataParams,
     CreatorWithdrawSurplusParams,
+    PoolConfig,
     TransferPoolCreatorParams,
     WithdrawMigrationFeeParams,
 } from '../types'
-import {
-    createAssociatedTokenAccountIdempotentInstruction,
-    TOKEN_PROGRAM_ID,
-} from '@solana/spl-token'
 import { DynamicBondingCurveProgram } from './program'
 import {
     deriveDammV1MigrationMetadataAddress,
     deriveDbcPoolMetadata,
-    findAssociatedTokenAddress,
+    getOrCreateATAInstruction,
     getTokenProgram,
     isNativeSol,
     unwrapSOLInstruction,
+    assertConfigAllowsNewPool,
 } from '../helpers'
 import BN from 'bn.js'
 
 export class CreatorService extends DynamicBondingCurveProgram {
+    private async getPoolConfigForNewPool(
+        config: CreatePoolParams['config']
+    ): Promise<PoolConfig> {
+        const poolConfigState = await this.state.getPoolConfig(config)
+        if (!poolConfigState) {
+            throw new Error(`Pool config not found for virtual pool`)
+        }
+
+        assertConfigAllowsNewPool({
+            baseFeeMode: poolConfigState.poolFees.baseFee.baseFeeMode,
+            migrationOption: poolConfigState.migrationOption,
+        })
+
+        return poolConfigState
+    }
+
     /**
      * Build a transaction that creates metadata for a virtual pool.
      */
@@ -66,10 +80,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
     async createPool(params: CreatePoolParams): Promise<Transaction> {
         const { config } = params
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         return this.buildCreatePoolTx(
             params,
@@ -86,10 +97,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
     ): Promise<Transaction> {
         const { config } = params
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         const tokenQuoteProgram = getTokenProgram(
             poolConfigState.quoteTokenFlag
@@ -113,10 +121,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
         const { createPoolParam, firstBuyParam } = params
         const { config } = createPoolParam
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         const createPoolWithFirstBuyTx = await this.buildCreatePoolTx(
             createPoolParam,
@@ -151,10 +156,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
         const { createPoolParam, firstBuyParam } = params
         const { config } = createPoolParam
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         const createPoolWithFirstBuyTx =
             await this.buildCreatePoolWithTransferHookTx(
@@ -189,10 +191,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             params
         const { config } = createPoolParam
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         const createPoolWithFirstBuysTx = await this.buildCreatePoolTx(
             createPoolParam,
@@ -263,10 +262,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             params
         const { config } = createPoolParam
 
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
-        }
+        const poolConfigState = await this.getPoolConfigForNewPool(config)
 
         const createPoolWithFirstBuysTx =
             await this.buildCreatePoolWithTransferHookTx(
@@ -549,22 +545,22 @@ export class CreatorService extends DynamicBondingCurveProgram {
         const { virtualPool, poolConfigState } =
             await this.getPoolWithConfig(pool)
 
+        const tokenQuoteProgram = getTokenProgram(
+            poolConfigState.quoteTokenFlag
+        )
+
         const preInstructions: TransactionInstruction[] = []
         const postInstructions: TransactionInstruction[] = []
 
-        const tokenQuoteAccount = findAssociatedTokenAddress(
-            creator,
-            poolConfigState.quoteMint,
-            TOKEN_PROGRAM_ID
-        )
-
-        const createQuoteTokenAccountIx =
-            createAssociatedTokenAccountIdempotentInstruction(
-                creator,
-                tokenQuoteAccount,
-                creator,
+        const { ataPubkey: tokenQuoteAccount, ix: createQuoteTokenAccountIx } =
+            await getOrCreateATAInstruction(
+                this.connection,
                 poolConfigState.quoteMint,
-                TOKEN_PROGRAM_ID
+                creator,
+                creator,
+                true,
+                tokenQuoteProgram,
+                this.commitment
             )
 
         if (createQuoteTokenAccountIx) {
@@ -588,7 +584,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             quoteVault: virtualPool.poolState.quoteVault,
             quoteMint: poolConfigState.quoteMint,
             creator,
-            tokenQuoteProgram: TOKEN_PROGRAM_ID,
+            tokenQuoteProgram,
         }
 
         return this.program.methods

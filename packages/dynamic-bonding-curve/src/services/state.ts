@@ -8,6 +8,7 @@ import {
     createDbcProgram,
     createProgramAccountFilter,
     deriveDammV1MigrationMetadataAddress,
+    deriveTokenBadgeAddress,
     getBaseTokenForSwap,
 } from '../helpers'
 import type { DynamicBondingCurve as DynamicBondingCurveIDL } from '../idl/dynamic-bonding-curve/idl'
@@ -15,6 +16,7 @@ import {
     MeteoraDammMigrationMetadata,
     PartnerMetadata,
     PoolConfig,
+    TokenBadge,
     VirtualPool,
     VirtualPoolMetadata,
 } from '../types'
@@ -488,5 +490,22 @@ export class StateService {
             )
 
         return metadata
+    }
+
+    /**
+     * Fetch the DBC token badge for a mint, if one exists.
+     */
+    async getTokenBadge(
+        tokenMint: PublicKey | string
+    ): Promise<TokenBadge | null> {
+        const mint =
+            tokenMint instanceof PublicKey
+                ? tokenMint
+                : new PublicKey(tokenMint)
+        const address = deriveTokenBadgeAddress(mint)
+        return this.program.account.tokenBadge.fetchNullable(
+            address,
+            this.commitment
+        )
     }
 }

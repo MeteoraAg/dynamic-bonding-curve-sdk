@@ -1,4 +1,4 @@
-import { PublicKey } from '@solana/web3.js'
+import { AccountMeta, PublicKey } from '@solana/web3.js'
 import {
     BASE_ADDRESS,
     DAMM_V1_PROGRAM_ID,
@@ -29,6 +29,7 @@ const SEED = Object.freeze({
     ESCROW: 'escrow',
     BASE_LOCKER: 'base_locker',
     VAULT: 'vault',
+    TOKEN_BADGE: 'token_badge',
 })
 
 /**
@@ -512,4 +513,37 @@ export function deriveBaseKeyForLocker(virtualPool: PublicKey): PublicKey {
         [Buffer.from(SEED.BASE_LOCKER), virtualPool.toBuffer()],
         DYNAMIC_BONDING_CURVE_PROGRAM_ID
     )[0]
+}
+
+/**
+ * Derive the DBC token badge PDA for a mint.
+ * Required as a remaining account when creating a config or pool whose quote mint
+ * is not permissionless-supported.
+ * @param tokenMint - The token mint
+ * @returns The token badge address
+ */
+export function deriveTokenBadgeAddress(tokenMint: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from(SEED.TOKEN_BADGE), tokenMint.toBuffer()],
+        DYNAMIC_BONDING_CURVE_PROGRAM_ID
+    )[0]
+}
+
+/**
+ * Remaining accounts for the optional DBC token badge (index 0).
+ */
+export function getTokenBadgeRemainingAccounts(
+    tokenBadge?: PublicKey
+): AccountMeta[] {
+    if (!tokenBadge) {
+        return []
+    }
+
+    return [
+        {
+            pubkey: tokenBadge,
+            isSigner: false,
+            isWritable: false,
+        },
+    ]
 }
