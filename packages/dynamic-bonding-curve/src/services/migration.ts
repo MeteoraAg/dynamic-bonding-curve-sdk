@@ -163,7 +163,8 @@ export class MigrationService extends DynamicBondingCurveProgram {
                 poolConfigState.leftoverReceiver,
                 payer,
                 true,
-                tokenBaseProgram
+                tokenBaseProgram,
+                this.commitment
             )
         createBaseTokenAccountIx &&
             preInstructions.push(createBaseTokenAccountIx)

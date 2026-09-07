@@ -18,15 +18,11 @@ import {
     TransferPoolCreatorParams,
     WithdrawMigrationFeeParams,
 } from '../types'
-import {
-    createAssociatedTokenAccountIdempotentInstruction,
-    TOKEN_PROGRAM_ID,
-} from '@solana/spl-token'
 import { DynamicBondingCurveProgram } from './program'
 import {
     deriveDammV1MigrationMetadataAddress,
     deriveDbcPoolMetadata,
-    findAssociatedTokenAddress,
+    getOrCreateATAInstruction,
     getTokenProgram,
     isNativeSol,
     unwrapSOLInstruction,
@@ -549,22 +545,22 @@ export class CreatorService extends DynamicBondingCurveProgram {
         const { virtualPool, poolConfigState } =
             await this.getPoolWithConfig(pool)
 
+        const tokenQuoteProgram = getTokenProgram(
+            poolConfigState.quoteTokenFlag
+        )
+
         const preInstructions: TransactionInstruction[] = []
         const postInstructions: TransactionInstruction[] = []
 
-        const tokenQuoteAccount = findAssociatedTokenAddress(
-            creator,
-            poolConfigState.quoteMint,
-            TOKEN_PROGRAM_ID
-        )
-
-        const createQuoteTokenAccountIx =
-            createAssociatedTokenAccountIdempotentInstruction(
-                creator,
-                tokenQuoteAccount,
-                creator,
+        const { ataPubkey: tokenQuoteAccount, ix: createQuoteTokenAccountIx } =
+            await getOrCreateATAInstruction(
+                this.connection,
                 poolConfigState.quoteMint,
-                TOKEN_PROGRAM_ID
+                creator,
+                creator,
+                true,
+                tokenQuoteProgram,
+                this.commitment
             )
 
         if (createQuoteTokenAccountIx) {
@@ -588,7 +584,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             quoteVault: virtualPool.poolState.quoteVault,
             quoteMint: poolConfigState.quoteMint,
             creator,
-            tokenQuoteProgram: TOKEN_PROGRAM_ID,
+            tokenQuoteProgram,
         }
 
         return this.program.methods

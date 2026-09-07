@@ -617,7 +617,8 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 feeClaimer,
                 feeClaimer,
                 true,
-                tokenQuoteProgram
+                tokenQuoteProgram,
+                this.commitment
             )
 
         createQuoteTokenAccountIx &&

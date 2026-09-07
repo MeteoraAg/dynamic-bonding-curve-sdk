@@ -500,7 +500,8 @@ export class DynamicBondingCurveProgram {
                 buyer,
                 buyer,
                 true,
-                inputTokenProgram
+                inputTokenProgram,
+                this.commitment
             ),
             getOrCreateATAInstruction(
                 this.connection,
@@ -508,7 +509,8 @@ export class DynamicBondingCurveProgram {
                 receiver ? receiver : buyer,
                 buyer,
                 true,
-                outputTokenProgram
+                outputTokenProgram,
+                this.commitment
             ),
         ])
         createAtaTokenAIx && preInstructions.push(createAtaTokenAIx)
@@ -634,7 +636,8 @@ export class DynamicBondingCurveProgram {
                 buyer,
                 buyer,
                 true,
-                inputTokenProgram
+                inputTokenProgram,
+                this.commitment
             ),
             getOrCreateATAInstruction(
                 this.connection,
@@ -642,7 +645,8 @@ export class DynamicBondingCurveProgram {
                 receiver ? receiver : buyer,
                 buyer,
                 true,
-                outputTokenProgram
+                outputTokenProgram,
+                this.commitment
             ),
         ])
         createAtaTokenAIx && preInstructions.push(createAtaTokenAIx)
@@ -954,7 +958,8 @@ export class DynamicBondingCurveProgram {
                 sender,
                 sender,
                 true,
-                tokenQuoteProgram
+                tokenQuoteProgram,
+                this.commitment
             )
         createTokenQuoteAccountIx &&
             preInstructions.push(createTokenQuoteAccountIx)
@@ -1004,7 +1009,8 @@ export class DynamicBondingCurveProgram {
                 owner,
                 payer,
                 true,
-                tokenAProgram
+                tokenAProgram,
+                this.commitment
             ),
             getOrCreateATAInstruction(
                 this.connection,
@@ -1012,7 +1018,8 @@ export class DynamicBondingCurveProgram {
                 owner,
                 payer,
                 true,
-                tokenBProgram
+                tokenBProgram,
+                this.commitment
             ),
         ])
         createAtaTokenAIx && instructions.push(createAtaTokenAIx)
