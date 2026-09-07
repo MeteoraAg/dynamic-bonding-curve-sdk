@@ -195,7 +195,7 @@ export class DynamicBondingCurveProgram {
     }
 
     protected async initializeSplPool(
-        params: InitializePoolBaseParams
+        params: InitializePoolBaseParams & { tokenQuoteProgram: PublicKey }
     ): Promise<Transaction> {
         const {
             name,
@@ -211,6 +211,7 @@ export class DynamicBondingCurveProgram {
             quoteVault,
             quoteMint,
             tokenBadge,
+            tokenQuoteProgram,
         } = params
 
         return this.program.methods
@@ -230,7 +231,7 @@ export class DynamicBondingCurveProgram {
                 baseVault,
                 quoteVault,
                 quoteMint,
-                tokenQuoteProgram: TOKEN_PROGRAM_ID,
+                tokenQuoteProgram,
                 metadataProgram: METAPLEX_PROGRAM_ID,
                 tokenProgram: TOKEN_PROGRAM_ID,
             })
@@ -239,7 +240,7 @@ export class DynamicBondingCurveProgram {
     }
 
     protected async initializeToken2022Pool(
-        params: InitializePoolBaseParams
+        params: InitializePoolBaseParams & { tokenQuoteProgram: PublicKey }
     ): Promise<Transaction> {
         const {
             name,
@@ -254,6 +255,7 @@ export class DynamicBondingCurveProgram {
             quoteVault,
             quoteMint,
             tokenBadge,
+            tokenQuoteProgram,
         } = params
 
         return this.program.methods
@@ -272,7 +274,7 @@ export class DynamicBondingCurveProgram {
                 baseVault,
                 quoteVault,
                 quoteMint,
-                tokenQuoteProgram: TOKEN_PROGRAM_ID,
+                tokenQuoteProgram,
                 tokenProgram: TOKEN_2022_PROGRAM_ID,
             })
             .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
@@ -331,12 +333,26 @@ export class DynamicBondingCurveProgram {
         tokenType: TokenType,
         quoteMint: PublicKey
     ): Promise<Transaction> {
-        const { baseMint, name, symbol, uri, poolCreator, config, payer, tokenBadge } =
-            createPoolParam
+        const {
+            baseMint,
+            name,
+            symbol,
+            uri,
+            poolCreator,
+            config,
+            payer,
+            tokenBadge,
+        } = createPoolParam
 
         const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
         const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
         const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
+
+        const quoteTokenType = await getTokenType(this.connection, quoteMint)
+        if (quoteTokenType === null) {
+            throw new Error(`Invalid quote mint: ${quoteMint.toString()}`)
+        }
+        const tokenQuoteProgram = getTokenProgram(quoteTokenType)
 
         const baseParams: InitializePoolBaseParams = {
             name,
@@ -355,10 +371,17 @@ export class DynamicBondingCurveProgram {
 
         if (tokenType === TokenType.SPLToken) {
             const mintMetadata = deriveMintMetadata(baseMint)
-            return this.initializeSplPool({ ...baseParams, mintMetadata })
+            return this.initializeSplPool({
+                ...baseParams,
+                mintMetadata,
+                tokenQuoteProgram,
+            })
         }
 
-        return this.initializeToken2022Pool(baseParams)
+        return this.initializeToken2022Pool({
+            ...baseParams,
+            tokenQuoteProgram,
+        })
     }
 
     protected async buildCreatePoolWithTransferHookTx(

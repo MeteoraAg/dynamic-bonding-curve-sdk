@@ -79,9 +79,7 @@ describe('createConfig tests', { timeout: 60000 }, () => {
         expect(
             createConfigIx.keys.some((key) => key.pubkey.equals(tokenBadge))
         ).toBe(true)
-        expect(
-            await dbcClient.state.getTokenBadge(NATIVE_MINT)
-        ).toBeNull()
+        expect(await dbcClient.state.getTokenBadge(NATIVE_MINT)).toBeNull()
     })
 
     test('createConfig with output token fee mode', async () => {

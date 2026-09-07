@@ -13,6 +13,7 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 ### Changed
 
 - Updated the DBC IDL to program version 0.2.1.
+- Synced the DAMM v2 IDL and test-validator `cp_amm.so` fixture to cp_amm 0.2.4. DAMM v2 configs now include a `permission` bitmask. Migration tests create a private DAMM v2 config with `CreatePoolWithoutMintValidation` so Token-2022 quote mints that need a DBC token badge can still migrate. Token-2022 wrapped SOL is still rejected.
 
 ### Deprecated
 
