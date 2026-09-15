@@ -99,3 +99,9 @@ Accessible via `DAMM_V2_MIGRATION_FEE_ADDRESS[i]` in the SDK.
 - MigrationFeeOption.FixedBps400 == 4: AkmQWebAwFvWk55wBoCr5D62C6VVDTzi84NJuD9H7cFD
 - MigrationFeeOption.FixedBps600 == 5: DbCRBj8McvPYHJG1ukj8RE15h2dCNUdTAESG49XpQ44u
 - MigrationFeeOption.Customizable == 6: A8gMrEPJkacWkcb3DGwtJwTe16HktSEfvwtuDh2MCtck
+
+## License
+
+This SDK is released under the [MIT License](./LICENSE).
+
+The on-chain Dynamic Bonding Curve, DAMM, and related programs are licensed separately and are not covered by this MIT license.

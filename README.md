@@ -23,3 +23,9 @@ yarn add @meteora-ag/dynamic-bonding-curve-sdk
 ### Dynamic Bonding Curve SDK
 
 Refer to the [README](./packages/dynamic-bonding-curve/README.md) for more information.
+
+## License
+
+This SDK is released under the [MIT License](./LICENSE).
+
+The on-chain Dynamic Bonding Curve, DAMM, and related programs are licensed separately and are not covered by this MIT license.

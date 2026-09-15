@@ -23,7 +23,8 @@
     "dynamic-vaults"
   ],
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "description": "A Typescript SDK for interacting with the Dynamic Bonding Curve on Meteora.",
   "license": "MIT",
