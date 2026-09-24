@@ -1,8 +1,10 @@
 import { expect, test, describe } from 'vitest'
+import { Keypair } from '@solana/web3.js'
 import {
     buildCurve,
     getMigratedPoolFeeParams,
     validateCompoundingFeeBps,
+    validateConfigParameters,
     validateMigratedPoolFee,
 } from '../src/helpers'
 import BN from 'bn.js'
@@ -95,6 +97,27 @@ describe('buildCurve tests', () => {
         console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
         console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
+    })
+
+    test('build curve with a 5-decimal quote mint', () => {
+        const config = buildCurve({
+            ...baseParams,
+            token: { ...baseParams.token, tokenQuoteDecimal: 5 },
+            percentageSupplyOnMigration: 20,
+            migrationQuoteThreshold: 1_000_000_000,
+        })
+
+        expect(
+            config.migrationQuoteThreshold.eq(
+                new BN(1_000_000_000).mul(new BN(10 ** 5))
+            )
+        ).toBe(true)
+        expect(() =>
+            validateConfigParameters({
+                ...config,
+                leftoverReceiver: Keypair.generate().publicKey,
+            })
+        ).not.toThrow()
     })
 })
 

@@ -208,7 +208,7 @@ export function getTotalTokenSupply(
 export function getPriceFromSqrtPrice(
     sqrtPrice: BN,
     tokenBaseDecimal: TokenDecimal,
-    tokenQuoteDecimal: TokenDecimal
+    tokenQuoteDecimal: number
 ): Decimal {
     // lamport price = sqrtStartPrice * sqrtStartPrice / 2^128
     const sqrtPriceDecimal = new Decimal(sqrtPrice.toString())
@@ -255,7 +255,7 @@ export const getSqrtPriceFromPrice = (
 export const createSqrtPrices = (
     prices: number[],
     tokenBaseDecimal: TokenDecimal,
-    tokenQuoteDecimal: TokenDecimal
+    tokenQuoteDecimal: number
 ) => {
     return prices.map((price) =>
         getSqrtPriceFromPrice(
@@ -1026,7 +1026,7 @@ export function getRateLimiterParams(
     feeIncrementBps: number,
     referenceAmount: number,
     maxLimiterDuration: number,
-    tokenQuoteDecimal: TokenDecimal,
+    tokenQuoteDecimal: number,
     activationType: ActivationType
 ): BaseFee {
     const cliffFeeNumerator = bpsToFeeNumerator(baseFeeBps)

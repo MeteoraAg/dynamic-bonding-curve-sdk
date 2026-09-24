@@ -9,6 +9,7 @@ import {
     CollectFeeMode,
     DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
+    deriveDbcPoolAddress,
     deriveTokenBadgeAddress,
     DynamicBondingCurveClient,
     MigratedCollectFeeMode,
@@ -19,7 +20,13 @@ import {
     TokenType,
     TokenAuthorityOption,
 } from '../src'
-import { NATIVE_MINT } from '@solana/spl-token'
+import {
+    createMint,
+    getOrCreateAssociatedTokenAccount,
+    mintTo,
+    NATIVE_MINT,
+} from '@solana/spl-token'
+import BN from 'bn.js'
 import { MIN_LOCKED_LIQUIDITY_BPS, SECONDS_PER_DAY } from '../src/constants'
 
 const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
@@ -167,6 +174,144 @@ describe('createConfig tests', { timeout: 60000 }, () => {
         expect(configState!.migratedPoolBaseFeeMode).toBe(
             DammV2BaseFeeMode.FeeTimeSchedulerLinear
         )
+    })
+
+    test('createConfig, createPool, and swap with a 5-decimal quote mint', async () => {
+        const quoteMint = await createMint(
+            connection,
+            partner,
+            partner.publicKey,
+            null,
+            5
+        )
+        const migrationQuoteThreshold = 1_000_000_000
+        const curveConfig = buildCurve({
+            token: {
+                tokenType: TokenType.SPLToken,
+                tokenBaseDecimal: TokenDecimal.SIX,
+                tokenQuoteDecimal: 5,
+                tokenAuthorityOption: TokenAuthorityOption.Immutable,
+                totalTokenSupply: 1_000_000_000,
+                leftover: 0,
+            },
+            fee: {
+                baseFeeParams: {
+                    baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+                    feeSchedulerParam: {
+                        startingFeeBps: 100,
+                        endingFeeBps: 100,
+                        numberOfPeriod: 0,
+                        totalDuration: 0,
+                    },
+                },
+                dynamicFeeEnabled: false,
+                collectFeeMode: CollectFeeMode.QuoteToken,
+                creatorTradingFeePercentage: 0,
+                poolCreationFee: 0,
+                enableFirstSwapWithMinFee: false,
+            },
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM_V2,
+                migrationFeeOption: MigrationFeeOption.FixedBps100,
+                migrationFee: {
+                    feePercentage: 0,
+                    creatorFeePercentage: 0,
+                },
+            },
+            liquidityDistribution: {
+                partnerLiquidityPercentage: 0,
+                partnerPermanentLockedLiquidityPercentage: 100,
+                creatorLiquidityPercentage: 0,
+                creatorPermanentLockedLiquidityPercentage: 0,
+            },
+            lockedVesting: {
+                totalLockedVestingAmount: 0,
+                numberOfVestingPeriod: 0,
+                cliffUnlockAmount: 0,
+                totalVestingDuration: 0,
+                cliffDurationFromMigrationTime: 0,
+            },
+            activationType: ActivationType.Timestamp,
+            percentageSupplyOnMigration: 20,
+            migrationQuoteThreshold,
+        })
+
+        const config = Keypair.generate()
+        const createConfigTx = await dbcClient.partner.createConfig({
+            config: config.publicKey,
+            feeClaimer: partner.publicKey,
+            leftoverReceiver: partner.publicKey,
+            payer: partner.publicKey,
+            quoteMint,
+            ...curveConfig,
+        })
+        createConfigTx.feePayer = partner.publicKey
+        await sendAndConfirmTransaction(connection, createConfigTx, [
+            partner,
+            config,
+        ])
+
+        const baseMint = Keypair.generate()
+        const createPoolTx = await dbcClient.creator.createPool({
+            baseMint: baseMint.publicKey,
+            config: config.publicKey,
+            name: 'TEST',
+            symbol: 'TEST',
+            uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
+            payer: partner.publicKey,
+            poolCreator: partner.publicKey,
+        })
+        createPoolTx.feePayer = partner.publicKey
+        await sendAndConfirmTransaction(connection, createPoolTx, [
+            baseMint,
+            partner,
+        ])
+
+        const amountIn = new BN(1_000_000).mul(new BN(10 ** 5))
+        const partnerQuoteAccount = await getOrCreateAssociatedTokenAccount(
+            connection,
+            partner,
+            quoteMint,
+            partner.publicKey
+        )
+        await mintTo(
+            connection,
+            partner,
+            quoteMint,
+            partnerQuoteAccount.address,
+            partner,
+            BigInt(amountIn.toString())
+        )
+
+        const pool = deriveDbcPoolAddress(
+            quoteMint,
+            baseMint.publicKey,
+            config.publicKey
+        )
+        const swapTx = await dbcClient.pool.swap({
+            amountIn,
+            minimumAmountOut: new BN(1),
+            swapBaseForQuote: false,
+            owner: partner.publicKey,
+            pool,
+            referralTokenAccount: null,
+            payer: partner.publicKey,
+        })
+        swapTx.feePayer = partner.publicKey
+        await sendAndConfirmTransaction(connection, swapTx, [partner])
+
+        const configState = await dbcClient.state.getPoolConfig(
+            config.publicKey
+        )
+        expect(configState!.quoteMint.equals(quoteMint)).toBe(true)
+        expect(
+            configState!.migrationQuoteThreshold.eq(
+                new BN(migrationQuoteThreshold).mul(new BN(10 ** 5))
+            )
+        ).toBe(true)
+
+        const virtualPool = await dbcClient.state.getPool(pool)
+        expect(virtualPool!.poolState.quoteReserve.gt(new BN(0))).toBe(true)
     })
 })
 
