@@ -266,7 +266,7 @@ export type BaseFee = Omit<BaseFeeConfig, 'padding0'>
 export type TokenConfig = {
     tokenType: TokenType
     tokenBaseDecimal: TokenDecimal
-    tokenQuoteDecimal: TokenDecimal
+    tokenQuoteDecimal: number
     tokenAuthorityOption: TokenAuthorityOption
     totalTokenSupply: number
     leftover: number

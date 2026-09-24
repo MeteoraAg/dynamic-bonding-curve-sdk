@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [1.5.13] - 2026-09-24
+
+### Changed
+
+- `tokenQuoteDecimal` now accepts any quote mint decimals, for example 5 for BONK. The program only restricts the base token decimals to 6 to 9, and `tokenBaseDecimal` keeps that restriction. This applies to `buildCurve*`, `createSqrtPrices`, `getPriceFromSqrtPrice`, and `getRateLimiterParams`.
+
 ## [1.5.12] - 2026-09-07
 
 ### Added

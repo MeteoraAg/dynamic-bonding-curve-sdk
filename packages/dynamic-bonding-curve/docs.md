@@ -1428,7 +1428,7 @@ interface BuildCurveParams {
     token: {
         tokenType: TokenType // 0: SPLToken, 1: Token2022
         tokenBaseDecimal: TokenDecimal // 6, 7, 8, or 9
-        tokenQuoteDecimal: TokenDecimal // 6, 7, 8, or 9
+        tokenQuoteDecimal: number // The quote mint decimals, for example 9 for SOL or 5 for BONK
         tokenAuthorityOption: TokenAuthorityOption // 0: CreatorUpdateAuthority, 1: Immutable, 2: PartnerUpdateAuthority, 3: CreatorUpdateAndMintAuthority, 4: PartnerUpdateAndMintAuthority
         totalTokenSupply: number // The total token supply
         leftover: number // The leftover amount that can be withdrawn by leftover receiver
@@ -4860,7 +4860,7 @@ function getRateLimiterParams(
     feeIncrementBps: number,
     referenceAmount: number,
     maxLimiterDuration: number,
-    tokenQuoteDecimal: TokenDecimal,
+    tokenQuoteDecimal: number,
     activationType: ActivationType
 ): BaseFeeParams
 ```
@@ -4872,7 +4872,7 @@ baseFeeBps: number // The base fee in basis points
 feeIncrementBps: number // The fee increment in basis points
 referenceAmount: number // The reference amount (in terms of quote token)
 maxLimiterDuration: number // The max rate limiter duration
-tokenQuoteDecimal: TokenDecimal // The token quote decimal
+tokenQuoteDecimal: number // The quote mint decimals
 activationType: ActivationType // The activation type
 ```
 
@@ -4909,7 +4909,6 @@ const baseFeeParams = getRateLimiterParams(
 - The `maxLimiterDuration` is the max duration of the rate limiter. It must be calculated based on your `activationType`. If you use `ActivationType.Slot`, the `maxLimiterDuration` is denominated in terms of 400ms (slot). If you use `ActivationType.Timestamp`, the `maxLimiterDuration` is denominated in terms of 1000ms (timestamp).
 - `referenceAmount` must always be greater than 0. This parameter takes into account the quoteMint decimals. For example, if you use `TokenDecimal.NINE`, the `referenceAmount` must be 1 (1 SOL).
 - `maxLimiterDuration` must always be greater than 0.
-- `tokenQuoteDecimal` must always be greater than 0.
 - `activationType` must always be greater than 0.
 - `baseFeeBps` must always be greater than 0.
 
