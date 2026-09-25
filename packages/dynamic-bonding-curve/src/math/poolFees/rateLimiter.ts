@@ -1,8 +1,7 @@
 import BN from 'bn.js'
-import { mulDiv, sqrt } from '../utilsMath'
+import { mulDiv, sqrt, toNumerator } from '../utilsMath'
 import { FEE_DENOMINATOR, MAX_FEE_NUMERATOR, U64_MAX } from '../../constants'
 import { Rounding, TradeDirection } from '../../types'
-import { toNumerator } from '../feeMath'
 
 /**
  * Check if rate limiter is applied based on current conditions

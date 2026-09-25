@@ -5,7 +5,6 @@ import {
     PublicKey,
 } from '@solana/web3.js'
 import {
-    createDbcProgram,
     createProgramAccountFilter,
     deriveDammV1MigrationMetadataAddress,
     deriveTokenBadgeAddress,
@@ -13,6 +12,7 @@ import {
 } from '../helpers'
 import type { DynamicBondingCurve as DynamicBondingCurveIDL } from '../idl/dynamic-bonding-curve/idl'
 import {
+    ConfigWithTransferHook,
     MeteoraDammMigrationMetadata,
     PartnerMetadata,
     PoolConfig,
@@ -23,15 +23,17 @@ import {
 import type { Program, ProgramAccount } from '@coral-xyz/anchor'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
+import type { DbcProvider } from '../client'
 
 export class StateService {
     program: Program<DynamicBondingCurveIDL>
+    private connection: Connection
     private commitment: Commitment
 
-    constructor(connection: Connection, commitment: Commitment) {
-        const { program } = createDbcProgram(connection, commitment)
-        this.program = program
-        this.commitment = commitment
+    constructor(provider: DbcProvider) {
+        this.program = provider.program
+        this.connection = provider.connection
+        this.commitment = provider.commitment
     }
 
     getProgram(): Program<DynamicBondingCurveIDL> {
@@ -101,6 +103,58 @@ export class StateService {
             )
 
         return configWithTransferHook?.config ?? null
+    }
+
+    private async hasAccountDiscriminator(
+        address: PublicKey | string,
+        accountName: 'configWithTransferHook' | 'transferHookPool'
+    ): Promise<boolean> {
+        const accountInfo = await this.connection.getAccountInfo(
+            new PublicKey(address),
+            this.commitment
+        )
+        if (!accountInfo) {
+            return false
+        }
+        const discriminator = this.program.idl.accounts.find(
+            (account) => account.name === accountName
+        )!.discriminator
+        return Buffer.from(discriminator).equals(
+            accountInfo.data.subarray(0, discriminator.length)
+        )
+    }
+
+    /**
+     * Return whether a config account is a transfer-hook config.
+     */
+    async isTransferHookConfig(
+        configAddress: PublicKey | string
+    ): Promise<boolean> {
+        return this.hasAccountDiscriminator(
+            configAddress,
+            'configWithTransferHook'
+        )
+    }
+
+    /**
+     * Return whether a pool account is a transfer-hook pool.
+     */
+    async isTransferHookPool(
+        poolAddress: PublicKey | string
+    ): Promise<boolean> {
+        return this.hasAccountDiscriminator(poolAddress, 'transferHookPool')
+    }
+
+    /**
+     * Fetch a transfer-hook config account.
+     */
+    async getConfigWithTransferHook(
+        configAddress: PublicKey | string
+    ): Promise<ConfigWithTransferHook | null> {
+        return this.program.account.configWithTransferHook.fetchNullable(
+            new PublicKey(configAddress),
+            this.commitment
+        )
     }
 
     /**
@@ -200,6 +254,9 @@ export class StateService {
         }
         const configAddress = pool.poolState.config
         const config = await this.getPoolConfig(configAddress)
+        if (!config) {
+            throw new Error(`Config not found: ${configAddress.toString()}`)
+        }
         return config.migrationQuoteThreshold
     }
 
@@ -215,6 +272,11 @@ export class StateService {
         }
 
         const config = await this.getPoolConfig(pool.poolState.config)
+        if (!config) {
+            throw new Error(
+                `Config not found: ${pool.poolState.config.toString()}`
+            )
+        }
         const quoteReserve = pool.poolState.quoteReserve
         const migrationThreshold = config.migrationQuoteThreshold
 
@@ -238,6 +300,11 @@ export class StateService {
         }
 
         const config = await this.getPoolConfig(pool.poolState.config)
+        if (!config) {
+            throw new Error(
+                `Config not found: ${pool.poolState.config.toString()}`
+            )
+        }
 
         const baseSold = new Decimal(
             getBaseTokenForSwap(
@@ -385,17 +452,23 @@ export class StateService {
         const partnerUnclaimedBaseFee = pool.poolState.partnerBaseFee
         const partnerUnclaimedQuoteFee = pool.poolState.partnerQuoteFee
 
-        const creatorClaimedBaseFee = creatorTotalTradingBaseFee.sub(
-            creatorUnclaimedBaseFee
+        // the program floors the creator share per swap, so the aggregate split is an estimate
+        const zero = new BN(0)
+        const creatorClaimedBaseFee = BN.max(
+            creatorTotalTradingBaseFee.sub(creatorUnclaimedBaseFee),
+            zero
         )
-        const creatorClaimedQuoteFee = creatorTotalTradingQuoteFee.sub(
-            creatorUnclaimedQuoteFee
+        const creatorClaimedQuoteFee = BN.max(
+            creatorTotalTradingQuoteFee.sub(creatorUnclaimedQuoteFee),
+            zero
         )
-        const partnerClaimedBaseFee = partnerTotalTradingBaseFee.sub(
-            partnerUnclaimedBaseFee
+        const partnerClaimedBaseFee = BN.max(
+            partnerTotalTradingBaseFee.sub(partnerUnclaimedBaseFee),
+            zero
         )
-        const partnerClaimedQuoteFee = partnerTotalTradingQuoteFee.sub(
-            partnerUnclaimedQuoteFee
+        const partnerClaimedQuoteFee = BN.max(
+            partnerTotalTradingQuoteFee.sub(partnerUnclaimedQuoteFee),
+            zero
         )
 
         return {
@@ -404,16 +477,24 @@ export class StateService {
                 unclaimedQuoteFee: creatorUnclaimedQuoteFee,
                 claimedBaseFee: creatorClaimedBaseFee,
                 claimedQuoteFee: creatorClaimedQuoteFee,
-                totalBaseFee: creatorTotalTradingBaseFee,
-                totalQuoteFee: creatorTotalTradingQuoteFee,
+                totalBaseFee: creatorUnclaimedBaseFee.add(
+                    creatorClaimedBaseFee
+                ),
+                totalQuoteFee: creatorUnclaimedQuoteFee.add(
+                    creatorClaimedQuoteFee
+                ),
             },
             partner: {
                 unclaimedBaseFee: partnerUnclaimedBaseFee,
                 unclaimedQuoteFee: partnerUnclaimedQuoteFee,
                 claimedBaseFee: partnerClaimedBaseFee,
                 claimedQuoteFee: partnerClaimedQuoteFee,
-                totalBaseFee: partnerTotalTradingBaseFee,
-                totalQuoteFee: partnerTotalTradingQuoteFee,
+                totalBaseFee: partnerUnclaimedBaseFee.add(
+                    partnerClaimedBaseFee
+                ),
+                totalQuoteFee: partnerUnclaimedQuoteFee.add(
+                    partnerClaimedQuoteFee
+                ),
             },
         }
     }

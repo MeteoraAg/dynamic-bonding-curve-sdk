@@ -26,7 +26,81 @@ import {
     type SwapResult2,
     type VirtualPool,
     SwapQuote2Result,
+    type QuoteTransferFees,
 } from '../types'
+import {
+    calculateTransferFeeExcludedAmount,
+    calculateTransferFeeIncludedAmount,
+    resolveSwapTransferFees,
+} from './transferFee'
+import { MAX_BASIS_POINT } from '../constants'
+
+function minimumAmountOutWithSlippage(amount: BN, slippageBps: number): BN {
+    if (slippageBps > 0) {
+        return amount
+            .mul(new BN(MAX_BASIS_POINT - slippageBps))
+            .div(new BN(MAX_BASIS_POINT))
+    }
+    return amount
+}
+
+function maximumAmountInWithSlippage(amount: BN, slippageBps: number): BN {
+    if (slippageBps > 0) {
+        return amount
+            .mul(new BN(MAX_BASIS_POINT + slippageBps))
+            .div(new BN(MAX_BASIS_POINT))
+    }
+    return amount
+}
+
+// the caller still has to bundle the swap after initialize pool in the same transaction, without CPI
+function isFirstSwapWithMinFee(
+    virtualPool: VirtualPool,
+    config: PoolConfig,
+    hasReferral: boolean,
+    eligibleForFirstSwapWithMinFee: boolean
+): boolean {
+    return (
+        eligibleForFirstSwapWithMinFee &&
+        !hasReferral &&
+        Number(config.enableFirstSwapWithMinFee ?? 0) === 1 &&
+        Number(virtualPool.poolState.hasSwap ?? 0) === 0
+    )
+}
+
+function beginSwapQuote(
+    virtualPool: VirtualPool,
+    config: PoolConfig,
+    swapBaseForQuote: boolean,
+    amount: BN,
+    hasReferral: boolean,
+    transferFees?: QuoteTransferFees
+): {
+    tradeDirection: TradeDirection
+    feeMode: FeeMode
+    input: ReturnType<typeof resolveSwapTransferFees>['input']
+    output: ReturnType<typeof resolveSwapTransferFees>['output']
+} {
+    if (
+        virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)
+    ) {
+        throw new Error('Virtual pool is completed')
+    }
+
+    if (amount.isZero()) {
+        throw new Error('Amount is zero')
+    }
+
+    const tradeDirection = swapBaseForQuote
+        ? TradeDirection.BaseToQuote
+        : TradeDirection.QuoteToBase
+
+    return {
+        tradeDirection,
+        feeMode: getFeeMode(config.collectFeeMode, tradeDirection, hasReferral),
+        ...resolveSwapTransferFees(config, swapBaseForQuote, transferFees),
+    }
+}
 
 // SwapQuote V1 //
 
@@ -155,55 +229,52 @@ export function swapQuote(
     slippageBps: number = 0,
     hasReferral: boolean,
     currentPoint: BN,
-    eligibleForFirstSwapWithMinFee: boolean
+    eligibleForFirstSwapWithMinFee: boolean,
+    transferFees?: QuoteTransferFees
 ): SwapQuoteResult {
-    if (
-        virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)
-    ) {
-        throw new Error('Virtual pool is completed')
-    }
-
-    if (amountIn.isZero()) {
+    const { tradeDirection, feeMode, input, output } = beginSwapQuote(
+        virtualPool,
+        config,
+        swapBaseForQuote,
+        amountIn,
+        hasReferral,
+        transferFees
+    )
+    const excludedAmountIn = calculateTransferFeeExcludedAmount(
+        input,
+        amountIn
+    ).amount
+    if (excludedAmountIn.isZero()) {
         throw new Error('Amount is zero')
     }
-
-    const tradeDirection = swapBaseForQuote
-        ? TradeDirection.BaseToQuote
-        : TradeDirection.QuoteToBase
-
-    const feeMode = getFeeMode(
-        config.collectFeeMode,
-        tradeDirection,
-        hasReferral
-    )
 
     const result = getSwapResult(
         virtualPool,
         config,
-        amountIn,
+        excludedAmountIn,
         feeMode,
         tradeDirection,
         currentPoint,
-        eligibleForFirstSwapWithMinFee
+        isFirstSwapWithMinFee(
+            virtualPool,
+            config,
+            hasReferral,
+            eligibleForFirstSwapWithMinFee
+        )
     )
-
-    let minimumAmountOut: BN
-    if (slippageBps > 0) {
-        // slippage factor: (10000 - slippageBps) / 10000
-        const slippageFactor = new BN(10000 - slippageBps)
-        const denominator = new BN(10000)
-
-        // minimum amount out: amountOut * (10000 - slippageBps) / 10000
-        minimumAmountOut = result.outputAmount
-            .mul(slippageFactor)
-            .div(denominator)
-    } else {
-        minimumAmountOut = result.outputAmount
-    }
+    const excludedAmountOut = calculateTransferFeeExcludedAmount(
+        output,
+        result.outputAmount
+    ).amount
 
     return {
         ...result,
-        minimumAmountOut,
+        minimumAmountOut: minimumAmountOutWithSlippage(
+            excludedAmountOut,
+            slippageBps
+        ),
+        includedTransferFeeAmountIn: amountIn,
+        excludedTransferFeeAmountOut: excludedAmountOut,
     }
 }
 
@@ -1028,56 +1099,52 @@ export function swapQuoteExactIn(
     slippageBps: number = 0,
     hasReferral: boolean,
     currentPoint: BN,
-    eligibleForFirstSwapWithMinFee: boolean
+    eligibleForFirstSwapWithMinFee: boolean,
+    transferFees?: QuoteTransferFees
 ): SwapQuote2Result {
-    if (
-        virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)
-    ) {
-        throw new Error('Virtual pool is completed')
-    }
-
-    if (amountIn.isZero()) {
+    const { tradeDirection, feeMode, input, output } = beginSwapQuote(
+        virtualPool,
+        config,
+        swapBaseForQuote,
+        amountIn,
+        hasReferral,
+        transferFees
+    )
+    const excludedAmountIn = calculateTransferFeeExcludedAmount(
+        input,
+        amountIn
+    ).amount
+    if (excludedAmountIn.isZero()) {
         throw new Error('Amount is zero')
     }
-
-    const tradeDirection = swapBaseForQuote
-        ? TradeDirection.BaseToQuote
-        : TradeDirection.QuoteToBase
-
-    const feeMode = getFeeMode(
-        config.collectFeeMode,
-        tradeDirection,
-        hasReferral
-    )
 
     const result = getSwapResultFromExactInput(
         virtualPool,
         config,
-        amountIn,
+        excludedAmountIn,
         feeMode,
         tradeDirection,
         currentPoint,
-        eligibleForFirstSwapWithMinFee
+        isFirstSwapWithMinFee(
+            virtualPool,
+            config,
+            hasReferral,
+            eligibleForFirstSwapWithMinFee
+        )
     )
-
-    // calculate minimum amount out
-    let minimumAmountOut: BN
-    if (slippageBps > 0) {
-        // slippage factor: (10000 - slippageBps) / 10000
-        const slippageFactor = new BN(10000 - slippageBps)
-        const denominator = new BN(10000)
-
-        // minimum amount out: amountOut * (10000 - slippageBps) / 10000
-        minimumAmountOut = result.outputAmount
-            .mul(slippageFactor)
-            .div(denominator)
-    } else {
-        minimumAmountOut = result.outputAmount
-    }
+    const excludedAmountOut = calculateTransferFeeExcludedAmount(
+        output,
+        result.outputAmount
+    ).amount
 
     return {
         ...result,
-        minimumAmountOut,
+        minimumAmountOut: minimumAmountOutWithSlippage(
+            excludedAmountOut,
+            slippageBps
+        ),
+        includedTransferFeeAmountIn: amountIn,
+        excludedTransferFeeAmountOut: excludedAmountOut,
     }
 }
 
@@ -1100,56 +1167,58 @@ export function swapQuotePartialFill(
     slippageBps: number = 0,
     hasReferral: boolean,
     currentPoint: BN,
-    eligibleForFirstSwapWithMinFee: boolean
+    eligibleForFirstSwapWithMinFee: boolean,
+    transferFees?: QuoteTransferFees
 ): SwapQuote2Result {
-    if (
-        virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)
-    ) {
-        throw new Error('Virtual pool is completed')
-    }
-
-    if (amountIn.isZero()) {
+    const { tradeDirection, feeMode, input, output } = beginSwapQuote(
+        virtualPool,
+        config,
+        swapBaseForQuote,
+        amountIn,
+        hasReferral,
+        transferFees
+    )
+    const excludedAmountIn = calculateTransferFeeExcludedAmount(
+        input,
+        amountIn
+    ).amount
+    if (excludedAmountIn.isZero()) {
         throw new Error('Amount is zero')
     }
-
-    const tradeDirection = swapBaseForQuote
-        ? TradeDirection.BaseToQuote
-        : TradeDirection.QuoteToBase
-
-    const feeMode = getFeeMode(
-        config.collectFeeMode,
-        tradeDirection,
-        hasReferral
-    )
 
     const result = getSwapResultFromPartialInput(
         virtualPool,
         config,
-        amountIn,
+        excludedAmountIn,
         feeMode,
         tradeDirection,
         currentPoint,
-        eligibleForFirstSwapWithMinFee
+        isFirstSwapWithMinFee(
+            virtualPool,
+            config,
+            hasReferral,
+            eligibleForFirstSwapWithMinFee
+        )
     )
-
-    // calculate minimum amount out
-    let minimumAmountOut: BN
-    if (slippageBps > 0) {
-        // slippage factor: (10000 - slippageBps) / 10000
-        const slippageFactor = new BN(10000 - slippageBps)
-        const denominator = new BN(10000)
-
-        // minimum amount out: amountOut * (10000 - slippageBps) / 10000
-        minimumAmountOut = result.outputAmount
-            .mul(slippageFactor)
-            .div(denominator)
-    } else {
-        minimumAmountOut = result.outputAmount
-    }
+    const includedAmountIn = result.amountLeft.isZero()
+        ? amountIn
+        : calculateTransferFeeIncludedAmount(
+              input,
+              result.includedFeeInputAmount
+          ).amount
+    const excludedAmountOut = calculateTransferFeeExcludedAmount(
+        output,
+        result.outputAmount
+    ).amount
 
     return {
         ...result,
-        minimumAmountOut,
+        minimumAmountOut: minimumAmountOutWithSlippage(
+            excludedAmountOut,
+            slippageBps
+        ),
+        includedTransferFeeAmountIn: includedAmountIn,
+        excludedTransferFeeAmountOut: excludedAmountOut,
     }
 }
 
@@ -1173,55 +1242,51 @@ export function swapQuoteExactOut(
     slippageBps: number = 0,
     hasReferral: boolean,
     currentPoint: BN,
-    eligibleForFirstSwapWithMinFee: boolean
+    eligibleForFirstSwapWithMinFee: boolean,
+    transferFees?: QuoteTransferFees
 ): SwapQuote2Result {
-    if (
-        virtualPool.poolState.quoteReserve.gte(config.migrationQuoteThreshold)
-    ) {
-        throw new Error('Virtual pool is completed')
-    }
-
-    if (outAmount.isZero()) {
+    const { tradeDirection, feeMode, input, output } = beginSwapQuote(
+        virtualPool,
+        config,
+        swapBaseForQuote,
+        outAmount,
+        hasReferral,
+        transferFees
+    )
+    const includedAmountOut = calculateTransferFeeIncludedAmount(
+        output,
+        outAmount
+    ).amount
+    if (includedAmountOut.isZero()) {
         throw new Error('Amount is zero')
     }
-
-    const tradeDirection = swapBaseForQuote
-        ? TradeDirection.BaseToQuote
-        : TradeDirection.QuoteToBase
-
-    const feeMode = getFeeMode(
-        config.collectFeeMode,
-        tradeDirection,
-        hasReferral
-    )
 
     const result = getSwapResultFromExactOutput(
         virtualPool,
         config,
-        outAmount,
+        includedAmountOut,
         feeMode,
         tradeDirection,
         currentPoint,
-        eligibleForFirstSwapWithMinFee
+        isFirstSwapWithMinFee(
+            virtualPool,
+            config,
+            hasReferral,
+            eligibleForFirstSwapWithMinFee
+        )
     )
-
-    // calculate maximum amount in (for slippage protection)
-    let maximumAmountIn: BN
-    if (slippageBps > 0) {
-        // slippage factor: (10000 + slippageBps) / 10000
-        const slippageFactor = new BN(10000 + slippageBps)
-        const denominator = new BN(10000)
-
-        // maximum amount in: inputAmount * (10000 + slippageBps) / 10000
-        maximumAmountIn = result.includedFeeInputAmount
-            .mul(slippageFactor)
-            .div(denominator)
-    } else {
-        maximumAmountIn = result.includedFeeInputAmount
-    }
+    const includedAmountIn = calculateTransferFeeIncludedAmount(
+        input,
+        result.includedFeeInputAmount
+    ).amount
 
     return {
         ...result,
-        maximumAmountIn,
+        maximumAmountIn: maximumAmountInWithSlippage(
+            includedAmountIn,
+            slippageBps
+        ),
+        includedTransferFeeAmountIn: includedAmountIn,
+        excludedTransferFeeAmountOut: outAmount,
     }
 }

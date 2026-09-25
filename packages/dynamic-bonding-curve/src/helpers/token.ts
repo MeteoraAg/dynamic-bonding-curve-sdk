@@ -11,16 +11,21 @@ import {
     ASSOCIATED_TOKEN_PROGRAM_ID,
     createAssociatedTokenAccountIdempotentInstruction,
     createCloseAccountInstruction,
+    ExtensionType,
     getAccount,
     getAssociatedTokenAddressSync,
+    getExtensionTypes,
     getMint,
+    getTransferFeeConfig,
     NATIVE_MINT,
+    NATIVE_MINT_2022,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     TokenAccountNotFoundError,
     TokenInvalidAccountOwnerError,
+    type Mint,
 } from '@solana/spl-token'
-import { TokenType } from '../types'
+import { type PoolConfig, type QuoteTransferFees, TokenType } from '../types'
 
 /**
  * Return an ATA address and an idempotent create instruction when the account is missing.
@@ -58,11 +63,8 @@ export const getOrCreateATAInstruction = async (
             )
 
             return { ataPubkey: toAccount, ix }
-        } else {
-            /* handle error */
-            console.error('Error::getOrCreateATAInstruction', e)
-            throw e
         }
+        throw e
     }
 }
 
@@ -150,7 +152,11 @@ export async function getTokenDecimals(
             ? mintAddress
             : new PublicKey(mintAddress)
 
-    const tokenProgram = (await connection.getAccountInfo(mintPubkey)).owner
+    const mintAccount = await connection.getAccountInfo(mintPubkey)
+    if (!mintAccount) {
+        throw new Error(`Mint account ${mintPubkey.toBase58()} not found`)
+    }
+    const tokenProgram = mintAccount.owner
 
     const mintInfo = await getMint(
         connection,
@@ -171,15 +177,15 @@ export function getTokenProgram(tokenType: TokenType): PublicKey {
 }
 
 /**
- * Return the token type from the mint account owner, or `null` if the mint is missing.
+ * Return the token type from the mint account owner.
  */
 export async function getTokenType(
     connection: Connection,
     tokenMint: PublicKey
-): Promise<TokenType | null> {
+): Promise<TokenType> {
     const accountInfo = await connection.getAccountInfo(tokenMint)
     if (!accountInfo) {
-        return null
+        throw new Error(`Mint account ${tokenMint.toBase58()} not found`)
     }
 
     return accountInfo.owner.equals(TOKEN_PROGRAM_ID)
@@ -238,7 +244,7 @@ export async function cleanUpTokenAccountTx(
     tokenMint: PublicKey
 ): Promise<{
     transaction: Transaction
-}> {
+} | null> {
     if (tokenMint.equals(NATIVE_MINT)) {
         const unwrapIx = unwrapSOLInstruction(owner, receiver)
         if (unwrapIx) {
@@ -247,4 +253,81 @@ export async function cleanUpTokenAccountTx(
     }
 
     return null
+}
+
+/**
+ * Return whether a mint has a non-zero transfer fee, active or scheduled, or a transfer fee config authority.
+ */
+export function hasTransferFeeOrConfigAuthority(
+    mint: Mint,
+    currentEpoch: number
+): boolean {
+    const transferFeeConfig = getTransferFeeConfig(mint)
+    if (!transferFeeConfig) {
+        return false
+    }
+    if (
+        !transferFeeConfig.transferFeeConfigAuthority.equals(PublicKey.default)
+    ) {
+        return true
+    }
+
+    const { olderTransferFee, newerTransferFee } = transferFeeConfig
+    if (BigInt(currentEpoch) < newerTransferFee.epoch) {
+        return (
+            olderTransferFee.transferFeeBasisPoints > 0 ||
+            newerTransferFee.transferFeeBasisPoints > 0
+        )
+    }
+    return newerTransferFee.transferFeeBasisPoints > 0
+}
+
+/**
+ * Return whether a quote mint is supported without a token badge.
+ * SPL Token mints are supported. Token-2022 mints are supported when their only
+ * extensions are metadata and a zero transfer fee with no config authority.
+ */
+export function isSupportedQuoteMint(
+    mint: Mint,
+    currentEpoch: number
+): boolean {
+    if (mint.address.equals(NATIVE_MINT_2022)) {
+        throw new Error('Token-2022 native mint is not supported as quote mint')
+    }
+
+    const supportedExtensions = [
+        ExtensionType.MetadataPointer,
+        ExtensionType.TokenMetadata,
+        ExtensionType.TransferFeeConfig,
+    ]
+    return (
+        getExtensionTypes(mint.tlvData).every((extension) =>
+            supportedExtensions.includes(extension)
+        ) && !hasTransferFeeOrConfigAuthority(mint, currentEpoch)
+    )
+}
+
+/**
+ * Fetch the quote mint and current epoch that swap quotes need for a Token-2022 quote mint.
+ * Returns an empty object for an SPL Token quote mint, which has no transfer fee.
+ */
+export async function getSwapQuoteTransferFees(
+    connection: Connection,
+    config: Pick<PoolConfig, 'quoteMint' | 'quoteTokenFlag'>,
+    commitment: Commitment = 'confirmed'
+): Promise<QuoteTransferFees> {
+    if (Number(config.quoteTokenFlag) !== TokenType.Token2022) {
+        return {}
+    }
+
+    const [quoteMint, { epoch }] = await Promise.all([
+        getMint(
+            connection,
+            config.quoteMint,
+            commitment,
+            TOKEN_2022_PROGRAM_ID
+        ),
+        connection.getEpochInfo(commitment),
+    ])
+    return { quoteMint, currentEpoch: epoch }
 }

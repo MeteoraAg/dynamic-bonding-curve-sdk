@@ -2,6 +2,65 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [2.0.0] - 2026-10-02
+
+### Added
+
+- Added `client.partner.createConfig2` for program `create_config2`. Pass `transferFeeParameters` to set a base-mint transfer fee, or `null` when only the quote mint has a transfer fee.
+- Added `TransferFeeWithheldAuthority` and `MigratedTransferFeeAuthorityOption`.
+- Swap quotes now account for Token-2022 transfer fees. Base fees come from `config.transferFeeBasisPoints`, or from `baseTransferFeeBasisPoints` / `baseMint` when those are passed. Quote fees come from `quoteMint`. `currentEpoch` is required when a mint is passed. Quotes return `includedTransferFeeAmountIn` and `excludedTransferFeeAmountOut`. Slippage is applied to those amounts.
+- Added `getSwapQuoteTransferFees(connection, config)`, which fetches the quote mint and current epoch that swap quotes need for a Token-2022 quote mint.
+- Added `client.state.isTransferHookConfig`, `client.state.isTransferHookPool`, and `client.state.getConfigWithTransferHook`.
+- Added `isSupportedQuoteMint(mint, currentEpoch)`, `hasTransferFeeOrConfigAuthority(mint, currentEpoch)`, `getMigrationQuoteAmountFromThreshold`, `getMigrationQuoteAmountFromMigrationBase`, `getMigrationBaseWeight`, `validateTokenType`, and `validateMigrationOption` helpers.
+
+### Changed
+
+- `createConfigAndPool` and `createConfigAndPoolWithFirstBuy` now always create the config with `create_config2`. Omitting `transferFeeParameters` is the same as passing `null`, so badged quote mints with a transfer fee no longer need it.
+- Swap quotes throw when the passed `quoteMint` does not match `config.quoteMint`.
+- Compounding DAMM v2 configs now size the migration base with the program's constant-product formula. Config validation checks the post-fee compounding deposit, including the 1% price bound and dead liquidity.
+- `createConfig` and `createConfigWithTransferHook` now reject a quote mint with a non-zero transfer fee or a live transfer fee config authority before sending the transaction.
+- Updated the DBC IDL to program version 0.2.2.
+- `MigratedCollectFeeMode.Compounding` now allows `compoundingFeeBps` of `0`. A zero compounding fee collects the migrated trading fee in the quote token.
+- Curve builders and config validation now use the program's integer migration quote amount, `ceil(migrationQuoteThreshold * (100 - migrationFee.feePercentage) / 100)`. `buildCurve` and `buildCurveWithMarketCap` now reserve exactly the migration base the program computes.
+- `buildCurveWithLiquidityWeights` and `buildCurveWithCustomSqrtPrices` now size the migration base for the migrated collect fee mode: constant product for `Compounding`, concentrated liquidity for `QuoteToken` and `OutputToken`.
+- Swap quotes apply the first-swap minimum fee only when the config enables it, the pool has not swapped yet, and no referral account is passed. The swap must still be bundled after pool initialization in the same transaction, without CPI.
+- `getNextSqrtPriceFromBaseAmountInRoundingUp` always uses the program formula. The fee scheduler throws when the current point is before the activation point, as the program does.
+- Swap quotes throw on an unknown `collectFeeMode`, and when a fee-included or transfer-fee-included amount does not fit in u64, as the program does.
+- Config and pool creation now resolve the quote mint token badge. Quote mints that are not permissionless-supported get the derived badge attached, and the SDK throws if the badge is not initialized. Token-2022 wrapped SOL is rejected as a quote mint.
+- `createConfigWithTransferHook` now checks that the transfer hook program is an executable account.
+- Creating a pool from an existing config now checks the program's pool-creation rules: at least `MIN_LOCKED_LIQUIDITY_BPS` of migrated liquidity locked at day 1, a minimum base fee of at least `MIN_FEE_NUMERATOR`, and no mint authority token option unless the config uses a transfer hook.
+- Standard pool creation rejects transfer-hook configs, and transfer-hook pool creation rejects standard configs. Transfer-hook pool creation also checks that `transferHookProgram` matches the config.
+- `swap`, `swap2`, `claimPartnerTradingFee`, `claimPartnerTradingFeeToReceiver`, `claimCreatorTradingFee`, and `claimCreatorTradingFeeToReceiver` reject transfer-hook pools. `swap2WithTransferHook` rejects standard pools.
+- Transfer-hook extra accounts for `swap2WithTransferHook`, transfer-hook first buys, `claimPartnerTradingFee2`, and `claimCreatorTradingFee2` are now resolved with the real source, destination, and authority of each transfer. Referral transfer-hook accounts are only added when the referral fee is paid in the base token.
+- Config validation now always validates `migratedPoolFee` for DAMM v2 `Customizable` configs. It rejects unknown `baseFeeMode`, `tokenType`, and `migrationOption` values, and swap base, migration base, and locked vesting amounts that do not fit in u64.
+- `getInitialLiquidityFromDeltaQuote` throws when the liquidity does not fit in u128.
+- `getPoolFeeBreakdown` no longer returns negative claimed fees. Each total is now claimed plus unclaimed.
+- `DynamicBondingCurveClient` creates one DBC program and passes itself to `state`, `pool`, `partner`, `creator`, and `migration`. `client.program`, `client.state.program`, and each write service's program are the same object.
+- Removed two circular imports between the helpers and math modules. `toNumerator` moved from `math/feeMath` to `math/utilsMath` and is still exported from the package root.
+- Swap account setup, trading-fee claim accounts, the swap-quote prelude, and curve `ConfigParameters` assembly now each live in one place. `helpers/common.ts` re-exports `chain`, `price`, `migration`, `vesting`, and `feeParams`. Imports from the package root and from `helpers/common` are unchanged.
+
+### Fixed
+
+- `validateBalance` now reports an insufficient token balance instead of rewrapping it as a failed balance fetch.
+- `getPoolMigrationQuoteThreshold`, `getPoolQuoteTokenCurveProgress`, and `getPoolBaseTokenCurveProgress` throw `Config not found` when the pool config is missing.
+- `getCurrentPoint` throws when the RPC has no block time for the current slot, instead of returning an unusable `BN`.
+- `getOrCreateATAInstruction` no longer logs to the console before rethrowing unexpected errors.
+- `cleanUpTokenAccountTx` is now typed to return `null` for mints other than wrapped SOL, as it already did at runtime.
+
+### Deprecated
+
+- Deprecated `client.partner.createConfig` in favour of `createConfig2`. `createConfig` still creates configs with no transfer fee. The program rejects a quote mint with a non-zero transfer fee or a live transfer fee config authority on `createConfig` and `createConfigWithTransferHook`.
+- Deprecated `convertDecimalToBN` in favour of `fromDecimalToBN`, which it now aliases.
+
+### Breaking Changes
+
+- The package root no longer re-exports every helper and math function. Import the client, service classes, types, constants, curve builders, quotes, documented `derive*` helpers, and the fee, vesting, and transfer-fee helpers from `@meteora-ag/dynamic-bonding-curve-sdk`. `DbcProvider`, `DbcClientContext`, and `DynamicBondingCurveProgram` are not part of that entry. The package `exports` map only exposes the package root.
+- `getTokenType` throws when the mint account is missing.
+- `getFirstCurve` now takes `(migrationSqrtPrice, swapAmount, migrationQuoteThreshold)`. The start price no longer depends on the migration base amount or migration fee, so it is correct for every migrated collect fee mode.
+- `getMigratedPoolFeeParams` throws for `MigrationFeeOption.Customizable` when `migratedPoolFee.poolFeeBps` is not set.
+- Swap quotes for a pool config with a Token-2022 quote mint throw unless `quoteMint` and `currentEpoch` are passed. Use `getSwapQuoteTransferFees` to fetch both.
+- `StateService`, `PoolService`, `PartnerService`, `CreatorService`, `MigrationService`, and `DynamicBondingCurveProgram` are constructed by `DynamicBondingCurveClient`. `new PoolService(connection, commitment)` and `new StateService(connection, commitment)` are no longer supported. Callers that only need reads use `client.state`.
+
 ## [1.5.13] - 2026-09-24
 
 ### Changed
