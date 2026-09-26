@@ -4,8 +4,6 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 
 ## [2.0.0] - 2026-10-02
 
-Updated for program [0.2.2](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/211).
-
 ### Added
 
 - `client.partner.createConfig2`. Pass `transferFeeParameters` for a base-mint transfer fee, or `null` when there is none.
