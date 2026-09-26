@@ -10,6 +10,16 @@ import {
     BuildCurveWithMidPriceParams,
     BuildCurveWithCustomSqrtPricesParams,
     TokenDecimal,
+    type BaseFee,
+    type BaseFeeParams,
+    type CollectFeeMode,
+    type LockedVestingParameters,
+    type MigrationFee,
+    type MigratedPoolFeeResult,
+    type ActivationType,
+    type MigrationOption,
+    type TokenType,
+    type TokenAuthorityOption,
 } from '../types'
 import {
     DEFAULT_LIQUIDITY_VESTING_INFO_PARAMS,
@@ -18,6 +28,9 @@ import {
 import {
     getSqrtPriceFromPrice,
     getMigrationBaseToken,
+    getMigrationBaseWeight,
+    getMigrationQuoteAmountFromThreshold,
+    getMigrationQuoteAmountFromMigrationBase,
     getTotalVestingAmount,
     getFirstCurve,
     getTotalSupplyFromCurve,
@@ -37,7 +50,88 @@ import {
     getLiquidityVestingInfoParams,
 } from './common'
 import { getInitialLiquidityFromDeltaBase } from '../math/curve'
-import { convertDecimalToBN, convertToLamports, fromDecimalToBN } from './utils'
+import { convertToLamports, fromDecimalToBN } from './utils'
+
+function toConfigParameters(params: {
+    baseFee: BaseFee
+    baseFeeParams: BaseFeeParams
+    dynamicFeeEnabled: boolean
+    collectFeeMode: CollectFeeMode
+    migrationOption: MigrationOption
+    activationType: ActivationType
+    tokenType: TokenType
+    tokenBaseDecimal: number
+    partnerLiquidityPercentage: number
+    partnerPermanentLockedLiquidityPercentage: number
+    creatorLiquidityPercentage: number
+    creatorPermanentLockedLiquidityPercentage: number
+    migrationQuoteThreshold: BN
+    sqrtStartPrice: BN
+    lockedVestingParams: LockedVestingParameters
+    migratedPoolFeeResult: MigratedPoolFeeResult
+    totalSupply: BN
+    creatorTradingFeePercentage: number
+    tokenAuthorityOption: TokenAuthorityOption
+    migrationFee: MigrationFee
+    poolCreationFeeInLamports: BN
+    partnerLiquidityVestingInfo: ReturnType<
+        typeof getLiquidityVestingInfoParams
+    >
+    creatorLiquidityVestingInfo: ReturnType<
+        typeof getLiquidityVestingInfoParams
+    >
+    enableFirstSwapWithMinFee: boolean
+    curve: ConfigParameters['curve']
+}): ConfigParameters {
+    const endingOrBaseFeeBps =
+        params.baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
+            ? params.baseFeeParams.rateLimiterParam.baseFeeBps
+            : params.baseFeeParams.feeSchedulerParam.endingFeeBps
+
+    return {
+        poolFees: {
+            baseFee: { ...params.baseFee },
+            dynamicFee: params.dynamicFeeEnabled
+                ? getDynamicFeeParams(endingOrBaseFeeBps)
+                : null,
+        },
+        collectFeeMode: params.collectFeeMode,
+        migrationOption: params.migrationOption,
+        activationType: params.activationType,
+        tokenType: params.tokenType,
+        tokenDecimal: params.tokenBaseDecimal,
+        partnerLiquidityPercentage: params.partnerLiquidityPercentage,
+        partnerPermanentLockedLiquidityPercentage:
+            params.partnerPermanentLockedLiquidityPercentage,
+        creatorLiquidityPercentage: params.creatorLiquidityPercentage,
+        creatorPermanentLockedLiquidityPercentage:
+            params.creatorPermanentLockedLiquidityPercentage,
+        migrationQuoteThreshold: params.migrationQuoteThreshold,
+        sqrtStartPrice: params.sqrtStartPrice,
+        lockedVesting: params.lockedVestingParams,
+        migrationFeeOption: params.migratedPoolFeeResult.migrationFeeOption,
+        tokenSupply: {
+            preMigrationTokenSupply: params.totalSupply,
+            postMigrationTokenSupply: params.totalSupply,
+        },
+        creatorTradingFeePercentage: params.creatorTradingFeePercentage,
+        tokenUpdateAuthority: params.tokenAuthorityOption,
+        migrationFee: params.migrationFee,
+        migratedPoolFee: params.migratedPoolFeeResult.migratedPoolFee,
+        poolCreationFee: params.poolCreationFeeInLamports,
+        partnerLiquidityVestingInfo: params.partnerLiquidityVestingInfo,
+        creatorLiquidityVestingInfo: params.creatorLiquidityVestingInfo,
+        migratedPoolBaseFeeMode:
+            params.migratedPoolFeeResult.migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams:
+            params.migratedPoolFeeResult
+                .migratedPoolMarketCapFeeSchedulerParams,
+        enableFirstSwapWithMinFee: params.enableFirstSwapWithMinFee,
+        compoundingFeeBps: params.migratedPoolFeeResult.compoundingFeeBps,
+        padding: [],
+        curve: params.curve,
+    }
+}
 
 /**
  * Build config parameters for a single curve segment constant product curve.
@@ -169,14 +263,16 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
         tokenQuoteDecimal
     )
 
-    const migrationQuoteAmountInLamport = fromDecimalToBN(
-        migrationQuoteAmount.mul(new Decimal(10 ** tokenQuoteDecimal))
+    const migrationQuoteAmountInLamport = getMigrationQuoteAmountFromThreshold(
+        migrationQuoteThresholdInLamport,
+        migrationFee.feePercentage
     )
 
     const migrationBaseAmount = getMigrationBaseToken(
         migrationQuoteAmountInLamport,
         migrateSqrtPrice,
-        migrationOption
+        migrationOption,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
     const totalVestingAmount = getTotalVestingAmount(lockedVestingParams)
@@ -188,10 +284,8 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
 
     const { sqrtStartPrice, curve } = getFirstCurve(
         migrateSqrtPrice,
-        migrationBaseAmount,
         swapAmount,
-        migrationQuoteThresholdInLamport,
-        migrationFee.feePercentage
+        migrationQuoteThresholdInLamport
     )
 
     const totalDynamicSupply = getTotalSupplyFromCurve(
@@ -201,7 +295,8 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
         lockedVestingParams,
         migrationOption,
         totalLeftover,
-        migrationFee.feePercentage
+        migrationFee.feePercentage,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
     const remainingAmount = totalSupply.sub(totalDynamicSupply)
@@ -219,52 +314,33 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
         })
     }
 
-    const instructionParams: ConfigParameters = {
-        poolFees: {
-            baseFee: {
-                ...baseFee,
-            },
-            dynamicFee: dynamicFeeEnabled
-                ? getDynamicFeeParams(
-                      baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
-                          ? baseFeeParams.rateLimiterParam.baseFeeBps
-                          : baseFeeParams.feeSchedulerParam.endingFeeBps
-                  )
-                : null,
-        },
+    return toConfigParameters({
+        baseFee,
+        baseFeeParams,
+        dynamicFeeEnabled,
         collectFeeMode,
         migrationOption,
         activationType,
         tokenType,
-        tokenDecimal: tokenBaseDecimal,
+        tokenBaseDecimal,
         partnerLiquidityPercentage,
         partnerPermanentLockedLiquidityPercentage,
         creatorLiquidityPercentage,
         creatorPermanentLockedLiquidityPercentage,
         migrationQuoteThreshold: migrationQuoteThresholdInLamport,
-        sqrtStartPrice,
-        lockedVesting: lockedVestingParams,
-        migrationFeeOption: migratedPoolFeeResult.migrationFeeOption,
-        tokenSupply: {
-            preMigrationTokenSupply: totalSupply,
-            postMigrationTokenSupply: totalSupply,
-        },
+        sqrtStartPrice: sqrtStartPrice,
+        lockedVestingParams,
+        migratedPoolFeeResult,
+        totalSupply,
         creatorTradingFeePercentage,
-        tokenUpdateAuthority: tokenAuthorityOption,
+        tokenAuthorityOption,
         migrationFee,
-        migratedPoolFee: migratedPoolFeeResult.migratedPoolFee,
-        poolCreationFee: poolCreationFeeInLamports,
+        poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
-        migratedPoolBaseFeeMode: migratedPoolFeeResult.migratedPoolBaseFeeMode,
-        migratedPoolMarketCapFeeSchedulerParams:
-            migratedPoolFeeResult.migratedPoolMarketCapFeeSchedulerParams,
         enableFirstSwapWithMinFee,
-        compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
-        padding: [],
         curve,
-    }
-    return instructionParams
+    })
 }
 
 /**
@@ -484,8 +560,9 @@ export function buildCurveWithTwoSegments(
         migrationQuoteThreshold.mul(new Decimal(10 ** tokenQuoteDecimal))
     )
 
-    const migrationQuoteAmountInLamport = fromDecimalToBN(
-        migrationQuoteAmount.mul(new Decimal(10 ** tokenQuoteDecimal))
+    const migrationQuoteAmountInLamport = getMigrationQuoteAmountFromThreshold(
+        migrationQuoteThresholdInLamport,
+        migrationFee.feePercentage
     )
 
     const migrateSqrtPrice = getSqrtPriceFromPrice(
@@ -497,7 +574,8 @@ export function buildCurveWithTwoSegments(
     const migrationBaseAmount = getMigrationBaseToken(
         migrationQuoteAmountInLamport,
         migrateSqrtPrice,
-        migrationOption
+        migrationOption,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
     const totalVestingAmount = getTotalVestingAmount(lockedVestingParams)
@@ -562,7 +640,8 @@ export function buildCurveWithTwoSegments(
         lockedVestingParams,
         migrationOption,
         totalLeftover,
-        migrationFee.feePercentage
+        migrationFee.feePercentage,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
     if (totalDynamicSupply.gt(totalSupply)) {
@@ -573,52 +652,33 @@ export function buildCurveWithTwoSegments(
         }
     }
 
-    const instructionParams: ConfigParameters = {
-        poolFees: {
-            baseFee: {
-                ...baseFee,
-            },
-            dynamicFee: dynamicFeeEnabled
-                ? getDynamicFeeParams(
-                      baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
-                          ? baseFeeParams.rateLimiterParam.baseFeeBps
-                          : baseFeeParams.feeSchedulerParam.endingFeeBps
-                  )
-                : null,
-        },
-        activationType,
+    return toConfigParameters({
+        baseFee,
+        baseFeeParams,
+        dynamicFeeEnabled,
         collectFeeMode,
         migrationOption,
+        activationType,
         tokenType,
-        tokenDecimal: tokenBaseDecimal,
-        migrationQuoteThreshold: migrationQuoteThresholdInLamport,
+        tokenBaseDecimal,
         partnerLiquidityPercentage,
         partnerPermanentLockedLiquidityPercentage,
         creatorLiquidityPercentage,
         creatorPermanentLockedLiquidityPercentage,
-        sqrtStartPrice,
-        lockedVesting: lockedVestingParams,
-        migrationFeeOption: migratedPoolFeeResult.migrationFeeOption,
-        tokenSupply: {
-            preMigrationTokenSupply: totalSupply,
-            postMigrationTokenSupply: totalSupply,
-        },
+        migrationQuoteThreshold: migrationQuoteThresholdInLamport,
+        sqrtStartPrice: sqrtStartPrice,
+        lockedVestingParams,
+        migratedPoolFeeResult,
+        totalSupply,
         creatorTradingFeePercentage,
-        migratedPoolFee: migratedPoolFeeResult.migratedPoolFee,
-        poolCreationFee: poolCreationFeeInLamports,
+        tokenAuthorityOption,
+        migrationFee,
+        poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
-        migratedPoolBaseFeeMode: migratedPoolFeeResult.migratedPoolBaseFeeMode,
-        migratedPoolMarketCapFeeSchedulerParams:
-            migratedPoolFeeResult.migratedPoolMarketCapFeeSchedulerParams,
         enableFirstSwapWithMinFee,
-        compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
-        padding: [],
         curve,
-        tokenUpdateAuthority: tokenAuthorityOption,
-        migrationFee,
-    }
-    return instructionParams
+    })
 }
 
 /**
@@ -766,8 +826,9 @@ export function buildCurveWithMidPrice(
         migrationQuoteThreshold.mul(new Decimal(10 ** tokenQuoteDecimal))
     )
 
-    const migrationQuoteAmountInLamport = fromDecimalToBN(
-        migrationQuoteAmount.mul(new Decimal(10 ** tokenQuoteDecimal))
+    const migrationQuoteAmountInLamport = getMigrationQuoteAmountFromThreshold(
+        migrationQuoteThresholdInLamport,
+        migrationFee.feePercentage
     )
 
     const migrateSqrtPrice = getSqrtPriceFromPrice(
@@ -779,7 +840,8 @@ export function buildCurveWithMidPrice(
     const migrationBaseAmount = getMigrationBaseToken(
         migrationQuoteAmountInLamport,
         migrateSqrtPrice,
-        migrationOption
+        migrationOption,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
     const totalVestingAmount = getTotalVestingAmount(lockedVestingParams)
@@ -824,7 +886,8 @@ export function buildCurveWithMidPrice(
         lockedVestingParams,
         migrationOption,
         totalLeftover,
-        migrationFee.feePercentage
+        migrationFee.feePercentage,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
     if (totalDynamicSupply.gt(totalSupply)) {
@@ -835,52 +898,33 @@ export function buildCurveWithMidPrice(
         }
     }
 
-    const instructionParams: ConfigParameters = {
-        poolFees: {
-            baseFee: {
-                ...baseFee,
-            },
-            dynamicFee: dynamicFeeEnabled
-                ? getDynamicFeeParams(
-                      baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
-                          ? baseFeeParams.rateLimiterParam.baseFeeBps
-                          : baseFeeParams.feeSchedulerParam.endingFeeBps
-                  )
-                : null,
-        },
-        activationType,
+    return toConfigParameters({
+        baseFee,
+        baseFeeParams,
+        dynamicFeeEnabled,
         collectFeeMode,
         migrationOption,
+        activationType,
         tokenType,
-        tokenDecimal: tokenBaseDecimal,
-        migrationQuoteThreshold: migrationQuoteThresholdInLamport,
+        tokenBaseDecimal,
         partnerLiquidityPercentage,
         partnerPermanentLockedLiquidityPercentage,
         creatorLiquidityPercentage,
         creatorPermanentLockedLiquidityPercentage,
-        sqrtStartPrice,
-        lockedVesting: lockedVestingParams,
-        migrationFeeOption: migratedPoolFeeResult.migrationFeeOption,
-        tokenSupply: {
-            preMigrationTokenSupply: totalSupply,
-            postMigrationTokenSupply: totalSupply,
-        },
+        migrationQuoteThreshold: migrationQuoteThresholdInLamport,
+        sqrtStartPrice: sqrtStartPrice,
+        lockedVestingParams,
+        migratedPoolFeeResult,
+        totalSupply,
         creatorTradingFeePercentage,
-        migratedPoolFee: migratedPoolFeeResult.migratedPoolFee,
-        poolCreationFee: poolCreationFeeInLamports,
+        tokenAuthorityOption,
+        migrationFee,
+        poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
-        migratedPoolBaseFeeMode: migratedPoolFeeResult.migratedPoolBaseFeeMode,
-        migratedPoolMarketCapFeeSchedulerParams:
-            migratedPoolFeeResult.migratedPoolMarketCapFeeSchedulerParams,
         enableFirstSwapWithMinFee,
-        compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
-        padding: [],
         curve,
-        tokenUpdateAuthority: tokenAuthorityOption,
-        migrationFee,
-    }
-    return instructionParams
+    })
 }
 
 /**
@@ -1029,7 +1073,7 @@ export function buildCurveWithLiquidityWeights(
     let currentPrice = pMin
     for (let i = 0; i < 17; i++) {
         sqrtPrices.push(currentPrice)
-        currentPrice = convertDecimalToBN(
+        currentPrice = fromDecimalToBN(
             qDecimal.mul(new Decimal(currentPrice.toString()))
         )
     }
@@ -1044,15 +1088,17 @@ export function buildCurveWithLiquidityWeights(
 
     // Swap_Amount = sum(li * (1/p(i-1) - 1/pi))
     // Quote_Amount = sum(li * (pi-p(i-1)))
-    // Quote_Amount * (1-migrationFee/100) / Base_Amount = Pmax ^ 2
+    // Base_Amount = Quote_Amount * (1-migrationFee/100) * migration_base_weight
 
-    // -> Base_Amount = Quote_Amount * (1-migrationFee) / Pmax ^ 2
-    // -> Swap_Amount + Base_Amount = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2
+    // -> Swap_Amount + Base_Amount = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) * migration_base_weight
     // l0 * sum_factor = Swap_Amount + Base_Amount
-    // => l0 * sum_factor = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2
     // => l0 = (Swap_Amount + Base_Amount ) / sum_factor
     let sumFactor = new Decimal(0)
-    const pmaxWeight = new Decimal(pMax.toString())
+    const migrationBaseWeight = getMigrationBaseWeight(
+        pMax,
+        migrationOption,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
+    )
     const migrationFeeFactor = new Decimal(100)
         .sub(new Decimal(migrationFee.feePercentage))
         .div(new Decimal(100))
@@ -1065,7 +1111,7 @@ export function buildCurveWithLiquidityWeights(
         const w2 = pi
             .sub(piMinus) // pi - piMinus
             .mul(migrationFeeFactor) // (1-migrationFee/100)
-            .div(pmaxWeight.mul(pmaxWeight)) // pmax^2
+            .mul(migrationBaseWeight)
         const weight = k.mul(w1.add(w2)) // k x (w1 + w2)
         sumFactor = sumFactor.add(weight)
     }
@@ -1077,7 +1123,7 @@ export function buildCurveWithLiquidityWeights(
     const curve = []
     for (let i = 0; i < 16; i++) {
         const k = new Decimal(liquidityWeights[i])
-        const liquidity = convertDecimalToBN(l1.mul(k))
+        const liquidity = fromDecimalToBN(l1.mul(k))
         const sqrtPrice = i < 15 ? sqrtPrices[i + 1] : pMax
         curve.push({
             sqrtPrice,
@@ -1095,7 +1141,12 @@ export function buildCurveWithLiquidityWeights(
     const migrationAmount =
         totalSwapAndMigrationAmount.sub(swapBaseAmountBuffer)
 
-    const migrationQuoteAmount = migrationAmount.mul(pMax).mul(pMax).shrn(128)
+    const migrationQuoteAmount = getMigrationQuoteAmountFromMigrationBase(
+        migrationAmount,
+        pMax,
+        migrationOption,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
+    )
     const migrationQuoteThreshold =
         getMigrationQuoteThresholdFromMigrationQuoteAmount(
             new Decimal(migrationQuoteAmount.toString()),
@@ -1113,7 +1164,8 @@ export function buildCurveWithLiquidityWeights(
         lockedVestingParams,
         migrationOption,
         totalLeftover,
-        migrationFee.feePercentage
+        migrationFee.feePercentage,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
     if (totalDynamicSupply.gt(totalSupply)) {
@@ -1124,52 +1176,33 @@ export function buildCurveWithLiquidityWeights(
         }
     }
 
-    const instructionParams: ConfigParameters = {
-        poolFees: {
-            baseFee: {
-                ...baseFee,
-            },
-            dynamicFee: dynamicFeeEnabled
-                ? getDynamicFeeParams(
-                      baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
-                          ? baseFeeParams.rateLimiterParam.baseFeeBps
-                          : baseFeeParams.feeSchedulerParam.endingFeeBps
-                  )
-                : null,
-        },
-        activationType,
+    return toConfigParameters({
+        baseFee,
+        baseFeeParams,
+        dynamicFeeEnabled,
         collectFeeMode,
         migrationOption,
+        activationType,
         tokenType,
-        tokenDecimal: tokenBaseDecimal,
-        migrationQuoteThreshold: migrationQuoteThresholdInLamport,
+        tokenBaseDecimal,
         partnerLiquidityPercentage,
         partnerPermanentLockedLiquidityPercentage,
         creatorLiquidityPercentage,
         creatorPermanentLockedLiquidityPercentage,
+        migrationQuoteThreshold: migrationQuoteThresholdInLamport,
         sqrtStartPrice: pMin,
-        lockedVesting: lockedVestingParams,
-        migrationFeeOption: migratedPoolFeeResult.migrationFeeOption,
-        tokenSupply: {
-            preMigrationTokenSupply: totalSupply,
-            postMigrationTokenSupply: totalSupply,
-        },
+        lockedVestingParams,
+        migratedPoolFeeResult,
+        totalSupply,
         creatorTradingFeePercentage,
-        migratedPoolFee: migratedPoolFeeResult.migratedPoolFee,
-        poolCreationFee: poolCreationFeeInLamports,
+        tokenAuthorityOption,
+        migrationFee,
+        poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
-        migratedPoolBaseFeeMode: migratedPoolFeeResult.migratedPoolBaseFeeMode,
-        migratedPoolMarketCapFeeSchedulerParams:
-            migratedPoolFeeResult.migratedPoolMarketCapFeeSchedulerParams,
         enableFirstSwapWithMinFee,
-        compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
-        padding: [],
         curve,
-        migrationFee,
-        tokenUpdateAuthority: tokenAuthorityOption,
-    }
-    return instructionParams
+    })
 }
 
 /**
@@ -1210,7 +1243,6 @@ export function buildCurveWithCustomSqrtPrices(
     const {
         tokenType,
         tokenBaseDecimal,
-        tokenQuoteDecimal,
         tokenAuthorityOption,
         totalTokenSupply,
         leftover,
@@ -1346,9 +1378,13 @@ export function buildCurveWithCustomSqrtPrices(
         .sub(totalLeftover)
 
     // calculate the sum factor for liquidity distribution
-    // l0 * sum_factor = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) / Pmax ^ 2
+    // l0 * sum_factor = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) * migration_base_weight
     let sumFactor = new Decimal(0)
-    const pmaxWeight = new Decimal(pMax.toString())
+    const migrationBaseWeight = getMigrationBaseWeight(
+        pMax,
+        migrationOption,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
+    )
     const migrationFeeFactor = new Decimal(100)
         .sub(new Decimal(migrationFee.feePercentage))
         .div(new Decimal(100))
@@ -1363,11 +1399,11 @@ export function buildCurveWithCustomSqrtPrices(
         // w1 = (pi - piMinus) / (pi * piMinus) represents the base token contribution
         const w1 = pi.sub(piMinus).div(pi.mul(piMinus))
 
-        // w2 = (pi - piMinus) * (1 - migrationFee) / pMax^2 represents the quote token contribution
+        // w2 = (pi - piMinus) * (1 - migrationFee) * migration_base_weight represents the migration base contribution
         const w2 = pi
             .sub(piMinus)
             .mul(migrationFeeFactor)
-            .div(pmaxWeight.mul(pmaxWeight))
+            .mul(migrationBaseWeight)
 
         const weight = k.mul(w1.add(w2))
         sumFactor = sumFactor.add(weight)
@@ -1382,7 +1418,7 @@ export function buildCurveWithCustomSqrtPrices(
     const curve = []
     for (let i = 0; i < numSegments; i++) {
         const k = new Decimal(liquidityWeights[i])
-        const liquidity = convertDecimalToBN(l1.mul(k))
+        const liquidity = fromDecimalToBN(l1.mul(k))
         const sqrtPrice = sqrtPrices[i + 1]
         curve.push({
             sqrtPrice,
@@ -1401,7 +1437,12 @@ export function buildCurveWithCustomSqrtPrices(
     const migrationAmount =
         totalSwapAndMigrationAmount.sub(swapBaseAmountBuffer)
 
-    const migrationQuoteAmount = migrationAmount.mul(pMax).mul(pMax).shrn(128)
+    const migrationQuoteAmount = getMigrationQuoteAmountFromMigrationBase(
+        migrationAmount,
+        pMax,
+        migrationOption,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
+    )
     const migrationQuoteThreshold =
         getMigrationQuoteThresholdFromMigrationQuoteAmount(
             new Decimal(migrationQuoteAmount.toString()),
@@ -1419,7 +1460,8 @@ export function buildCurveWithCustomSqrtPrices(
         lockedVestingParams,
         migrationOption,
         totalLeftover,
-        migrationFee.feePercentage
+        migrationFee.feePercentage,
+        migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
     if (totalDynamicSupply.gt(totalSupply)) {
@@ -1430,50 +1472,31 @@ export function buildCurveWithCustomSqrtPrices(
         }
     }
 
-    const instructionParams: ConfigParameters = {
-        poolFees: {
-            baseFee: {
-                ...baseFee,
-            },
-            dynamicFee: dynamicFeeEnabled
-                ? getDynamicFeeParams(
-                      baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
-                          ? baseFeeParams.rateLimiterParam.baseFeeBps
-                          : baseFeeParams.feeSchedulerParam.endingFeeBps
-                  )
-                : null,
-        },
-        activationType,
+    return toConfigParameters({
+        baseFee,
+        baseFeeParams,
+        dynamicFeeEnabled,
         collectFeeMode,
         migrationOption,
+        activationType,
         tokenType,
-        tokenDecimal: tokenBaseDecimal,
-        migrationQuoteThreshold: migrationQuoteThresholdInLamport,
+        tokenBaseDecimal,
         partnerLiquidityPercentage,
         partnerPermanentLockedLiquidityPercentage,
         creatorLiquidityPercentage,
         creatorPermanentLockedLiquidityPercentage,
+        migrationQuoteThreshold: migrationQuoteThresholdInLamport,
         sqrtStartPrice: pMin,
-        lockedVesting: lockedVestingParams,
-        migrationFeeOption: migratedPoolFeeResult.migrationFeeOption,
-        tokenSupply: {
-            preMigrationTokenSupply: totalSupply,
-            postMigrationTokenSupply: totalSupply,
-        },
+        lockedVestingParams,
+        migratedPoolFeeResult,
+        totalSupply,
         creatorTradingFeePercentage,
-        migratedPoolFee: migratedPoolFeeResult.migratedPoolFee,
-        poolCreationFee: poolCreationFeeInLamports,
+        tokenAuthorityOption,
+        migrationFee,
+        poolCreationFeeInLamports,
         partnerLiquidityVestingInfo,
         creatorLiquidityVestingInfo,
-        migratedPoolBaseFeeMode: migratedPoolFeeResult.migratedPoolBaseFeeMode,
-        migratedPoolMarketCapFeeSchedulerParams:
-            migratedPoolFeeResult.migratedPoolMarketCapFeeSchedulerParams,
         enableFirstSwapWithMinFee,
-        compoundingFeeBps: migratedPoolFeeResult.compoundingFeeBps,
-        padding: [],
         curve,
-        migrationFee,
-        tokenUpdateAuthority: tokenAuthorityOption,
-    }
-    return instructionParams
+    })
 }

@@ -2,6 +2,34 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [2.0.0] - 2026-10-02
+
+### Added
+
+- `client.partner.createConfig2`. Pass `transferFeeParameters` for a base-mint transfer fee, or `null` when there is none.
+- `TransferFeeWithheldAuthority` and `MigratedTransferFeeAuthorityOption`.
+- Swap quotes account for Token-2022 transfer fees and return `includedTransferFeeAmountIn` and `excludedTransferFeeAmountOut`. `getSwapQuoteTransferFees` fetches the quote mint and current epoch.
+- `quoteSwap2` quotes `SwapMode.ExactIn`, `SwapMode.PartialFill`, and `SwapMode.ExactOut`. Pass `virtualPool` for an existing pool. Omit it to quote a `buildCurve` result before the pool exists. `client.pool.swapQuote2`, `getQuoteFromInputAmount`, and `getQuoteFromOutputAmount` call it.
+
+### Changed
+
+- `createConfigAndPool` and `createConfigAndPoolWithFirstBuy` always use `createConfig2`. Omitting `transferFeeParameters` is the same as `null`.
+- A base transfer fee, or a quote mint with a non-zero transfer fee or a live transfer fee config authority, requires a constant token supply, no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`. The base fee is Token-2022 only and at most 10%.
+- `MigratedCollectFeeMode.Compounding` allows `compoundingFeeBps` of `0`.
+- Curve builders reserve the program migration base, `ceil(migrationQuoteThreshold * (100 - migrationFee.feePercentage) / 100)`. `buildCurveWithLiquidityWeights` and `buildCurveWithCustomSqrtPrices` use constant product for `Compounding`, and concentrated liquidity for `QuoteToken` and `OutputToken`.
+
+### Deprecated
+
+- `client.partner.createConfig` in favour of `createConfig2`. `createConfig` and `createConfigWithTransferHook` reject a quote mint with a non-zero transfer fee or a live transfer fee config authority.
+
+### Breaking Changes
+
+- Import the public API from `@meteora-ag/dynamic-bonding-curve-sdk`. The package root no longer re-exports every helper, math function, or `DynamicBondingCurveProgram`, and the `exports` map only exposes that entry. `swapQuoteExactIn`, `swapQuoteExactOut`, and `swapQuotePartialFill` are not exported; use `quoteSwap2`. `convertDecimalToBN` and `fromDecimalToBN` are not exported.
+- Construct services through `DynamicBondingCurveClient`. `new PoolService(connection, commitment)`, `new StateService(connection, commitment)`, `new PartnerService(connection, commitment)`, `new CreatorService(connection, commitment)`, and `new MigrationService(connection, commitment)` are no longer supported. Reads go through `client.state`.
+- Swap quotes for a Token-2022 quote mint require `quoteMint` and `currentEpoch`.
+- `getMigratedPoolFeeParams` throws for `MigrationFeeOption.Customizable` when `migratedPoolFee.poolFeeBps` is not set.
+- `swap`, `swap2`, `claimPartnerTradingFee`, and `claimCreatorTradingFee` reject transfer-hook pools. Use `swap2WithTransferHook`, `claimPartnerTradingFee2`, and `claimCreatorTradingFee2`. Standard pool creation rejects a transfer-hook config, and transfer-hook pool creation rejects a standard config.
+
 ## [1.5.13] - 2026-09-24
 
 ### Changed

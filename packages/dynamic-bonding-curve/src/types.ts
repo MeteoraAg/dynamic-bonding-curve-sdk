@@ -6,6 +6,7 @@ import type {
     Program,
 } from '@coral-xyz/anchor'
 import type { DynamicBondingCurve } from './idl/dynamic-bonding-curve/idl'
+import type { Mint } from '@solana/spl-token'
 import type {
     AccountMeta,
     Keypair,
@@ -83,6 +84,9 @@ export type MigratedPoolFee = IdlTypes<DynamicBondingCurve>['migratedPoolFee']
 export type SwapResult = IdlTypes<DynamicBondingCurve>['swapResult']
 
 export type SwapResult2 = IdlTypes<DynamicBondingCurve>['swapResult2']
+
+export type TransferFeeParameters =
+    IdlTypes<DynamicBondingCurve>['transferFeeParameters']
 
 export type TransferHookAccountsInfo =
     IdlTypes<DynamicBondingCurve>['transferHookAccountsInfo']
@@ -222,6 +226,18 @@ export enum SwapMode {
     ExactOut = 2,
 }
 
+export enum TransferFeeWithheldAuthority {
+    Partner = 0,
+    Creator = 1,
+}
+
+export enum MigratedTransferFeeAuthorityOption {
+    Immutable = 0,
+    RevokeZeroFee = 1,
+    Creator = 2,
+    Partner = 3,
+}
+
 export const AccountsType = {
     TransferHookBase: {
         transferHookBase: {},
@@ -247,6 +263,10 @@ export type CreateConfigParams = Omit<
          */
         tokenBadge?: PublicKey
     }
+
+export type CreateConfig2Params = CreateConfigParams & {
+    transferFeeParameters?: TransferFeeParameters | null
+}
 
 export type CreateConfigWithTransferHookParams = CreateConfigParams & {
     transferHookProgram: PublicKey
@@ -436,6 +456,7 @@ export type CreatePoolWithTransferHookParams = CreatePoolParams & {
 
 export type CreateConfigAndPoolParams = CreateConfigParams & {
     preCreatePoolParam: CreatePoolBaseParams
+    transferFeeParameters?: TransferFeeParameters | null
 }
 
 export type CreateConfigAndPoolWithFirstBuyParams =
@@ -564,6 +585,13 @@ export type SwapQuoteParams = {
     hasReferral: boolean
     eligibleForFirstSwapWithMinFee: boolean // only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
     currentPoint: BN
+} & QuoteTransferFees
+
+export type QuoteTransferFees = {
+    currentEpoch?: number
+    baseMint?: Mint
+    quoteMint?: Mint
+    baseTransferFeeBasisPoints?: number
 }
 
 export type SwapQuote2Params = {
@@ -587,7 +615,32 @@ export type SwapQuote2Params = {
           swapMode: SwapMode.ExactOut
           amountOut: BN
       }
-)
+) &
+    QuoteTransferFees
+
+/**
+ * Quote input for `quoteSwap2`.
+ * Pass `virtualPool` for an existing pool. Omit it to quote a `buildCurve` result at launch.
+ */
+export type QuoteSwap2Params = {
+    config: SwapQuoteConfig
+    virtualPool?: VirtualPool
+    swapBaseForQuote: boolean
+    slippageBps?: number
+    hasReferral?: boolean
+    currentPoint?: BN
+    eligibleForFirstSwapWithMinFee?: boolean
+} & QuoteTransferFees &
+    (
+        | {
+              swapMode?: SwapMode.ExactIn | SwapMode.PartialFill
+              amountIn: BN
+          }
+        | {
+              swapMode: SwapMode.ExactOut
+              amountOut: BN
+          }
+    )
 
 export interface SwapQuoteConfig {
     poolFees: {
@@ -618,7 +671,7 @@ export type SimulatedQuoteBaseParams = {
     hasReferral?: boolean
     currentPoint?: BN
     eligibleForFirstSwapWithMinFee?: boolean
-}
+} & QuoteTransferFees
 
 export type SimulatedQuoteFromInputAmountParams = SimulatedQuoteBaseParams & {
     amountIn: BN
@@ -808,11 +861,15 @@ export interface FeeMode {
 
 export interface SwapQuoteResult extends SwapResult {
     minimumAmountOut: BN
+    includedTransferFeeAmountIn: BN
+    excludedTransferFeeAmountOut: BN
 }
 
 export interface SwapQuote2Result extends SwapResult2 {
     minimumAmountOut?: BN
     maximumAmountIn?: BN
+    includedTransferFeeAmountIn: BN
+    excludedTransferFeeAmountOut: BN
 }
 
 export interface FeeOnAmountResult {

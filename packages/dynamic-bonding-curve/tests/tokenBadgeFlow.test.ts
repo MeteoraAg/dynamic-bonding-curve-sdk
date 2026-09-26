@@ -4,6 +4,11 @@ import {
     PublicKey,
     sendAndConfirmTransaction,
 } from '@solana/web3.js'
+import {
+    getAccount,
+    getAssociatedTokenAddressSync,
+    TOKEN_2022_PROGRAM_ID,
+} from '@solana/spl-token'
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
     ActivationType,
@@ -15,12 +20,15 @@ import {
     deriveDbcPoolAuthority,
     deriveTokenBadgeAddress,
     DynamicBondingCurveClient,
+    getCurrentPoint,
+    getSwapQuoteTransferFees,
     MigrationFeeOption,
     MigrationOption,
     SwapMode,
     TokenAuthorityOption,
     TokenDecimal,
     TokenType,
+    type SwapQuote2Params,
 } from '../src'
 import { BN } from 'bn.js'
 import { fundSol, LOCALNET_RPC_URL } from './utils/common'
@@ -129,22 +137,17 @@ describe(
 
         test('rejects createConfig when the quote mint needs a badge and none is passed', async () => {
             const config = Keypair.generate()
-            const createConfigTx = await dbcClient.partner.createConfig({
-                config: config.publicKey,
-                feeClaimer: partner.publicKey,
-                leftoverReceiver: partner.publicKey,
-                payer: partner.publicKey,
-                quoteMint,
-                ...buildBadgedQuoteCurveConfig(),
-            })
-            createConfigTx.feePayer = partner.publicKey
 
             await expect(
-                sendAndConfirmTransaction(connection, createConfigTx, [
-                    partner,
-                    config,
-                ])
-            ).rejects.toThrow(/Invalid token badge/)
+                dbcClient.partner.createConfig({
+                    config: config.publicKey,
+                    feeClaimer: partner.publicKey,
+                    leftoverReceiver: partner.publicKey,
+                    payer: partner.publicKey,
+                    quoteMint,
+                    ...buildBadgedQuoteCurveConfig(),
+                })
+            ).rejects.toThrow(/requires an initialized token badge/)
         })
 
         test('badges a Token-2022 quote mint, launches on DBC, and migrates to DAMM v2', async () => {
@@ -215,6 +218,34 @@ describe(
                 swapAmount
             )
 
+            const quoteParams: SwapQuote2Params = {
+                virtualPool: poolState!,
+                config: configState!,
+                swapBaseForQuote: false,
+                hasReferral: false,
+                eligibleForFirstSwapWithMinFee: false,
+                currentPoint: await getCurrentPoint(
+                    connection,
+                    configState!.activationType
+                ),
+                swapMode: SwapMode.PartialFill,
+                amountIn: new BN(swapAmount.toString()),
+            }
+            expect(() => dbcClient.pool.swapQuote2(quoteParams)).toThrow(
+                'quoteMint and currentEpoch are required for a Token-2022 quote mint'
+            )
+            const quoteTransferFees = await getSwapQuoteTransferFees(
+                connection,
+                configState!
+            )
+            expect(quoteTransferFees.quoteMint!.address.equals(quoteMint)).toBe(
+                true
+            )
+            const quote = dbcClient.pool.swapQuote2({
+                ...quoteParams,
+                ...quoteTransferFees,
+            })
+
             const swapTx = await dbcClient.pool.swap2({
                 pool,
                 owner: user.publicKey,
@@ -227,6 +258,23 @@ describe(
             })
             swapTx.feePayer = user.publicKey
             await sendAndConfirmTransaction(connection, swapTx, [user])
+
+            const userBaseAccount = await getAccount(
+                connection,
+                getAssociatedTokenAddressSync(
+                    baseMint.publicKey,
+                    user.publicKey,
+                    false,
+                    TOKEN_2022_PROGRAM_ID
+                ),
+                'confirmed',
+                TOKEN_2022_PROGRAM_ID
+            )
+            expect(
+                new BN(userBaseAccount.amount.toString()).eq(
+                    quote.excludedTransferFeeAmountOut
+                )
+            ).toBe(true)
 
             const poolAfterSwap = await dbcClient.state.getPool(pool)
             expect(

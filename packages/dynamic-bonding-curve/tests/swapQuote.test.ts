@@ -13,6 +13,8 @@ import {
     DammV2DynamicFeeMode,
     deriveDbcPoolAddress,
     DynamicBondingCurveClient,
+    getFeeMode,
+    getIncludedFeeAmount,
     MigratedCollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
@@ -20,7 +22,9 @@ import {
     TokenDecimal,
     TokenType,
     TokenAuthorityOption,
+    TradeDirection,
 } from '../src'
+import { MAX_FEE_NUMERATOR, U64_MAX } from '../src/constants'
 import { BN } from 'bn.js'
 import { NATIVE_MINT } from '@solana/spl-token'
 
@@ -490,5 +494,19 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(result.amountLeft.gt(new BN(0))).toBe(true)
         // outputAmount should be greater than 0
         expect(result.outputAmount.gt(new BN(0))).toBe(true)
+    })
+})
+
+describe('swap fee math bounds', () => {
+    test('getFeeMode rejects an unknown collect fee mode', () => {
+        expect(() =>
+            getFeeMode(2 as CollectFeeMode, TradeDirection.QuoteToBase, false)
+        ).toThrow('Invalid collect fee mode')
+    })
+
+    test('getIncludedFeeAmount rejects an amount above u64', () => {
+        expect(() =>
+            getIncludedFeeAmount(new BN(MAX_FEE_NUMERATOR), U64_MAX)
+        ).toThrow('Type cast failed')
     })
 })

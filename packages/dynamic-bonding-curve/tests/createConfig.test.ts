@@ -14,8 +14,10 @@ import {
     DynamicBondingCurveClient,
     MigratedCollectFeeMode,
     getVestingLockedLiquidityBpsAtNSeconds,
+    MigratedTransferFeeAuthorityOption,
     MigrationFeeOption,
     MigrationOption,
+    TransferFeeWithheldAuthority,
     TokenDecimal,
     TokenType,
     TokenAuthorityOption,
@@ -312,6 +314,53 @@ describe('createConfig tests', { timeout: 60000 }, () => {
 
         const virtualPool = await dbcClient.state.getPool(pool)
         expect(virtualPool!.poolState.quoteReserve.gt(new BN(0))).toBe(true)
+    })
+
+    test('createConfig2 with a base transfer fee', async () => {
+        const curveConfig = buildTestCurveConfig({
+            migratedPoolFee: {
+                collectFeeMode: MigratedCollectFeeMode.Compounding,
+                dynamicFee: DammV2DynamicFeeMode.Enabled,
+                poolFeeBps: 120,
+                compoundingFeeBps: 0,
+                baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+            },
+        })
+        curveConfig.tokenType = TokenType.Token2022
+
+        const config = Keypair.generate()
+        const createConfigTx = await dbcClient.partner.createConfig2({
+            config: config.publicKey,
+            feeClaimer: partner.publicKey,
+            leftoverReceiver: partner.publicKey,
+            payer: partner.publicKey,
+            quoteMint: NATIVE_MINT,
+            transferFeeParameters: {
+                transferFeeBasisPoints: 250,
+                withheldAuthority: TransferFeeWithheldAuthority.Partner,
+                migratedTransferFeeAuthorityOption:
+                    MigratedTransferFeeAuthorityOption.Immutable,
+            },
+            ...curveConfig,
+        })
+
+        createConfigTx.feePayer = partner.publicKey
+        await sendAndConfirmTransaction(connection, createConfigTx, [
+            partner,
+            config,
+        ])
+
+        const configState = await dbcClient.state.getPoolConfig(
+            config.publicKey
+        )
+        expect(configState!.transferFeeBasisPoints).toBe(250)
+        expect(configState!.transferFeeWithheldAuthority).toBe(
+            TransferFeeWithheldAuthority.Partner
+        )
+        expect(configState!.migratedTransferFeeAuthorityOption).toBe(
+            MigratedTransferFeeAuthorityOption.Immutable
+        )
+        expect(configState!.migratedCompoundingFeeBps).toBe(0)
     })
 })
 

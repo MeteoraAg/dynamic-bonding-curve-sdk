@@ -3,7 +3,7 @@
     "outDir": "dist",
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "strictNullChecks": false,
+    "strictNullChecks": true,
     "target": "es2020",
     "module": "esnext",
     "moduleResolution": "bundler",

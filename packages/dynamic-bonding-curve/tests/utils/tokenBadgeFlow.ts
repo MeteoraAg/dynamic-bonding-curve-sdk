@@ -10,6 +10,7 @@ import {
     createAssociatedTokenAccountIdempotentInstruction,
     createInitializeMint2Instruction,
     createInitializePermanentDelegateInstruction,
+    createInitializeTransferFeeConfigInstruction,
     createMintToInstruction,
     ExtensionType,
     getAssociatedTokenAddressSync,
@@ -20,8 +21,6 @@ import BN from 'bn.js'
 import {
     ActivationType,
     CollectFeeMode,
-    createDbcProgram,
-    createDammV2Program,
     DAMM_V2_PROGRAM_ID,
     DammV2BaseFeeMode,
     deriveDbcPoolAuthority,
@@ -30,6 +29,10 @@ import {
     MAX_SQRT_PRICE,
     MIN_SQRT_PRICE,
 } from '../../src'
+import {
+    createDammV2Program,
+    createDbcProgram,
+} from '../../src/helpers/createProgram'
 
 // dynamic-bonding-curve/src/state/operator.rs
 enum DbcOperatorPermission {
@@ -90,6 +93,46 @@ export async function createStockQuoteMint(
         createInitializeMint2Instruction(
             mintKeypair.publicKey,
             6,
+            payer.publicKey,
+            null,
+            TOKEN_2022_PROGRAM_ID
+        )
+    )
+    tx.feePayer = payer.publicKey
+    await sendAndConfirmTransaction(connection, tx, [payer, mintKeypair])
+
+    return mintKeypair.publicKey
+}
+
+export async function createTransferFeeQuoteMint(
+    connection: Connection,
+    payer: Keypair,
+    transferFeeBasisPoints: number,
+    transferFeeConfigAuthority: PublicKey | null = payer.publicKey
+): Promise<PublicKey> {
+    const mintKeypair = Keypair.generate()
+    const mintLen = getMintLen([ExtensionType.TransferFeeConfig])
+    const lamports = await connection.getMinimumBalanceForRentExemption(mintLen)
+
+    const tx = new Transaction().add(
+        SystemProgram.createAccount({
+            fromPubkey: payer.publicKey,
+            newAccountPubkey: mintKeypair.publicKey,
+            space: mintLen,
+            lamports,
+            programId: TOKEN_2022_PROGRAM_ID,
+        }),
+        createInitializeTransferFeeConfigInstruction(
+            mintKeypair.publicKey,
+            transferFeeConfigAuthority,
+            payer.publicKey,
+            transferFeeBasisPoints,
+            BigInt('18446744073709551615'),
+            TOKEN_2022_PROGRAM_ID
+        ),
+        createInitializeMint2Instruction(
+            mintKeypair.publicKey,
+            9,
             payer.publicKey,
             null,
             TOKEN_2022_PROGRAM_ID

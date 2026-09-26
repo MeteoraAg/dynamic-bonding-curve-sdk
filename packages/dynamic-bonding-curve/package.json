@@ -1,68 +1,68 @@
 {
-  "name": "@meteora-ag/dynamic-bonding-curve-sdk",
-  "version": "1.5.13",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
-  "source": "src/index.ts",
-  "types": "dist/index.d.ts",
-  "author": "Dann Wee <dann@raccoons.dev>",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MeteoraAg/dynamic-bonding-curve-sdk.git",
-    "directory": "packages/dynamic-bonding-curve"
-  },
-  "homepage": "https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/tree/main/packages/dynamic-bonding-curve#readme",
-  "bugs": {
-    "url": "https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/issues"
-  },
-  "keywords": [
-    "meteora-ag",
-    "dynamic-bonding-curve",
-    "damm-v1",
-    "damm-v2",
-    "dynamic-vaults"
-  ],
-  "files": [
-    "dist",
-    "LICENSE"
-  ],
-  "description": "A Typescript SDK for interacting with the Dynamic Bonding Curve on Meteora.",
-  "license": "MIT",
-  "type": "module",
-  "scripts": {
-    "build": "rm -rf dist && tsup --config ../../tsup.config.ts src/index.ts",
-    "clean": "rm -rf node_modules dist",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "check-types": "tsc --noEmit",
-    "lint": "eslint .",
-    "start-validator": "solana-test-validator --reset --bpf-program dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN tests/fixtures/dynamic_bonding_curve.so --bpf-program cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG tests/fixtures/cp_amm.so --bpf-program Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB tests/fixtures/amm.so --bpf-program LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn tests/fixtures/locker.so --bpf-program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s tests/fixtures/metaplex.so --bpf-program 24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi tests/fixtures/mercurial_vault.so --bpf-program EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS tests/fixtures/transfer_hook_counter.so"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+    "name": "@meteora-ag/dynamic-bonding-curve-sdk",
+    "version": "2.0.0",
+    "main": "dist/index.cjs",
+    "module": "dist/index.js",
+    "source": "src/index.ts",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "require": "./dist/index.cjs"
+        }
+    },
+    "author": "Dann Wee <dann@raccoons.dev>",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/MeteoraAg/dynamic-bonding-curve-sdk.git",
+        "directory": "packages/dynamic-bonding-curve"
+    },
+    "homepage": "https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/tree/main/packages/dynamic-bonding-curve#readme",
+    "bugs": {
+        "url": "https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/issues"
+    },
+    "keywords": [
+        "meteora-ag",
+        "dynamic-bonding-curve",
+        "damm-v1",
+        "damm-v2",
+        "dynamic-vaults"
+    ],
+    "files": [
+        "dist",
+        "LICENSE"
+    ],
+    "description": "A Typescript SDK for interacting with the Dynamic Bonding Curve on Meteora.",
+    "license": "MIT",
+    "type": "module",
+    "scripts": {
+        "build": "rm -rf dist && tsup --config ../../tsup.config.ts src/index.ts",
+        "clean": "rm -rf node_modules dist",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "check-types": "tsc --noEmit",
+        "lint": "eslint .",
+        "start-validator": "solana-test-validator --reset --bpf-program dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN tests/fixtures/dynamic_bonding_curve.so --bpf-program cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG tests/fixtures/cp_amm.so --bpf-program Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB tests/fixtures/amm.so --bpf-program LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn tests/fixtures/locker.so --bpf-program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s tests/fixtures/metaplex.so --bpf-program 24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi tests/fixtures/mercurial_vault.so --bpf-program EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS tests/fixtures/transfer_hook_counter.so"
+    },
+    "devDependencies": {
+        "@meteora-ag/ts-sdk-config": "workspace:*",
+        "@types/bn.js": "^5.1.6",
+        "@types/node": "^25.0.3",
+        "eslint": "^9.24.0",
+        "jito-ts": "^4.2.1",
+        "tsup": "^8.4.0",
+        "tsx": "^4.19.3",
+        "vitest": "^3.2.7"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "dependencies": {
+        "@coral-xyz/anchor": "^0.31.0",
+        "@solana/spl-token": "^0.4.13",
+        "@solana/web3.js": "^1.98.0",
+        "bn.js": "^5.2.1",
+        "decimal.js": "^10.5.0"
     }
-  },
-  "devDependencies": {
-    "@meteora-ag/ts-sdk-config": "workspace:*",
-    "@types/bn.js": "^5.1.6",
-    "@types/node": "^25.0.3",
-    "eslint": "^9.24.0",
-    "jito-ts": "^4.2.1",
-    "tsup": "^8.4.0",
-    "tsx": "^4.19.3",
-    "vitest": "^3.2.7"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "@coral-xyz/anchor": "^0.31.0",
-    "@solana/spl-token": "^0.4.13",
-    "@solana/web3.js": "^1.98.0",
-    "bn.js": "^5.2.1",
-    "decimal.js": "^10.5.0"
-  }
 }
