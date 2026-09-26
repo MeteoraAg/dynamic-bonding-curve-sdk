@@ -32,6 +32,7 @@
     - [swap2](#swap2)
     - [swap2WithTransferHook](#swap2WithTransferHook)
     - [swapQuote2](#swapQuote2)
+    - [quoteSwap2](#quoteSwap2)
     - [getQuoteFromInputAmount](#getQuoteFromInputAmount)
     - [getQuoteFromOutputAmount](#getQuoteFromOutputAmount)
 
@@ -2696,6 +2697,44 @@ const transaction = await client.pool.swap2WithTransferHook({
 - Use this function for pools whose base mint has a Token-2022 transfer hook.
 - The SDK derives and appends the transfer-hook remaining accounts for the base mint.
 - If `referralTokenAccount` is provided, the SDK includes both base and referral transfer-hook account groups.
+
+---
+
+### quoteSwap2
+
+Quotes `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut` without a client. Pass `virtualPool` for an existing pool. Omit it to quote a `buildCurve` result before the pool exists. `client.pool.swapQuote2`, `getQuoteFromInputAmount`, and `getQuoteFromOutputAmount` call this function.
+
+**Function**
+
+```typescript
+quoteSwap2(params: QuoteSwap2Params): SwapQuote2Result
+```
+
+**Example**
+
+```typescript
+const curveConfig = buildCurve({
+    // token, fee, migration, liquidity distribution, and activation params
+})
+
+const exactIn = quoteSwap2({
+    config: curveConfig,
+    swapBaseForQuote: false,
+    swapMode: SwapMode.ExactIn,
+    amountIn: new BN(10_000_000_000),
+    slippageBps: 100,
+})
+
+const exactOut = quoteSwap2({
+    config: curveConfig,
+    swapBaseForQuote: false,
+    swapMode: SwapMode.ExactOut,
+    amountOut: exactIn.outputAmount,
+    slippageBps: 100,
+})
+```
+
+Pass `baseTransferFeeBasisPoints` when `createConfig2` sets a base transfer fee. A Token-2022 quote mint still needs `quoteMint` and `currentEpoch`.
 
 ---
 

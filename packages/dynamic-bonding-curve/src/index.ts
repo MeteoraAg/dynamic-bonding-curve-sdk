@@ -58,6 +58,7 @@ export {
 export { getFeeMode, getIncludedFeeAmount } from './math/feeMath'
 export { getFeeNumeratorFromIncludedAmount } from './math/poolFees/rateLimiter'
 export { calculateBaseToQuoteFromAmountIn, swapQuote } from './math/swapQuote'
+export { quoteSwap2 } from './helpers/quoteSwap'
 export {
     calculateTransferFeeExcludedAmount,
     calculateTransferFeeIncludedAmount,

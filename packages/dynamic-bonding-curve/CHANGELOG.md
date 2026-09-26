@@ -11,6 +11,7 @@ Updated for program [0.2.2](https://github.com/MeteoraAg/dynamic-bonding-curve/p
 - `client.partner.createConfig2`. Pass `transferFeeParameters` for a base-mint transfer fee, or `null` when there is none.
 - `TransferFeeWithheldAuthority` and `MigratedTransferFeeAuthorityOption`.
 - Swap quotes account for Token-2022 transfer fees and return `includedTransferFeeAmountIn` and `excludedTransferFeeAmountOut`. `getSwapQuoteTransferFees` fetches the quote mint and current epoch.
+- `quoteSwap2` quotes `SwapMode.ExactIn`, `SwapMode.PartialFill`, and `SwapMode.ExactOut`. Pass `virtualPool` for an existing pool. Omit it to quote a `buildCurve` result before the pool exists. `client.pool.swapQuote2`, `getQuoteFromInputAmount`, and `getQuoteFromOutputAmount` call it.
 
 ### Changed
 
@@ -25,7 +26,7 @@ Updated for program [0.2.2](https://github.com/MeteoraAg/dynamic-bonding-curve/p
 
 ### Breaking Changes
 
-- Import the public API from `@meteora-ag/dynamic-bonding-curve-sdk`. The package root no longer re-exports every helper, math function, or `DynamicBondingCurveProgram`, and the `exports` map only exposes that entry. `swapQuoteExactIn`, `swapQuoteExactOut`, and `swapQuotePartialFill` are not exported; use `client.pool.swapQuote2`. `convertDecimalToBN` and `fromDecimalToBN` are not exported.
+- Import the public API from `@meteora-ag/dynamic-bonding-curve-sdk`. The package root no longer re-exports every helper, math function, or `DynamicBondingCurveProgram`, and the `exports` map only exposes that entry. `swapQuoteExactIn`, `swapQuoteExactOut`, and `swapQuotePartialFill` are not exported; use `quoteSwap2`. `convertDecimalToBN` and `fromDecimalToBN` are not exported.
 - Construct services through `DynamicBondingCurveClient`. `new PoolService(connection, commitment)`, `new StateService(connection, commitment)`, `new PartnerService(connection, commitment)`, `new CreatorService(connection, commitment)`, and `new MigrationService(connection, commitment)` are no longer supported. Reads go through `client.state`.
 - Swap quotes for a Token-2022 quote mint require `quoteMint` and `currentEpoch`.
 - `getMigratedPoolFeeParams` throws for `MigrationFeeOption.Customizable` when `migratedPoolFee.poolFeeBps` is not set.

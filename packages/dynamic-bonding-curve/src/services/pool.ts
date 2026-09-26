@@ -13,20 +13,12 @@ import {
     SwapQuoteResult,
     SwapQuote2Result,
     TradeDirection,
-    type PoolConfig,
-    type VirtualPool,
-    type SwapQuoteConfig,
     type SimulatedQuoteFromInputAmountParams,
     type SimulatedQuoteFromOutputAmountParams,
 } from '../types'
-import { validateSwapAmount, getMigrationThresholdPrice } from '../helpers'
-import {
-    swapQuoteExactIn,
-    swapQuoteExactOut,
-    swapQuotePartialFill,
-    swapQuote,
-    getFeeMode,
-} from '../math'
+import { validateSwapAmount } from '../helpers'
+import { quoteSwap2 } from '../helpers/quoteSwap'
+import { swapQuote, getFeeMode } from '../math'
 import { prepareSwapAccounts, rateLimiterApplied } from '../helpers/swap'
 import BN from 'bn.js'
 
@@ -428,133 +420,7 @@ export class PoolService extends DynamicBondingCurveProgram {
      * Quote a swap using `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut`.
      */
     swapQuote2(params: SwapQuote2Params): SwapQuote2Result {
-        const {
-            virtualPool,
-            config,
-            swapBaseForQuote,
-            swapMode,
-            hasReferral,
-            eligibleForFirstSwapWithMinFee,
-            currentPoint,
-            slippageBps,
-        } = params
-
-        switch (swapMode) {
-            case SwapMode.ExactIn:
-                if ('amountIn' in params) {
-                    return swapQuoteExactIn(
-                        virtualPool,
-                        config,
-                        swapBaseForQuote,
-                        params.amountIn,
-                        slippageBps,
-                        hasReferral,
-                        currentPoint,
-                        eligibleForFirstSwapWithMinFee,
-                        params
-                    )
-                }
-                throw new Error('amountIn is required for ExactIn swap mode')
-
-            case SwapMode.ExactOut:
-                if ('amountOut' in params) {
-                    return swapQuoteExactOut(
-                        virtualPool,
-                        config,
-                        swapBaseForQuote,
-                        params.amountOut,
-                        slippageBps,
-                        hasReferral,
-                        currentPoint,
-                        eligibleForFirstSwapWithMinFee,
-                        params
-                    )
-                }
-                throw new Error('outAmount is required for ExactOut swap mode')
-
-            case SwapMode.PartialFill:
-                if ('amountIn' in params) {
-                    return swapQuotePartialFill(
-                        virtualPool,
-                        config,
-                        swapBaseForQuote,
-                        params.amountIn,
-                        slippageBps,
-                        hasReferral,
-                        currentPoint,
-                        eligibleForFirstSwapWithMinFee,
-                        params
-                    )
-                }
-                throw new Error(
-                    'amountIn is required for PartialFill swap mode'
-                )
-
-            default:
-                throw new Error(`Unsupported swap mode: ${swapMode}`)
-        }
-    }
-
-    /**
-     * Reconcile the only two fields that differ between an on-chain `PoolConfig`
-     * and a `buildCurve` output (`ConfigParameters`) so the quote math can
-     * consume either directly:
-     * - `migrationSqrtPrice`: used when present, otherwise derived from the
-     *   curve and migration quote threshold (it is the swap stop price).
-     * - `dynamicFee`: a null/undefined object becomes a disabled one, and a
-     *   present object is treated as enabled unless `initialized` says otherwise.
-     *
-     * Everything else is already in the right shape and passed through.
-     */
-    private normalizeQuoteConfig(config: SwapQuoteConfig): PoolConfig {
-        if (!config.curve || config.curve.length === 0) {
-            throw new Error('config.curve is empty')
-        }
-
-        const migrationSqrtPrice =
-            config.migrationSqrtPrice ??
-            getMigrationThresholdPrice(
-                config.migrationQuoteThreshold,
-                config.sqrtStartPrice,
-                config.curve
-            )
-
-        const dynamicFee = config.poolFees.dynamicFee
-
-        return {
-            ...config,
-            migrationSqrtPrice,
-            poolFees: {
-                ...config.poolFees,
-                dynamicFee: dynamicFee
-                    ? {
-                          ...dynamicFee,
-                          initialized: dynamicFee.initialized ?? 1,
-                      }
-                    : { initialized: 0, binStep: 0, variableFeeControl: 0 },
-            },
-        } as unknown as PoolConfig
-    }
-
-    /**
-     * creates a virtual pool state at launch with zeroed reserves and volatility, start price set.
-     */
-    private buildSimulatedVirtualPool(sqrtStartPrice: BN): VirtualPool {
-        return {
-            poolState: {
-                sqrtPrice: new BN(sqrtStartPrice),
-                baseReserve: new BN(0),
-                quoteReserve: new BN(0),
-                activationPoint: new BN(0),
-                volatilityTracker: {
-                    lastUpdateTimestamp: new BN(0),
-                    sqrtPriceReference: new BN(0),
-                    volatilityAccumulator: new BN(0),
-                    volatilityReference: new BN(0),
-                    padding: [],
-                },
-            },
-        } as unknown as VirtualPool
+        return quoteSwap2(params)
     }
 
     /**
@@ -563,47 +429,7 @@ export class PoolService extends DynamicBondingCurveProgram {
     getQuoteFromInputAmount(
         params: SimulatedQuoteFromInputAmountParams
     ): SwapQuote2Result {
-        const {
-            config,
-            swapBaseForQuote,
-            amountIn,
-            swapMode = SwapMode.ExactIn,
-            slippageBps = 0,
-            hasReferral = false,
-            eligibleForFirstSwapWithMinFee = false,
-            currentPoint = new BN(0),
-        } = params
-
-        const poolConfig = this.normalizeQuoteConfig(config)
-        const virtualPool = this.buildSimulatedVirtualPool(
-            poolConfig.sqrtStartPrice
-        )
-
-        if (swapMode === SwapMode.PartialFill) {
-            return swapQuotePartialFill(
-                virtualPool,
-                poolConfig,
-                swapBaseForQuote,
-                amountIn,
-                slippageBps,
-                hasReferral,
-                currentPoint,
-                eligibleForFirstSwapWithMinFee,
-                params
-            )
-        }
-
-        return swapQuoteExactIn(
-            virtualPool,
-            poolConfig,
-            swapBaseForQuote,
-            amountIn,
-            slippageBps,
-            hasReferral,
-            currentPoint,
-            eligibleForFirstSwapWithMinFee,
-            params
-        )
+        return quoteSwap2(params)
     }
 
     /**
@@ -612,31 +438,9 @@ export class PoolService extends DynamicBondingCurveProgram {
     getQuoteFromOutputAmount(
         params: SimulatedQuoteFromOutputAmountParams
     ): SwapQuote2Result {
-        const {
-            config,
-            swapBaseForQuote,
-            amountOut,
-            slippageBps = 0,
-            hasReferral = false,
-            eligibleForFirstSwapWithMinFee = false,
-            currentPoint = new BN(0),
-        } = params
-
-        const poolConfig = this.normalizeQuoteConfig(config)
-        const virtualPool = this.buildSimulatedVirtualPool(
-            poolConfig.sqrtStartPrice
-        )
-
-        return swapQuoteExactOut(
-            virtualPool,
-            poolConfig,
-            swapBaseForQuote,
-            amountOut,
-            slippageBps,
-            hasReferral,
-            currentPoint,
-            eligibleForFirstSwapWithMinFee,
-            params
-        )
+        return quoteSwap2({
+            ...params,
+            swapMode: SwapMode.ExactOut,
+        })
     }
 }
