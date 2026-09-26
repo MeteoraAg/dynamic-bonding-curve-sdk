@@ -74,7 +74,8 @@ function buildSimulatedVirtualPool(sqrtStartPrice: BN): VirtualPool {
 export function quoteSwap2(params: QuoteSwap2Params): SwapQuote2Result {
     const poolConfig = normalizeQuoteConfig(params.config)
     const virtualPool =
-        params.virtualPool ?? buildSimulatedVirtualPool(poolConfig.sqrtStartPrice)
+        params.virtualPool ??
+        buildSimulatedVirtualPool(poolConfig.sqrtStartPrice)
     const currentPoint =
         params.currentPoint ??
         (params.virtualPool

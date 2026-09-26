@@ -78,9 +78,9 @@ describe('quoteSwap2', () => {
         })
 
         expect(exactIn.outputAmount.gt(new BN(0))).toBe(true)
-        expect(exactIn.minimumAmountOut!.lt(exactIn.excludedTransferFeeAmountOut)).toBe(
-            true
-        )
+        expect(
+            exactIn.minimumAmountOut!.lt(exactIn.excludedTransferFeeAmountOut)
+        ).toBe(true)
         expect(exactIn.includedTransferFeeAmountIn.eq(amountIn)).toBe(true)
 
         const exactOut = quoteSwap2({
@@ -92,9 +92,9 @@ describe('quoteSwap2', () => {
         })
 
         expect(exactOut.outputAmount.eq(exactIn.outputAmount)).toBe(true)
-        expect(exactOut.maximumAmountIn!.gte(exactOut.includedFeeInputAmount)).toBe(
-            true
-        )
+        expect(
+            exactOut.maximumAmountIn!.gte(exactOut.includedFeeInputAmount)
+        ).toBe(true)
     })
 
     test('partial fill returns the unfilled input', () => {
