@@ -5,7 +5,6 @@ import {
     PublicKey,
 } from '@solana/web3.js'
 import {
-    createDbcProgram,
     createProgramAccountFilter,
     deriveDammV1MigrationMetadataAddress,
     deriveTokenBadgeAddress,
@@ -24,16 +23,17 @@ import {
 import type { Program, ProgramAccount } from '@coral-xyz/anchor'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
+import type { DbcProvider } from '../client'
+
 export class StateService {
     program: Program<DynamicBondingCurveIDL>
     private connection: Connection
     private commitment: Commitment
 
-    constructor(connection: Connection, commitment: Commitment) {
-        const { program } = createDbcProgram(connection, commitment)
-        this.program = program
-        this.connection = connection
-        this.commitment = commitment
+    constructor(provider: DbcProvider) {
+        this.program = provider.program
+        this.connection = provider.connection
+        this.commitment = provider.commitment
     }
 
     getProgram(): Program<DynamicBondingCurveIDL> {

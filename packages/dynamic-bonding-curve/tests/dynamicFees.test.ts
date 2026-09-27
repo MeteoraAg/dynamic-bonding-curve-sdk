@@ -1,9 +1,5 @@
-import {
-    MAX_BASIS_POINT,
-    FEE_DENOMINATOR,
-    BaseFeeMode,
-    calculateFeeSchedulerEndingBaseFeeBps,
-} from '../src'
+import { MAX_BASIS_POINT, FEE_DENOMINATOR, BaseFeeMode } from '../src'
+import { calculateFeeSchedulerEndingBaseFeeBps } from '../src/helpers/feeParams'
 import { expect, test, describe } from 'vitest'
 import Decimal from 'decimal.js'
 

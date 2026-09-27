@@ -2,7 +2,7 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
-## [1.6.0] - 2026-10-02
+## [2.0.0] - 2026-10-02
 
 ### Added
 
@@ -24,6 +24,8 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 
 ### Breaking Changes
 
+- Import the public API from `@meteora-ag/dynamic-bonding-curve-sdk`. The package root no longer re-exports every helper, math function, or `DynamicBondingCurveProgram`, and the `exports` map only exposes that entry. `swapQuoteExactIn`, `swapQuoteExactOut`, and `swapQuotePartialFill` are not exported; use `quoteSwap2`. `convertDecimalToBN` and `fromDecimalToBN` are not exported.
+- Construct services through `DynamicBondingCurveClient`. `new PoolService(connection, commitment)`, `new StateService(connection, commitment)`, `new PartnerService(connection, commitment)`, `new CreatorService(connection, commitment)`, and `new MigrationService(connection, commitment)` are no longer supported. Reads go through `client.state`.
 - Swap quotes for a Token-2022 quote mint require `quoteMint` and `currentEpoch`.
 - `getMigratedPoolFeeParams` throws for `MigrationFeeOption.Customizable` when `migratedPoolFee.poolFeeBps` is not set.
 - `swap`, `swap2`, `claimPartnerTradingFee`, and `claimCreatorTradingFee` reject transfer-hook pools. Use `swap2WithTransferHook`, `claimPartnerTradingFee2`, and `claimCreatorTradingFee2`. Standard pool creation rejects a transfer-hook config, and transfer-hook pool creation rejects a standard config.
