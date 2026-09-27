@@ -1,8 +1,5 @@
-import {
-    getLockedVestingParams,
-    getTotalVestingAmount,
-    TokenDecimal,
-} from '../src'
+import { getLockedVestingParams, TokenDecimal } from '../src'
+import { getTotalVestingAmount } from '../src/helpers/vesting'
 import { convertBNToDecimal } from './utils/common'
 import { expect, test, describe } from 'vitest'
 
