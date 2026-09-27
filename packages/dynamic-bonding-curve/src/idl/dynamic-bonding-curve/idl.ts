@@ -8,7 +8,7 @@ export type DynamicBondingCurve = {
     address: 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
     metadata: {
         name: 'dynamicBondingCurve'
-        version: '0.2.1'
+        version: '0.2.2'
         spec: '0.1.0'
         description: 'Created with Anchor'
     }
@@ -524,6 +524,9 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'leftoverReceiver'
+                    docs: [
+                        'for transfer fee case (create_config2) token is restricted to constant supply',
+                    ]
                 },
                 {
                     name: 'quoteMint'
@@ -551,6 +554,65 @@ export type DynamicBondingCurve = {
                     type: {
                         defined: {
                             name: 'configParameters'
+                        }
+                    }
+                },
+            ]
+        },
+        {
+            name: 'createConfig2'
+            discriminator: [9, 202, 24, 203, 143, 212, 252, 81]
+            accounts: [
+                {
+                    name: 'config'
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'feeClaimer'
+                },
+                {
+                    name: 'leftoverReceiver'
+                    docs: [
+                        'for transfer fee case (create_config2) token is restricted to constant supply',
+                    ]
+                },
+                {
+                    name: 'quoteMint'
+                    docs: ['quote mint']
+                },
+                {
+                    name: 'payer'
+                    writable: true
+                    signer: true
+                },
+                {
+                    name: 'systemProgram'
+                    address: '11111111111111111111111111111111'
+                },
+                {
+                    name: 'eventAuthority'
+                },
+                {
+                    name: 'program'
+                },
+            ]
+            args: [
+                {
+                    name: 'configParameters'
+                    type: {
+                        defined: {
+                            name: 'configParameters'
+                        }
+                    }
+                },
+                {
+                    name: 'transferFeeParameters'
+                    type: {
+                        option: {
+                            defined: {
+                                name: 'transferFeeParameters'
+                            }
                         }
                     }
                 },
@@ -1167,7 +1229,9 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'baseMint'
-                    docs: ['Unique token mint address, initialize in contract']
+                    docs: [
+                        'Unique token mint address, initialized in the handler',
+                    ]
                     writable: true
                     signer: true
                 },
@@ -1303,7 +1367,9 @@ export type DynamicBondingCurve = {
                 },
                 {
                     name: 'baseMint'
-                    docs: ['Unique token mint address, initialize in contract']
+                    docs: [
+                        'Unique token mint address, initialized in the handler',
+                    ]
                     writable: true
                     signer: true
                 },
@@ -2670,8 +2736,8 @@ export type DynamicBondingCurve = {
             discriminator: [21, 6, 153, 120, 68, 116, 28, 177]
         },
         {
-            name: 'evtCreateConfig'
-            discriminator: [131, 207, 180, 174, 180, 73, 165, 54]
+            name: 'evtCreateConfig3'
+            discriminator: [216, 4, 167, 161, 37, 138, 124, 128]
         },
         {
             name: 'evtCreateConfigV2'
@@ -2732,6 +2798,14 @@ export type DynamicBondingCurve = {
         {
             name: 'evtSwap2WithTransferHook'
             discriminator: [134, 59, 168, 120, 94, 51, 114, 231]
+        },
+        {
+            name: 'evtSwap3'
+            discriminator: [187, 119, 248, 13, 175, 255, 64, 63]
+        },
+        {
+            name: 'evtSwap3WithTransferHook'
+            discriminator: [156, 88, 188, 49, 227, 146, 165, 93]
         },
         {
             name: 'evtUpdatePoolCreator'
@@ -3159,12 +3233,22 @@ export type DynamicBondingCurve = {
         {
             code: 6081
             name: 'quoteMintHasNonZeroTransferFee'
-            msg: 'Quote mint has a non zero transfer fee'
+            msg: 'Quote mint has a non zero transfer fee or a live transfer fee config authority'
         },
         {
             code: 6082
             name: 'deprecatedMigrationOption'
             msg: 'Deprecated migration option'
+        },
+        {
+            code: 6083
+            name: 'feeInverseIsIncorrect'
+            msg: 'Transfer fee inverse calculation is incorrect'
+        },
+        {
+            code: 6084
+            name: 'invalidTransferFeeParameters'
+            msg: 'Invalid transfer fee parameters'
         },
     ]
     types: [
@@ -3783,8 +3867,7 @@ export type DynamicBondingCurve = {
             }
         },
         {
-            name: 'evtCreateConfig'
-            docs: ['Create config']
+            name: 'evtCreateConfig3'
             type: {
                 kind: 'struct'
                 fields: [
@@ -3801,100 +3884,22 @@ export type DynamicBondingCurve = {
                         type: 'pubkey'
                     },
                     {
-                        name: 'owner'
+                        name: 'leftoverReceiver'
                         type: 'pubkey'
                     },
                     {
-                        name: 'poolFees'
+                        name: 'configParameters'
                         type: {
                             defined: {
-                                name: 'poolFeeParameters'
+                                name: 'configParameters'
                             }
                         }
                     },
                     {
-                        name: 'collectFeeMode'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'migrationOption'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'activationType'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'tokenDecimal'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'tokenType'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'partnerPermanentLockedLiquidityPercentage'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'partnerLiquidityPercentage'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'creatorPermanentLockedLiquidityPercentage'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'creatorLiquidityPercentage'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'swapBaseAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'migrationQuoteThreshold'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'migrationBaseAmount'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'sqrtStartPrice'
-                        type: 'u128'
-                    },
-                    {
-                        name: 'lockedVesting'
+                        name: 'transferFeeParameters'
                         type: {
                             defined: {
-                                name: 'lockedVestingParams'
-                            }
-                        }
-                    },
-                    {
-                        name: 'migrationFeeOption'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'fixedTokenSupplyFlag'
-                        type: 'u8'
-                    },
-                    {
-                        name: 'preMigrationTokenSupply'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'postMigrationTokenSupply'
-                        type: 'u64'
-                    },
-                    {
-                        name: 'curve'
-                        type: {
-                            vec: {
-                                defined: {
-                                    name: 'liquidityDistributionParameters'
-                                }
+                                name: 'transferFeeParameters'
                             }
                         }
                     },
@@ -4321,6 +4326,150 @@ export type DynamicBondingCurve = {
                     },
                     {
                         name: 'migrationThreshold'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'currentTimestamp'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtSwap3'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'tradeDirection'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'swapMode'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'hasReferral'
+                        type: 'bool'
+                    },
+                    {
+                        name: 'feeOnBaseToken'
+                        type: 'bool'
+                    },
+                    {
+                        name: 'includedTransferFeeAmountIn'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'excludedTransferFeeAmountIn'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'includedTransferFeeAmountOut'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'excludedTransferFeeAmountOut'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'tradingFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'protocolFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'referralFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'nextSqrtPrice'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'quoteReserve'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'currentTimestamp'
+                        type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'evtSwap3WithTransferHook'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'pool'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'config'
+                        type: 'pubkey'
+                    },
+                    {
+                        name: 'tradeDirection'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'swapMode'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'hasReferral'
+                        type: 'bool'
+                    },
+                    {
+                        name: 'feeOnBaseToken'
+                        type: 'bool'
+                    },
+                    {
+                        name: 'includedTransferFeeAmountIn'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'excludedTransferFeeAmountIn'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'includedTransferFeeAmountOut'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'excludedTransferFeeAmountOut'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'tradingFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'protocolFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'referralFee'
+                        type: 'u64'
+                    },
+                    {
+                        name: 'nextSqrtPrice'
+                        type: 'u128'
+                    },
+                    {
+                        name: 'quoteReserve'
                         type: 'u64'
                     },
                     {
@@ -4911,10 +5060,27 @@ export type DynamicBondingCurve = {
                         }
                     },
                     {
+                        name: 'transferFeeBasisPoints'
+                        docs: ['Base mint transfer fee in basis points']
+                        type: 'u16'
+                    },
+                    {
+                        name: 'transferFeeWithheldAuthority'
+                        docs: [
+                            'See TransferFeeWithheldAuthority (0 means partner, 1 means creator)',
+                        ]
+                        type: 'u8'
+                    },
+                    {
+                        name: 'migratedTransferFeeAuthorityOption'
+                        docs: ['See MigratedTransferFeeAuthorityOption']
+                        type: 'u8'
+                    },
+                    {
                         name: 'padding0'
                         docs: ['Padding for future use']
                         type: {
-                            array: ['u8', 14]
+                            array: ['u8', 10]
                         }
                     },
                     {
@@ -5614,6 +5780,26 @@ export type DynamicBondingCurve = {
                             'that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)',
                         ]
                         type: 'u64'
+                    },
+                ]
+            }
+        },
+        {
+            name: 'transferFeeParameters'
+            type: {
+                kind: 'struct'
+                fields: [
+                    {
+                        name: 'transferFeeBasisPoints'
+                        type: 'u16'
+                    },
+                    {
+                        name: 'withheldAuthority'
+                        type: 'u8'
+                    },
+                    {
+                        name: 'migratedTransferFeeAuthorityOption'
+                        type: 'u8'
                     },
                 ]
             }

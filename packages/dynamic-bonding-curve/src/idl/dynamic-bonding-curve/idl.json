@@ -2,7 +2,7 @@
   "address": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
   "metadata": {
     "name": "dynamic_bonding_curve",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -696,7 +696,10 @@
           "name": "fee_claimer"
         },
         {
-          "name": "leftover_receiver"
+          "name": "leftover_receiver",
+          "docs": [
+            "for transfer fee case (create_config2) token is restricted to constant supply"
+          ]
         },
         {
           "name": "quote_mint",
@@ -726,6 +729,76 @@
           "type": {
             "defined": {
               "name": "ConfigParameters"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_config2",
+      "discriminator": [
+        9,
+        202,
+        24,
+        203,
+        143,
+        212,
+        252,
+        81
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "fee_claimer"
+        },
+        {
+          "name": "leftover_receiver",
+          "docs": [
+            "for transfer fee case (create_config2) token is restricted to constant supply"
+          ]
+        },
+        {
+          "name": "quote_mint",
+          "docs": [
+            "quote mint"
+          ]
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "event_authority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "config_parameters",
+          "type": {
+            "defined": {
+              "name": "ConfigParameters"
+            }
+          }
+        },
+        {
+          "name": "transfer_fee_parameters",
+          "type": {
+            "option": {
+              "defined": {
+                "name": "TransferFeeParameters"
+              }
             }
           }
         }
@@ -1488,7 +1561,7 @@
         {
           "name": "base_mint",
           "docs": [
-            "Unique token mint address, initialize in contract"
+            "Unique token mint address, initialized in the handler"
           ],
           "writable": true,
           "signer": true
@@ -1649,7 +1722,7 @@
         {
           "name": "base_mint",
           "docs": [
-            "Unique token mint address, initialize in contract"
+            "Unique token mint address, initialized in the handler"
           ],
           "writable": true,
           "signer": true
@@ -3444,16 +3517,16 @@
       ]
     },
     {
-      "name": "EvtCreateConfig",
+      "name": "EvtCreateConfig3",
       "discriminator": [
-        131,
-        207,
-        180,
-        174,
-        180,
-        73,
-        165,
-        54
+        216,
+        4,
+        167,
+        161,
+        37,
+        138,
+        124,
+        128
       ]
     },
     {
@@ -3649,6 +3722,32 @@
         51,
         114,
         231
+      ]
+    },
+    {
+      "name": "EvtSwap3",
+      "discriminator": [
+        187,
+        119,
+        248,
+        13,
+        175,
+        255,
+        64,
+        63
+      ]
+    },
+    {
+      "name": "EvtSwap3WithTransferHook",
+      "discriminator": [
+        156,
+        88,
+        188,
+        49,
+        227,
+        146,
+        165,
+        93
       ]
     },
     {
@@ -4113,12 +4212,22 @@
     {
       "code": 6081,
       "name": "QuoteMintHasNonZeroTransferFee",
-      "msg": "Quote mint has a non zero transfer fee"
+      "msg": "Quote mint has a non zero transfer fee or a live transfer fee config authority"
     },
     {
       "code": 6082,
       "name": "DeprecatedMigrationOption",
       "msg": "Deprecated migration option"
+    },
+    {
+      "code": 6083,
+      "name": "FeeInverseIsIncorrect",
+      "msg": "Transfer fee inverse calculation is incorrect"
+    },
+    {
+      "code": 6084,
+      "name": "InvalidTransferFeeParameters",
+      "msg": "Invalid transfer fee parameters"
     }
   ],
   "types": [
@@ -4778,10 +4887,7 @@
       }
     },
     {
-      "name": "EvtCreateConfig",
-      "docs": [
-        "Create config"
-      ],
+      "name": "EvtCreateConfig3",
       "type": {
         "kind": "struct",
         "fields": [
@@ -4798,100 +4904,22 @@
             "type": "pubkey"
           },
           {
-            "name": "owner",
+            "name": "leftover_receiver",
             "type": "pubkey"
           },
           {
-            "name": "pool_fees",
+            "name": "config_parameters",
             "type": {
               "defined": {
-                "name": "PoolFeeParameters"
+                "name": "ConfigParameters"
               }
             }
           },
           {
-            "name": "collect_fee_mode",
-            "type": "u8"
-          },
-          {
-            "name": "migration_option",
-            "type": "u8"
-          },
-          {
-            "name": "activation_type",
-            "type": "u8"
-          },
-          {
-            "name": "token_decimal",
-            "type": "u8"
-          },
-          {
-            "name": "token_type",
-            "type": "u8"
-          },
-          {
-            "name": "partner_permanent_locked_liquidity_percentage",
-            "type": "u8"
-          },
-          {
-            "name": "partner_liquidity_percentage",
-            "type": "u8"
-          },
-          {
-            "name": "creator_permanent_locked_liquidity_percentage",
-            "type": "u8"
-          },
-          {
-            "name": "creator_liquidity_percentage",
-            "type": "u8"
-          },
-          {
-            "name": "swap_base_amount",
-            "type": "u64"
-          },
-          {
-            "name": "migration_quote_threshold",
-            "type": "u64"
-          },
-          {
-            "name": "migration_base_amount",
-            "type": "u64"
-          },
-          {
-            "name": "sqrt_start_price",
-            "type": "u128"
-          },
-          {
-            "name": "locked_vesting",
+            "name": "transfer_fee_parameters",
             "type": {
               "defined": {
-                "name": "LockedVestingParams"
-              }
-            }
-          },
-          {
-            "name": "migration_fee_option",
-            "type": "u8"
-          },
-          {
-            "name": "fixed_token_supply_flag",
-            "type": "u8"
-          },
-          {
-            "name": "pre_migration_token_supply",
-            "type": "u64"
-          },
-          {
-            "name": "post_migration_token_supply",
-            "type": "u64"
-          },
-          {
-            "name": "curve",
-            "type": {
-              "vec": {
-                "defined": {
-                  "name": "LiquidityDistributionParameters"
-                }
+                "name": "TransferFeeParameters"
               }
             }
           }
@@ -5320,6 +5348,150 @@
           },
           {
             "name": "migration_threshold",
+            "type": "u64"
+          },
+          {
+            "name": "current_timestamp",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvtSwap3",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "trade_direction",
+            "type": "u8"
+          },
+          {
+            "name": "swap_mode",
+            "type": "u8"
+          },
+          {
+            "name": "has_referral",
+            "type": "bool"
+          },
+          {
+            "name": "fee_on_base_token",
+            "type": "bool"
+          },
+          {
+            "name": "included_transfer_fee_amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "excluded_transfer_fee_amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "included_transfer_fee_amount_out",
+            "type": "u64"
+          },
+          {
+            "name": "excluded_transfer_fee_amount_out",
+            "type": "u64"
+          },
+          {
+            "name": "trading_fee",
+            "type": "u64"
+          },
+          {
+            "name": "protocol_fee",
+            "type": "u64"
+          },
+          {
+            "name": "referral_fee",
+            "type": "u64"
+          },
+          {
+            "name": "next_sqrt_price",
+            "type": "u128"
+          },
+          {
+            "name": "quote_reserve",
+            "type": "u64"
+          },
+          {
+            "name": "current_timestamp",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EvtSwap3WithTransferHook",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "trade_direction",
+            "type": "u8"
+          },
+          {
+            "name": "swap_mode",
+            "type": "u8"
+          },
+          {
+            "name": "has_referral",
+            "type": "bool"
+          },
+          {
+            "name": "fee_on_base_token",
+            "type": "bool"
+          },
+          {
+            "name": "included_transfer_fee_amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "excluded_transfer_fee_amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "included_transfer_fee_amount_out",
+            "type": "u64"
+          },
+          {
+            "name": "excluded_transfer_fee_amount_out",
+            "type": "u64"
+          },
+          {
+            "name": "trading_fee",
+            "type": "u64"
+          },
+          {
+            "name": "protocol_fee",
+            "type": "u64"
+          },
+          {
+            "name": "referral_fee",
+            "type": "u64"
+          },
+          {
+            "name": "next_sqrt_price",
+            "type": "u128"
+          },
+          {
+            "name": "quote_reserve",
             "type": "u64"
           },
           {
@@ -5963,6 +6135,27 @@
             }
           },
           {
+            "name": "transfer_fee_basis_points",
+            "docs": [
+              "Base mint transfer fee in basis points"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "transfer_fee_withheld_authority",
+            "docs": [
+              "See TransferFeeWithheldAuthority (0 means partner, 1 means creator)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "migrated_transfer_fee_authority_option",
+            "docs": [
+              "See MigratedTransferFeeAuthorityOption"
+            ],
+            "type": "u8"
+          },
+          {
             "name": "padding_0",
             "docs": [
               "Padding for future use"
@@ -5970,7 +6163,7 @@
             "type": {
               "array": [
                 "u8",
-                14
+                10
               ]
             }
           },
@@ -6825,6 +7018,26 @@
               "that result the total supply in post migration may be increased a bit (between pre_migration_token_supply and post_migration_token_supply)"
             ],
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TransferFeeParameters",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "transfer_fee_basis_points",
+            "type": "u16"
+          },
+          {
+            "name": "withheld_authority",
+            "type": "u8"
+          },
+          {
+            "name": "migrated_transfer_fee_authority_option",
+            "type": "u8"
           }
         ]
       }

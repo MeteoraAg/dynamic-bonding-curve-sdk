@@ -1,25 +1,27 @@
 import {
+    ActivationType,
     BaseFee,
-    DynamicFeeParameters,
     BaseFeeMode,
+    BaseFeeParams,
+    DammV2BaseFeeMode,
+    DynamicFeeParameters,
+    LiquidityVestingInfoParameters,
+    MigratedCollectFeeMode,
+    MigratedPoolFeeConfig,
+    MigratedPoolFeeResult,
+    MigratedPoolMarketCapFeeSchedulerParameters,
+    MigrationFeeOption,
     MigrationOption,
     Rounding,
     TokenDecimal,
     type LiquidityDistributionParameters,
     type LockedVestingParameters,
-    ActivationType,
     type PoolConfig,
-    MigratedPoolFeeConfig,
-    MigrationFeeOption,
-    LiquidityVestingInfoParameters,
-    DammV2BaseFeeMode,
-    MigratedPoolMarketCapFeeSchedulerParameters,
-    BaseFeeParams,
-    MigratedPoolFeeResult,
 } from '../types'
 import {
     BIN_STEP_BPS_DEFAULT,
     BIN_STEP_BPS_U128_DEFAULT,
+    DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY,
     DEFAULT_MIGRATED_POOL_FEE_PARAMS,
     DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
     DYNAMIC_FEE_DECAY_PERIOD_DEFAULT,
@@ -38,11 +40,18 @@ import {
     MIN_FEE_NUMERATOR,
     MIN_SQRT_PRICE,
     ONE_Q64,
+    PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
     SWAP_BUFFER_PERCENTAGE,
     U128_MAX,
+    U64_MAX,
 } from '../constants'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
+import { Commitment, Connection, PublicKey } from '@solana/web3.js'
+import type { DynamicBondingCurve } from '../idl/dynamic-bonding-curve/idl'
+import { Program } from '@coral-xyz/anchor'
+import { bpsToFeeNumerator, convertToLamports } from './utils'
+import { getTokenDecimals } from './token'
 import {
     getDeltaAmountBaseUnsigned,
     getDeltaAmountQuoteUnsigned,
@@ -50,12 +59,11 @@ import {
     getInitialLiquidityFromDeltaQuote,
     getNextSqrtPriceFromInput,
 } from '../math/curve'
-import { Commitment, Connection, PublicKey } from '@solana/web3.js'
-import type { DynamicBondingCurve } from '../idl/dynamic-bonding-curve/idl'
-import { Program } from '@coral-xyz/anchor'
-import { bpsToFeeNumerator, convertToLamports, fromDecimalToBN } from './utils'
-import { getTokenDecimals } from './token'
-import { mulDiv } from '../math'
+import { mulDiv, sqrt } from '../math/utilsMath'
+import {
+    calculateTransferFeeExcludedAmount,
+    type EpochTransferFee,
+} from '../math/transferFee'
 
 /**
  * Get the first key
@@ -155,47 +163,43 @@ export async function getAccountCreationTimestamps(
 }
 
 /**
- * Get the total token supply
- * @param swapBaseAmount - The swap base amount
- * @param migrationBaseThreshold - The migration base threshold
- * @param lockedVestingParams - The locked vesting parameters
- * @returns The total token supply
+ * Get the current point based on activation type
+ * @param connection - The Solana connection instance
+ * @param activationType - The activation type (Slot or Time)
+ * @returns The current point as a BN
  */
-export function getTotalTokenSupply(
-    swapBaseAmount: BN,
-    migrationBaseThreshold: BN,
-    lockedVestingParams: {
-        amountPerPeriod: BN
-        numberOfPeriod: BN
-        cliffUnlockAmount: BN
+export async function getCurrentPoint(
+    connection: Connection,
+    activationType: ActivationType
+): Promise<BN> {
+    const currentSlot = await connection.getSlot()
+
+    if (activationType === ActivationType.Slot) {
+        return new BN(currentSlot)
     }
-): BN {
-    try {
-        // calculate total circulating amount
-        const totalCirculatingAmount = swapBaseAmount.add(
-            migrationBaseThreshold
-        )
 
-        // calculate total locked vesting amount
-        const totalLockedVestingAmount =
-            lockedVestingParams.cliffUnlockAmount.add(
-                lockedVestingParams.amountPerPeriod.mul(
-                    lockedVestingParams.numberOfPeriod
-                )
-            )
-
-        // calculate total amount
-        const totalAmount = totalCirculatingAmount.add(totalLockedVestingAmount)
-
-        // check for overflow
-        if (totalAmount.isNeg() || totalAmount.bitLength() > 64) {
-            throw new Error('Math overflow')
-        }
-
-        return totalAmount
-    } catch (error) {
-        throw new Error(`Math overflow: ${error}`)
+    const currentTime = await connection.getBlockTime(currentSlot)
+    if (currentTime === null) {
+        throw new Error(`Block time is unavailable for slot ${currentSlot}`)
     }
+    return new BN(currentTime)
+}
+
+/**
+ * Prepare the swap amount param
+ * @param amount - The amount to swap
+ * @param mintAddress - The mint address
+ * @param connection - The Solana connection instance
+ * @returns The amount in lamports
+ */
+export async function prepareSwapAmountParam(
+    amount: number,
+    mintAddress: PublicKey,
+    connection: Connection
+): Promise<BN> {
+    const mintTokenDecimals = await getTokenDecimals(connection, mintAddress)
+
+    return convertToLamports(amount, mintTokenDecimals)
 }
 
 /**
@@ -326,6 +330,980 @@ export function getBaseTokenForSwap(
 }
 
 /**
+ * Computes the sqrtPriceStepBps needed so that the fee schedule is fully
+ * exhausted when spot price reaches a given multiple of the initial price.
+ * @param priceMultiple - Target spot-price multiple (e.g. 1000 for 1000x)
+ * @param numberOfPeriod - Number of fee reduction periods
+ * @returns The sqrtPriceStepBps value to use on-chain
+ */
+export function computeSqrtPriceStepBps(
+    priceMultiple: number,
+    numberOfPeriod: number
+): number {
+    if (priceMultiple <= 1) {
+        throw new Error('priceMultiple must be greater than 1')
+    }
+    if (numberOfPeriod <= 0) {
+        throw new Error('numberOfPeriod must be greater than 0')
+    }
+    const sqrtPriceStepBps = Math.floor(
+        ((Math.sqrt(priceMultiple) - 1) * MAX_BASIS_POINT) / numberOfPeriod
+    )
+    if (sqrtPriceStepBps <= 0) {
+        throw new Error(
+            'Computed sqrtPriceStepBps is 0 — increase priceMultiple or decrease numberOfPeriod'
+        )
+    }
+    return sqrtPriceStepBps
+}
+
+/**
+ * Get the quote token amount from sqrt price
+ * @param nextSqrtPrice - The next sqrt price
+ * @param config - The pool configuration
+ * @returns The total quote token amount
+ */
+export function getQuoteReserveFromNextSqrtPrice(
+    nextSqrtPrice: BN,
+    config: PoolConfig
+): BN {
+    let totalAmount = new BN(0)
+
+    for (let i = 0; i < config.curve.length; i++) {
+        const lowerSqrtPrice =
+            i === 0 ? config.sqrtStartPrice : config.curve[i - 1].sqrtPrice
+
+        if (nextSqrtPrice.gt(lowerSqrtPrice)) {
+            const upperSqrtPrice = nextSqrtPrice.lt(config.curve[i].sqrtPrice)
+                ? nextSqrtPrice
+                : config.curve[i].sqrtPrice
+
+            const maxAmountIn = getDeltaAmountQuoteUnsigned(
+                lowerSqrtPrice,
+                upperSqrtPrice,
+                config.curve[i].liquidity,
+                Rounding.Up
+            )
+
+            totalAmount = totalAmount.add(maxAmountIn)
+        }
+    }
+
+    return totalAmount
+}
+
+/**
+ * Get the total vesting amount
+ * @param lockedVesting - The locked vesting
+ * @returns The total vesting amount
+ */
+export const getTotalVestingAmount = (
+    lockedVesting: LockedVestingParameters
+): BN => {
+    const totalVestingAmount = lockedVesting.cliffUnlockAmount.add(
+        lockedVesting.amountPerPeriod.mul(lockedVesting.numberOfPeriod)
+    )
+    return totalVestingAmount
+}
+
+/**
+ * Calculate the locked vesting parameters
+ * @param totalLockedVestingAmount - The total vesting amount
+ * @param numberOfVestingPeriod - The number of periods
+ * @param cliffUnlockAmount - The amount to unlock at cliff
+ * @param totalVestingDuration - The total duration of vesting
+ * @param cliffDurationFromMigrationTime - The cliff duration from migration time
+ * @param tokenBaseDecimal - The decimal of the base token
+ * @returns The locked vesting parameters
+ * total_locked_vesting_amount = cliff_unlock_amount + (amount_per_period * number_of_period)
+ */
+export function getLockedVestingParams(
+    totalLockedVestingAmount: number,
+    numberOfVestingPeriod: number,
+    cliffUnlockAmount: number,
+    totalVestingDuration: number,
+    cliffDurationFromMigrationTime: number,
+    tokenBaseDecimal: TokenDecimal
+): LockedVestingParameters {
+    if (totalLockedVestingAmount == 0) {
+        return {
+            amountPerPeriod: new BN(0),
+            cliffDurationFromMigrationTime: new BN(0),
+            frequency: new BN(0),
+            numberOfPeriod: new BN(0),
+            cliffUnlockAmount: new BN(0),
+        }
+    }
+
+    if (totalLockedVestingAmount == cliffUnlockAmount) {
+        return {
+            amountPerPeriod: convertToLamports(1, tokenBaseDecimal),
+            cliffDurationFromMigrationTime: new BN(
+                cliffDurationFromMigrationTime
+            ),
+            frequency: new BN(1),
+            numberOfPeriod: new BN(1),
+            cliffUnlockAmount: convertToLamports(
+                totalLockedVestingAmount - 1,
+                tokenBaseDecimal
+            ),
+        }
+    }
+
+    if (numberOfVestingPeriod <= 0) {
+        throw new Error('Total periods must be greater than zero')
+    }
+
+    if (numberOfVestingPeriod == 0 || totalVestingDuration == 0) {
+        throw new Error(
+            'numberOfPeriod and totalVestingDuration must both be greater than zero'
+        )
+    }
+
+    if (cliffUnlockAmount > totalLockedVestingAmount) {
+        throw new Error(
+            'Cliff unlock amount cannot be greater than total locked vesting amount'
+        )
+    }
+
+    // amount_per_period = (total_locked_vesting_amount - cliff_unlock_amount) / number_of_period
+    const amountPerPeriod =
+        (totalLockedVestingAmount - cliffUnlockAmount) / numberOfVestingPeriod
+
+    // round amountPerPeriod down to ensure we don't exceed total amount
+    const roundedAmountPerPeriod = Math.floor(amountPerPeriod)
+
+    // calculate the remainder from rounding down
+    const totalPeriodicAmount = roundedAmountPerPeriod * numberOfVestingPeriod
+    const remainder =
+        totalLockedVestingAmount - (cliffUnlockAmount + totalPeriodicAmount)
+
+    // add the remainder to cliffUnlockAmount to maintain total amount
+    const adjustedCliffUnlockAmount = cliffUnlockAmount + remainder
+
+    const periodFrequency = new BN(totalVestingDuration / numberOfVestingPeriod)
+
+    return {
+        amountPerPeriod: convertToLamports(
+            roundedAmountPerPeriod,
+            tokenBaseDecimal
+        ),
+        cliffDurationFromMigrationTime: new BN(cliffDurationFromMigrationTime),
+        frequency: periodFrequency,
+        numberOfPeriod: new BN(numberOfVestingPeriod),
+        cliffUnlockAmount: convertToLamports(
+            adjustedCliffUnlockAmount,
+            tokenBaseDecimal
+        ),
+    }
+}
+
+export const getLiquidityVestingInfoParams = (
+    vestingPercentage: number,
+    bpsPerPeriod: number,
+    numberOfPeriods: number,
+    cliffDurationFromMigrationTime: number,
+    totalDuration: number
+): LiquidityVestingInfoParameters => {
+    // validate vestingPercentage (0-100, u8)
+    if (vestingPercentage < 0 || vestingPercentage > 100) {
+        throw new Error('vestingPercentage must be between 0 and 100')
+    }
+
+    // if vestingPercentage is 0, all other params should be 0 (zero vesting case)
+    if (vestingPercentage === 0) {
+        if (
+            bpsPerPeriod !== 0 ||
+            numberOfPeriods !== 0 ||
+            cliffDurationFromMigrationTime !== 0 ||
+            totalDuration !== 0
+        ) {
+            throw new Error(
+                'If vestingPercentage is 0, all other parameters must be 0'
+            )
+        }
+        return {
+            vestingPercentage: 0,
+            bpsPerPeriod: 0,
+            numberOfPeriods: 0,
+            cliffDurationFromMigrationTime: 0,
+            frequency: 0,
+        }
+    }
+
+    if (bpsPerPeriod < 0 || bpsPerPeriod > MAX_BASIS_POINT) {
+        throw new Error(`bpsPerPeriod must be between 0 and ${MAX_BASIS_POINT}`)
+    }
+
+    if (numberOfPeriods <= 0) {
+        throw new Error(
+            'numberOfPeriods must be greater than zero when vestingPercentage > 0'
+        )
+    }
+
+    if (cliffDurationFromMigrationTime < 0) {
+        throw new Error('cliffDurationFromMigrationTime must be >= 0')
+    }
+
+    if (totalDuration <= 0) {
+        throw new Error('totalDuration must be greater than zero')
+    }
+
+    const frequency = totalDuration / numberOfPeriods
+
+    if (frequency <= 0) {
+        throw new Error(
+            'frequency must be greater than zero (totalDuration / numberOfPeriods must be > 0)'
+        )
+    }
+
+    const totalBps = bpsPerPeriod * numberOfPeriods
+    if (totalBps > MAX_BASIS_POINT) {
+        throw new Error(
+            `Total BPS (bpsPerPeriod * numberOfPeriods = ${totalBps}) must not exceed ${MAX_BASIS_POINT}`
+        )
+    }
+
+    const totalVestingDuration =
+        cliffDurationFromMigrationTime + numberOfPeriods * frequency
+    if (totalVestingDuration > MAX_LOCK_DURATION_IN_SECONDS) {
+        throw new Error(
+            `Total vesting duration (${totalVestingDuration}s) must not exceed ${MAX_LOCK_DURATION_IN_SECONDS}s (2 years)`
+        )
+    }
+
+    if (cliffDurationFromMigrationTime === 0 && numberOfPeriods === 0) {
+        throw new Error(
+            'If cliffDurationFromMigrationTime is 0, numberOfPeriods must be > 0'
+        )
+    }
+
+    return {
+        vestingPercentage,
+        bpsPerPeriod,
+        numberOfPeriods,
+        cliffDurationFromMigrationTime,
+        frequency: Math.round(frequency),
+    }
+}
+
+/**
+ * Calculate the locked liquidity BPS for a single vesting info at a given time.
+ * @param vestingInfo - The liquidity vesting info parameters
+ * @param nSeconds - Number of seconds after migration
+ * @returns The locked liquidity in BPS (basis points)
+ */
+export function getVestingLockedLiquidityBpsAtNSeconds(
+    vestingInfo: LiquidityVestingInfoParameters | undefined,
+    nSeconds: number
+): number {
+    // If no vesting info or vesting percentage is 0, return 0
+    if (!vestingInfo || vestingInfo.vestingPercentage === 0) {
+        return 0
+    }
+
+    const totalLiquidity = U128_MAX
+
+    // total_vested_liquidity = floor(total_liquidity * vesting_percentage / 100)
+    const totalVestedLiquidity = totalLiquidity
+        .mul(new BN(vestingInfo.vestingPercentage))
+        .div(new BN(100))
+
+    const bpsPerPeriod = vestingInfo.bpsPerPeriod
+    const numberOfPeriods = vestingInfo.numberOfPeriods
+    const frequency = vestingInfo.frequency
+    const cliffDuration = vestingInfo.cliffDurationFromMigrationTime
+
+    // calculate total BPS that will be unlocked over all periods
+    const totalBpsAfterCliff = bpsPerPeriod * numberOfPeriods
+
+    // total_vesting_liquidity_after_cliff = floor(total_vested_liquidity * total_bps_after_cliff / MAX_BASIS_POINT)
+    const totalVestingLiquidityAfterCliff = totalVestedLiquidity
+        .mul(new BN(totalBpsAfterCliff))
+        .div(new BN(MAX_BASIS_POINT))
+
+    // liquidity_per_period = floor(total_vesting_liquidity_after_cliff / number_of_periods)
+    let liquidityPerPeriod = new BN(0)
+    let adjustedFrequency = frequency
+    let adjustedNumberOfPeriods = numberOfPeriods
+    let adjustedCliffDuration = cliffDuration
+
+    if (numberOfPeriods > 0) {
+        liquidityPerPeriod = totalVestingLiquidityAfterCliff.div(
+            new BN(numberOfPeriods)
+        )
+    }
+
+    // If liquidity_per_period == 0 (due to precision loss), make it cliff-only lock
+    if (liquidityPerPeriod.isZero()) {
+        adjustedNumberOfPeriods = 0
+        adjustedFrequency = 0
+        adjustedCliffDuration = Math.max(cliffDuration, 1)
+    }
+
+    // cliff_unlock_liquidity = total_vested_liquidity - (liquidity_per_period * number_of_periods)
+    const cliffUnlockLiquidity = totalVestedLiquidity.sub(
+        liquidityPerPeriod.mul(new BN(adjustedNumberOfPeriods))
+    )
+
+    // calculate unlocked liquidity at nSeconds using vesting parameters
+    // cliff_point = current_timestamp (0) + cliff_duration
+    const cliffPoint = new BN(adjustedCliffDuration)
+    const currentPoint = new BN(nSeconds)
+
+    let unlockedLiquidity = new BN(0)
+
+    if (currentPoint.gte(cliffPoint)) {
+        // past cliff - add cliff unlock amount
+        unlockedLiquidity = cliffUnlockLiquidity
+
+        // calculate periods elapsed after cliff
+        if (adjustedFrequency > 0 && adjustedNumberOfPeriods > 0) {
+            const timeAfterCliff = currentPoint.sub(cliffPoint)
+            const periodsElapsed = timeAfterCliff
+                .div(new BN(adjustedFrequency))
+                .toNumber()
+            const actualPeriodsElapsed = Math.min(
+                periodsElapsed,
+                adjustedNumberOfPeriods
+            )
+            unlockedLiquidity = unlockedLiquidity.add(
+                liquidityPerPeriod.mul(new BN(actualPeriodsElapsed))
+            )
+        }
+    }
+
+    // locked_liquidity = total_vested_liquidity - unlocked_liquidity
+    const lockedLiquidity = totalVestedLiquidity.sub(unlockedLiquidity)
+
+    // liquidity_locked_bps = floor(locked_liquidity * MAX_BASIS_POINT / total_liquidity)
+    const liquidityLockedBps = lockedLiquidity
+        .mul(new BN(MAX_BASIS_POINT))
+        .div(totalLiquidity)
+
+    return liquidityLockedBps.toNumber()
+}
+
+/**
+ * Calculate the locked liquidity BPS at a given time (in seconds) after migration
+ * @param partnerPermanentLockedLiquidityPercentage - Partner's permanently locked liquidity percentage
+ * @param creatorPermanentLockedLiquidityPercentage - Creator's permanently locked liquidity percentage
+ * @param partnerLiquidityVestingInfo - Partner's liquidity vesting info (optional)
+ * @param creatorLiquidityVestingInfo - Creator's liquidity vesting info (optional)
+ * @param elapsedSeconds - Number of seconds after migration
+ * @returns The total locked liquidity in BPS (basis points)
+ */
+export function calculateLockedLiquidityBpsAtTime(
+    partnerPermanentLockedLiquidityPercentage: number,
+    creatorPermanentLockedLiquidityPercentage: number,
+    partnerLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
+    creatorLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
+    elapsedSeconds: number
+): number {
+    // calculate vested locked BPS using the same u128 arithmetic as on-chain
+    const partnerVestedLockedLiquidityBps =
+        getVestingLockedLiquidityBpsAtNSeconds(
+            partnerLiquidityVestingInfo,
+            elapsedSeconds
+        )
+    const creatorVestedLockedLiquidityBps =
+        getVestingLockedLiquidityBpsAtNSeconds(
+            creatorLiquidityVestingInfo,
+            elapsedSeconds
+        )
+
+    const partnerPermanentLockedLiquidityBps =
+        partnerPermanentLockedLiquidityPercentage * 100
+    const creatorPermanentLockedLiquidityBps =
+        creatorPermanentLockedLiquidityPercentage * 100
+
+    // total locked = partner_vested + partner_permanent + creator_vested + creator_permanent
+    const totalLockedLiquidityBpsAtNSeconds =
+        partnerVestedLockedLiquidityBps +
+        partnerPermanentLockedLiquidityBps +
+        creatorVestedLockedLiquidityBps +
+        creatorPermanentLockedLiquidityBps
+
+    return totalLockedLiquidityBpsAtNSeconds
+}
+
+/**
+ * Get the fee scheduler parameters
+ * @param {number} startingBaseFeeBps - Starting fee in basis points
+ * @param {number} endingBaseFeeBps - Ending fee in basis points
+ * @param {BaseFeeMode} baseFeeMode - Mode for fee reduction (Linear or Exponential)
+ * @param {number} numberOfPeriod - Number of periods over which to schedule fee reduction
+ * @param {BN} totalDuration - Total duration of the fee scheduler
+ *
+ * @returns {BaseFee}
+ */
+export function getFeeSchedulerParams(
+    startingBaseFeeBps: number,
+    endingBaseFeeBps: number,
+    baseFeeMode: BaseFeeMode,
+    numberOfPeriod: number,
+    totalDuration: number
+): BaseFee {
+    if (startingBaseFeeBps == endingBaseFeeBps) {
+        if (numberOfPeriod != 0 || totalDuration != 0) {
+            throw new Error(
+                'numberOfPeriod and totalDuration must both be zero'
+            )
+        }
+
+        return {
+            cliffFeeNumerator: bpsToFeeNumerator(startingBaseFeeBps),
+            firstFactor: 0,
+            secondFactor: new BN(0),
+            thirdFactor: new BN(0),
+            baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+        }
+    }
+
+    if (numberOfPeriod <= 0) {
+        throw new Error('Total periods must be greater than zero')
+    }
+
+    if (startingBaseFeeBps > MAX_FEE_BPS) {
+        throw new Error(
+            `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
+        )
+    }
+
+    if (endingBaseFeeBps < MIN_FEE_BPS) {
+        throw new Error(
+            `endingBaseFeeBps (${endingBaseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
+        )
+    }
+
+    if (endingBaseFeeBps > startingBaseFeeBps) {
+        throw new Error(
+            'endingBaseFeeBps bps must be less than or equal to startingBaseFeeBps bps'
+        )
+    }
+
+    if (numberOfPeriod == 0 || totalDuration == 0) {
+        throw new Error(
+            'numberOfPeriod and totalDuration must both greater than zero'
+        )
+    }
+
+    const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
+
+    const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
+
+    const periodFrequency = new BN(totalDuration / numberOfPeriod)
+
+    let reductionFactor: BN
+    if (baseFeeMode == BaseFeeMode.FeeSchedulerLinear) {
+        const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator)
+        reductionFactor = totalReduction.divn(numberOfPeriod)
+    } else {
+        const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
+            new Decimal(maxBaseFeeNumerator.toString())
+        )
+        const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
+        reductionFactor = new BN(
+            new Decimal(MAX_BASIS_POINT)
+                .mul(new Decimal(1).sub(decayBase))
+                .floor()
+                .toFixed()
+        )
+    }
+
+    return {
+        cliffFeeNumerator: maxBaseFeeNumerator,
+        firstFactor: numberOfPeriod,
+        secondFactor: periodFrequency,
+        thirdFactor: reductionFactor,
+        baseFeeMode,
+    }
+}
+
+/**
+ * Calculate the ending base fee of fee scheduler in basis points
+ * @param cliffFeeNumerator - The cliff fee numerator
+ * @param numberOfPeriod - The number of period
+ * @param reductionFactor - The reduction factor
+ * @param feeSchedulerMode - The fee scheduler mode
+ * @returns The minimum base fee in basis points
+ */
+export function calculateFeeSchedulerEndingBaseFeeBps(
+    cliffFeeNumerator: number,
+    numberOfPeriod: number,
+    periodFrequency: number,
+    reductionFactor: number,
+    baseFeeMode: BaseFeeMode
+): number {
+    if (numberOfPeriod === 0 || periodFrequency === 0) {
+        return (cliffFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
+    }
+
+    let baseFeeNumerator: number
+    if (baseFeeMode == BaseFeeMode.FeeSchedulerLinear) {
+        // linear mode
+        baseFeeNumerator = cliffFeeNumerator - numberOfPeriod * reductionFactor
+    } else {
+        // exponential mode
+        const decayRate = new Decimal(1).sub(
+            new Decimal(reductionFactor).div(MAX_BASIS_POINT)
+        )
+        baseFeeNumerator = new Decimal(cliffFeeNumerator)
+            .mul(decayRate.pow(numberOfPeriod))
+            .toNumber()
+    }
+
+    // ensure base fee is not negative
+    return Math.max(0, (baseFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT)
+}
+
+/**
+ * Get the rate limiter parameters.
+ * @deprecated New configs cannot use RateLimiter. Kept for quoting existing rate-limiter pools.
+ * @param baseFeeBps - The base fee in basis points
+ * @param feeIncrementBps - The fee increment in basis points
+ * @param referenceAmount - The reference amount
+ * @param maxLimiterDuration - The max rate limiter duration
+ * @param tokenQuoteDecimal - The token quote decimal
+ * @param activationType - The activation type
+ * @returns The rate limiter parameters
+ */
+export function getRateLimiterParams(
+    baseFeeBps: number,
+    feeIncrementBps: number,
+    referenceAmount: number,
+    maxLimiterDuration: number,
+    tokenQuoteDecimal: number,
+    activationType: ActivationType
+): BaseFee {
+    const cliffFeeNumerator = bpsToFeeNumerator(baseFeeBps)
+    const feeIncrementNumerator = bpsToFeeNumerator(feeIncrementBps)
+
+    if (
+        baseFeeBps <= 0 ||
+        feeIncrementBps <= 0 ||
+        referenceAmount <= 0 ||
+        maxLimiterDuration <= 0
+    ) {
+        throw new Error('All rate limiter parameters must be greater than zero')
+    }
+
+    if (baseFeeBps > MAX_FEE_BPS) {
+        throw new Error(
+            `Base fee (${baseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
+        )
+    }
+
+    if (baseFeeBps < MIN_FEE_BPS) {
+        throw new Error(
+            `Base fee (${baseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
+        )
+    }
+
+    if (feeIncrementBps > MAX_FEE_BPS) {
+        throw new Error(
+            `Fee increment (${feeIncrementBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
+        )
+    }
+
+    if (feeIncrementNumerator.gte(new BN(FEE_DENOMINATOR))) {
+        throw new Error(
+            'Fee increment numerator must be less than FEE_DENOMINATOR'
+        )
+    }
+
+    const deltaNumerator = new BN(MAX_FEE_NUMERATOR).sub(cliffFeeNumerator)
+    const maxIndex = deltaNumerator.div(feeIncrementNumerator)
+    if (maxIndex.lt(new BN(1))) {
+        throw new Error('Fee increment is too large for the given base fee')
+    }
+
+    if (
+        cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
+        cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
+    ) {
+        throw new Error('Base fee must be between 0.01% and 99%')
+    }
+
+    const maxDuration =
+        activationType === ActivationType.Slot
+            ? MAX_RATE_LIMITER_DURATION_IN_SLOTS
+            : MAX_RATE_LIMITER_DURATION_IN_SECONDS
+
+    if (maxLimiterDuration > maxDuration) {
+        throw new Error(
+            `Max duration exceeds maximum allowed value of ${maxDuration}`
+        )
+    }
+
+    const referenceAmountInLamports = convertToLamports(
+        referenceAmount,
+        tokenQuoteDecimal
+    )
+
+    return {
+        cliffFeeNumerator,
+        firstFactor: feeIncrementBps,
+        secondFactor: new BN(maxLimiterDuration),
+        thirdFactor: new BN(referenceAmountInLamports),
+        baseFeeMode: BaseFeeMode.RateLimiter,
+    }
+}
+
+/**
+ * Get the dynamic fee parameters (20% of base fee)
+ * @param baseFeeBps - The base fee in basis points
+ * @param maxPriceChangeBps - The max price change in basis points
+ * @returns The dynamic fee parameters
+ */
+export function getDynamicFeeParams(
+    baseFeeBps: number,
+    maxPriceChangeBps: number = MAX_PRICE_CHANGE_BPS_DEFAULT // default 15%
+): DynamicFeeParameters {
+    if (maxPriceChangeBps > MAX_PRICE_CHANGE_BPS_DEFAULT) {
+        throw new Error(
+            `maxPriceChangeBps (${maxPriceChangeBps} bps) must be less than or equal to ${MAX_PRICE_CHANGE_BPS_DEFAULT}`
+        )
+    }
+
+    const priceRatio = maxPriceChangeBps / MAX_BASIS_POINT + 1
+    // Q64
+    const sqrtPriceRatioQ64 = new BN(
+        Decimal.sqrt(priceRatio.toString())
+            .mul(Decimal.pow(2, 64))
+            .floor()
+            .toFixed()
+    )
+    const deltaBinId = sqrtPriceRatioQ64
+        .sub(ONE_Q64)
+        .div(BIN_STEP_BPS_U128_DEFAULT)
+        .muln(2)
+
+    const maxVolatilityAccumulator = new BN(deltaBinId.muln(MAX_BASIS_POINT))
+
+    const squareVfaBin = maxVolatilityAccumulator
+        .mul(new BN(BIN_STEP_BPS_DEFAULT))
+        .pow(new BN(2))
+
+    const baseFeeNumerator = new BN(bpsToFeeNumerator(baseFeeBps))
+    const maxDynamicFeeNumerator = baseFeeNumerator.muln(20).divn(100) // default max dynamic fee = 20% of base fee.
+    const vFee = maxDynamicFeeNumerator
+        .mul(new BN(100_000_000_000))
+        .sub(new BN(99_999_999_999))
+
+    const variableFeeControl = vFee.div(squareVfaBin)
+
+    return {
+        binStep: BIN_STEP_BPS_DEFAULT,
+        binStepU128: BIN_STEP_BPS_U128_DEFAULT,
+        filterPeriod: DYNAMIC_FEE_FILTER_PERIOD_DEFAULT,
+        decayPeriod: DYNAMIC_FEE_DECAY_PERIOD_DEFAULT,
+        reductionFactor: DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
+        maxVolatilityAccumulator: maxVolatilityAccumulator.toNumber(),
+        variableFeeControl: variableFeeControl.toNumber(),
+    }
+}
+/**
+ * Derive the starting base fee BPS from baseFeeParams
+ * For FeeSchedulerLinear/FeeSchedulerExponential: uses endingFeeBps (the fee at end of pre-migration curve)
+ * For RateLimiter: uses baseFeeBps (the cliff fee)
+ * @param baseFeeParams - The base fee parameters from the pre-migration pool
+ * @returns The starting base fee in basis points for the migrated pool
+ */
+export function getStartingBaseFeeBpsFromBaseFeeParams(
+    baseFeeParams: BaseFeeParams
+): number {
+    if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
+        return baseFeeParams.rateLimiterParam.baseFeeBps
+    } else {
+        return baseFeeParams.feeSchedulerParam.endingFeeBps
+    }
+}
+
+/**
+ * Get the migrated pool market cap fee scheduler parameters
+ * @param startingBaseFeeBps - Starting (max) fee in basis points
+ * @param endingBaseFeeBps - Ending (min) fee in basis points
+ * @param baseFeeMode - Linear or exponential decay
+ * @param numberOfPeriod - Number of fee reduction periods
+ * @param priceMultiple - Target spot-price multiple from the initial price (e.g. 1000 for 1000x). Must be > 1.
+ * @param schedulerExpirationDuration - Seconds after which the schedule expires to the ending fee regardless of price
+ * @returns The migrated pool market cap fee scheduler parameters
+ */
+export function getMigratedPoolMarketCapFeeSchedulerParams(
+    startingBaseFeeBps: number,
+    endingBaseFeeBps: number,
+    dammV2BaseFeeMode: DammV2BaseFeeMode,
+    numberOfPeriod: number,
+    priceMultiple: number,
+    schedulerExpirationDuration: number
+): MigratedPoolMarketCapFeeSchedulerParameters {
+    if (
+        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeTimeSchedulerLinear ||
+        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeTimeSchedulerExponential
+    ) {
+        return DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS
+    }
+
+    if (dammV2BaseFeeMode === DammV2BaseFeeMode.RateLimiter) {
+        throw new Error(
+            'RateLimiter is not supported for DAMM v2 migration. Use either FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential instead.'
+        )
+    }
+
+    if (numberOfPeriod <= 0) {
+        throw new Error('Total periods must be greater than zero')
+    }
+
+    const poolMaxFeeBps = MAX_FEE_BPS
+
+    if (startingBaseFeeBps <= endingBaseFeeBps) {
+        throw new Error(
+            `startingBaseFeeBps (${startingBaseFeeBps} bps) must be greater than endingBaseFeeBps (${endingBaseFeeBps} bps)`
+        )
+    }
+
+    if (priceMultiple <= 1) {
+        throw new Error('priceMultiple must be greater than 1')
+    }
+
+    if (startingBaseFeeBps > poolMaxFeeBps) {
+        throw new Error(
+            `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${poolMaxFeeBps} bps`
+        )
+    }
+
+    if (schedulerExpirationDuration == 0) {
+        throw new Error('schedulerExpirationDuration must be greater than zero')
+    }
+
+    const sqrtPriceStepBps = computeSqrtPriceStepBps(
+        priceMultiple,
+        numberOfPeriod
+    )
+
+    const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
+    const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
+
+    let reductionFactor: BN
+
+    if (dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerLinear) {
+        const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator)
+        reductionFactor = totalReduction.divn(numberOfPeriod)
+    } else if (
+        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
+    ) {
+        const ratio =
+            minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber()
+        const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
+        reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
+    } else {
+        throw new Error(
+            'Migrated market-cap fee scheduler requires a market-cap scheduler base fee mode'
+        )
+    }
+
+    return {
+        numberOfPeriod,
+        sqrtPriceStepBps,
+        schedulerExpirationDuration,
+        reductionFactor,
+    }
+}
+
+/**
+ * Check if rate limiter should be applied based on pool configuration and state
+ * @param baseFeeMode - The base fee mode
+ * @param swapBaseForQuote - Whether the swap is from base to quote
+ * @param currentPoint - The current point
+ * @param activationPoint - The activation point
+ * @param maxLimiterDuration - The maximum limiter duration
+ * @returns Whether rate limiter should be applied
+ */
+export function checkRateLimiterApplied(
+    baseFeeMode: BaseFeeMode,
+    swapBaseForQuote: boolean,
+    currentPoint: BN,
+    activationPoint: BN,
+    maxLimiterDuration: BN
+): boolean {
+    return (
+        baseFeeMode === BaseFeeMode.RateLimiter &&
+        !swapBaseForQuote &&
+        currentPoint.gte(activationPoint) &&
+        currentPoint.lte(activationPoint.add(maxLimiterDuration))
+    )
+}
+
+/**
+ * Get base fee parameters based on the base fee mode
+ * @param baseFeeParams - The base fee parameters
+ * @returns The base fee parameters
+ */
+export function getBaseFeeParams(baseFeeParams: BaseFeeParams): BaseFee {
+    if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
+        throw new Error(
+            'BaseFeeMode.RateLimiter is deprecated. New configs must use FeeSchedulerLinear or FeeSchedulerExponential.'
+        )
+    }
+
+    const { startingFeeBps, endingFeeBps, numberOfPeriod, totalDuration } =
+        baseFeeParams.feeSchedulerParam
+
+    return getFeeSchedulerParams(
+        startingFeeBps,
+        endingFeeBps,
+        baseFeeParams.baseFeeMode,
+        numberOfPeriod,
+        totalDuration
+    )
+}
+
+/**
+ * Get migrated pool fee parameters based on migration options
+ * @param migrationOption - The migration option (DAMM or DAMM_V2)
+ * @param migrationFeeOption - The fee option (fixed rates 0-5 or customizable)
+ * @param migratedPoolFee - Optional custom migrated pool fee parameters (only used with DAMM_V2 + Customizable)
+ * @returns Migrated pool fee parameters with appropriate defaults
+ */
+export function getMigratedPoolFeeParams(
+    migrationOption: MigrationOption,
+    migrationFeeOption: MigrationFeeOption,
+    migratedPoolFee?: MigratedPoolFeeConfig,
+    baseFeeParams?: BaseFeeParams
+): MigratedPoolFeeResult {
+    const defaultResult: MigratedPoolFeeResult = {
+        migratedPoolFee: DEFAULT_MIGRATED_POOL_FEE_PARAMS,
+        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+        migratedPoolMarketCapFeeSchedulerParams:
+            DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+        migrationFeeOption,
+        compoundingFeeBps: 0,
+    }
+
+    if (migrationOption === MigrationOption.MET_DAMM) {
+        throw new Error(
+            'MigrationOption.MET_DAMM (DAMM v1) is deprecated. New configs must use MigrationOption.MET_DAMM_V2.'
+        )
+    }
+
+    // for DAMM_V2: use custom parameters based on configuration
+    if (migrationOption === MigrationOption.MET_DAMM_V2) {
+        const baseFeeMode =
+            migratedPoolFee?.baseFeeMode ??
+            DammV2BaseFeeMode.FeeTimeSchedulerLinear
+
+        // when marketCapFeeSchedulerParams is configured, use custom values
+        if (migratedPoolFee?.marketCapFeeSchedulerParams && baseFeeParams) {
+            const schedulerParams = getMigratedPoolMarketCapFeeSchedulerParams(
+                migratedPoolFee.poolFeeBps,
+                migratedPoolFee.marketCapFeeSchedulerParams.endingBaseFeeBps,
+                baseFeeMode,
+                migratedPoolFee.marketCapFeeSchedulerParams.numberOfPeriod,
+                migratedPoolFee.marketCapFeeSchedulerParams.priceMultiple,
+                migratedPoolFee.marketCapFeeSchedulerParams
+                    .schedulerExpirationDuration
+            )
+
+            return {
+                migratedPoolFee: {
+                    collectFeeMode: migratedPoolFee.collectFeeMode,
+                    dynamicFee: migratedPoolFee.dynamicFee,
+                    poolFeeBps: migratedPoolFee.poolFeeBps,
+                },
+                migratedPoolBaseFeeMode: baseFeeMode,
+                migratedPoolMarketCapFeeSchedulerParams: schedulerParams,
+                migrationFeeOption: MigrationFeeOption.Customizable,
+                compoundingFeeBps: migratedPoolFee.compoundingFeeBps ?? 0,
+            }
+        }
+
+        // use custom parameters if Customizable option is selected
+        if (migrationFeeOption === MigrationFeeOption.Customizable) {
+            if (migratedPoolFee?.poolFeeBps === undefined) {
+                throw new Error(
+                    'migratedPoolFee.poolFeeBps is required when migrationFeeOption is Customizable'
+                )
+            }
+            return {
+                migratedPoolFee: {
+                    collectFeeMode:
+                        migratedPoolFee?.collectFeeMode ??
+                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.collectFeeMode,
+                    dynamicFee:
+                        migratedPoolFee?.dynamicFee ??
+                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.dynamicFee,
+                    poolFeeBps:
+                        migratedPoolFee?.poolFeeBps ??
+                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.poolFeeBps,
+                },
+                migratedPoolBaseFeeMode: baseFeeMode,
+                migratedPoolMarketCapFeeSchedulerParams:
+                    DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+                migrationFeeOption: MigrationFeeOption.Customizable,
+                compoundingFeeBps: migratedPoolFee?.compoundingFeeBps ?? 0,
+            }
+        }
+
+        // for fixed fee options (0-5), use defaults but preserve baseFeeMode if provided
+        return {
+            migratedPoolFee: DEFAULT_MIGRATED_POOL_FEE_PARAMS,
+            migratedPoolBaseFeeMode: baseFeeMode,
+            migratedPoolMarketCapFeeSchedulerParams:
+                DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+            migrationFeeOption,
+            compoundingFeeBps: 0,
+        }
+    }
+
+    return defaultResult
+}
+
+/**
+ * Get the total token supply
+ * @param swapBaseAmount - The swap base amount
+ * @param migrationBaseThreshold - The migration base threshold
+ * @param lockedVestingParams - The locked vesting parameters
+ * @returns The total token supply
+ */
+export function getTotalTokenSupply(
+    swapBaseAmount: BN,
+    migrationBaseThreshold: BN,
+    lockedVestingParams: {
+        amountPerPeriod: BN
+        numberOfPeriod: BN
+        cliffUnlockAmount: BN
+    }
+): BN {
+    try {
+        // calculate total circulating amount
+        const totalCirculatingAmount = swapBaseAmount.add(
+            migrationBaseThreshold
+        )
+
+        // calculate total locked vesting amount
+        const totalLockedVestingAmount =
+            lockedVestingParams.cliffUnlockAmount.add(
+                lockedVestingParams.amountPerPeriod.mul(
+                    lockedVestingParams.numberOfPeriod
+                )
+            )
+
+        // calculate total amount
+        const totalAmount = totalCirculatingAmount.add(totalLockedVestingAmount)
+
+        // check for overflow
+        if (totalAmount.isNeg() || totalAmount.bitLength() > 64) {
+            throw new Error('Math overflow')
+        }
+
+        return totalAmount
+    } catch (error) {
+        throw new Error(`Math overflow: ${error}`)
+    }
+}
+
+/**
  * Get migrationQuoteAmount from migrationQuoteThreshold and migrationFeePercent
  * @param migrationQuoteThreshold - The migration quote threshold
  * @param migrationFeePercent - The migration fee percent
@@ -365,6 +1343,7 @@ export const getMigrationQuoteThresholdFromMigrationQuoteAmount = (
  * @param migrationSqrtPrice - Migration sqrt price (BN)
  * @param migrationFeeBps - Migration fee in basis points (number)
  * @param migrationOption - Migration option (MigrationOption, enum)
+ * @param migratedCollectFeeMode - Migrated DAMM v2 collect fee mode
  * @returns [baseFeeAmount: BN, quoteFeeAmount: BN]
  */
 export function getProtocolMigrationFee(
@@ -372,7 +1351,8 @@ export function getProtocolMigrationFee(
     depositQuoteAmount: BN,
     migrationSqrtPrice: BN,
     migrationFeeBps: number,
-    migrationOption: MigrationOption
+    migrationOption: MigrationOption,
+    migratedCollectFeeMode: MigratedCollectFeeMode = MigratedCollectFeeMode.QuoteToken
 ): [BN, BN] {
     // quote fee amount = (depositQuoteAmount * migrationFeeBps) / MAX_BASIS_POINT
     const quoteFeeAmount = mulDiv(
@@ -382,8 +1362,11 @@ export function getProtocolMigrationFee(
         Rounding.Down
     )
 
-    if (migrationOption === MigrationOption.MET_DAMM) {
-        // DAMM v1 migration: fee as same ratio for base
+    if (
+        migrationOption === MigrationOption.MET_DAMM ||
+        migratedCollectFeeMode === MigratedCollectFeeMode.Compounding
+    ) {
+        // DAMM v1 and compounding DAMM v2 migration: fee as same ratio for base
         const baseFeeAmount = mulDiv(
             depositBaseAmount,
             new BN(migrationFeeBps),
@@ -411,26 +1394,50 @@ export function getProtocolMigrationFee(
 }
 
 /**
+ * Get the constant product base amount for a quote amount at a sqrt price
+ * @param migrationQuoteAmount - The migration quote amount
+ * @param sqrtMigrationPrice - The migration sqrt price
+ * @returns The base amount, rounded up
+ */
+export function constantProductBaseFromQuote(
+    migrationQuoteAmount: BN,
+    sqrtMigrationPrice: BN
+): BN {
+    if (sqrtMigrationPrice.isZero()) {
+        throw new Error('Math overflow')
+    }
+    const price = sqrtMigrationPrice.mul(sqrtMigrationPrice)
+    const quote = migrationQuoteAmount.shln(128)
+    const { div, mod } = quote.divmod(price)
+    const base = mod.isZero() ? div : div.add(new BN(1))
+    if (base.gt(U64_MAX)) {
+        throw new Error('Math overflow')
+    }
+    return base
+}
+
+/**
  * Get the base token for migration
  * @param migrationQuoteAmount - The migration quote amount to deposit to pool
  * @param sqrtMigrationPrice - The migration sqrt price
  * @param migrationOption - The migration option
+ * @param migratedCollectFeeMode - Migrated DAMM v2 collect fee mode. Compounding uses constant product.
  * @returns The base token
  */
 export const getMigrationBaseToken = (
     migrationQuoteAmount: BN,
     sqrtMigrationPrice: BN,
-    migrationOption: MigrationOption
+    migrationOption: MigrationOption,
+    migratedCollectFeeMode: MigratedCollectFeeMode = MigratedCollectFeeMode.QuoteToken
 ): BN => {
-    if (migrationOption == MigrationOption.MET_DAMM) {
-        const price = sqrtMigrationPrice.mul(sqrtMigrationPrice)
-        const quote = migrationQuoteAmount.shln(128)
-        const { div: baseDiv, mod } = quote.divmod(price)
-        let div = baseDiv
-        if (!mod.isZero()) {
-            div = div.add(new BN(1))
-        }
-        return div
+    if (
+        migrationOption == MigrationOption.MET_DAMM ||
+        migratedCollectFeeMode === MigratedCollectFeeMode.Compounding
+    ) {
+        return constantProductBaseFromQuote(
+            migrationQuoteAmount,
+            sqrtMigrationPrice
+        )
     } else if (migrationOption == MigrationOption.MET_DAMM_V2) {
         const liquidity = getInitialLiquidityFromDeltaQuote(
             migrationQuoteAmount,
@@ -451,26 +1458,195 @@ export const getMigrationBaseToken = (
 }
 
 /**
- * Get the total vesting amount
- * @param lockedVesting - The locked vesting
- * @returns The total vesting amount
+ * Get the quote amount a migration threshold deposits into the migrated pool
+ * @param migrationQuoteThreshold - The migration quote threshold in lamports
+ * @param migrationFeePercentage - The migration fee percentage
+ * @returns The migration quote amount in lamports, rounded up
  */
-export const getTotalVestingAmount = (
-    lockedVesting: LockedVestingParameters
-): BN => {
-    const totalVestingAmount = lockedVesting.cliffUnlockAmount.add(
-        lockedVesting.amountPerPeriod.mul(lockedVesting.numberOfPeriod)
+export function getMigrationQuoteAmountFromThreshold(
+    migrationQuoteThreshold: BN,
+    migrationFeePercentage: number
+): BN {
+    return mulDiv(
+        migrationQuoteThreshold,
+        new BN(100 - migrationFeePercentage),
+        new BN(100),
+        Rounding.Up
     )
-    return totalVestingAmount
 }
 
 /**
- * Get the liquidity
- * @param baseAmount - The base amount
- * @param quoteAmount - The quote amount
- * @param minSqrtPrice - The min sqrt price
- * @param maxSqrtPrice - The max sqrt price
- * @returns The liquidity
+ * Get the quote amount that sizes a migration base amount at a sqrt price
+ * @param migrationBaseAmount - The migration base amount
+ * @param sqrtMigrationPrice - The migration sqrt price
+ * @param migrationOption - The migration option
+ * @param migratedCollectFeeMode - Migrated DAMM v2 collect fee mode. Compounding uses constant product.
+ * @returns The migration quote amount, rounded down
+ */
+export function getMigrationQuoteAmountFromMigrationBase(
+    migrationBaseAmount: BN,
+    sqrtMigrationPrice: BN,
+    migrationOption: MigrationOption,
+    migratedCollectFeeMode: MigratedCollectFeeMode = MigratedCollectFeeMode.QuoteToken
+): BN {
+    if (
+        migrationOption === MigrationOption.MET_DAMM ||
+        migratedCollectFeeMode === MigratedCollectFeeMode.Compounding
+    ) {
+        return migrationBaseAmount
+            .mul(sqrtMigrationPrice)
+            .mul(sqrtMigrationPrice)
+            .shrn(128)
+    } else if (migrationOption === MigrationOption.MET_DAMM_V2) {
+        const liquidity = getInitialLiquidityFromDeltaBase(
+            migrationBaseAmount,
+            MAX_SQRT_PRICE,
+            sqrtMigrationPrice
+        )
+        return getDeltaAmountQuoteUnsigned(
+            MIN_SQRT_PRICE,
+            sqrtMigrationPrice,
+            liquidity,
+            Rounding.Down
+        )
+    } else {
+        throw Error('Invalid migration option')
+    }
+}
+
+/**
+ * Get the migration base amount per unit of migration quote at a sqrt price
+ * @param sqrtMigrationPrice - The migration sqrt price
+ * @param migrationOption - The migration option
+ * @param migratedCollectFeeMode - Migrated DAMM v2 collect fee mode. Compounding uses constant product.
+ * @returns The migration base weight, unrounded
+ */
+export function getMigrationBaseWeight(
+    sqrtMigrationPrice: BN,
+    migrationOption: MigrationOption,
+    migratedCollectFeeMode: MigratedCollectFeeMode
+): Decimal {
+    const p = new Decimal(sqrtMigrationPrice.toString())
+    if (
+        migrationOption === MigrationOption.MET_DAMM ||
+        migratedCollectFeeMode === MigratedCollectFeeMode.Compounding
+    ) {
+        return new Decimal(1).div(p.mul(p))
+    }
+    const maxSqrtPrice = new Decimal(MAX_SQRT_PRICE.toString())
+    const minSqrtPrice = new Decimal(MIN_SQRT_PRICE.toString())
+    return maxSqrtPrice.sub(p).div(p.sub(minSqrtPrice).mul(p).mul(maxSqrtPrice))
+}
+
+function migrationDepositAmounts(
+    baseBudget: BN,
+    quoteBudget: BN,
+    baseAmount: BN,
+    quoteAmount: BN
+): [BN, BN] {
+    if (baseAmount.eq(baseBudget) && quoteAmount.eq(quoteBudget)) {
+        return [baseBudget, quoteBudget]
+    }
+
+    const baseSideBinds = baseAmount
+        .mul(quoteBudget)
+        .lte(quoteAmount.mul(baseBudget))
+    const depositBase = baseSideBinds
+        ? baseAmount
+        : mulDiv(baseBudget, quoteAmount, quoteBudget, Rounding.Down)
+    const depositQuote = baseSideBinds
+        ? mulDiv(quoteBudget, baseAmount, baseBudget, Rounding.Down)
+        : quoteAmount
+
+    if (depositBase.isZero() || depositQuote.isZero()) {
+        throw new Error('Amount is zero')
+    }
+    return [depositBase, depositQuote]
+}
+
+function compoundingInitialSqrtPriceAndLiquidity(
+    baseAmount: BN,
+    quoteAmount: BN
+): { sqrtPrice: BN; liquidity: BN } {
+    if (baseAmount.isZero()) {
+        throw new Error('Math overflow')
+    }
+    const shiftedQuote = quoteAmount.shln(128)
+    const sqrtPrice = sqrt(
+        shiftedQuote.add(baseAmount).sub(new BN(1)).div(baseAmount)
+    )
+    if (sqrtPrice.lt(MIN_SQRT_PRICE) || sqrtPrice.gt(MAX_SQRT_PRICE)) {
+        throw new Error(
+            'Invalid compounding parameters: the migration deposit sqrt price is out of range'
+        )
+    }
+    const liquidity = sqrt(shiftedQuote.div(baseAmount)).mul(baseAmount)
+    return { sqrtPrice, liquidity }
+}
+
+/**
+ * Validate the compounding DAMM v2 deposit a config migrates with, after protocol and transfer fees.
+ * Throws when the pool would start below dead liquidity or more than 1% away from the migration price.
+ */
+export function validateCompoundingMigrationDeposit(params: {
+    migrationQuoteThreshold: BN
+    migrationFeePercentage: number
+    migrationSqrtPrice: BN
+    baseTransferFee?: EpochTransferFee | null
+    quoteTransferFee?: EpochTransferFee | null
+}): void {
+    const quoteAmount = getMigrationQuoteAmountFromThreshold(
+        params.migrationQuoteThreshold,
+        params.migrationFeePercentage
+    )
+    const baseAmount = constantProductBaseFromQuote(
+        quoteAmount,
+        params.migrationSqrtPrice
+    )
+    const [protocolBaseFee, protocolQuoteFee] = getProtocolMigrationFee(
+        baseAmount,
+        quoteAmount,
+        params.migrationSqrtPrice,
+        PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+        MigrationOption.MET_DAMM_V2,
+        MigratedCollectFeeMode.Compounding
+    )
+    const excludedProtocolBase = baseAmount.sub(protocolBaseFee)
+    const excludedProtocolQuote = quoteAmount.sub(protocolQuoteFee)
+    const excludedTransferBase = calculateTransferFeeExcludedAmount(
+        params.baseTransferFee ?? null,
+        excludedProtocolBase
+    ).amount
+    const excludedTransferQuote = calculateTransferFeeExcludedAmount(
+        params.quoteTransferFee ?? null,
+        excludedProtocolQuote
+    ).amount
+    const [depositBase, depositQuote] = migrationDepositAmounts(
+        excludedProtocolBase,
+        excludedProtocolQuote,
+        excludedTransferBase,
+        excludedTransferQuote
+    )
+    const { sqrtPrice, liquidity } = compoundingInitialSqrtPriceAndLiquidity(
+        depositBase,
+        depositQuote
+    )
+    if (liquidity.lte(DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY)) {
+        throw new Error('Insufficient liquidity for migration')
+    }
+    const priceGap = params.migrationSqrtPrice.sub(sqrtPrice).abs()
+    const largerPrice = BN.max(params.migrationSqrtPrice, sqrtPrice)
+    if (priceGap.mul(new BN(100)).gt(largerPrice)) {
+        throw new Error(
+            'Invalid curve: the compounding migration deposit is more than 1% away from the migration price'
+        )
+    }
+}
+
+/**
+ * Get the total vesting amount
+ * @param lockedVesting - The locked vesting
+ * @returns The total vesting amount
  */
 export const getLiquidity = (
     baseAmount: BN,
@@ -493,43 +1669,22 @@ export const getLiquidity = (
 
 /**
  * Get the first curve
- * @param migrationSqrPrice - The migration sqrt price
- * @param migrationAmount - The migration amount
+ * @param migrationSqrtPrice - The migration sqrt price
  * @param swapAmount - The swap amount
  * @param migrationQuoteThreshold - The migration quote threshold
- * @param migrationFeePercent - The migration fee percent
  * @returns The first curve
  */
 export const getFirstCurve = (
     migrationSqrtPrice: BN,
-    migrationBaseAmount: BN,
     swapAmount: BN,
-    migrationQuoteThreshold: BN,
-    migrationFeePercent: number
+    migrationQuoteThreshold: BN
 ) => {
-    // Swap_amount = L * (1/Pmin - 1/Pmax) = L * (Pmax - Pmin) / (Pmax * Pmin)      (1)
-    // Quote_amount = L * (Pmax - Pmin)                                             (2)
-    // (Quote_amount * (1-migrationFeePercent/100) / Migration_amount = Pmax ^ 2    (3)
-    const migrationSqrPriceDecimal = new Decimal(migrationSqrtPrice.toString())
-    const migrationBaseAmountDecimal = new Decimal(
-        migrationBaseAmount.toString()
-    )
-    const swapAmountDecimal = new Decimal(swapAmount.toString())
-    const migrationFeePercentDecimal = new Decimal(
-        migrationFeePercent.toString()
-    )
-    // From (1) and (2) => Quote_amount / Swap_amount = (Pmax * Pmin)               (4)
-    // From (3) and (4) => Swap_amount * (1-migrationFeePercent/100) / Migration_amount = Pmax / Pmin
-    // => Pmin = Pmax * Migration_amount / (Swap_amount * (1-migrationFeePercent/100))
-    const denominator = swapAmountDecimal
-        .mul(new Decimal(100).sub(migrationFeePercentDecimal))
-        .div(new Decimal(100))
-
-    const sqrtStartPriceDecimal = migrationSqrPriceDecimal
-        .mul(migrationBaseAmountDecimal)
-        .div(denominator)
-
-    const sqrtStartPrice = new BN(sqrtStartPriceDecimal.floor().toFixed())
+    // Swap_amount = L * (Pmax - Pmin) / (Pmax * Pmin)      (1)
+    // Quote_amount = L * (Pmax - Pmin) / 2^128             (2)
+    // From (1) and (2) => Pmin = Quote_amount * 2^128 / (Swap_amount * Pmax)
+    const sqrtStartPrice = migrationQuoteThreshold
+        .shln(128)
+        .div(swapAmount.mul(migrationSqrtPrice))
 
     const liquidity = getLiquidity(
         swapAmount,
@@ -557,6 +1712,7 @@ export const getFirstCurve = (
  * @param migrationOption - The migration option
  * @param leftover - The leftover
  * @param migrationFeePercent - The migration fee percent
+ * @param migratedCollectFeeMode - Migrated DAMM v2 collect fee mode
  * @returns The total supply
  */
 export const getTotalSupplyFromCurve = (
@@ -566,7 +1722,8 @@ export const getTotalSupplyFromCurve = (
     lockedVesting: LockedVestingParameters,
     migrationOption: MigrationOption,
     leftover: BN,
-    migrationFeePercent: number
+    migrationFeePercent: number,
+    migratedCollectFeeMode: MigratedCollectFeeMode = MigratedCollectFeeMode.QuoteToken
 ): BN => {
     const sqrtMigrationPrice = getMigrationThresholdPrice(
         migrationQuoteThreshold,
@@ -584,15 +1741,15 @@ export const getTotalSupplyFromCurve = (
         curve
     )
 
-    const migrationQuoteAmount =
-        getMigrationQuoteAmountFromMigrationQuoteThreshold(
-            new Decimal(migrationQuoteThreshold.toString()),
-            migrationFeePercent
-        )
+    const migrationQuoteAmount = getMigrationQuoteAmountFromThreshold(
+        migrationQuoteThreshold,
+        migrationFeePercent
+    )
     const migrationBaseAmount = getMigrationBaseToken(
-        fromDecimalToBN(migrationQuoteAmount),
+        migrationQuoteAmount,
         sqrtMigrationPrice,
-        migrationOption
+        migrationOption,
+        migratedCollectFeeMode
     )
     const totalVestingAmount = getTotalVestingAmount(lockedVesting)
     const minimumBaseSupplyWithBuffer = swapBaseAmountBuffer
@@ -890,593 +2047,6 @@ export const getMigrationQuoteAmount = (
  *
  * @returns {BaseFee}
  */
-export function getFeeSchedulerParams(
-    startingBaseFeeBps: number,
-    endingBaseFeeBps: number,
-    baseFeeMode: BaseFeeMode,
-    numberOfPeriod: number,
-    totalDuration: number
-): BaseFee {
-    if (startingBaseFeeBps == endingBaseFeeBps) {
-        if (numberOfPeriod != 0 || totalDuration != 0) {
-            throw new Error(
-                'numberOfPeriod and totalDuration must both be zero'
-            )
-        }
-
-        return {
-            cliffFeeNumerator: bpsToFeeNumerator(startingBaseFeeBps),
-            firstFactor: 0,
-            secondFactor: new BN(0),
-            thirdFactor: new BN(0),
-            baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-        }
-    }
-
-    if (numberOfPeriod <= 0) {
-        throw new Error('Total periods must be greater than zero')
-    }
-
-    if (startingBaseFeeBps > MAX_FEE_BPS) {
-        throw new Error(
-            `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
-        )
-    }
-
-    if (endingBaseFeeBps < MIN_FEE_BPS) {
-        throw new Error(
-            `endingBaseFeeBps (${endingBaseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
-        )
-    }
-
-    if (endingBaseFeeBps > startingBaseFeeBps) {
-        throw new Error(
-            'endingBaseFeeBps bps must be less than or equal to startingBaseFeeBps bps'
-        )
-    }
-
-    if (numberOfPeriod == 0 || totalDuration == 0) {
-        throw new Error(
-            'numberOfPeriod and totalDuration must both greater than zero'
-        )
-    }
-
-    const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
-
-    const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
-
-    const periodFrequency = new BN(totalDuration / numberOfPeriod)
-
-    let reductionFactor: BN
-    if (baseFeeMode == BaseFeeMode.FeeSchedulerLinear) {
-        const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator)
-        reductionFactor = totalReduction.divn(numberOfPeriod)
-    } else {
-        const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
-            new Decimal(maxBaseFeeNumerator.toString())
-        )
-        const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
-        reductionFactor = new BN(
-            new Decimal(MAX_BASIS_POINT)
-                .mul(new Decimal(1).sub(decayBase))
-                .floor()
-                .toFixed()
-        )
-    }
-
-    return {
-        cliffFeeNumerator: maxBaseFeeNumerator,
-        firstFactor: numberOfPeriod,
-        secondFactor: periodFrequency,
-        thirdFactor: reductionFactor,
-        baseFeeMode,
-    }
-}
-
-/**
- * Calculate the ending base fee of fee scheduler in basis points
- * @param cliffFeeNumerator - The cliff fee numerator
- * @param numberOfPeriod - The number of period
- * @param reductionFactor - The reduction factor
- * @param feeSchedulerMode - The fee scheduler mode
- * @returns The minimum base fee in basis points
- */
-export function calculateFeeSchedulerEndingBaseFeeBps(
-    cliffFeeNumerator: number,
-    numberOfPeriod: number,
-    periodFrequency: number,
-    reductionFactor: number,
-    baseFeeMode: BaseFeeMode
-): number {
-    if (numberOfPeriod === 0 || periodFrequency === 0) {
-        return (cliffFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
-    }
-
-    let baseFeeNumerator: number
-    if (baseFeeMode == BaseFeeMode.FeeSchedulerLinear) {
-        // linear mode
-        baseFeeNumerator = cliffFeeNumerator - numberOfPeriod * reductionFactor
-    } else {
-        // exponential mode
-        const decayRate = new Decimal(1).sub(
-            new Decimal(reductionFactor).div(MAX_BASIS_POINT)
-        )
-        baseFeeNumerator = new Decimal(cliffFeeNumerator)
-            .mul(decayRate.pow(numberOfPeriod))
-            .toNumber()
-    }
-
-    // ensure base fee is not negative
-    return Math.max(0, (baseFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT)
-}
-
-/**
- * Get the rate limiter parameters.
- * @deprecated New configs cannot use RateLimiter. Kept for quoting existing rate-limiter pools.
- * @param baseFeeBps - The base fee in basis points
- * @param feeIncrementBps - The fee increment in basis points
- * @param referenceAmount - The reference amount
- * @param maxLimiterDuration - The max rate limiter duration
- * @param tokenQuoteDecimal - The token quote decimal
- * @param activationType - The activation type
- * @returns The rate limiter parameters
- */
-export function getRateLimiterParams(
-    baseFeeBps: number,
-    feeIncrementBps: number,
-    referenceAmount: number,
-    maxLimiterDuration: number,
-    tokenQuoteDecimal: number,
-    activationType: ActivationType
-): BaseFee {
-    const cliffFeeNumerator = bpsToFeeNumerator(baseFeeBps)
-    const feeIncrementNumerator = bpsToFeeNumerator(feeIncrementBps)
-
-    if (
-        baseFeeBps <= 0 ||
-        feeIncrementBps <= 0 ||
-        referenceAmount <= 0 ||
-        maxLimiterDuration <= 0
-    ) {
-        throw new Error('All rate limiter parameters must be greater than zero')
-    }
-
-    if (baseFeeBps > MAX_FEE_BPS) {
-        throw new Error(
-            `Base fee (${baseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
-        )
-    }
-
-    if (baseFeeBps < MIN_FEE_BPS) {
-        throw new Error(
-            `Base fee (${baseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
-        )
-    }
-
-    if (feeIncrementBps > MAX_FEE_BPS) {
-        throw new Error(
-            `Fee increment (${feeIncrementBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
-        )
-    }
-
-    if (feeIncrementNumerator.gte(new BN(FEE_DENOMINATOR))) {
-        throw new Error(
-            'Fee increment numerator must be less than FEE_DENOMINATOR'
-        )
-    }
-
-    const deltaNumerator = new BN(MAX_FEE_NUMERATOR).sub(cliffFeeNumerator)
-    const maxIndex = deltaNumerator.div(feeIncrementNumerator)
-    if (maxIndex.lt(new BN(1))) {
-        throw new Error('Fee increment is too large for the given base fee')
-    }
-
-    if (
-        cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
-        cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
-    ) {
-        throw new Error('Base fee must be between 0.01% and 99%')
-    }
-
-    const maxDuration =
-        activationType === ActivationType.Slot
-            ? MAX_RATE_LIMITER_DURATION_IN_SLOTS
-            : MAX_RATE_LIMITER_DURATION_IN_SECONDS
-
-    if (maxLimiterDuration > maxDuration) {
-        throw new Error(
-            `Max duration exceeds maximum allowed value of ${maxDuration}`
-        )
-    }
-
-    const referenceAmountInLamports = convertToLamports(
-        referenceAmount,
-        tokenQuoteDecimal
-    )
-
-    return {
-        cliffFeeNumerator,
-        firstFactor: feeIncrementBps,
-        secondFactor: new BN(maxLimiterDuration),
-        thirdFactor: new BN(referenceAmountInLamports),
-        baseFeeMode: BaseFeeMode.RateLimiter,
-    }
-}
-
-/**
- * Get the dynamic fee parameters (20% of base fee)
- * @param baseFeeBps - The base fee in basis points
- * @param maxPriceChangeBps - The max price change in basis points
- * @returns The dynamic fee parameters
- */
-export function getDynamicFeeParams(
-    baseFeeBps: number,
-    maxPriceChangeBps: number = MAX_PRICE_CHANGE_BPS_DEFAULT // default 15%
-): DynamicFeeParameters {
-    if (maxPriceChangeBps > MAX_PRICE_CHANGE_BPS_DEFAULT) {
-        throw new Error(
-            `maxPriceChangeBps (${maxPriceChangeBps} bps) must be less than or equal to ${MAX_PRICE_CHANGE_BPS_DEFAULT}`
-        )
-    }
-
-    const priceRatio = maxPriceChangeBps / MAX_BASIS_POINT + 1
-    // Q64
-    const sqrtPriceRatioQ64 = new BN(
-        Decimal.sqrt(priceRatio.toString())
-            .mul(Decimal.pow(2, 64))
-            .floor()
-            .toFixed()
-    )
-    const deltaBinId = sqrtPriceRatioQ64
-        .sub(ONE_Q64)
-        .div(BIN_STEP_BPS_U128_DEFAULT)
-        .muln(2)
-
-    const maxVolatilityAccumulator = new BN(deltaBinId.muln(MAX_BASIS_POINT))
-
-    const squareVfaBin = maxVolatilityAccumulator
-        .mul(new BN(BIN_STEP_BPS_DEFAULT))
-        .pow(new BN(2))
-
-    const baseFeeNumerator = new BN(bpsToFeeNumerator(baseFeeBps))
-    const maxDynamicFeeNumerator = baseFeeNumerator.muln(20).divn(100) // default max dynamic fee = 20% of base fee.
-    const vFee = maxDynamicFeeNumerator
-        .mul(new BN(100_000_000_000))
-        .sub(new BN(99_999_999_999))
-
-    const variableFeeControl = vFee.div(squareVfaBin)
-
-    return {
-        binStep: BIN_STEP_BPS_DEFAULT,
-        binStepU128: BIN_STEP_BPS_U128_DEFAULT,
-        filterPeriod: DYNAMIC_FEE_FILTER_PERIOD_DEFAULT,
-        decayPeriod: DYNAMIC_FEE_DECAY_PERIOD_DEFAULT,
-        reductionFactor: DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
-        maxVolatilityAccumulator: maxVolatilityAccumulator.toNumber(),
-        variableFeeControl: variableFeeControl.toNumber(),
-    }
-}
-/**
- * Derive the starting base fee BPS from baseFeeParams
- * For FeeSchedulerLinear/FeeSchedulerExponential: uses endingFeeBps (the fee at end of pre-migration curve)
- * For RateLimiter: uses baseFeeBps (the cliff fee)
- * @param baseFeeParams - The base fee parameters from the pre-migration pool
- * @returns The starting base fee in basis points for the migrated pool
- */
-export function getStartingBaseFeeBpsFromBaseFeeParams(
-    baseFeeParams: BaseFeeParams
-): number {
-    if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
-        return baseFeeParams.rateLimiterParam.baseFeeBps
-    } else {
-        return baseFeeParams.feeSchedulerParam.endingFeeBps
-    }
-}
-
-/**
- * Computes the sqrtPriceStepBps needed so that the fee schedule is fully
- * exhausted when spot price reaches a given multiple of the initial price.
- * @param priceMultiple - Target spot-price multiple (e.g. 1000 for 1000x)
- * @param numberOfPeriod - Number of fee reduction periods
- * @returns The sqrtPriceStepBps value to use on-chain
- */
-export function computeSqrtPriceStepBps(
-    priceMultiple: number,
-    numberOfPeriod: number
-): number {
-    if (priceMultiple <= 1) {
-        throw new Error('priceMultiple must be greater than 1')
-    }
-    if (numberOfPeriod <= 0) {
-        throw new Error('numberOfPeriod must be greater than 0')
-    }
-    const sqrtPriceStepBps = Math.floor(
-        ((Math.sqrt(priceMultiple) - 1) * MAX_BASIS_POINT) / numberOfPeriod
-    )
-    if (sqrtPriceStepBps <= 0) {
-        throw new Error(
-            'Computed sqrtPriceStepBps is 0 — increase priceMultiple or decrease numberOfPeriod'
-        )
-    }
-    return sqrtPriceStepBps
-}
-
-/**
- * Get the migrated pool market cap fee scheduler parameters
- * @param startingBaseFeeBps - Starting (max) fee in basis points
- * @param endingBaseFeeBps - Ending (min) fee in basis points
- * @param baseFeeMode - Linear or exponential decay
- * @param numberOfPeriod - Number of fee reduction periods
- * @param priceMultiple - Target spot-price multiple from the initial price (e.g. 1000 for 1000x). Must be > 1.
- * @param schedulerExpirationDuration - Seconds after which the schedule expires to the ending fee regardless of price
- * @returns The migrated pool market cap fee scheduler parameters
- */
-export function getMigratedPoolMarketCapFeeSchedulerParams(
-    startingBaseFeeBps: number,
-    endingBaseFeeBps: number,
-    dammV2BaseFeeMode: DammV2BaseFeeMode,
-    numberOfPeriod: number,
-    priceMultiple: number,
-    schedulerExpirationDuration: number
-): MigratedPoolMarketCapFeeSchedulerParameters {
-    if (
-        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeTimeSchedulerLinear ||
-        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeTimeSchedulerExponential
-    ) {
-        return DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS
-    }
-
-    if (dammV2BaseFeeMode === DammV2BaseFeeMode.RateLimiter) {
-        throw new Error(
-            'RateLimiter is not supported for DAMM v2 migration. Use either FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential instead.'
-        )
-    }
-
-    if (numberOfPeriod <= 0) {
-        throw new Error('Total periods must be greater than zero')
-    }
-
-    const poolMaxFeeBps = MAX_FEE_BPS
-
-    if (startingBaseFeeBps <= endingBaseFeeBps) {
-        throw new Error(
-            `startingBaseFeeBps (${startingBaseFeeBps} bps) must be greater than endingBaseFeeBps (${endingBaseFeeBps} bps)`
-        )
-    }
-
-    if (priceMultiple <= 1) {
-        throw new Error('priceMultiple must be greater than 1')
-    }
-
-    if (startingBaseFeeBps > poolMaxFeeBps) {
-        throw new Error(
-            `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${poolMaxFeeBps} bps`
-        )
-    }
-
-    if (schedulerExpirationDuration == 0) {
-        throw new Error('schedulerExpirationDuration must be greater than zero')
-    }
-
-    const sqrtPriceStepBps = computeSqrtPriceStepBps(
-        priceMultiple,
-        numberOfPeriod
-    )
-
-    const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
-    const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
-
-    let reductionFactor: BN
-
-    if (dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerLinear) {
-        const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator)
-        reductionFactor = totalReduction.divn(numberOfPeriod)
-    } else if (
-        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
-    ) {
-        const ratio =
-            minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber()
-        const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
-        reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
-    }
-
-    return {
-        numberOfPeriod,
-        sqrtPriceStepBps,
-        schedulerExpirationDuration,
-        reductionFactor,
-    }
-}
-
-/**
- * Calculate the locked vesting parameters
- * @param totalLockedVestingAmount - The total vesting amount
- * @param numberOfVestingPeriod - The number of periods
- * @param cliffUnlockAmount - The amount to unlock at cliff
- * @param totalVestingDuration - The total duration of vesting
- * @param cliffDurationFromMigrationTime - The cliff duration from migration time
- * @param tokenBaseDecimal - The decimal of the base token
- * @returns The locked vesting parameters
- * total_locked_vesting_amount = cliff_unlock_amount + (amount_per_period * number_of_period)
- */
-export function getLockedVestingParams(
-    totalLockedVestingAmount: number,
-    numberOfVestingPeriod: number,
-    cliffUnlockAmount: number,
-    totalVestingDuration: number,
-    cliffDurationFromMigrationTime: number,
-    tokenBaseDecimal: TokenDecimal
-): LockedVestingParameters {
-    if (totalLockedVestingAmount == 0) {
-        return {
-            amountPerPeriod: new BN(0),
-            cliffDurationFromMigrationTime: new BN(0),
-            frequency: new BN(0),
-            numberOfPeriod: new BN(0),
-            cliffUnlockAmount: new BN(0),
-        }
-    }
-
-    if (totalLockedVestingAmount == cliffUnlockAmount) {
-        return {
-            amountPerPeriod: convertToLamports(1, tokenBaseDecimal),
-            cliffDurationFromMigrationTime: new BN(
-                cliffDurationFromMigrationTime
-            ),
-            frequency: new BN(1),
-            numberOfPeriod: new BN(1),
-            cliffUnlockAmount: convertToLamports(
-                totalLockedVestingAmount - 1,
-                tokenBaseDecimal
-            ),
-        }
-    }
-
-    if (numberOfVestingPeriod <= 0) {
-        throw new Error('Total periods must be greater than zero')
-    }
-
-    if (numberOfVestingPeriod == 0 || totalVestingDuration == 0) {
-        throw new Error(
-            'numberOfPeriod and totalVestingDuration must both be greater than zero'
-        )
-    }
-
-    if (cliffUnlockAmount > totalLockedVestingAmount) {
-        throw new Error(
-            'Cliff unlock amount cannot be greater than total locked vesting amount'
-        )
-    }
-
-    // amount_per_period = (total_locked_vesting_amount - cliff_unlock_amount) / number_of_period
-    const amountPerPeriod =
-        (totalLockedVestingAmount - cliffUnlockAmount) / numberOfVestingPeriod
-
-    // round amountPerPeriod down to ensure we don't exceed total amount
-    const roundedAmountPerPeriod = Math.floor(amountPerPeriod)
-
-    // calculate the remainder from rounding down
-    const totalPeriodicAmount = roundedAmountPerPeriod * numberOfVestingPeriod
-    const remainder =
-        totalLockedVestingAmount - (cliffUnlockAmount + totalPeriodicAmount)
-
-    // add the remainder to cliffUnlockAmount to maintain total amount
-    const adjustedCliffUnlockAmount = cliffUnlockAmount + remainder
-
-    const periodFrequency = new BN(totalVestingDuration / numberOfVestingPeriod)
-
-    return {
-        amountPerPeriod: convertToLamports(
-            roundedAmountPerPeriod,
-            tokenBaseDecimal
-        ),
-        cliffDurationFromMigrationTime: new BN(cliffDurationFromMigrationTime),
-        frequency: periodFrequency,
-        numberOfPeriod: new BN(numberOfVestingPeriod),
-        cliffUnlockAmount: convertToLamports(
-            adjustedCliffUnlockAmount,
-            tokenBaseDecimal
-        ),
-    }
-}
-
-export const getLiquidityVestingInfoParams = (
-    vestingPercentage: number,
-    bpsPerPeriod: number,
-    numberOfPeriods: number,
-    cliffDurationFromMigrationTime: number,
-    totalDuration: number
-): LiquidityVestingInfoParameters => {
-    // validate vestingPercentage (0-100, u8)
-    if (vestingPercentage < 0 || vestingPercentage > 100) {
-        throw new Error('vestingPercentage must be between 0 and 100')
-    }
-
-    // if vestingPercentage is 0, all other params should be 0 (zero vesting case)
-    if (vestingPercentage === 0) {
-        if (
-            bpsPerPeriod !== 0 ||
-            numberOfPeriods !== 0 ||
-            cliffDurationFromMigrationTime !== 0 ||
-            totalDuration !== 0
-        ) {
-            throw new Error(
-                'If vestingPercentage is 0, all other parameters must be 0'
-            )
-        }
-        return {
-            vestingPercentage: 0,
-            bpsPerPeriod: 0,
-            numberOfPeriods: 0,
-            cliffDurationFromMigrationTime: 0,
-            frequency: 0,
-        }
-    }
-
-    if (bpsPerPeriod < 0 || bpsPerPeriod > MAX_BASIS_POINT) {
-        throw new Error(`bpsPerPeriod must be between 0 and ${MAX_BASIS_POINT}`)
-    }
-
-    if (numberOfPeriods <= 0) {
-        throw new Error(
-            'numberOfPeriods must be greater than zero when vestingPercentage > 0'
-        )
-    }
-
-    if (cliffDurationFromMigrationTime < 0) {
-        throw new Error('cliffDurationFromMigrationTime must be >= 0')
-    }
-
-    if (totalDuration <= 0) {
-        throw new Error('totalDuration must be greater than zero')
-    }
-
-    const frequency = totalDuration / numberOfPeriods
-
-    if (frequency <= 0) {
-        throw new Error(
-            'frequency must be greater than zero (totalDuration / numberOfPeriods must be > 0)'
-        )
-    }
-
-    const totalBps = bpsPerPeriod * numberOfPeriods
-    if (totalBps > MAX_BASIS_POINT) {
-        throw new Error(
-            `Total BPS (bpsPerPeriod * numberOfPeriods = ${totalBps}) must not exceed ${MAX_BASIS_POINT}`
-        )
-    }
-
-    const totalVestingDuration =
-        cliffDurationFromMigrationTime + numberOfPeriods * frequency
-    if (totalVestingDuration > MAX_LOCK_DURATION_IN_SECONDS) {
-        throw new Error(
-            `Total vesting duration (${totalVestingDuration}s) must not exceed ${MAX_LOCK_DURATION_IN_SECONDS}s (2 years)`
-        )
-    }
-
-    if (cliffDurationFromMigrationTime === 0 && numberOfPeriods === 0) {
-        throw new Error(
-            'If cliffDurationFromMigrationTime is 0, numberOfPeriods must be > 0'
-        )
-    }
-
-    return {
-        vestingPercentage,
-        bpsPerPeriod,
-        numberOfPeriods,
-        cliffDurationFromMigrationTime,
-        frequency: Math.round(frequency),
-    }
-}
-
-/**
- * Get the two curve
- * @param migrationSqrPrice - The migration sqrt price
- * @param initialSqrtPrice - The initial sqrt price
- * @param swapAmount - The swap amount
- * @param migrationQuoteThreshold - The migration quote threshold
- * @returns The two curve
- */
 export const getTwoCurve = (
     migrationSqrtPrice: BN,
     midSqrtPrice: BN,
@@ -1541,89 +2111,6 @@ export const getTwoCurve = (
  * @param maxLimiterDuration - The maximum limiter duration
  * @returns Whether rate limiter should be applied
  */
-export function checkRateLimiterApplied(
-    baseFeeMode: BaseFeeMode,
-    swapBaseForQuote: boolean,
-    currentPoint: BN,
-    activationPoint: BN,
-    maxLimiterDuration: BN
-): boolean {
-    return (
-        baseFeeMode === BaseFeeMode.RateLimiter &&
-        !swapBaseForQuote &&
-        currentPoint.gte(activationPoint) &&
-        currentPoint.lte(activationPoint.add(maxLimiterDuration))
-    )
-}
-
-/**
- * Get base fee parameters based on the base fee mode
- * @param baseFeeParams - The base fee parameters
- * @returns The base fee parameters
- */
-export function getBaseFeeParams(baseFeeParams: BaseFeeParams): BaseFee {
-    if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
-        throw new Error(
-            'BaseFeeMode.RateLimiter is deprecated. New configs must use FeeSchedulerLinear or FeeSchedulerExponential.'
-        )
-    }
-
-    const { startingFeeBps, endingFeeBps, numberOfPeriod, totalDuration } =
-        baseFeeParams.feeSchedulerParam
-
-    return getFeeSchedulerParams(
-        startingFeeBps,
-        endingFeeBps,
-        baseFeeParams.baseFeeMode,
-        numberOfPeriod,
-        totalDuration
-    )
-}
-
-/**
- * Get the quote token amount from sqrt price
- * @param nextSqrtPrice - The next sqrt price
- * @param config - The pool configuration
- * @returns The total quote token amount
- */
-export function getQuoteReserveFromNextSqrtPrice(
-    nextSqrtPrice: BN,
-    config: PoolConfig
-): BN {
-    let totalAmount = new BN(0)
-
-    for (let i = 0; i < config.curve.length; i++) {
-        const lowerSqrtPrice =
-            i === 0 ? config.sqrtStartPrice : config.curve[i - 1].sqrtPrice
-
-        if (nextSqrtPrice.gt(lowerSqrtPrice)) {
-            const upperSqrtPrice = nextSqrtPrice.lt(config.curve[i].sqrtPrice)
-                ? nextSqrtPrice
-                : config.curve[i].sqrtPrice
-
-            const maxAmountIn = getDeltaAmountQuoteUnsigned(
-                lowerSqrtPrice,
-                upperSqrtPrice,
-                config.curve[i].liquidity,
-                Rounding.Up
-            )
-
-            totalAmount = totalAmount.add(maxAmountIn)
-        }
-    }
-
-    return totalAmount
-}
-
-/**
- * Get the tokenomics
- * @param initialMarketCap - The initial market cap
- * @param migrationMarketCap - The migration market cap
- * @param totalLockedVestingAmount - The total locked vesting amount
- * @param totalLeftover - The total leftover
- * @param totalTokenSupply - The total token supply
- * @returns The tokenomics
- */
 export const getTokenomics = (
     initialMarketCap: Decimal,
     migrationMarketCap: Decimal,
@@ -1677,276 +2164,4 @@ export const getTokenomics = (
         leftoverSupply: totalLeftover,
         lockedVestingSupply: totalLockedVestingAmount,
     }
-}
-
-/**
- * Get migrated pool fee parameters based on migration options
- * @param migrationOption - The migration option (DAMM or DAMM_V2)
- * @param migrationFeeOption - The fee option (fixed rates 0-5 or customizable)
- * @param migratedPoolFee - Optional custom migrated pool fee parameters (only used with DAMM_V2 + Customizable)
- * @returns Migrated pool fee parameters with appropriate defaults
- */
-export function getMigratedPoolFeeParams(
-    migrationOption: MigrationOption,
-    migrationFeeOption: MigrationFeeOption,
-    migratedPoolFee?: MigratedPoolFeeConfig,
-    baseFeeParams?: BaseFeeParams
-): MigratedPoolFeeResult {
-    const defaultResult: MigratedPoolFeeResult = {
-        migratedPoolFee: DEFAULT_MIGRATED_POOL_FEE_PARAMS,
-        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-        migratedPoolMarketCapFeeSchedulerParams:
-            DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
-        migrationFeeOption,
-        compoundingFeeBps: 0,
-    }
-
-    if (migrationOption === MigrationOption.MET_DAMM) {
-        throw new Error(
-            'MigrationOption.MET_DAMM (DAMM v1) is deprecated. New configs must use MigrationOption.MET_DAMM_V2.'
-        )
-    }
-
-    // for DAMM_V2: use custom parameters based on configuration
-    if (migrationOption === MigrationOption.MET_DAMM_V2) {
-        const baseFeeMode =
-            migratedPoolFee?.baseFeeMode ??
-            DammV2BaseFeeMode.FeeTimeSchedulerLinear
-
-        // when marketCapFeeSchedulerParams is configured, use custom values
-        if (migratedPoolFee?.marketCapFeeSchedulerParams && baseFeeParams) {
-            const schedulerParams = getMigratedPoolMarketCapFeeSchedulerParams(
-                migratedPoolFee.poolFeeBps,
-                migratedPoolFee.marketCapFeeSchedulerParams.endingBaseFeeBps,
-                baseFeeMode,
-                migratedPoolFee.marketCapFeeSchedulerParams.numberOfPeriod,
-                migratedPoolFee.marketCapFeeSchedulerParams.priceMultiple,
-                migratedPoolFee.marketCapFeeSchedulerParams
-                    .schedulerExpirationDuration
-            )
-
-            return {
-                migratedPoolFee: {
-                    collectFeeMode: migratedPoolFee.collectFeeMode,
-                    dynamicFee: migratedPoolFee.dynamicFee,
-                    poolFeeBps: migratedPoolFee.poolFeeBps,
-                },
-                migratedPoolBaseFeeMode: baseFeeMode,
-                migratedPoolMarketCapFeeSchedulerParams: schedulerParams,
-                migrationFeeOption: MigrationFeeOption.Customizable,
-                compoundingFeeBps: migratedPoolFee.compoundingFeeBps ?? 0,
-            }
-        }
-
-        // use custom parameters if Customizable option is selected
-        if (migrationFeeOption === MigrationFeeOption.Customizable) {
-            return {
-                migratedPoolFee: {
-                    collectFeeMode:
-                        migratedPoolFee?.collectFeeMode ??
-                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.collectFeeMode,
-                    dynamicFee:
-                        migratedPoolFee?.dynamicFee ??
-                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.dynamicFee,
-                    poolFeeBps:
-                        migratedPoolFee?.poolFeeBps ??
-                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.poolFeeBps,
-                },
-                migratedPoolBaseFeeMode: baseFeeMode,
-                migratedPoolMarketCapFeeSchedulerParams:
-                    DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
-                migrationFeeOption: MigrationFeeOption.Customizable,
-                compoundingFeeBps: migratedPoolFee?.compoundingFeeBps ?? 0,
-            }
-        }
-
-        // for fixed fee options (0-5), use defaults but preserve baseFeeMode if provided
-        return {
-            migratedPoolFee: DEFAULT_MIGRATED_POOL_FEE_PARAMS,
-            migratedPoolBaseFeeMode: baseFeeMode,
-            migratedPoolMarketCapFeeSchedulerParams:
-                DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
-            migrationFeeOption,
-            compoundingFeeBps: 0,
-        }
-    }
-
-    return defaultResult
-}
-
-/**
- * Get the current point based on activation type
- * @param connection - The Solana connection instance
- * @param activationType - The activation type (Slot or Time)
- * @returns The current point as a BN
- */
-export async function getCurrentPoint(
-    connection: Connection,
-    activationType: ActivationType
-): Promise<BN> {
-    const currentSlot = await connection.getSlot()
-
-    if (activationType === ActivationType.Slot) {
-        return new BN(currentSlot)
-    } else {
-        const currentTime = await connection.getBlockTime(currentSlot)
-        return new BN(currentTime)
-    }
-}
-
-/**
- * Prepare the swap amount param
- * @param amount - The amount to swap
- * @param mintAddress - The mint address
- * @param connection - The Solana connection instance
- * @returns The amount in lamports
- */
-export async function prepareSwapAmountParam(
-    amount: number,
-    mintAddress: PublicKey,
-    connection: Connection
-): Promise<BN> {
-    const mintTokenDecimals = await getTokenDecimals(connection, mintAddress)
-
-    return convertToLamports(amount, mintTokenDecimals)
-}
-
-/**
- * Calculate the locked liquidity BPS for a single vesting info at a given time.
- * @param vestingInfo - The liquidity vesting info parameters
- * @param nSeconds - Number of seconds after migration
- * @returns The locked liquidity in BPS (basis points)
- */
-export function getVestingLockedLiquidityBpsAtNSeconds(
-    vestingInfo: LiquidityVestingInfoParameters | undefined,
-    nSeconds: number
-): number {
-    // If no vesting info or vesting percentage is 0, return 0
-    if (!vestingInfo || vestingInfo.vestingPercentage === 0) {
-        return 0
-    }
-
-    const totalLiquidity = U128_MAX
-
-    // total_vested_liquidity = floor(total_liquidity * vesting_percentage / 100)
-    const totalVestedLiquidity = totalLiquidity
-        .mul(new BN(vestingInfo.vestingPercentage))
-        .div(new BN(100))
-
-    const bpsPerPeriod = vestingInfo.bpsPerPeriod
-    const numberOfPeriods = vestingInfo.numberOfPeriods
-    const frequency = vestingInfo.frequency
-    const cliffDuration = vestingInfo.cliffDurationFromMigrationTime
-
-    // calculate total BPS that will be unlocked over all periods
-    const totalBpsAfterCliff = bpsPerPeriod * numberOfPeriods
-
-    // total_vesting_liquidity_after_cliff = floor(total_vested_liquidity * total_bps_after_cliff / MAX_BASIS_POINT)
-    const totalVestingLiquidityAfterCliff = totalVestedLiquidity
-        .mul(new BN(totalBpsAfterCliff))
-        .div(new BN(MAX_BASIS_POINT))
-
-    // liquidity_per_period = floor(total_vesting_liquidity_after_cliff / number_of_periods)
-    let liquidityPerPeriod = new BN(0)
-    let adjustedFrequency = frequency
-    let adjustedNumberOfPeriods = numberOfPeriods
-    let adjustedCliffDuration = cliffDuration
-
-    if (numberOfPeriods > 0) {
-        liquidityPerPeriod = totalVestingLiquidityAfterCliff.div(
-            new BN(numberOfPeriods)
-        )
-    }
-
-    // If liquidity_per_period == 0 (due to precision loss), make it cliff-only lock
-    if (liquidityPerPeriod.isZero()) {
-        adjustedNumberOfPeriods = 0
-        adjustedFrequency = 0
-        adjustedCliffDuration = Math.max(cliffDuration, 1)
-    }
-
-    // cliff_unlock_liquidity = total_vested_liquidity - (liquidity_per_period * number_of_periods)
-    const cliffUnlockLiquidity = totalVestedLiquidity.sub(
-        liquidityPerPeriod.mul(new BN(adjustedNumberOfPeriods))
-    )
-
-    // calculate unlocked liquidity at nSeconds using vesting parameters
-    // cliff_point = current_timestamp (0) + cliff_duration
-    const cliffPoint = new BN(adjustedCliffDuration)
-    const currentPoint = new BN(nSeconds)
-
-    let unlockedLiquidity = new BN(0)
-
-    if (currentPoint.gte(cliffPoint)) {
-        // past cliff - add cliff unlock amount
-        unlockedLiquidity = cliffUnlockLiquidity
-
-        // calculate periods elapsed after cliff
-        if (adjustedFrequency > 0 && adjustedNumberOfPeriods > 0) {
-            const timeAfterCliff = currentPoint.sub(cliffPoint)
-            const periodsElapsed = timeAfterCliff
-                .div(new BN(adjustedFrequency))
-                .toNumber()
-            const actualPeriodsElapsed = Math.min(
-                periodsElapsed,
-                adjustedNumberOfPeriods
-            )
-            unlockedLiquidity = unlockedLiquidity.add(
-                liquidityPerPeriod.mul(new BN(actualPeriodsElapsed))
-            )
-        }
-    }
-
-    // locked_liquidity = total_vested_liquidity - unlocked_liquidity
-    const lockedLiquidity = totalVestedLiquidity.sub(unlockedLiquidity)
-
-    // liquidity_locked_bps = floor(locked_liquidity * MAX_BASIS_POINT / total_liquidity)
-    const liquidityLockedBps = lockedLiquidity
-        .mul(new BN(MAX_BASIS_POINT))
-        .div(totalLiquidity)
-
-    return liquidityLockedBps.toNumber()
-}
-
-/**
- * Calculate the locked liquidity BPS at a given time (in seconds) after migration
- * @param partnerPermanentLockedLiquidityPercentage - Partner's permanently locked liquidity percentage
- * @param creatorPermanentLockedLiquidityPercentage - Creator's permanently locked liquidity percentage
- * @param partnerLiquidityVestingInfo - Partner's liquidity vesting info (optional)
- * @param creatorLiquidityVestingInfo - Creator's liquidity vesting info (optional)
- * @param elapsedSeconds - Number of seconds after migration
- * @returns The total locked liquidity in BPS (basis points)
- */
-export function calculateLockedLiquidityBpsAtTime(
-    partnerPermanentLockedLiquidityPercentage: number,
-    creatorPermanentLockedLiquidityPercentage: number,
-    partnerLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
-    creatorLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
-    elapsedSeconds: number
-): number {
-    // calculate vested locked BPS using the same u128 arithmetic as on-chain
-    const partnerVestedLockedLiquidityBps =
-        getVestingLockedLiquidityBpsAtNSeconds(
-            partnerLiquidityVestingInfo,
-            elapsedSeconds
-        )
-    const creatorVestedLockedLiquidityBps =
-        getVestingLockedLiquidityBpsAtNSeconds(
-            creatorLiquidityVestingInfo,
-            elapsedSeconds
-        )
-
-    const partnerPermanentLockedLiquidityBps =
-        partnerPermanentLockedLiquidityPercentage * 100
-    const creatorPermanentLockedLiquidityBps =
-        creatorPermanentLockedLiquidityPercentage * 100
-
-    // total locked = partner_vested + partner_permanent + creator_vested + creator_permanent
-    const totalLockedLiquidityBpsAtNSeconds =
-        partnerVestedLockedLiquidityBps +
-        partnerPermanentLockedLiquidityBps +
-        creatorVestedLockedLiquidityBps +
-        creatorPermanentLockedLiquidityBps
-
-    return totalLockedLiquidityBpsAtNSeconds
 }

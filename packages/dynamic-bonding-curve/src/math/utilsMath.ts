@@ -1,6 +1,7 @@
 import BN from 'bn.js'
 import { SafeMath } from './safeMath'
 import { Rounding } from '../types'
+import { MAX_BASIS_POINT } from '../constants'
 
 /**
  * Multiply and divide with rounding using BN
@@ -28,6 +29,29 @@ export function mulDiv(x: BN, y: BN, denominator: BN, rounding: Rounding): BN {
         return numerator.div(denominator)
     } else {
         return prod.div(denominator)
+    }
+}
+
+/**
+ * Convert basis points to a fee numerator.
+ * @param bps - Basis points
+ * @param feeDenominator - Fee denominator
+ * @returns Fee numerator
+ * @throws If the calculation overflows
+ */
+export function toNumerator(bps: BN, feeDenominator: BN): BN {
+    try {
+        const numerator = mulDiv(
+            bps,
+            feeDenominator,
+            new BN(MAX_BASIS_POINT),
+            Rounding.Down
+        )
+        return numerator
+    } catch (error) {
+        throw new Error(
+            `Type cast failed or calculation overflow in toNumerator ${error}`
+        )
     }
 }
 
