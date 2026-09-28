@@ -34,6 +34,7 @@ import BN from 'bn.js'
 import Decimal from 'decimal.js'
 import { bpsToFeeNumerator, convertToLamports } from './utils'
 import { computeSqrtPriceStepBps } from './price'
+
 /**
  * Get the fee scheduler parameters
  * @param {number} startingBaseFeeBps - Starting fee in basis points
@@ -310,6 +311,7 @@ export function getDynamicFeeParams(
         variableFeeControl: variableFeeControl.toNumber(),
     }
 }
+
 /**
  * Derive the starting base fee BPS from baseFeeParams
  * For FeeSchedulerLinear/FeeSchedulerExponential: uses endingFeeBps (the fee at end of pre-migration curve)
