@@ -2785,7 +2785,7 @@ const exactOut = quoteSwap2({
 })
 ```
 
-Pass `baseTransferFeeBasisPoints` when `createConfig2` sets a base transfer fee. A Token-2022 quote mint still needs `quoteMint` and `currentEpoch`.
+Pass `baseTransferFeeBasisPoints` when `createConfig2` sets a base transfer fee. For a Token-2022 quote mint, set `config.quoteTokenFlag` to `TokenType.Token2022`; the quote then requires `quoteMint` and `currentEpoch`, which `getSwapQuoteTransferFees(connection, { quoteMint, quoteTokenFlag })` fetches before the pool exists.
 
 ---
 
@@ -2919,6 +2919,9 @@ interface SwapQuoteConfig {
     migrationQuoteThreshold: BN
     curve: Array<{ sqrtPrice: BN; liquidity: BN }>
     migrationSqrtPrice?: BN
+    quoteTokenFlag?: number // TokenType of the quote mint. Token2022 requires quoteMint and currentEpoch
+    quoteMint?: PublicKey
+    enableFirstSwapWithMinFee?: number | boolean
 }
 
 type SimulatedQuoteFromInputAmountParams = {

@@ -9,17 +9,18 @@ import {
     SwapMode,
     type PoolConfig,
     type QuoteSwap2Params,
+    type QuoteTransferFees,
     type SwapQuote2Result,
     type SwapQuoteConfig,
     type VirtualPool,
 } from '../types'
 
 /**
- * A `buildCurve` result and an on-chain `PoolConfig` differ in two fields the
- * quote math reads. Fill those in and leave everything else as passed.
+ * A `buildCurve` result lacks `migrationSqrtPrice` and `dynamicFee.initialized`,
+ * which the quote math reads. Fill those in and leave everything else as passed.
  */
 function normalizeQuoteConfig(config: SwapQuoteConfig): PoolConfig {
-    if (!config.curve || config.curve.length === 0) {
+    if (!config.curve?.length) {
         throw new Error('config.curve is empty')
     }
 
@@ -30,7 +31,6 @@ function normalizeQuoteConfig(config: SwapQuoteConfig): PoolConfig {
             config.sqrtStartPrice,
             config.curve
         )
-
     const dynamicFee = config.poolFees.dynamicFee
 
     return {
@@ -39,91 +39,96 @@ function normalizeQuoteConfig(config: SwapQuoteConfig): PoolConfig {
         poolFees: {
             ...config.poolFees,
             dynamicFee: dynamicFee
-                ? {
-                      ...dynamicFee,
-                      initialized: dynamicFee.initialized ?? 1,
-                  }
+                ? { ...dynamicFee, initialized: dynamicFee.initialized ?? 1 }
                 : { initialized: 0, binStep: 0, variableFeeControl: 0 },
         },
-    } as unknown as PoolConfig
+    } as PoolConfig
 }
 
-/** Launch-state pool: price at `sqrtStartPrice`, reserves and volatility at zero. */
+/**
+ * The state the program writes at pool creation: price at `sqrtStartPrice`,
+ * no reserves, a zeroed volatility tracker, and no swap yet.
+ */
 function buildSimulatedVirtualPool(sqrtStartPrice: BN): VirtualPool {
     return {
         poolState: {
-            sqrtPrice: new BN(sqrtStartPrice),
+            sqrtPrice: sqrtStartPrice,
             baseReserve: new BN(0),
             quoteReserve: new BN(0),
             activationPoint: new BN(0),
+            hasSwap: 0,
             volatilityTracker: {
                 lastUpdateTimestamp: new BN(0),
                 sqrtPriceReference: new BN(0),
                 volatilityAccumulator: new BN(0),
                 volatilityReference: new BN(0),
-                padding: [],
             },
         },
-    } as unknown as VirtualPool
+    } as VirtualPool
 }
 
 /**
  * Quote exact-in, partial-fill, or exact-out.
- * Omit `virtualPool` to price a curve before the pool account exists.
- * An existing pool needs `currentPoint`, otherwise time-based fees are quoted at activation.
+ * Omit `virtualPool` to price a `buildCurve` result before the config and pool accounts exist.
+ * An existing pool needs `currentPoint`, otherwise time-based fees would be quoted at activation.
  */
 export function quoteSwap2(params: QuoteSwap2Params): SwapQuote2Result {
     if (params.virtualPool && !params.currentPoint) {
         throw new Error('currentPoint is required when virtualPool is set')
     }
 
-    const poolConfig = normalizeQuoteConfig(params.config)
+    const config = normalizeQuoteConfig(params.config)
     const virtualPool =
-        params.virtualPool ??
-        buildSimulatedVirtualPool(poolConfig.sqrtStartPrice)
+        params.virtualPool ?? buildSimulatedVirtualPool(config.sqrtStartPrice)
     const currentPoint = params.currentPoint ?? new BN(0)
     const slippageBps = params.slippageBps ?? 0
     const hasReferral = params.hasReferral ?? false
     const eligibleForFirstSwapWithMinFee =
         params.eligibleForFirstSwapWithMinFee ?? false
+    const transferFees: QuoteTransferFees = {
+        currentEpoch: params.currentEpoch,
+        baseMint: params.baseMint,
+        quoteMint: params.quoteMint,
+        baseTransferFeeBasisPoints: params.baseTransferFeeBasisPoints,
+    }
 
     if (params.swapMode === SwapMode.ExactOut) {
         return swapQuoteExactOut(
             virtualPool,
-            poolConfig,
+            config,
             params.swapBaseForQuote,
             params.amountOut,
             slippageBps,
             hasReferral,
             currentPoint,
             eligibleForFirstSwapWithMinFee,
-            params
+            transferFees
         )
     }
 
     if (params.swapMode === SwapMode.PartialFill) {
         return swapQuotePartialFill(
             virtualPool,
-            poolConfig,
+            config,
             params.swapBaseForQuote,
             params.amountIn,
             slippageBps,
             hasReferral,
             currentPoint,
             eligibleForFirstSwapWithMinFee,
-            params
+            transferFees
         )
     }
 
     return swapQuoteExactIn(
         virtualPool,
-        poolConfig,
+        config,
         params.swapBaseForQuote,
         params.amountIn,
         slippageBps,
         hasReferral,
         currentPoint,
         eligibleForFirstSwapWithMinFee,
-        params
+        transferFees
     )
 }

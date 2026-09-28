@@ -670,6 +670,11 @@ export interface SwapQuoteConfig {
     migrationQuoteThreshold: BN
     curve: Array<{ sqrtPrice: BN; liquidity: BN }>
     migrationSqrtPrice?: BN
+    // TokenType of the quote mint. Token2022 makes the quote require quoteMint and currentEpoch.
+    quoteTokenFlag?: number
+    quoteMint?: PublicKey
+    // boolean from buildCurve, u8 on-chain
+    enableFirstSwapWithMinFee?: number | boolean
 }
 
 export type SimulatedQuoteBaseParams = {
