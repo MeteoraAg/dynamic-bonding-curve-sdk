@@ -1,8 +1,6 @@
 import { ActivationType } from '../types'
 import BN from 'bn.js'
-import { Commitment, Connection, PublicKey } from '@solana/web3.js'
-import type { DynamicBondingCurve } from '../idl/dynamic-bonding-curve/idl'
-import { Program } from '@coral-xyz/anchor'
+import { Connection, PublicKey } from '@solana/web3.js'
 import { convertToLamports } from './utils'
 import { getTokenDecimals } from './token'
 /**
@@ -35,31 +33,6 @@ export function getSecondKey(key1: PublicKey, key2: PublicKey) {
         return buf2
     }
     return buf1
-}
-
-/**
- * Generic account fetch helper
- * @param accountAddress - The address of the account to fetch
- * @param accountType - The type of account to fetch from program.account
- * @param program - The program instance
- * @param commitment - The commitment level
- * @returns The fetched account data
- */
-export async function getAccountData<T>(
-    accountAddress: PublicKey | string,
-    accountType: keyof Program<DynamicBondingCurve>['account'],
-    program: Program<DynamicBondingCurve>,
-    commitment: Commitment
-): Promise<T> {
-    const address =
-        accountAddress instanceof PublicKey
-            ? accountAddress
-            : new PublicKey(accountAddress)
-
-    return (await program.account[accountType].fetchNullable(
-        address,
-        commitment
-    )) as T
 }
 
 /**
