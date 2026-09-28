@@ -7,19 +7,19 @@ import {
 import { getMigrationThresholdPrice } from './migration'
 import {
     SwapMode,
-    type PoolConfig,
+    type QuotePoolConfig,
     type QuoteSwap2Params,
     type QuoteTransferFees,
+    type QuoteVirtualPool,
     type SwapQuote2Result,
     type SwapQuoteConfig,
-    type VirtualPool,
 } from '../types'
 
 /**
  * A `buildCurve` result lacks `migrationSqrtPrice` and `dynamicFee.initialized`,
  * which the quote math reads. Fill those in and leave everything else as passed.
  */
-function normalizeQuoteConfig(config: SwapQuoteConfig): PoolConfig {
+function normalizeQuoteConfig(config: SwapQuoteConfig): QuotePoolConfig {
     if (!config.curve?.length) {
         throw new Error('config.curve is empty')
     }
@@ -37,34 +37,28 @@ function normalizeQuoteConfig(config: SwapQuoteConfig): PoolConfig {
         ...config,
         migrationSqrtPrice,
         poolFees: {
-            ...config.poolFees,
+            baseFee: config.poolFees.baseFee,
             dynamicFee: dynamicFee
                 ? { ...dynamicFee, initialized: dynamicFee.initialized ?? 1 }
                 : { initialized: 0, binStep: 0, variableFeeControl: 0 },
         },
-    } as PoolConfig
+    }
 }
 
 /**
- * The state the program writes at pool creation: price at `sqrtStartPrice`,
- * no reserves, a zeroed volatility tracker, and no swap yet.
+ * The pool fields the quote math reads, as the program writes them at creation:
+ * price at `sqrtStartPrice`, no quote reserve, no volatility, no swap yet.
  */
-function buildSimulatedVirtualPool(sqrtStartPrice: BN): VirtualPool {
+function buildSimulatedVirtualPool(sqrtStartPrice: BN): QuoteVirtualPool {
     return {
         poolState: {
             sqrtPrice: sqrtStartPrice,
-            baseReserve: new BN(0),
             quoteReserve: new BN(0),
             activationPoint: new BN(0),
             hasSwap: 0,
-            volatilityTracker: {
-                lastUpdateTimestamp: new BN(0),
-                sqrtPriceReference: new BN(0),
-                volatilityAccumulator: new BN(0),
-                volatilityReference: new BN(0),
-            },
+            volatilityTracker: { volatilityAccumulator: new BN(0) },
         },
-    } as VirtualPool
+    }
 }
 
 /**

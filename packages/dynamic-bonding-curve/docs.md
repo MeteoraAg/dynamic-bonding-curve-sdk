@@ -112,6 +112,7 @@
     - [bpsToFeeNumerator](#bpsToFeeNumerator)
     - [feeNumeratorToBps](#feeNumeratorToBps)
     - [fromDecimalToBN](#fromDecimalToBN)
+    - [rateLimiterApplied](#rateLimiterApplied)
 
 - [Calculation Functions](#calculation-functions)
     - [getFeeSchedulerParams](#getFeeSchedulerParams)
@@ -2921,6 +2922,7 @@ interface SwapQuoteConfig {
     migrationSqrtPrice?: BN
     quoteTokenFlag?: number // TokenType of the quote mint. Token2022 requires quoteMint and currentEpoch
     quoteMint?: PublicKey
+    transferFeeBasisPoints?: number // The base transfer fee in basis points, when known
     enableFirstSwapWithMinFee?: number | boolean
 }
 
@@ -5613,6 +5615,38 @@ value: Decimal // The value
 **Returns**
 
 - The rounded-down value.
+
+---
+
+### rateLimiterApplied
+
+Returns whether the rate limiter applies to a swap right now. Use it when building the swap instruction yourself: a rate-limited swap must include the instructions sysvar in its remaining accounts. `client.pool.swap`, `swap2`, and `swap2WithTransferHook` call it for you.
+
+**Function**
+
+```typescript
+function rateLimiterApplied(params: {
+    connection: Connection
+    baseFee: QuoteBaseFee
+    activationType: ActivationType
+    activationPoint: BN
+    swapBaseForQuote: boolean
+}): Promise<boolean>
+```
+
+**Parameters**
+
+```typescript
+connection: Connection // The Solana connection
+baseFee: QuoteBaseFee // poolConfigState.poolFees.baseFee
+activationType: ActivationType // poolConfigState.activationType
+activationPoint: BN // virtualPoolState.poolState.activationPoint
+swapBaseForQuote: boolean // The trade direction
+```
+
+**Returns**
+
+- `true` when the pool uses `BaseFeeMode.RateLimiter`, the swap buys base with quote, and the current point is within the limiter duration.
 
 ---
 

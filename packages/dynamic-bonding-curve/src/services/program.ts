@@ -605,10 +605,7 @@ export class DynamicBondingCurveProgram {
 
         const rateLimited = await rateLimiterApplied({
             connection: this.connection,
-            baseFeeMode: baseFee.baseFeeMode,
-            firstFactor: baseFee.firstFactor,
-            secondFactor: baseFee.secondFactor,
-            thirdFactor: baseFee.thirdFactor,
+            baseFee,
             activationType,
             activationPoint: new BN(0),
             swapBaseForQuote,
@@ -702,10 +699,7 @@ export class DynamicBondingCurveProgram {
 
         const rateLimited = await rateLimiterApplied({
             connection: this.connection,
-            baseFeeMode: baseFee.baseFeeMode,
-            firstFactor: baseFee.firstFactor,
-            secondFactor: baseFee.secondFactor,
-            thirdFactor: baseFee.thirdFactor,
+            baseFee,
             activationType,
             activationPoint: new BN(0),
             swapBaseForQuote: false,

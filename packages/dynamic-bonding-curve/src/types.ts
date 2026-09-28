@@ -650,31 +650,62 @@ export type QuoteSwap2Params = {
           }
     )
 
-export interface SwapQuoteConfig {
+// The fields the quote math reads. A PoolConfig and a VirtualPool satisfy these;
+// so does a buildCurve result once quoteSwap2 fills in migrationSqrtPrice and dynamicFee.initialized.
+export type QuoteBaseFee = Pick<
+    BaseFeeConfig,
+    | 'cliffFeeNumerator'
+    | 'firstFactor'
+    | 'secondFactor'
+    | 'thirdFactor'
+    | 'baseFeeMode'
+>
+export type QuoteDynamicFee = Pick<
+    DynamicFeeConfig,
+    'initialized' | 'binStep' | 'variableFeeControl'
+>
+export type QuotePoolFees = {
+    baseFee: QuoteBaseFee
+    dynamicFee: QuoteDynamicFee
+}
+export type QuotePoolConfig = {
+    poolFees: QuotePoolFees
+    collectFeeMode: number
+    sqrtStartPrice: BN
+    migrationQuoteThreshold: BN
+    migrationSqrtPrice: BN
+    curve: LiquidityDistributionParameters[]
+    quoteMint?: PublicKey
+    quoteTokenFlag?: number
+    transferFeeBasisPoints?: number
+    // boolean from buildCurve, u8 on-chain
+    enableFirstSwapWithMinFee?: number | boolean
+}
+export type QuoteVolatilityTracker = Pick<
+    VolatilityTracker,
+    'volatilityAccumulator'
+>
+export type QuoteVirtualPool = {
+    poolState: Pick<
+        VirtualPool['poolState'],
+        'sqrtPrice' | 'quoteReserve' | 'activationPoint' | 'hasSwap'
+    > & { volatilityTracker: QuoteVolatilityTracker }
+}
+
+// Quote input for a curve that has no accounts yet.
+export interface SwapQuoteConfig extends Omit<
+    QuotePoolConfig,
+    'poolFees' | 'migrationSqrtPrice'
+> {
     poolFees: {
-        baseFee: {
-            cliffFeeNumerator: BN
-            firstFactor: number
-            secondFactor: BN
-            thirdFactor: BN
-            baseFeeMode: number
-        }
+        baseFee: QuoteBaseFee
         dynamicFee?: {
             initialized?: number
             binStep: number
             variableFeeControl: number
         } | null
     }
-    collectFeeMode: number
-    sqrtStartPrice: BN
-    migrationQuoteThreshold: BN
-    curve: Array<{ sqrtPrice: BN; liquidity: BN }>
     migrationSqrtPrice?: BN
-    // TokenType of the quote mint. Token2022 makes the quote require quoteMint and currentEpoch.
-    quoteTokenFlag?: number
-    quoteMint?: PublicKey
-    // boolean from buildCurve, u8 on-chain
-    enableFirstSwapWithMinFee?: number | boolean
 }
 
 export type SimulatedQuoteBaseParams = {

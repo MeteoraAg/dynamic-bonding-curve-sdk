@@ -20,11 +20,11 @@ import {
     SwapResult,
     TradeDirection,
     type FeeMode,
-    type PoolConfig,
+    type QuotePoolConfig,
     type SwapQuoteResult,
     type SwapAmount,
     type SwapResult2,
-    type VirtualPool,
+    type QuoteVirtualPool,
     SwapQuote2Result,
     type QuoteTransferFees,
 } from '../types'
@@ -55,8 +55,8 @@ function maximumAmountInWithSlippage(amount: BN, slippageBps: number): BN {
 
 // the caller still has to bundle the swap after initialize pool in the same transaction, without CPI
 function isFirstSwapWithMinFee(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
+    virtualPool: QuoteVirtualPool,
+    config: QuotePoolConfig,
     hasReferral: boolean,
     eligibleForFirstSwapWithMinFee: boolean
 ): boolean {
@@ -69,8 +69,8 @@ function isFirstSwapWithMinFee(
 }
 
 function beginSwapQuote(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
+    virtualPool: QuoteVirtualPool,
+    config: QuotePoolConfig,
     swapBaseForQuote: boolean,
     amount: BN,
     hasReferral: boolean,
@@ -115,8 +115,8 @@ function beginSwapQuote(
  * @returns Swap result
  */
 export function getSwapResult(
-    virtualPool: VirtualPool,
-    configState: PoolConfig,
+    virtualPool: QuoteVirtualPool,
+    configState: QuotePoolConfig,
     amountIn: BN,
     feeMode: FeeMode,
     tradeDirection: TradeDirection,
@@ -222,8 +222,8 @@ export function getSwapResult(
  * @returns Swap quote result
  */
 export function swapQuote(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
+    virtualPool: QuoteVirtualPool,
+    config: QuotePoolConfig,
     swapBaseForQuote: boolean,
     amountIn: BN,
     slippageBps: number = 0,
@@ -292,8 +292,8 @@ export function swapQuote(
  * @returns Swap result
  */
 export function getSwapResultFromExactInput(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
+    virtualPool: QuoteVirtualPool,
+    config: QuotePoolConfig,
     amountIn: BN,
     feeMode: FeeMode,
     tradeDirection: TradeDirection,
@@ -401,8 +401,8 @@ export function getSwapResultFromExactInput(
  * @returns Swap result
  */
 export function getSwapResultFromPartialInput(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
+    virtualPool: QuoteVirtualPool,
+    config: QuotePoolConfig,
     amountIn: BN,
     feeMode: FeeMode,
     tradeDirection: TradeDirection,
@@ -773,8 +773,8 @@ export function calculateQuoteToBaseFromAmountIn(
  * @returns Swap result
  */
 export function getSwapResultFromExactOutput(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
+    virtualPool: QuoteVirtualPool,
+    config: QuotePoolConfig,
     amountOut: BN,
     feeMode: FeeMode,
     tradeDirection: TradeDirection,
@@ -899,7 +899,7 @@ export function getSwapResultFromExactOutput(
  * @returns Swap amount with input calculated
  */
 export function calculateBaseToQuoteFromAmountOut(
-    configState: PoolConfig,
+    configState: QuotePoolConfig,
     currentSqrtPrice: BN,
     outAmount: BN
 ): SwapAmount {
@@ -1008,7 +1008,7 @@ export function calculateBaseToQuoteFromAmountOut(
  * @returns Swap amount with input calculated
  */
 export function calculateQuoteToBaseFromAmountOut(
-    configState: PoolConfig,
+    configState: QuotePoolConfig,
     currentSqrtPrice: BN,
     outAmount: BN
 ): SwapAmount {
@@ -1092,8 +1092,8 @@ export function calculateQuoteToBaseFromAmountOut(
  * @returns Swap quote result
  */
 export function swapQuoteExactIn(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
+    virtualPool: QuoteVirtualPool,
+    config: QuotePoolConfig,
     swapBaseForQuote: boolean,
     amountIn: BN,
     slippageBps: number = 0,
@@ -1160,8 +1160,8 @@ export function swapQuoteExactIn(
  * @returns Swap quote result
  */
 export function swapQuotePartialFill(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
+    virtualPool: QuoteVirtualPool,
+    config: QuotePoolConfig,
     swapBaseForQuote: boolean,
     amountIn: BN,
     slippageBps: number = 0,
@@ -1235,8 +1235,8 @@ export function swapQuotePartialFill(
  * @returns Swap quote result with input amount calculated
  */
 export function swapQuoteExactOut(
-    virtualPool: VirtualPool,
-    config: PoolConfig,
+    virtualPool: QuoteVirtualPool,
+    config: QuotePoolConfig,
     swapBaseForQuote: boolean,
     outAmount: BN,
     slippageBps: number = 0,
