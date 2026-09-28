@@ -16,7 +16,6 @@ import {
     TokenType,
     TokenAuthorityOption,
 } from '../src'
-import { convertBNToDecimal } from './utils/common'
 
 describe('buildCurveWithMarketCap tests', () => {
     const baseParams: BuildCurveBaseParams = {
@@ -69,44 +68,26 @@ describe('buildCurveWithMarketCap tests', () => {
     }
 
     test('build curve by market cap 1', () => {
-        console.log('\n testing build curve by market cap...')
         const config = buildCurveWithMarketCap({
             ...baseParams,
             initialMarketCap: 23.5,
             migrationMarketCap: 405.882352941,
         })
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold
-                .div(new BN(10 ** TokenDecimal.NINE))
-                .toString()
-        )
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
     })
 
     test('build curve by market cap 2', () => {
-        console.log('\n testing build curve by market cap...')
         const config = buildCurveWithMarketCap({
             ...baseParams,
             initialMarketCap: 0.1,
             migrationMarketCap: 0.5,
         })
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold.toString()
-        )
-
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
     })
 
     test('build curve by market cap with locked vesting', () => {
-        console.log('\n testing build curve with locked vesting...')
         const lockedVestingConfig = {
             totalLockedVestingAmount: 10000000,
             numberOfVestingPeriod: 1000,
@@ -122,14 +103,6 @@ describe('buildCurveWithMarketCap tests', () => {
             migrationMarketCap: 462.779320376,
         })
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold
-                .div(new BN(10 ** TokenDecimal.NINE))
-                .toString()
-        )
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
 
         const lockedVesting = getLockedVestingParams(
@@ -141,11 +114,7 @@ describe('buildCurveWithMarketCap tests', () => {
             baseParams.token.tokenBaseDecimal
         )
 
-        console.log('lockedVesting', convertBNToDecimal(lockedVesting))
-
         const totalVestingAmount = getTotalVestingAmount(lockedVesting)
-
-        console.log('totalVestingAmount', totalVestingAmount.toString())
 
         const vestingPercentage = totalVestingAmount
             .mul(new BN(100))
@@ -177,8 +146,6 @@ describe('buildCurveWithMarketCap tests', () => {
     })
 
     test('build curve by market cap 3', () => {
-        console.log('\n testing build curve by market cap...')
-
         const config = buildCurveWithMarketCap({
             token: {
                 tokenType: TokenType.SPLToken,
@@ -230,13 +197,6 @@ describe('buildCurveWithMarketCap tests', () => {
             migrationMarketCap: 3000,
         })
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold.toString()
-        )
-
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
     })
 })

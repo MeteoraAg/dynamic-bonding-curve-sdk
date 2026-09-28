@@ -1,6 +1,5 @@
 import { expect, test, describe } from 'vitest'
 import { buildCurveWithTwoSegments } from '../src/helpers'
-import BN from 'bn.js'
 import {
     ActivationType,
     BaseFeeMode,
@@ -12,7 +11,6 @@ import {
     TokenType,
     TokenAuthorityOption,
 } from '../src'
-import { convertBNToDecimal } from './utils/common'
 
 describe('buildCurveWithTwoSegments tests', () => {
     const baseParams: BuildCurveBaseParams = {
@@ -65,8 +63,6 @@ describe('buildCurveWithTwoSegments tests', () => {
     }
 
     test('build curve with two segments', () => {
-        console.log('\n testing build curve with two segments...')
-
         const config = buildCurveWithTwoSegments({
             ...baseParams,
             token: {
@@ -98,22 +94,6 @@ describe('buildCurveWithTwoSegments tests', () => {
             percentageSupplyOnMigration: 20,
         })
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold
-                .div(new BN(10 ** TokenDecimal.NINE))
-                .toString()
-        )
-        console.log(
-            'baseFeeParams',
-            convertBNToDecimal(config.poolFees.baseFee)
-        )
-        console.log(
-            'lockedVestingParams',
-            convertBNToDecimal(config.lockedVesting)
-        )
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
     })
 })
