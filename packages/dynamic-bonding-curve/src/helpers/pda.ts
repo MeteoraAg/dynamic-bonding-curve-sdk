@@ -8,7 +8,24 @@ import {
     VAULT_PROGRAM_ID,
     DYNAMIC_BONDING_CURVE_PROGRAM_ID,
 } from '../constants'
-import { getFirstKey, getSecondKey } from './chain'
+
+function getFirstKey(key1: PublicKey, key2: PublicKey) {
+    const buf1 = key1.toBuffer()
+    const buf2 = key2.toBuffer()
+    if (Buffer.compare(buf1, buf2) === 1) {
+        return buf1
+    }
+    return buf2
+}
+
+function getSecondKey(key1: PublicKey, key2: PublicKey) {
+    const buf1 = key1.toBuffer()
+    const buf2 = key2.toBuffer()
+    if (Buffer.compare(buf1, buf2) === 1) {
+        return buf2
+    }
+    return buf1
+}
 
 const SEED = Object.freeze({
     POOL_AUTHORITY: 'pool_authority',

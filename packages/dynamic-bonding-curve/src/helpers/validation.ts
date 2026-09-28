@@ -278,9 +278,6 @@ export function validateFeeRateLimiter(
     )
 }
 
-/**
- * Validate the dynamic fee parameters
- */
 export function validateDynamicFee(
     dynamicFee: DynamicFeeParameters | undefined
 ): boolean {
@@ -680,18 +677,12 @@ export function validateMinimumLockedLiquidity(
     return lockedBpsAtDay1 >= MIN_LOCKED_LIQUIDITY_BPS
 }
 
-/**
- * Validate the migrated collect fee mode
- */
 export function validateMigratedCollectFeeMode(
     collectFeeMode: number
 ): boolean {
     return Object.values(MigratedCollectFeeMode).includes(collectFeeMode)
 }
 
-/**
- * Validate the compounding fee BPS
- */
 export function validateCompoundingFeeBps(
     collectFeeMode: number,
     compoundingFeeBps: number
@@ -702,9 +693,6 @@ export function validateCompoundingFeeBps(
     return compoundingFeeBps === 0
 }
 
-/**
- * Validate the migrated pool fee
- */
 export function validateMigratedPoolFee(
     migratedPoolFee: MigratedPoolFee,
     migrationOption?: MigrationOption,
@@ -866,9 +854,6 @@ export function validateTransferFeeParameters(
     }
 }
 
-/**
- * Validate the transfer fee config mode
- */
 function validateTransferFeeConfigMode(configParam: {
     tokenSupply: CreateConfigParams['tokenSupply']
     lockedVesting: CreateConfigParams['lockedVesting']
@@ -1457,9 +1442,6 @@ export function validateMarketCapFeeSchedulerRequiresPoolFeeBps(
     return true
 }
 
-/**
- * Validate the migration fee
- */
 export function validateMigrationFee(migrationFee: {
     feePercentage: number
     creatorFeePercentage: number
