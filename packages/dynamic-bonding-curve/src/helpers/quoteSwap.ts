@@ -7,122 +7,164 @@ import {
 import { getMigrationThresholdPrice } from './common'
 import {
     SwapMode,
+    type ConfigParameters,
     type PoolConfig,
-    type QuoteSwap2Params,
+    type QuoteTransferFees,
+    type SimulatedQuoteBaseParams,
+    type SimulatedQuoteFromInputAmountParams,
+    type SimulatedQuoteFromOutputAmountParams,
     type SwapQuote2Result,
-    type SwapQuoteConfig,
     type VirtualPool,
 } from '../types'
 
-/**
- * A `buildCurve` result and an on-chain `PoolConfig` differ in two fields the
- * quote math reads. Fill those in and leave everything else as passed.
- */
-function normalizeQuoteConfig(config: SwapQuoteConfig): PoolConfig {
+function migrationSqrtPrice(config: ConfigParameters): BN {
     if (!config.curve || config.curve.length === 0) {
         throw new Error('config.curve is empty')
     }
 
-    const migrationSqrtPrice =
-        config.migrationSqrtPrice ??
-        getMigrationThresholdPrice(
-            config.migrationQuoteThreshold,
-            config.sqrtStartPrice,
-            config.curve
-        )
-
-    const dynamicFee = config.poolFees.dynamicFee
-
-    return {
-        ...config,
-        migrationSqrtPrice,
-        poolFees: {
-            ...config.poolFees,
-            dynamicFee: dynamicFee
-                ? {
-                      ...dynamicFee,
-                      initialized: dynamicFee.initialized ?? 1,
-                  }
-                : { initialized: 0, binStep: 0, variableFeeControl: 0 },
-        },
-    } as unknown as PoolConfig
-}
-
-/** Launch-state pool: price at `sqrtStartPrice`, reserves and volatility at zero. */
-function buildSimulatedVirtualPool(sqrtStartPrice: BN): VirtualPool {
-    return {
-        poolState: {
-            sqrtPrice: new BN(sqrtStartPrice),
-            baseReserve: new BN(0),
-            quoteReserve: new BN(0),
-            activationPoint: new BN(0),
-            volatilityTracker: {
-                lastUpdateTimestamp: new BN(0),
-                sqrtPriceReference: new BN(0),
-                volatilityAccumulator: new BN(0),
-                volatilityReference: new BN(0),
-                padding: [],
-            },
-        },
-    } as unknown as VirtualPool
+    return getMigrationThresholdPrice(
+        config.migrationQuoteThreshold,
+        config.sqrtStartPrice,
+        config.curve
+    )
 }
 
 /**
- * Quote exact-in, partial-fill, or exact-out.
- * Omit `virtualPool` to price a curve before the pool account exists.
+ * `process_create_config` sets `initialized` to 1 when dynamic-fee parameters
+ * are present and leaves the default (0) when they are not.
  */
-export function quoteSwap2(params: QuoteSwap2Params): SwapQuote2Result {
-    const poolConfig = normalizeQuoteConfig(params.config)
-    const virtualPool =
-        params.virtualPool ??
-        buildSimulatedVirtualPool(poolConfig.sqrtStartPrice)
-    const currentPoint =
-        params.currentPoint ??
-        (params.virtualPool
-            ? params.virtualPool.poolState.activationPoint
-            : new BN(0))
+function dynamicFeeFromParameters(
+    dynamicFee: ConfigParameters['poolFees']['dynamicFee']
+) {
+    if (!dynamicFee) {
+        return { initialized: 0, binStep: 0, variableFeeControl: 0 }
+    }
+
+    return {
+        ...dynamicFee,
+        initialized: 1,
+    }
+}
+
+/**
+ * Fields `process_create_config` writes that the quote math reads.
+ * The quote functions are typed on the account, so this is asserted at the
+ * boundary. Padding and pubkeys the math does not read are left unset.
+ */
+function poolConfigFromParameters(
+    config: ConfigParameters,
+    quoteTokenFlag: number | undefined
+): PoolConfig {
+    return {
+        poolFees: {
+            baseFee: config.poolFees.baseFee,
+            dynamicFee: dynamicFeeFromParameters(config.poolFees.dynamicFee),
+        },
+        collectFeeMode: config.collectFeeMode,
+        sqrtStartPrice: config.sqrtStartPrice,
+        migrationQuoteThreshold: config.migrationQuoteThreshold,
+        migrationSqrtPrice: migrationSqrtPrice(config),
+        curve: config.curve,
+        enableFirstSwapWithMinFee: config.enableFirstSwapWithMinFee ? 1 : 0,
+        quoteTokenFlag,
+    } as PoolConfig
+}
+
+/** Pool `initialize_pool` writes: start price, zero volatility, `has_swap` 0. */
+function initialVirtualPool(
+    sqrtStartPrice: BN,
+    activationPoint: BN
+): VirtualPool {
+    return {
+        poolState: {
+            sqrtPrice: sqrtStartPrice,
+            quoteReserve: new BN(0),
+            activationPoint,
+            hasSwap: 0,
+            volatilityTracker: {
+                volatilityAccumulator: new BN(0),
+            },
+        },
+    } as VirtualPool
+}
+
+function quoteAtInitialization(
+    params: SimulatedQuoteBaseParams &
+        (
+            | {
+                  swapMode?: SwapMode.ExactIn | SwapMode.PartialFill
+                  amountIn: BN
+              }
+            | {
+                  swapMode: SwapMode.ExactOut
+                  amountOut: BN
+              }
+        )
+): SwapQuote2Result {
+    const currentPoint = params.currentPoint ?? new BN(0)
+    const config = poolConfigFromParameters(params.config, params.quoteTokenFlag)
+    const virtualPool = initialVirtualPool(
+        params.config.sqrtStartPrice,
+        currentPoint
+    )
     const slippageBps = params.slippageBps ?? 0
     const hasReferral = params.hasReferral ?? false
     const eligibleForFirstSwapWithMinFee =
         params.eligibleForFirstSwapWithMinFee ?? false
+    const transferFees: QuoteTransferFees = params
 
     if (params.swapMode === SwapMode.ExactOut) {
         return swapQuoteExactOut(
             virtualPool,
-            poolConfig,
+            config,
             params.swapBaseForQuote,
             params.amountOut,
             slippageBps,
             hasReferral,
             currentPoint,
             eligibleForFirstSwapWithMinFee,
-            params
+            transferFees
         )
     }
 
     if (params.swapMode === SwapMode.PartialFill) {
         return swapQuotePartialFill(
             virtualPool,
-            poolConfig,
+            config,
             params.swapBaseForQuote,
             params.amountIn,
             slippageBps,
             hasReferral,
             currentPoint,
             eligibleForFirstSwapWithMinFee,
-            params
+            transferFees
         )
     }
 
     return swapQuoteExactIn(
         virtualPool,
-        poolConfig,
+        config,
         params.swapBaseForQuote,
         params.amountIn,
         slippageBps,
         hasReferral,
         currentPoint,
         eligibleForFirstSwapWithMinFee,
-        params
+        transferFees
     )
+}
+
+export function getQuoteFromInputAmount(
+    params: SimulatedQuoteFromInputAmountParams
+): SwapQuote2Result {
+    return quoteAtInitialization(params)
+}
+
+export function getQuoteFromOutputAmount(
+    params: SimulatedQuoteFromOutputAmountParams
+): SwapQuote2Result {
+    return quoteAtInitialization({
+        ...params,
+        swapMode: SwapMode.ExactOut,
+    })
 }

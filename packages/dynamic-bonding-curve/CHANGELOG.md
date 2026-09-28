@@ -9,7 +9,7 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - `client.partner.createConfig2`. Pass `transferFeeParameters` for a base-mint transfer fee, or `null` when there is none.
 - `TransferFeeWithheldAuthority` and `MigratedTransferFeeAuthorityOption`.
 - Swap quotes account for Token-2022 transfer fees and return `includedTransferFeeAmountIn` and `excludedTransferFeeAmountOut`. `getSwapQuoteTransferFees` fetches the quote mint and current epoch.
-- `quoteSwap2` quotes `SwapMode.ExactIn`, `SwapMode.PartialFill`, and `SwapMode.ExactOut`. Pass `virtualPool` for an existing pool. Omit it to quote a `buildCurve` result before the pool exists. `client.pool.swapQuote2`, `getQuoteFromInputAmount`, and `getQuoteFromOutputAmount` call it.
+- `getQuoteFromInputAmount` and `getQuoteFromOutputAmount` quote a `buildCurve` result before a pool exists. `client.pool.swapQuote2` quotes an existing pool and requires `currentPoint`.
 
 ### Changed
 
@@ -25,6 +25,7 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 ### Breaking Changes
 
 - Swap quotes for a Token-2022 quote mint require `quoteMint` and `currentEpoch`.
+- Removed `quoteSwap2` and `SwapQuoteConfig`. Quote an existing pool with `swapQuote2`. Quote a `buildCurve` result with `getQuoteFromInputAmount` or `getQuoteFromOutputAmount`. `getQuoteFrom*` takes `ConfigParameters` and does not accept a decoded `PoolConfig`.
 - `getMigratedPoolFeeParams` throws for `MigrationFeeOption.Customizable` when `migratedPoolFee.poolFeeBps` is not set.
 - `swap`, `swap2`, `claimPartnerTradingFee`, and `claimCreatorTradingFee` reject transfer-hook pools. Use `swap2WithTransferHook`, `claimPartnerTradingFee2`, and `claimCreatorTradingFee2`. Standard pool creation rejects a transfer-hook config, and transfer-hook pool creation rejects a standard config.
 

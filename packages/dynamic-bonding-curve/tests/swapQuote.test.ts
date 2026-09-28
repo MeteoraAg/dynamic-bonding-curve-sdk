@@ -280,14 +280,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
             slippageBps: 50,
         })
 
-        const quoteFromPoolConfig = dbcClient.pool.getQuoteFromInputAmount({
-            config: poolConfigState!,
-            swapBaseForQuote: false,
-            swapMode: SwapMode.ExactIn,
-            amountIn,
-            slippageBps: 50,
-        })
-
         expect(quoteFromBuildCurve.includedFeeInputAmount.eq(amountIn)).toBe(
             true
         )
@@ -313,13 +305,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         )
         expect(
             quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)
-        ).toBe(true)
-
-        expect(quoteFromPoolConfig.outputAmount.eq(expected.outputAmount)).toBe(
-            true
-        )
-        expect(
-            quoteFromPoolConfig.minimumAmountOut!.eq(expected.minimumAmountOut!)
         ).toBe(true)
     })
 
@@ -357,13 +342,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
             slippageBps: 50,
         })
 
-        const quoteFromPoolConfig = dbcClient.pool.getQuoteFromOutputAmount({
-            config: poolConfigState!,
-            swapBaseForQuote: false,
-            amountOut,
-            slippageBps: 50,
-        })
-
         expect(
             quoteFromBuildCurve.includedFeeInputAmount.eq(
                 expected.includedFeeInputAmount
@@ -391,15 +369,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         )
         expect(
             quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)
-        ).toBe(true)
-
-        expect(
-            quoteFromPoolConfig.includedFeeInputAmount.eq(
-                expected.includedFeeInputAmount
-            )
-        ).toBe(true)
-        expect(
-            quoteFromPoolConfig.maximumAmountIn!.eq(expected.maximumAmountIn!)
         ).toBe(true)
     })
 

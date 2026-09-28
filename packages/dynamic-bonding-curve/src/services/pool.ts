@@ -17,8 +17,17 @@ import {
     type SimulatedQuoteFromOutputAmountParams,
 } from '../types'
 import { validateSwapAmount } from '../helpers'
-import { quoteSwap2 } from '../helpers/quoteSwap'
-import { swapQuote, getFeeMode } from '../math'
+import {
+    getQuoteFromInputAmount as quoteFromInputAmount,
+    getQuoteFromOutputAmount as quoteFromOutputAmount,
+} from '../helpers/quoteSwap'
+import {
+    swapQuote,
+    swapQuoteExactIn,
+    swapQuoteExactOut,
+    swapQuotePartialFill,
+    getFeeMode,
+} from '../math'
 import BN from 'bn.js'
 
 export class PoolService extends DynamicBondingCurveProgram {
@@ -416,30 +425,78 @@ export class PoolService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Quote a swap using `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut`.
+     * Quote an existing pool with `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut`.
+     * `currentPoint` is the chain point. It is not taken from `activationPoint`.
      */
     swapQuote2(params: SwapQuote2Params): SwapQuote2Result {
-        return quoteSwap2(params)
+        const {
+            virtualPool,
+            config,
+            swapBaseForQuote,
+            hasReferral,
+            eligibleForFirstSwapWithMinFee,
+            currentPoint,
+            slippageBps,
+        } = params
+        const slippage = slippageBps ?? 0
+
+        if (params.swapMode === SwapMode.ExactOut) {
+            return swapQuoteExactOut(
+                virtualPool,
+                config,
+                swapBaseForQuote,
+                params.amountOut,
+                slippage,
+                hasReferral,
+                currentPoint,
+                eligibleForFirstSwapWithMinFee,
+                params
+            )
+        }
+
+        if (params.swapMode === SwapMode.PartialFill) {
+            return swapQuotePartialFill(
+                virtualPool,
+                config,
+                swapBaseForQuote,
+                params.amountIn,
+                slippage,
+                hasReferral,
+                currentPoint,
+                eligibleForFirstSwapWithMinFee,
+                params
+            )
+        }
+
+        return swapQuoteExactIn(
+            virtualPool,
+            config,
+            swapBaseForQuote,
+            params.amountIn,
+            slippage,
+            hasReferral,
+            currentPoint,
+            eligibleForFirstSwapWithMinFee,
+            params
+        )
     }
 
     /**
-     * quotes a swap from an input amount before any pool exists.
+     * Quote a `ConfigParameters` curve before a pool exists.
+     * The quote is the pool `initialize_pool` would write at `currentPoint`.
      */
     getQuoteFromInputAmount(
         params: SimulatedQuoteFromInputAmountParams
     ): SwapQuote2Result {
-        return quoteSwap2(params)
+        return quoteFromInputAmount(params)
     }
 
     /**
-     * quotes a swap from an exact output amount (`SwapMode.ExactOut`)
+     * Quote an exact-out swap on a `ConfigParameters` curve before a pool exists.
      */
     getQuoteFromOutputAmount(
         params: SimulatedQuoteFromOutputAmountParams
     ): SwapQuote2Result {
-        return quoteSwap2({
-            ...params,
-            swapMode: SwapMode.ExactOut,
-        })
+        return quoteFromOutputAmount(params)
     }
 }

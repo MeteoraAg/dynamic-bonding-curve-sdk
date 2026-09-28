@@ -11,7 +11,8 @@ import {
     TokenDecimal,
     TokenType,
     buildCurve,
-    quoteSwap2,
+    getQuoteFromInputAmount,
+    getQuoteFromOutputAmount,
 } from '../src'
 
 const curveConfig = buildCurve({
@@ -65,11 +66,11 @@ const curveConfig = buildCurve({
     migrationQuoteThreshold: 10,
 })
 
-describe('quoteSwap2', () => {
+describe('getQuoteFrom', () => {
     test('quotes exact-in and exact-out from a curve before a pool exists', () => {
         const amountIn = new BN(1_000_000_000)
 
-        const exactIn = quoteSwap2({
+        const exactIn = getQuoteFromInputAmount({
             config: curveConfig,
             swapBaseForQuote: false,
             swapMode: SwapMode.ExactIn,
@@ -83,10 +84,9 @@ describe('quoteSwap2', () => {
         ).toBe(true)
         expect(exactIn.includedTransferFeeAmountIn.eq(amountIn)).toBe(true)
 
-        const exactOut = quoteSwap2({
+        const exactOut = getQuoteFromOutputAmount({
             config: curveConfig,
             swapBaseForQuote: false,
-            swapMode: SwapMode.ExactOut,
             amountOut: exactIn.outputAmount,
             slippageBps: 50,
         })
@@ -101,7 +101,7 @@ describe('quoteSwap2', () => {
         const amountIn = new BN('100000000000000000000')
 
         expect(() =>
-            quoteSwap2({
+            getQuoteFromInputAmount({
                 config: curveConfig,
                 swapBaseForQuote: false,
                 swapMode: SwapMode.ExactIn,
@@ -109,7 +109,7 @@ describe('quoteSwap2', () => {
             })
         ).toThrow('Insufficient Liquidity')
 
-        const partial = quoteSwap2({
+        const partial = getQuoteFromInputAmount({
             config: curveConfig,
             swapBaseForQuote: false,
             swapMode: SwapMode.PartialFill,
@@ -119,5 +119,73 @@ describe('quoteSwap2', () => {
         expect(partial.outputAmount.gt(new BN(0))).toBe(true)
         expect(partial.amountLeft.gt(new BN(0))).toBe(true)
         expect(partial.includedFeeInputAmount.lt(amountIn)).toBe(true)
+    })
+
+    test('a fee scheduler stays at the cliff fee when currentPoint is set', () => {
+        const schedulerConfig = buildCurve({
+            token: {
+                tokenType: TokenType.SPLToken,
+                tokenBaseDecimal: TokenDecimal.SIX,
+                tokenQuoteDecimal: TokenDecimal.NINE,
+                tokenAuthorityOption: TokenAuthorityOption.Immutable,
+                totalTokenSupply: 1_000_000_000,
+                leftover: 0,
+            },
+            fee: {
+                baseFeeParams: {
+                    baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+                    feeSchedulerParam: {
+                        startingFeeBps: 500,
+                        endingFeeBps: 100,
+                        numberOfPeriod: 10,
+                        totalDuration: 1000,
+                    },
+                },
+                dynamicFeeEnabled: false,
+                collectFeeMode: CollectFeeMode.QuoteToken,
+                creatorTradingFeePercentage: 0,
+                poolCreationFee: 0,
+                enableFirstSwapWithMinFee: false,
+            },
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM_V2,
+                migrationFeeOption: MigrationFeeOption.FixedBps100,
+                migrationFee: {
+                    feePercentage: 0,
+                    creatorFeePercentage: 0,
+                },
+            },
+            liquidityDistribution: {
+                partnerLiquidityPercentage: 0,
+                partnerPermanentLockedLiquidityPercentage: 100,
+                creatorLiquidityPercentage: 0,
+                creatorPermanentLockedLiquidityPercentage: 0,
+            },
+            lockedVesting: {
+                totalLockedVestingAmount: 0,
+                numberOfVestingPeriod: 0,
+                cliffUnlockAmount: 0,
+                totalVestingDuration: 0,
+                cliffDurationFromMigrationTime: 0,
+            },
+            activationType: ActivationType.Slot,
+            percentageSupplyOnMigration: 20,
+            migrationQuoteThreshold: 10,
+        })
+        const amountIn = new BN(1_000_000_000)
+        const atZero = getQuoteFromInputAmount({
+            config: schedulerConfig,
+            swapBaseForQuote: false,
+            amountIn,
+        })
+        const atLaterPoint = getQuoteFromInputAmount({
+            config: schedulerConfig,
+            swapBaseForQuote: false,
+            amountIn,
+            currentPoint: new BN(500),
+        })
+
+        expect(atLaterPoint.tradingFee.eq(atZero.tradingFee)).toBe(true)
+        expect(atLaterPoint.outputAmount.eq(atZero.outputAmount)).toBe(true)
     })
 })

@@ -32,7 +32,6 @@
     - [swap2](#swap2)
     - [swap2WithTransferHook](#swap2WithTransferHook)
     - [swapQuote2](#swapQuote2)
-    - [quoteSwap2](#quoteSwap2)
     - [getQuoteFromInputAmount](#getQuoteFromInputAmount)
     - [getQuoteFromOutputAmount](#getQuoteFromOutputAmount)
 
@@ -2700,47 +2699,9 @@ const transaction = await client.pool.swap2WithTransferHook({
 
 ---
 
-### quoteSwap2
-
-Quotes `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut` without a client. Pass `virtualPool` for an existing pool. Omit it to quote a `buildCurve` result before the pool exists. `client.pool.swapQuote2`, `getQuoteFromInputAmount`, and `getQuoteFromOutputAmount` call this function.
-
-**Function**
-
-```typescript
-quoteSwap2(params: QuoteSwap2Params): SwapQuote2Result
-```
-
-**Example**
-
-```typescript
-const curveConfig = buildCurve({
-    // token, fee, migration, liquidity distribution, and activation params
-})
-
-const exactIn = quoteSwap2({
-    config: curveConfig,
-    swapBaseForQuote: false,
-    swapMode: SwapMode.ExactIn,
-    amountIn: new BN(10_000_000_000),
-    slippageBps: 100,
-})
-
-const exactOut = quoteSwap2({
-    config: curveConfig,
-    swapBaseForQuote: false,
-    swapMode: SwapMode.ExactOut,
-    amountOut: exactIn.outputAmount,
-    slippageBps: 100,
-})
-```
-
-Pass `baseTransferFeeBasisPoints` when `createConfig2` sets a base transfer fee. A Token-2022 quote mint still needs `quoteMint` and `currentEpoch`.
-
----
-
 ### swapQuote2
 
-Gets the exact swap out quotation in between quote and base swaps with specific swap modes (ExactIn, ExactOut, PartialFill).
+Gets the exact swap out quotation in between quote and base swaps with specific swap modes (ExactIn, ExactOut, PartialFill). `currentPoint` is required. It is the chain's current point and is not taken from `activationPoint`.
 
 **Function**
 
@@ -2836,7 +2797,7 @@ const quote = client.pool.swapQuote2({
 
 ### getQuoteFromInputAmount
 
-Quotes a launch-state swap from an input amount before a pool exists. This is useful when a builder has a curve/config but has not deployed the pool yet.
+Quotes a swap from an input amount before a pool exists. `config` is a `ConfigParameters` value, which is what `buildCurve` returns and what `createConfig` takes. The quote is the pool `initialize_pool` would write at `currentPoint`: sqrt price is `sqrtStartPrice`, volatility is zero, and `hasSwap` is 0. Elapsed time is 0, so a fee scheduler is at the cliff fee. The same function is exported from the package.
 
 **Function**
 
@@ -2847,38 +2808,17 @@ getQuoteFromInputAmount(params: SimulatedQuoteFromInputAmountParams): SwapQuote2
 **Parameters**
 
 ```typescript
-interface SwapQuoteConfig {
-    poolFees: {
-        baseFee: {
-            cliffFeeNumerator: BN
-            firstFactor: number
-            secondFactor: BN
-            thirdFactor: BN
-            baseFeeMode: number
-        }
-        dynamicFee?: {
-            initialized?: number
-            binStep: number
-            variableFeeControl: number
-        } | null
-    }
-    collectFeeMode: number
-    sqrtStartPrice: BN
-    migrationQuoteThreshold: BN
-    curve: Array<{ sqrtPrice: BN; liquidity: BN }>
-    migrationSqrtPrice?: BN
-}
-
 type SimulatedQuoteFromInputAmountParams = {
-    config: SwapQuoteConfig
+    config: ConfigParameters
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     amountIn: BN
     swapMode?: SwapMode.ExactIn | SwapMode.PartialFill
     slippageBps?: number
     hasReferral?: boolean
-    currentPoint?: BN // Elapsed slot/timestamp since launch; defaults to 0
+    currentPoint?: BN // Initialization point. Omit to use 0
     eligibleForFirstSwapWithMinFee?: boolean
-}
+    quoteTokenFlag?: number // TokenType.Token2022 when the quote mint is Token-2022
+} & QuoteTransferFees
 ```
 
 **Returns**
@@ -2903,16 +2843,17 @@ const quote = client.pool.getQuoteFromInputAmount({
 
 **Notes**
 
-- `config` can be a `buildCurve` output or a fetched pool config from `client.state.getPoolConfig(...)`.
-- If `migrationSqrtPrice` is omitted, it is derived from `migrationQuoteThreshold`, `sqrtStartPrice`, and `curve`.
-- `SwapMode.ExactIn` throws if the full input cannot be absorbed by the launch-state curve. Use `SwapMode.PartialFill` to fill up to the available curve liquidity and inspect `amountLeft`.
-- `currentPoint` is only needed when simulating fee-scheduler or rate-limiter behavior after launch. It defaults to `0`, which represents the launch/cliff fee.
+- `migrationSqrtPrice` is computed the way `process_create_config` computes it, from `migrationQuoteThreshold`, `sqrtStartPrice`, and `curve`.
+- `SwapMode.ExactIn` throws if the full input cannot be absorbed by the curve. Use `SwapMode.PartialFill` to fill up to the available curve liquidity and inspect `amountLeft`.
+- Omit `currentPoint` to use 0 for both the activation point and the current point. A caller-supplied `currentPoint` is used for both, so elapsed time stays 0.
+- Pass `baseTransferFeeBasisPoints` when `createConfig2` sets a base transfer fee. Pass `quoteTokenFlag: TokenType.Token2022` for a Token-2022 quote mint; `quoteMint` and `currentEpoch` are then required.
+- An existing pool is quoted with `swapQuote2` once the pool exists. This function does not accept a decoded `PoolConfig`.
 
 ---
 
 ### getQuoteFromOutputAmount
 
-Quotes a launch-state exact-out swap before a pool exists. This is useful when a builder wants to know how much input is required to receive a target output amount.
+Quotes an exact-out swap before a pool exists, using the same initial pool as `getQuoteFromInputAmount`. The same function is exported from the package.
 
 **Function**
 
@@ -2924,14 +2865,15 @@ getQuoteFromOutputAmount(params: SimulatedQuoteFromOutputAmountParams): SwapQuot
 
 ```typescript
 type SimulatedQuoteFromOutputAmountParams = {
-    config: SwapQuoteConfig
+    config: ConfigParameters
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     amountOut: BN
     slippageBps?: number
     hasReferral?: boolean
-    currentPoint?: BN // Elapsed slot/timestamp since launch; defaults to 0
+    currentPoint?: BN // Initialization point. Omit to use 0
     eligibleForFirstSwapWithMinFee?: boolean
-}
+    quoteTokenFlag?: number
+} & QuoteTransferFees
 ```
 
 **Returns**
@@ -2941,10 +2883,12 @@ type SimulatedQuoteFromOutputAmountParams = {
 **Example**
 
 ```typescript
-const config = await client.state.getPoolConfig(configAddress)
+const curveConfig = buildCurve({
+    // token, fee, migration, liquidity distribution, and activation params
+})
 
 const quote = client.pool.getQuoteFromOutputAmount({
-    config,
+    config: curveConfig,
     swapBaseForQuote: false, // quote -> base
     amountOut: new BN(1_000_000_000_000),
     slippageBps: 100,
@@ -2956,8 +2900,7 @@ console.log('maximum input with slippage:', quote.maximumAmountIn?.toString())
 
 **Notes**
 
-- This helper uses the same exact-out quote math as `swapQuote2` with `SwapMode.ExactOut`, but simulates a fresh pool at `sqrtStartPrice`.
-- It throws if the requested output is not fillable by the launch-state curve.
+- It throws if the requested output is not fillable by the curve.
 - Amounts are returned in token base units. Use token decimals when displaying human-readable values.
 
 ---

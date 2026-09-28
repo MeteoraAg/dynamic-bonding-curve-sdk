@@ -618,59 +618,14 @@ export type SwapQuote2Params = {
 ) &
     QuoteTransferFees
 
-/**
- * Quote input for `quoteSwap2`.
- * Pass `virtualPool` for an existing pool. Omit it to quote a `buildCurve` result at launch.
- */
-export type QuoteSwap2Params = {
-    config: SwapQuoteConfig
-    virtualPool?: VirtualPool
-    swapBaseForQuote: boolean
-    slippageBps?: number
-    hasReferral?: boolean
-    currentPoint?: BN
-    eligibleForFirstSwapWithMinFee?: boolean
-} & QuoteTransferFees &
-    (
-        | {
-              swapMode?: SwapMode.ExactIn | SwapMode.PartialFill
-              amountIn: BN
-          }
-        | {
-              swapMode: SwapMode.ExactOut
-              amountOut: BN
-          }
-    )
-
-export interface SwapQuoteConfig {
-    poolFees: {
-        baseFee: {
-            cliffFeeNumerator: BN
-            firstFactor: number
-            secondFactor: BN
-            thirdFactor: BN
-            baseFeeMode: number
-        }
-        dynamicFee?: {
-            initialized?: number
-            binStep: number
-            variableFeeControl: number
-        } | null
-    }
-    collectFeeMode: number
-    sqrtStartPrice: BN
-    migrationQuoteThreshold: BN
-    curve: Array<{ sqrtPrice: BN; liquidity: BN }>
-    migrationSqrtPrice?: BN
-}
-
 export type SimulatedQuoteBaseParams = {
-    config: SwapQuoteConfig
+    config: ConfigParameters
     swapBaseForQuote: boolean
     slippageBps?: number
     hasReferral?: boolean
     currentPoint?: BN
     eligibleForFirstSwapWithMinFee?: boolean
+    quoteTokenFlag?: number
 } & QuoteTransferFees
 
 export type SimulatedQuoteFromInputAmountParams = SimulatedQuoteBaseParams & {
