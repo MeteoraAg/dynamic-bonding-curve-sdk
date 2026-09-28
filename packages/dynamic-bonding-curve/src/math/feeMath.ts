@@ -2,11 +2,11 @@ import BN from 'bn.js'
 import { SafeMath } from './safeMath'
 import { mulDiv } from './utilsMath'
 import {
-    MAX_BASIS_POINT,
     FEE_DENOMINATOR,
     HOST_FEE_PERCENT,
     MAX_FEE_NUMERATOR,
     PROTOCOL_FEE_PERCENT,
+    U64_MAX,
 } from '../constants'
 import {
     CollectFeeMode,
@@ -20,29 +20,6 @@ import {
 } from '../types'
 import { getBaseFeeHandler } from './poolFees/baseFee'
 import { getVariableFeeNumerator } from './poolFees/dynamicFee'
-
-/**
- * Convert basis points to fee numerator
- * @param bps - Basis points
- * @param feeDenominator - Fee denominator
- * @returns Fee numerator
- * @throws Error if calculation fails due to overflow or type conversion
- */
-export function toNumerator(bps: BN, feeDenominator: BN): BN {
-    try {
-        const numerator = mulDiv(
-            bps,
-            feeDenominator,
-            new BN(MAX_BASIS_POINT),
-            Rounding.Down
-        )
-        return numerator
-    } catch (error) {
-        throw new Error(
-            `Type cast failed or calculation overflow in toNumerator ${error}`
-        )
-    }
-}
 
 /**
  * Get fee mode
@@ -73,8 +50,7 @@ export function getFeeMode(
             feesOnInput = false
             feesOnBaseToken = true
         }
-    } else {
-        // CollectFeeMode.QuoteToken
+    } else if (collectFeeMode === CollectFeeMode.QuoteToken) {
         if (tradeDirection === TradeDirection.BaseToQuote) {
             feesOnInput = false
             feesOnBaseToken = false
@@ -83,6 +59,8 @@ export function getFeeMode(
             feesOnInput = true
             feesOnBaseToken = false
         }
+    } else {
+        throw new Error('Invalid collect fee mode')
     }
 
     return {
@@ -289,6 +267,9 @@ export function getIncludedFeeAmount(
         SafeMath.sub(new BN(FEE_DENOMINATOR), tradeFeeNumerator),
         Rounding.Up
     )
+    if (includedFeeAmount.gt(U64_MAX)) {
+        throw new Error('Type cast failed')
+    }
     const feeAmount = SafeMath.sub(includedFeeAmount, excludedFeeAmount)
     return [includedFeeAmount, feeAmount]
 }

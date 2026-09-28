@@ -151,7 +151,10 @@ export function getBaseFeeNumerator(
         return cliffFeeNumerator
     }
 
-    const period = currentPoint.sub(activationPoint).div(periodFrequency)
+    const period = SafeMath.div(
+        SafeMath.sub(currentPoint, activationPoint),
+        periodFrequency
+    )
 
     return getBaseFeeNumeratorByPeriod(
         cliffFeeNumerator,

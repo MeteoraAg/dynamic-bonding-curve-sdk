@@ -6,11 +6,13 @@ import {
 } from '@solana/web3.js'
 import { DynamicBondingCurveProgram } from './program'
 import {
+    AccountsType,
     type ClaimPartnerTradingFeeParams,
     type CreateConfigAndPoolWithTransferHookParams,
     type CreateConfigAndPoolParams,
     type CreateConfigAndPoolWithFirstBuyWithTransferHookParams,
     type CreateConfigAndPoolWithFirstBuyParams,
+    type CreateConfig2Params,
     type CreateConfigParams,
     type CreateConfigWithTransferHookParams,
     type CreatePoolParams,
@@ -26,8 +28,9 @@ import {
     unwrapSOLInstruction,
     getTokenProgram,
     getOrCreateATAInstruction,
-    isNativeSol,
     getTokenType,
+    requirePublicKey,
+    resolveTempWsolAccount,
 } from '../helpers'
 import { NATIVE_MINT } from '@solana/spl-token'
 import BN from 'bn.js'
@@ -35,6 +38,7 @@ import BN from 'bn.js'
 export class PartnerService extends DynamicBondingCurveProgram {
     /**
      * Build a transaction that creates a partner-owned pool config.
+     * @deprecated Use `createConfig2`. This instruction rejects a quote mint with a non-zero transfer fee or a live transfer fee config authority.
      */
     async createConfig(params: CreateConfigParams): Promise<Transaction> {
         const {
@@ -49,11 +53,39 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
         return this.buildCreateConfigTx(
             configParam,
-            new PublicKey(config),
+            requirePublicKey(config, 'config'),
             new PublicKey(feeClaimer),
             new PublicKey(leftoverReceiver),
             new PublicKey(quoteMint),
-            new PublicKey(payer),
+            requirePublicKey(payer, 'payer'),
+            tokenBadge ? new PublicKey(tokenBadge) : undefined
+        )
+    }
+
+    /**
+     * Build a transaction that creates a partner-owned pool config.
+     * `transferFeeParameters` configures the base mint fee. Pass `null` when only the quote mint has a transfer fee.
+     */
+    async createConfig2(params: CreateConfig2Params): Promise<Transaction> {
+        const {
+            config,
+            feeClaimer,
+            leftoverReceiver,
+            quoteMint,
+            payer,
+            tokenBadge,
+            transferFeeParameters = null,
+            ...configParam
+        } = params
+
+        return this.buildCreateConfig2Tx(
+            configParam,
+            requirePublicKey(config, 'config'),
+            new PublicKey(feeClaimer),
+            new PublicKey(leftoverReceiver),
+            new PublicKey(quoteMint),
+            requirePublicKey(payer, 'payer'),
+            transferFeeParameters,
             tokenBadge ? new PublicKey(tokenBadge) : undefined
         )
     }
@@ -77,12 +109,12 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
         return this.buildCreateConfigWithTransferHookTx(
             configParam,
-            new PublicKey(config),
+            requirePublicKey(config, 'config'),
             new PublicKey(feeClaimer),
             new PublicKey(leftoverReceiver),
             new PublicKey(quoteMint),
             new PublicKey(transferHookProgram),
-            new PublicKey(payer),
+            requirePublicKey(payer, 'payer'),
             tokenBadge ? new PublicKey(tokenBadge) : undefined
         )
     }
@@ -101,22 +133,24 @@ export class PartnerService extends DynamicBondingCurveProgram {
             payer,
             preCreatePoolParam,
             tokenBadge,
+            transferFeeParameters = null,
             ...configParam
         } = params
 
         const tx = new Transaction()
-        const configKey = new PublicKey(config)
+        const configKey = requirePublicKey(config, 'config')
         const quoteMintToken = new PublicKey(quoteMint)
-        const payerAddress = new PublicKey(payer)
+        const payerAddress = requirePublicKey(payer, 'payer')
         const tokenBadgeKey = tokenBadge ? new PublicKey(tokenBadge) : undefined
 
-        const createConfigTx = await this.buildCreateConfigTx(
+        const createConfigTx = await this.buildCreateConfig2Tx(
             configParam,
             configKey,
             new PublicKey(feeClaimer),
             new PublicKey(leftoverReceiver),
             quoteMintToken,
             payerAddress,
+            transferFeeParameters,
             tokenBadgeKey
         )
 
@@ -154,9 +188,9 @@ export class PartnerService extends DynamicBondingCurveProgram {
         } = params
 
         const tx = new Transaction()
-        const configKey = new PublicKey(config)
+        const configKey = requirePublicKey(config, 'config')
         const quoteMintToken = new PublicKey(quoteMint)
-        const payerAddress = new PublicKey(payer)
+        const payerAddress = requirePublicKey(payer, 'payer')
         const tokenBadgeKey = tokenBadge ? new PublicKey(tokenBadge) : undefined
 
         const createConfigTx = await this.buildCreateConfigWithTransferHookTx(
@@ -210,21 +244,23 @@ export class PartnerService extends DynamicBondingCurveProgram {
             preCreatePoolParam,
             firstBuyParam,
             tokenBadge,
+            transferFeeParameters = null,
             ...configParam
         } = params
 
-        const configKey = new PublicKey(config)
+        const configKey = requirePublicKey(config, 'config')
         const quoteMintToken = new PublicKey(quoteMint)
-        const payerAddress = new PublicKey(payer)
+        const payerAddress = requirePublicKey(payer, 'payer')
         const tokenBadgeKey = tokenBadge ? new PublicKey(tokenBadge) : undefined
 
-        const createConfigTx = await this.buildCreateConfigTx(
+        const createConfigTx = await this.buildCreateConfig2Tx(
             configParam,
             configKey,
             new PublicKey(feeClaimer),
             new PublicKey(leftoverReceiver),
             quoteMintToken,
             payerAddress,
+            transferFeeParameters,
             tokenBadgeKey
         )
 
@@ -284,9 +320,9 @@ export class PartnerService extends DynamicBondingCurveProgram {
             ...configParam
         } = params
 
-        const configKey = new PublicKey(config)
+        const configKey = requirePublicKey(config, 'config')
         const quoteMintToken = new PublicKey(quoteMint)
-        const payerAddress = new PublicKey(payer)
+        const payerAddress = requirePublicKey(payer, 'payer')
         const transferHookProgramKey = new PublicKey(transferHookProgram)
         const tokenBadgeKey = tokenBadge ? new PublicKey(tokenBadge) : undefined
 
@@ -325,6 +361,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 configKey,
                 configParam.poolFees.baseFee,
                 configParam.activationType,
+                configParam.collectFeeMode,
                 quoteMintToken,
                 true
             )
@@ -384,69 +421,46 @@ export class PartnerService extends DynamicBondingCurveProgram {
             tempWSolAcc,
         } = params
 
-        const { virtualPool, poolConfigState } =
+        const { virtualPool, poolConfigState, isTransferHookPool } =
             await this.getPoolWithConfig(pool)
+        if (isTransferHookPool) {
+            throw new Error(
+                'Pool uses a transfer hook, use claimPartnerTradingFee2'
+            )
+        }
 
         const tokenBaseProgram = getTokenProgram(poolConfigState.tokenType)
         const tokenQuoteProgram = getTokenProgram(
             poolConfigState.quoteTokenFlag
         )
 
-        const isSOLQuoteMint = isNativeSol(poolConfigState.quoteMint)
+        const feeReceiver = receiver ? receiver : feeClaimer
+        const tempWSol = resolveTempWsolAccount(
+            feeClaimer,
+            receiver,
+            tempWSolAcc
+        )
+        const result = await this.resolveTradingFeeAccounts({
+            payer,
+            feeReceiver,
+            tempWSolAcc: tempWSol,
+            pool,
+            virtualPool,
+            poolConfigState,
+            tokenBaseProgram,
+            tokenQuoteProgram,
+        })
 
-        if (isSOLQuoteMint) {
-            // if receiver is present and not equal to feeClaimer, use tempWSolAcc, otherwise use feeClaimer
-            const tempWSol =
-                receiver && !receiver.equals(feeClaimer)
-                    ? tempWSolAcc
-                    : feeClaimer
-            // if receiver is provided, use receiver as the fee receiver, otherwise use feeClaimer
-            const feeReceiver = receiver ? receiver : feeClaimer
-
-            const result = await this.buildClaimTradingFeeAccountsForSol({
-                payer,
-                feeReceiver,
-                tempWSolAcc: tempWSol,
-                pool,
-                virtualPool,
-                poolConfigState,
-                tokenBaseProgram,
-                tokenQuoteProgram,
+        return this.program.methods
+            .claimTradingFee(maxBaseAmount, maxQuoteAmount)
+            .accountsPartial({
+                ...result.accounts,
+                config: virtualPool.poolState.config,
+                feeClaimer,
             })
-
-            return this.program.methods
-                .claimTradingFee(maxBaseAmount, maxQuoteAmount)
-                .accountsPartial({
-                    ...result.accounts,
-                    config: virtualPool.poolState.config,
-                    feeClaimer,
-                })
-                .preInstructions(result.preInstructions)
-                .postInstructions(result.postInstructions)
-                .transaction()
-        } else {
-            const feeReceiver = receiver ? receiver : feeClaimer
-
-            const result = await this.buildClaimTradingFeeAccountsForNonSol({
-                payer,
-                feeReceiver,
-                pool,
-                virtualPool,
-                poolConfigState,
-                tokenBaseProgram,
-                tokenQuoteProgram,
-            })
-
-            return this.program.methods
-                .claimTradingFee(maxBaseAmount, maxQuoteAmount)
-                .accountsPartial({
-                    ...result.accounts,
-                    config: virtualPool.poolState.config,
-                    feeClaimer,
-                })
-                .preInstructions(result.preInstructions)
-                .transaction()
-        }
+            .preInstructions(result.preInstructions)
+            .postInstructions(result.postInstructions)
+            .transaction()
     }
 
     /**
@@ -464,59 +478,40 @@ export class PartnerService extends DynamicBondingCurveProgram {
             receiver,
         } = params
 
-        const { virtualPool, poolConfigState } =
+        const { virtualPool, poolConfigState, isTransferHookPool } =
             await this.getPoolWithConfig(pool)
+        if (isTransferHookPool) {
+            throw new Error(
+                'Pool uses a transfer hook, use claimPartnerTradingFee2'
+            )
+        }
 
         const tokenBaseProgram = getTokenProgram(poolConfigState.tokenType)
         const tokenQuoteProgram = getTokenProgram(
             poolConfigState.quoteTokenFlag
         )
 
-        const isSOLQuoteMint = isNativeSol(poolConfigState.quoteMint)
+        const result = await this.resolveTradingFeeAccounts({
+            payer,
+            feeReceiver: receiver,
+            tempWSolAcc: feeClaimer,
+            pool,
+            virtualPool,
+            poolConfigState,
+            tokenBaseProgram,
+            tokenQuoteProgram,
+        })
 
-        if (isSOLQuoteMint) {
-            const result = await this.buildClaimTradingFeeAccountsForSol({
-                payer,
-                feeReceiver: receiver,
-                tempWSolAcc: feeClaimer,
-                pool,
-                virtualPool,
-                poolConfigState,
-                tokenBaseProgram,
-                tokenQuoteProgram,
+        return this.program.methods
+            .claimTradingFee(maxBaseAmount, maxQuoteAmount)
+            .accountsPartial({
+                ...result.accounts,
+                config: virtualPool.poolState.config,
+                feeClaimer,
             })
-
-            return this.program.methods
-                .claimTradingFee(maxBaseAmount, maxQuoteAmount)
-                .accountsPartial({
-                    ...result.accounts,
-                    config: virtualPool.poolState.config,
-                    feeClaimer,
-                })
-                .preInstructions(result.preInstructions)
-                .postInstructions(result.postInstructions)
-                .transaction()
-        } else {
-            const result = await this.buildClaimTradingFeeAccountsForNonSol({
-                payer,
-                feeReceiver: receiver,
-                pool,
-                virtualPool,
-                poolConfigState,
-                tokenBaseProgram,
-                tokenQuoteProgram,
-            })
-            return this.program.methods
-                .claimTradingFee(maxBaseAmount, maxQuoteAmount)
-                .accountsPartial({
-                    ...result.accounts,
-                    config: virtualPool.poolState.config,
-                    feeClaimer,
-                })
-                .preInstructions(result.preInstructions)
-                .postInstructions([])
-                .transaction()
-        }
+            .preInstructions(result.preInstructions)
+            .postInstructions(result.postInstructions)
+            .transaction()
     }
 
     /**
@@ -542,38 +537,32 @@ export class PartnerService extends DynamicBondingCurveProgram {
             poolConfigState.quoteTokenFlag
         )
 
-        const isSOLQuoteMint = isNativeSol(poolConfigState.quoteMint)
-        const result = isSOLQuoteMint
-            ? await this.buildClaimTradingFeeAccountsForSol({
-                  payer,
-                  feeReceiver: receiver,
-                  tempWSolAcc: feeClaimer,
-                  pool,
-                  virtualPool,
-                  poolConfigState,
-                  tokenBaseProgram,
-                  tokenQuoteProgram,
-              })
-            : await this.buildClaimTradingFeeAccountsForNonSol({
-                  payer,
-                  feeReceiver: receiver,
-                  pool,
-                  virtualPool,
-                  poolConfigState,
-                  tokenBaseProgram,
-                  tokenQuoteProgram,
-              })
+        const result = await this.resolveTradingFeeAccounts({
+            payer,
+            feeReceiver: receiver,
+            tempWSolAcc: feeClaimer,
+            pool,
+            virtualPool,
+            poolConfigState,
+            tokenBaseProgram,
+            tokenQuoteProgram,
+        })
 
         const {
             info: transferHookAccountsInfo,
             accounts: transferHookAccounts,
         } = await this.getRemainingAccountsForTransferHook(
-            virtualPool.poolState.baseMint
+            virtualPool.poolState.baseMint,
+            [
+                {
+                    accountsType: AccountsType.TransferHookBase,
+                    source: virtualPool.poolState.baseVault,
+                    destination: result.accounts.tokenAAccount,
+                    authority: this.poolAuthority,
+                },
+            ]
         )
-        const postInstructions: TransactionInstruction[] =
-            isSOLQuoteMint && 'postInstructions' in result
-                ? (result.postInstructions as TransactionInstruction[])
-                : []
+        const postInstructions = result.postInstructions
 
         return this.program.methods
             .claimTradingFee2(

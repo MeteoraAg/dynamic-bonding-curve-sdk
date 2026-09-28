@@ -15,11 +15,14 @@ import {
     BIN_STEP_BPS_U128_DEFAULT,
     BIN_STEP_BPS_DEFAULT,
     MAX_BASIS_POINT,
+    MAX_BASE_TRANSFER_FEE_BPS,
     MAX_LOCK_DURATION_IN_SECONDS,
     U16_MAX,
     U24_MAX,
     U128_MAX,
+    U64_MAX,
 } from '../constants'
+import { getBaseTransferFee, type EpochTransferFee } from '../math/transferFee'
 import {
     NATIVE_MINT_2022,
     TOKEN_2022_PROGRAM_ID,
@@ -43,25 +46,24 @@ import {
     TokenDecimal,
     TokenType,
     TokenAuthorityOption,
+    TransferFeeWithheldAuthority,
+    MigratedTransferFeeAuthorityOption,
     type CreateConfigParams,
     type PoolConfig,
+    type TransferFeeParameters,
 } from '../types'
 import { Connection, PublicKey } from '@solana/web3.js'
 import {
     calculateLockedLiquidityBpsAtTime,
     getBaseTokenForSwap,
     getMigrationBaseToken,
-    getMigrationQuoteAmountFromMigrationQuoteThreshold,
+    getMigrationQuoteAmountFromThreshold,
     getMigrationThresholdPrice,
     getSwapAmountWithBuffer,
     getTotalTokenSupply,
+    validateCompoundingMigrationDeposit,
 } from './common'
-import {
-    convertDecimalToBN,
-    isDefaultLockedVesting,
-    isNativeSol,
-} from './utils'
-import Decimal from 'decimal.js'
+import { isDefaultLockedVesting, isNativeSol } from './utils'
 import {
     FEE_DENOMINATOR,
     MAX_FEE_NUMERATOR,
@@ -69,12 +71,12 @@ import {
     MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     MIN_FEE_NUMERATOR,
 } from '../constants'
+import { getFeeNumeratorFromIncludedAmount } from '../math/poolFees/rateLimiter'
 import {
-    getFeeNumeratorFromIncludedAmount,
     getFeeSchedulerMaxBaseFeeNumerator,
     getFeeSchedulerMinBaseFeeNumerator,
-    toNumerator,
-} from '../math'
+} from '../math/poolFees/feeScheduler'
+import { toNumerator } from '../math/utilsMath'
 
 const DAMM_V2_MIN_FEE_NUMERATOR = 100_000
 const DAMM_V2_MAX_FEE_NUMERATOR = 990_000_000
@@ -132,10 +134,8 @@ export function validatePoolFees(
             ) {
                 return false
             }
-        }
-
-        // validate fee rate limiter if it exists
-        if (poolFees.baseFee.baseFeeMode === BaseFeeMode.RateLimiter) {
+        } else if (poolFees.baseFee.baseFeeMode === BaseFeeMode.RateLimiter) {
+            // validate fee rate limiter if it exists
             if (
                 !validateFeeRateLimiter(
                     poolFees.baseFee.cliffFeeNumerator,
@@ -148,6 +148,8 @@ export function validatePoolFees(
             ) {
                 return false
             }
+        } else {
+            return false
         }
     }
 
@@ -304,6 +306,24 @@ export function validateCollectFeeMode(
 ): boolean {
     return [CollectFeeMode.QuoteToken, CollectFeeMode.OutputToken].includes(
         collectFeeMode
+    )
+}
+
+/**
+ * Return whether the base token type is supported.
+ */
+export function validateTokenType(tokenType: TokenType): boolean {
+    return [TokenType.SPLToken, TokenType.Token2022].includes(tokenType)
+}
+
+/**
+ * Return whether the migration option is supported.
+ */
+export function validateMigrationOption(
+    migrationOption: MigrationOption
+): boolean {
+    return [MigrationOption.MET_DAMM, MigrationOption.MET_DAMM_V2].includes(
+        migrationOption
     )
 }
 
@@ -686,7 +706,7 @@ export function validateCompoundingFeeBps(
     compoundingFeeBps: number
 ): boolean {
     if (collectFeeMode === MigratedCollectFeeMode.Compounding) {
-        return compoundingFeeBps > 0 && compoundingFeeBps <= MAX_BASIS_POINT
+        return compoundingFeeBps >= 0 && compoundingFeeBps <= MAX_BASIS_POINT
     }
     return compoundingFeeBps === 0
 }
@@ -744,8 +764,11 @@ export function validateMigratedPoolFee(
         }
     }
 
-    // if migratedPoolFee is none, it's valid
-    if (isNone()) {
+    // DAMM v2 Customizable always validates the migrated pool fee on-chain
+    const requiresMigratedPoolFee =
+        migrationOption === MigrationOption.MET_DAMM_V2 &&
+        migrationFeeOption === MigrationFeeOption.Customizable
+    if (!requiresMigratedPoolFee && isNone()) {
         return true
     }
 
@@ -805,6 +828,84 @@ export function validateMigratedPoolFee(
 }
 
 /**
+ * Validate create_config2 transfer fee parameters and throw the first error encountered.
+ */
+export function validateTransferFeeParameters(
+    transferFeeParameters: TransferFeeParameters,
+    tokenType: number
+): void {
+    const {
+        transferFeeBasisPoints,
+        withheldAuthority,
+        migratedTransferFeeAuthorityOption,
+    } = transferFeeParameters
+
+    if (transferFeeBasisPoints === 0) {
+        if (
+            withheldAuthority !== TransferFeeWithheldAuthority.Partner ||
+            migratedTransferFeeAuthorityOption !==
+                MigratedTransferFeeAuthorityOption.Immutable
+        ) {
+            throw new Error('Invalid transfer fee parameters')
+        }
+        return
+    }
+
+    if (tokenType !== TokenType.Token2022) {
+        throw new Error('Base transfer fee requires token type Token2022')
+    }
+    if (
+        transferFeeBasisPoints < 0 ||
+        transferFeeBasisPoints > MAX_BASE_TRANSFER_FEE_BPS ||
+        ![
+            TransferFeeWithheldAuthority.Partner,
+            TransferFeeWithheldAuthority.Creator,
+        ].includes(withheldAuthority) ||
+        ![
+            MigratedTransferFeeAuthorityOption.Immutable,
+            MigratedTransferFeeAuthorityOption.RevokeZeroFee,
+            MigratedTransferFeeAuthorityOption.Creator,
+            MigratedTransferFeeAuthorityOption.Partner,
+        ].includes(migratedTransferFeeAuthorityOption)
+    ) {
+        throw new Error('Invalid transfer fee parameters')
+    }
+}
+
+function validateTransferFeeConfigMode(configParam: {
+    tokenSupply: CreateConfigParams['tokenSupply']
+    lockedVesting: CreateConfigParams['lockedVesting']
+    migrationFeeOption: number
+    migratedPoolFee: { collectFeeMode: number }
+}): void {
+    const tokenSupply = configParam.tokenSupply
+    if (
+        !tokenSupply ||
+        !new BN(tokenSupply.preMigrationTokenSupply.toString()).eq(
+            new BN(tokenSupply.postMigrationTokenSupply.toString())
+        )
+    ) {
+        throw new Error('Transfer fee configs require a constant token supply')
+    }
+    if (!isDefaultLockedVesting(configParam.lockedVesting)) {
+        throw new Error('Transfer fee configs cannot include locked vesting')
+    }
+    if (configParam.migrationFeeOption !== MigrationFeeOption.Customizable) {
+        throw new Error(
+            'Transfer fee configs require MigrationFeeOption.Customizable'
+        )
+    }
+    if (
+        configParam.migratedPoolFee.collectFeeMode !==
+        MigratedCollectFeeMode.Compounding
+    ) {
+        throw new Error(
+            'Transfer fee configs require MigratedCollectFeeMode.Compounding'
+        )
+    }
+}
+
+/**
  * Validate config parameters and throw the first actionable error encountered.
  */
 export function validateConfigParameters(
@@ -817,15 +918,20 @@ export function validateConfigParameters(
         | {
               isTransferHook?: boolean
               transferHookProgram?: PublicKey
+              transferFeeParameters?: TransferFeeParameters | null
+              quoteMintHasTransferFee?: boolean
+              quoteEpochTransferFee?: EpochTransferFee | null
           } = false
 ) {
-    const { isTransferHook, transferHookProgram } =
-        typeof options === 'boolean'
-            ? { isTransferHook: options, transferHookProgram: undefined }
-            : {
-                  isTransferHook: options.isTransferHook ?? false,
-                  transferHookProgram: options.transferHookProgram,
-              }
+    const {
+        isTransferHook = false,
+        transferHookProgram,
+        transferFeeParameters,
+        quoteMintHasTransferFee = false,
+        quoteEpochTransferFee = null,
+    }: Exclude<typeof options, boolean> = typeof options === 'boolean'
+        ? { isTransferHook: options }
+        : options
 
     assertConfigAllowsNewPool({
         baseFeeMode: configParam.poolFees?.baseFee?.baseFeeMode,
@@ -875,6 +981,14 @@ export function validateConfigParameters(
                 'Invalid transfer hook program: cannot be the DBC program, SPL Token, SPL Token-2022, or the default pubkey'
             )
         }
+    }
+
+    if (!validateMigrationOption(configParam.migrationOption)) {
+        throw new Error('Invalid migration option')
+    }
+
+    if (!validateTokenType(configParam.tokenType)) {
+        throw new Error('Invalid token type')
     }
 
     // migration and token type validation
@@ -1013,15 +1127,17 @@ export function validateConfigParameters(
         sqrtMigrationPrice,
         configParam.curve
     )
+    const migratedCollectFeeMode =
+        configParam.migratedPoolFee?.collectFeeMode ??
+        MigratedCollectFeeMode.QuoteToken
     const migrationBaseAmountForCurve = getMigrationBaseToken(
-        convertDecimalToBN(
-            getMigrationQuoteAmountFromMigrationQuoteThreshold(
-                new Decimal(configParam.migrationQuoteThreshold.toString()),
-                configParam.migrationFee.feePercentage
-            )
+        getMigrationQuoteAmountFromThreshold(
+            configParam.migrationQuoteThreshold,
+            configParam.migrationFee.feePercentage
         ),
         sqrtMigrationPrice,
-        configParam.migrationOption
+        configParam.migrationOption,
+        migratedCollectFeeMode
     )
     if (
         swapBaseAmountForCurve.lte(new BN(0)) ||
@@ -1029,6 +1145,14 @@ export function validateConfigParameters(
     ) {
         throw new Error(
             'Invalid curve: swap base amount and migration base amount must both be greater than 0'
+        )
+    }
+    if (
+        swapBaseAmountForCurve.gt(U64_MAX) ||
+        migrationBaseAmountForCurve.gt(U64_MAX)
+    ) {
+        throw new Error(
+            'Invalid curve: swap base amount and migration base amount must fit in u64'
         )
     }
 
@@ -1115,7 +1239,8 @@ export function validateConfigParameters(
             )
             if (
                 configParam.lockedVesting.frequency.eq(new BN(0)) ||
-                totalAmount.eq(new BN(0))
+                totalAmount.eq(new BN(0)) ||
+                totalAmount.gt(U64_MAX)
             ) {
                 throw new Error('Invalid vesting parameters')
             }
@@ -1139,14 +1264,13 @@ export function validateConfigParameters(
         )
 
         const migrationBaseAmount = getMigrationBaseToken(
-            convertDecimalToBN(
-                getMigrationQuoteAmountFromMigrationQuoteThreshold(
-                    new Decimal(configParam.migrationQuoteThreshold.toString()),
-                    configParam.migrationFee.feePercentage
-                )
+            getMigrationQuoteAmountFromThreshold(
+                configParam.migrationQuoteThreshold,
+                configParam.migrationFee.feePercentage
             ),
             sqrtMigrationPrice,
-            configParam.migrationOption
+            configParam.migrationOption,
+            migratedCollectFeeMode
         )
 
         const swapBaseAmountBuffer = getSwapAmountWithBuffer(
@@ -1167,6 +1291,31 @@ export function validateConfigParameters(
         ) {
             throw new Error('Invalid token supply')
         }
+    }
+
+    if (transferFeeParameters) {
+        validateTransferFeeParameters(
+            transferFeeParameters,
+            configParam.tokenType
+        )
+    }
+    if (
+        (transferFeeParameters?.transferFeeBasisPoints ?? 0) > 0 ||
+        quoteMintHasTransferFee
+    ) {
+        validateTransferFeeConfigMode(configParam)
+    }
+
+    if (migratedCollectFeeMode === MigratedCollectFeeMode.Compounding) {
+        validateCompoundingMigrationDeposit({
+            migrationQuoteThreshold: configParam.migrationQuoteThreshold,
+            migrationFeePercentage: configParam.migrationFee.feePercentage,
+            migrationSqrtPrice: sqrtMigrationPrice,
+            baseTransferFee: getBaseTransferFee(
+                transferFeeParameters?.transferFeeBasisPoints ?? 0
+            ),
+            quoteTransferFee: quoteEpochTransferFee,
+        })
     }
 }
 
@@ -1202,19 +1351,20 @@ export async function validateBalance(
             )
         }
     } else {
+        let balance: BN
         try {
             const tokenBalance =
                 await connection.getTokenAccountBalance(inputTokenAccount)
-            const balance = new BN(tokenBalance.value.amount)
-
-            if (balance.lt(amountIn)) {
-                throw new Error(
-                    `Insufficient token balance. Required: ${amountIn.toString()}, Found: ${balance.toString()}`
-                )
-            }
+            balance = new BN(tokenBalance.value.amount)
         } catch (error) {
             throw new Error(
                 `Failed to fetch token balance or token account doesn't exist ${error}`
+            )
+        }
+
+        if (balance.lt(amountIn)) {
+            throw new Error(
+                `Insufficient token balance. Required: ${amountIn.toString()}, Found: ${balance.toString()}`
             )
         }
     }

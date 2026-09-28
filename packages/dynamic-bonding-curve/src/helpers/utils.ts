@@ -1,5 +1,9 @@
 import BN from 'bn.js'
-import { PublicKey, type GetProgramAccountsFilter } from '@solana/web3.js'
+import {
+    PublicKey,
+    type GetProgramAccountsFilter,
+    type PublicKeyInitData,
+} from '@solana/web3.js'
 import { NATIVE_MINT } from '@solana/spl-token'
 import { MAX_BASIS_POINT, FEE_DENOMINATOR } from '../constants'
 import Decimal from 'decimal.js'
@@ -83,12 +87,9 @@ export function isDefaultLockedVesting(lockedVesting: {
 
 /**
  * Convert decimal to a BN
- * @param value - The value
- * @returns The BN
+ * @deprecated Use `fromDecimalToBN`.
  */
-export function convertDecimalToBN(value: Decimal): BN {
-    return new BN(value.floor().toFixed())
-}
+export const convertDecimalToBN = fromDecimalToBN
 
 /**
  * Converts basis points (bps) to fee numerator
@@ -112,4 +113,43 @@ export function feeNumeratorToBps(feeNumerator: BN): number {
         .muln(MAX_BASIS_POINT)
         .div(new BN(FEE_DENOMINATOR))
         .toNumber()
+}
+
+/**
+ * Convert an address to a PublicKey.
+ * @param value - The address
+ * @param name - The parameter name included in the error when the address is missing
+ * @returns The public key
+ */
+export function requirePublicKey(
+    value: PublicKeyInitData | undefined,
+    name: string
+): PublicKey {
+    if (value === undefined) {
+        throw new Error(`${name} is required`)
+    }
+    return new PublicKey(value)
+}
+
+/**
+ * Choose the wrapped-SOL account used while claiming a native-SOL fee.
+ * @param owner - The creator or partner who owns the fee
+ * @param receiver - The optional fee receiver
+ * @param tempWSolAcc - The temporary wrapped-SOL account, required when the receiver differs from the owner
+ * @returns The account that receives the wrapped SOL before it is unwrapped
+ */
+export function resolveTempWsolAccount(
+    owner: PublicKey,
+    receiver: PublicKey | undefined,
+    tempWSolAcc: PublicKey | undefined
+): PublicKey {
+    if (!receiver || receiver.equals(owner)) {
+        return owner
+    }
+    if (!tempWSolAcc) {
+        throw new Error(
+            'tempWSolAcc is required when receiver differs from the fee owner'
+        )
+    }
+    return tempWSolAcc
 }
