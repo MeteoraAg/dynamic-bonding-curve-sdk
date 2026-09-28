@@ -3,17 +3,17 @@ import { DYNAMIC_BONDING_CURVE_PROGRAM_ID } from './constants'
 import { dynamicBondingCurveIdl } from './idl/dynamic-bonding-curve/camelCase'
 import type { DynamicBondingCurve } from './idl/dynamic-bonding-curve/idl'
 
-type IdlError = DynamicBondingCurve['errors'][number]
-
 /** Error names of the program, in the camelCase form Anchor's Program client uses. */
-export type DbcErrorName = IdlError['name']
+export type DbcErrorName = DynamicBondingCurve['errors'][number]['name']
 
 /** Error codes of the program by name, for example `DbcErrorCode.exceededSlippage`. */
 export const DbcErrorCode = Object.fromEntries(
     dynamicBondingCurveIdl.errors.map((error) => [error.name, error.code])
-) as { readonly [Error in IdlError as Error['name']]: Error['code'] }
+) as {
+    readonly [Error in DynamicBondingCurve['errors'][number] as Error['name']]: Error['code']
+}
 
-const errorsByCode = new Map<number, IdlError>(
+const errorsByCode = new Map<number, DynamicBondingCurve['errors'][number]>(
     dynamicBondingCurveIdl.errors.map((error) => [error.code, error])
 )
 
