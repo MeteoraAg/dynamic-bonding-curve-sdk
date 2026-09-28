@@ -1,5 +1,4 @@
 import { BaseFeeMode, getFeeSchedulerParams } from '../src'
-import { convertBNToDecimal } from './utils/common'
 import { expect, test, describe } from 'vitest'
 
 describe('calculateFeeScheduler tests', () => {
@@ -17,8 +16,6 @@ describe('calculateFeeScheduler tests', () => {
             numberOfPeriod,
             totalDuration
         )
-
-        console.log('result', convertBNToDecimal(result))
 
         // linear mode: cliffFeeNumerator - (numberOfPeriod * reductionFactor)
         expect(result.thirdFactor.toNumber()).toEqual(2777777)
@@ -38,8 +35,6 @@ describe('calculateFeeScheduler tests', () => {
             numberOfPeriod,
             totalDuration
         )
-
-        console.log('result', convertBNToDecimal(result))
 
         // exponential mode: cliffFeeNumerator * (1 - reductionFactor/10_000)^numberOfPeriod
         expect(result.thirdFactor.toNumber()).toEqual(383)

@@ -29,9 +29,6 @@ describe('getMinBaseFeeBps tests', () => {
             (expectedMinFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
         )
 
-        console.log('minBaseFeeBps:', minBaseFeeBps)
-        console.log('expectedMinFeeBps:', expectedMinFeeBps)
-
         expect(minBaseFeeBps).toBeLessThan(baseFeeBps)
         expect(minBaseFeeBps).toEqual(expectedMinFeeBps)
     })
@@ -64,9 +61,6 @@ describe('getMinBaseFeeBps tests', () => {
             0,
             (expectedMinFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
         )
-
-        console.log('minBaseFeeBps:', minBaseFeeBps)
-        console.log('expectedMinFeeBps:', expectedMinFeeBps)
 
         expect(minBaseFeeBps).toBeLessThan(baseFeeBps)
         expect(minBaseFeeBps).toEqual(expectedMinFeeBps)

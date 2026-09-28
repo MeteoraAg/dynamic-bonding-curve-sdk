@@ -22,7 +22,6 @@ import {
     TokenType,
     TokenAuthorityOption,
 } from '../src'
-import { convertBNToDecimal } from './utils/common'
 import {
     DEFAULT_MIGRATED_POOL_FEE_PARAMS,
     DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
@@ -79,23 +78,12 @@ describe('buildCurve tests', () => {
     }
 
     test('build curve with percentage and threshold parameters', () => {
-        console.log(
-            '\n testing build curve with percentage and threshold parameters...'
-        )
         const config = buildCurve({
             ...baseParams,
             percentageSupplyOnMigration: 2.983257229832572,
             migrationQuoteThreshold: 95.07640791476408,
         })
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold
-                .div(new BN(10 ** TokenDecimal.NINE))
-                .toString()
-        )
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
     })
 
