@@ -10,6 +10,7 @@ import {
 } from '../constants'
 import BN from 'bn.js'
 import { convertToLamports } from './utils'
+
 /**
  * Get the total vesting amount
  * @param lockedVesting - The locked vesting
@@ -116,6 +117,15 @@ export function getLockedVestingParams(
     }
 }
 
+/**
+ * Get the liquidity vesting info parameters
+ * @param vestingPercentage - The vesting percentage
+ * @param bpsPerPeriod - The BPS per period
+ * @param numberOfPeriods - The number of periods
+ * @param cliffDurationFromMigrationTime - The cliff duration from migration time
+ * @param totalDuration - The total duration
+ * @returns
+ */
 export const getLiquidityVestingInfoParams = (
     vestingPercentage: number,
     bpsPerPeriod: number,
