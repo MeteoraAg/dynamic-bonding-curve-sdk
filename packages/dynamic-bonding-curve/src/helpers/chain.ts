@@ -3,6 +3,7 @@ import BN from 'bn.js'
 import { Connection, PublicKey } from '@solana/web3.js'
 import { convertToLamports } from './utils'
 import { getTokenDecimals } from './token'
+
 /**
  * Get the first key
  * @param key1 - The first key
