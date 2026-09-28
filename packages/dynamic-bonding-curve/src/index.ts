@@ -64,6 +64,7 @@ export {
     getSqrtPriceFromPrice,
 } from './helpers/price'
 export { quoteSwap2 } from './helpers/quoteSwap'
+export { rateLimiterApplied } from './helpers/swap'
 export {
     getSwapQuoteTransferFees,
     getTokenProgram,

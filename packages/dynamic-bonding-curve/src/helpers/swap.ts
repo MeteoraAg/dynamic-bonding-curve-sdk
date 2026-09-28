@@ -15,22 +15,25 @@ import {
     wrapSOLInstruction,
 } from './token'
 import { isRateLimiterApplied } from '../math/poolFees/rateLimiter'
-import { ActivationType, BaseFeeMode, TradeDirection } from '../types'
+import {
+    ActivationType,
+    BaseFeeMode,
+    type BaseFee,
+    TradeDirection,
+} from '../types'
 
 /**
  * Return whether the rate limiter applies to this swap.
  */
 export async function rateLimiterApplied(params: {
     connection: Connection
-    baseFeeMode: BaseFeeMode
-    firstFactor: number
-    secondFactor: BN
-    thirdFactor: BN
+    baseFee: BaseFee
     activationType: ActivationType
     activationPoint: BN
     swapBaseForQuote: boolean
 }): Promise<boolean> {
-    if (params.baseFeeMode !== BaseFeeMode.RateLimiter) {
+    const { baseFee } = params
+    if (baseFee.baseFeeMode !== BaseFeeMode.RateLimiter) {
         return false
     }
 
@@ -45,9 +48,9 @@ export async function rateLimiterApplied(params: {
         params.swapBaseForQuote
             ? TradeDirection.BaseToQuote
             : TradeDirection.QuoteToBase,
-        params.secondFactor,
-        params.thirdFactor,
-        new BN(params.firstFactor)
+        baseFee.secondFactor,
+        baseFee.thirdFactor,
+        new BN(baseFee.firstFactor)
     )
 }
 

@@ -142,6 +142,7 @@ const rootExports = [
     'getVestingLockedLiquidityBpsAtNSeconds',
     'prepareSwapAmountParam',
     'quoteSwap2',
+    'rateLimiterApplied',
     'resolveSwapTransferFees',
     'swapQuote',
     'validateCompoundingFeeBps',

@@ -61,10 +61,7 @@ export class PoolService extends DynamicBondingCurveProgram {
 
         const rateLimited = await rateLimiterApplied({
             connection: this.connection,
-            baseFeeMode: poolConfigState.poolFees.baseFee.baseFeeMode,
-            firstFactor: poolConfigState.poolFees.baseFee.firstFactor,
-            secondFactor: poolConfigState.poolFees.baseFee.secondFactor,
-            thirdFactor: poolConfigState.poolFees.baseFee.thirdFactor,
+            baseFee: poolConfigState.poolFees.baseFee,
             activationType: poolConfigState.activationType,
             activationPoint: virtualPool.poolState.activationPoint,
             swapBaseForQuote,
@@ -169,10 +166,7 @@ export class PoolService extends DynamicBondingCurveProgram {
 
         const rateLimited = await rateLimiterApplied({
             connection: this.connection,
-            baseFeeMode: poolConfigState.poolFees.baseFee.baseFeeMode,
-            firstFactor: poolConfigState.poolFees.baseFee.firstFactor,
-            secondFactor: poolConfigState.poolFees.baseFee.secondFactor,
-            thirdFactor: poolConfigState.poolFees.baseFee.thirdFactor,
+            baseFee: poolConfigState.poolFees.baseFee,
             activationType: poolConfigState.activationType,
             activationPoint: virtualPool.poolState.activationPoint,
             swapBaseForQuote,
@@ -277,10 +271,7 @@ export class PoolService extends DynamicBondingCurveProgram {
 
         const rateLimited = await rateLimiterApplied({
             connection: this.connection,
-            baseFeeMode: poolConfigState.poolFees.baseFee.baseFeeMode,
-            firstFactor: poolConfigState.poolFees.baseFee.firstFactor,
-            secondFactor: poolConfigState.poolFees.baseFee.secondFactor,
-            thirdFactor: poolConfigState.poolFees.baseFee.thirdFactor,
+            baseFee: poolConfigState.poolFees.baseFee,
             activationType: poolConfigState.activationType,
             activationPoint: virtualPool.poolState.activationPoint,
             swapBaseForQuote,

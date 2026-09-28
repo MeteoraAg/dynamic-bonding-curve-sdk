@@ -16,6 +16,7 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - `getTokenType`, `getTokenProgram`, `convertToLamports`, and `createDbcProgram` at the package root.
 - `deriveDbcEventAuthority`, `deriveBaseKeyForLocker`, `deriveLockerEscrowAddress`, and `deriveDammV1MigrationMetadataAddress` at the package root.
 - `EpochTransferFee` type.
+- `rateLimiterApplied` at the package root: whether the rate limiter applies to a swap right now, for callers who build the swap instruction themselves and need to know whether to include the instructions sysvar.
 
 ### Changed
 
