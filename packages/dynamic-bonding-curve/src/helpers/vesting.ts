@@ -124,7 +124,7 @@ export function getLockedVestingParams(
  * @param numberOfPeriods - The number of periods
  * @param cliffDurationFromMigrationTime - The cliff duration from migration time
  * @param totalDuration - The total duration
- * @returns
+ * @returns The liquidity vesting info parameters
  */
 export const getLiquidityVestingInfoParams = (
     vestingPercentage: number,

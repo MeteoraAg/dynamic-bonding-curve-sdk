@@ -1,16 +1,15 @@
 {
-  "compilerOptions": {
-    "outDir": "dist",
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "strictNullChecks": true,
-    "target": "es2020",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["node_modules", "dist", "scripts"]
+    "compilerOptions": {
+        "outDir": "dist",
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true,
+        "target": "es2020",
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "esModuleInterop": true,
+        "strict": true,
+        "skipLibCheck": true
+    },
+    "include": ["src/**/*.ts", "tests/**/*.ts"],
+    "exclude": ["node_modules", "dist", "scripts"]
 }
