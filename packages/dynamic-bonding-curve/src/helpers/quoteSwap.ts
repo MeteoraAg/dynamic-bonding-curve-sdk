@@ -70,17 +70,18 @@ function buildSimulatedVirtualPool(sqrtStartPrice: BN): VirtualPool {
 /**
  * Quote exact-in, partial-fill, or exact-out.
  * Omit `virtualPool` to price a curve before the pool account exists.
+ * An existing pool needs `currentPoint`, otherwise time-based fees are quoted at activation.
  */
 export function quoteSwap2(params: QuoteSwap2Params): SwapQuote2Result {
+    if (params.virtualPool && !params.currentPoint) {
+        throw new Error('currentPoint is required when virtualPool is set')
+    }
+
     const poolConfig = normalizeQuoteConfig(params.config)
     const virtualPool =
         params.virtualPool ??
         buildSimulatedVirtualPool(poolConfig.sqrtStartPrice)
-    const currentPoint =
-        params.currentPoint ??
-        (params.virtualPool
-            ? params.virtualPool.poolState.activationPoint
-            : new BN(0))
+    const currentPoint = params.currentPoint ?? new BN(0)
     const slippageBps = params.slippageBps ?? 0
     const hasReferral = params.hasReferral ?? false
     const eligibleForFirstSwapWithMinFee =

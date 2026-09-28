@@ -624,13 +624,21 @@ export type SwapQuote2Params = {
  */
 export type QuoteSwap2Params = {
     config: SwapQuoteConfig
-    virtualPool?: VirtualPool
     swapBaseForQuote: boolean
     slippageBps?: number
     hasReferral?: boolean
-    currentPoint?: BN
     eligibleForFirstSwapWithMinFee?: boolean
-} & QuoteTransferFees &
+} & (
+    | {
+          virtualPool: VirtualPool
+          currentPoint: BN
+      }
+    | {
+          virtualPool?: undefined
+          currentPoint?: BN
+      }
+) &
+    QuoteTransferFees &
     (
         | {
               swapMode?: SwapMode.ExactIn | SwapMode.PartialFill
