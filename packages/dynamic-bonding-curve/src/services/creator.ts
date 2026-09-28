@@ -33,7 +33,7 @@ import {
     hasMintAuthority,
     validateMinimumLockedLiquidity,
 } from '../helpers'
-import { getFeeSchedulerMinBaseFeeNumerator } from '../math'
+import { getFeeSchedulerMinBaseFeeNumerator } from '../math/poolFees/feeScheduler'
 import { MIN_FEE_NUMERATOR, MIN_LOCKED_LIQUIDITY_BPS } from '../constants'
 import BN from 'bn.js'
 

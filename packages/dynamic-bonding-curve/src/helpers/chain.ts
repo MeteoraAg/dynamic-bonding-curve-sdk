@@ -36,46 +36,6 @@ export function getSecondKey(key1: PublicKey, key2: PublicKey) {
 }
 
 /**
- * Get creation timestamp for an account
- * @param accountAddress - The address of the account
- * @param connection - The Solana connection instance
- * @returns The creation timestamp as a Date object, or undefined if not found
- */
-export async function getAccountCreationTimestamp(
-    accountAddress: PublicKey | string,
-    connection: Connection
-): Promise<Date | undefined> {
-    const address =
-        accountAddress instanceof PublicKey
-            ? accountAddress
-            : new PublicKey(accountAddress)
-
-    const signatures = await connection.getSignaturesForAddress(address, {
-        limit: 1,
-    })
-
-    return signatures[0]?.blockTime
-        ? new Date(signatures[0].blockTime * 1000)
-        : undefined
-}
-
-/**
- * Get creation timestamps for multiple accounts
- * @param accountAddresses - Array of account addresses
- * @param connection - The Solana connection instance
- * @returns Array of creation timestamps corresponding to the input addresses
- */
-export async function getAccountCreationTimestamps(
-    accountAddresses: (PublicKey | string)[],
-    connection: Connection
-): Promise<(Date | undefined)[]> {
-    const timestampPromises = accountAddresses.map((address) =>
-        getAccountCreationTimestamp(address, connection)
-    )
-    return Promise.all(timestampPromises)
-}
-
-/**
  * Get the current point based on activation type
  * @param connection - The Solana connection instance
  * @param activationType - The activation type (Slot or Time)

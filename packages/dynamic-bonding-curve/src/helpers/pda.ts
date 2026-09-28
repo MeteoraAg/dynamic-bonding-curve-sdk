@@ -8,7 +8,7 @@ import {
     VAULT_PROGRAM_ID,
     DYNAMIC_BONDING_CURVE_PROGRAM_ID,
 } from '../constants'
-import { getFirstKey, getSecondKey } from './common'
+import { getFirstKey, getSecondKey } from './chain'
 
 const SEED = Object.freeze({
     POOL_AUTHORITY: 'pool_authority',
@@ -45,18 +45,6 @@ export function deriveDbcEventAuthority(): PublicKey {
 }
 
 /**
- * Derive DAMM V1 event authority
- * @returns The event authority
- */
-export function deriveDammV1EventAuthority(): PublicKey {
-    const [eventAuthority] = PublicKey.findProgramAddressSync(
-        [Buffer.from(SEED.EVENT_AUTHORITY)],
-        DAMM_V1_PROGRAM_ID
-    )
-    return eventAuthority
-}
-
-/**
  * Derive DAMM V2 event authority
  * @returns The event authority
  */
@@ -88,19 +76,6 @@ export function deriveDbcPoolAuthority(): PublicKey {
     const [poolAuthority] = PublicKey.findProgramAddressSync(
         [Buffer.from(SEED.POOL_AUTHORITY)],
         DYNAMIC_BONDING_CURVE_PROGRAM_ID
-    )
-
-    return poolAuthority
-}
-
-/**
- * Derive DAMM V1 pool authority
- * @returns The pool authority
- */
-export function deriveDammV1PoolAuthority(): PublicKey {
-    const [poolAuthority] = PublicKey.findProgramAddressSync(
-        [Buffer.from(SEED.POOL_AUTHORITY)],
-        DAMM_V1_PROGRAM_ID
     )
 
     return poolAuthority
@@ -243,28 +218,28 @@ export function deriveDbcPoolMetadata(pool: PublicKey): PublicKey {
 
 /**
  * Derive DAMM V1 migration metadata address
- * @param virtual_pool - The virtual pool
+ * @param virtualPool - The virtual pool
  * @returns The DAMM migration metadata address
  */
 export function deriveDammV1MigrationMetadataAddress(
-    virtual_pool: PublicKey
+    virtualPool: PublicKey
 ): PublicKey {
     return PublicKey.findProgramAddressSync(
-        [Buffer.from(SEED.DAMM_V1_MIGRATION_METADATA), virtual_pool.toBuffer()],
+        [Buffer.from(SEED.DAMM_V1_MIGRATION_METADATA), virtualPool.toBuffer()],
         DYNAMIC_BONDING_CURVE_PROGRAM_ID
     )[0]
 }
 
 /**
  * Derive DAMM V2 migration metadata address
- * @param virtual_pool - The virtual pool
+ * @param virtualPool - The virtual pool
  * @returns The DAMM migration metadata address
  */
 export function deriveDammV2MigrationMetadataAddress(
-    virtual_pool: PublicKey
+    virtualPool: PublicKey
 ): PublicKey {
     return PublicKey.findProgramAddressSync(
-        [Buffer.from(SEED.DAMM_V2_MIGRATION_METADATA), virtual_pool.toBuffer()],
+        [Buffer.from(SEED.DAMM_V2_MIGRATION_METADATA), virtualPool.toBuffer()],
         DYNAMIC_BONDING_CURVE_PROGRAM_ID
     )[0]
 }
@@ -455,31 +430,11 @@ export function deriveDammV1LockEscrowAddress(
 }
 
 /**
- * Derive DAMM V2 lock escrow address
- * @param dammPool - The DAMM pool
- * @param creator - The creator of the virtual pool
- * @returns The lock escrow address
- */
-export function deriveDammV2LockEscrowAddress(
-    dammPool: PublicKey,
-    creator: PublicKey
-): PublicKey {
-    return PublicKey.findProgramAddressSync(
-        [
-            Buffer.from(SEED.LOCK_ESCROW),
-            dammPool.toBuffer(),
-            creator.toBuffer(),
-        ],
-        DAMM_V2_PROGRAM_ID
-    )[0]
-}
-
-/**
  * Derive escrow address
  * @param base - The base mint
  * @returns The escrow address
  */
-export function deriveEscrow(base: PublicKey): PublicKey {
+export function deriveLockerEscrowAddress(base: PublicKey): PublicKey {
     const [escrow] = PublicKey.findProgramAddressSync(
         [Buffer.from(SEED.ESCROW), base.toBuffer()],
         LOCKER_PROGRAM_ID

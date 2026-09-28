@@ -59,7 +59,8 @@ import {
     unpackMint,
     type Mint,
 } from '@solana/spl-token'
-import { getEpochTransferFee, getFeeMode } from '../math'
+import { getFeeMode } from '../math/feeMath'
+import { getEpochTransferFee } from '../math/transferFee'
 import BN from 'bn.js'
 import type { DbcClientContext } from '../client'
 import { StateService } from './state'

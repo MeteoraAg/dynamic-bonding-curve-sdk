@@ -920,14 +920,12 @@ export const getTokenomics = (
         .sub(vestingPercentage.add(leftoverPercentage).mul(sqrtRatio))
     const denominator = new Decimal(1).add(sqrtRatio)
 
-    // Calculate migration supply as BN
     const migrationSupplyDecimal = percentageSupplyOnMigration
         .div(denominator)
         .mul(new Decimal(totalTokenSupply.toString()))
         .div(new Decimal(100))
     const migrationSupply = new BN(migrationSupplyDecimal.floor().toFixed())
 
-    // Calculate bonding curve supply (remaining after subtracting known amounts)
     const bondingCurveSupply = totalTokenSupply
         .sub(migrationSupply)
         .sub(totalLeftover)

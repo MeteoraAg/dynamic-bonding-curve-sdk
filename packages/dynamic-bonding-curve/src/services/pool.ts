@@ -21,13 +21,13 @@ import {
     getQuoteFromInputAmount as quoteFromInputAmount,
     getQuoteFromOutputAmount as quoteFromOutputAmount,
 } from '../helpers/quoteSwap'
+import { getFeeMode } from '../math/feeMath'
 import {
     swapQuote,
     swapQuoteExactIn,
     swapQuoteExactOut,
     swapQuotePartialFill,
-    getFeeMode,
-} from '../math'
+} from '../math/swapQuote'
 import { prepareSwapAccounts, rateLimiterApplied } from '../helpers/swap'
 import BN from 'bn.js'
 

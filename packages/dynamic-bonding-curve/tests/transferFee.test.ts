@@ -6,7 +6,7 @@ import {
     getMigrationBaseToken,
     validateCompoundingMigrationDeposit,
     getMigrationThresholdPrice,
-} from '../src/helpers/common'
+} from '../src/helpers/migration'
 import {
     ActivationType,
     BaseFeeMode,
