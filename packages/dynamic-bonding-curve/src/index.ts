@@ -1,4 +1,5 @@
 export { DynamicBondingCurveClient } from './client'
+export type { DbcClientContext, DbcProvider } from './client'
 export { CreatorService } from './services/creator'
 export { MigrationService } from './services/migration'
 export { PartnerService } from './services/partner'
@@ -16,7 +17,7 @@ export {
     buildCurveWithMidPrice,
     buildCurveWithTwoSegments,
 } from './helpers/buildCurve'
-export { getCurrentPoint } from './helpers/chain'
+export { getCurrentPoint, prepareSwapAmountParam } from './helpers/chain'
 export {
     getBaseFeeParams,
     getDynamicFeeParams,
@@ -42,7 +43,11 @@ export {
     getSqrtPriceFromPrice,
 } from './helpers/price'
 export { getSwapQuoteTransferFees } from './helpers/token'
-export { bpsToFeeNumerator, feeNumeratorToBps } from './helpers/utils'
+export {
+    bpsToFeeNumerator,
+    feeNumeratorToBps,
+    fromDecimalToBN,
+} from './helpers/utils'
 export {
     validateCompoundingFeeBps,
     validateConfigParameters,
@@ -64,6 +69,7 @@ export {
     calculateTransferFeeIncludedAmount,
     resolveSwapTransferFees,
 } from './math/transferFee'
+export type { TransferFeeAmount } from './math/transferFee'
 
 export type { DynamicBondingCurve as DynamicBondingCurveTypes } from './idl/dynamic-bonding-curve/idl'
 export { default as DynamicBondingCurveIdl } from './idl/dynamic-bonding-curve/idl.json'

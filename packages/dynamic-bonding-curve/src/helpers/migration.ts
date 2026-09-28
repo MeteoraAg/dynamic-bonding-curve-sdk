@@ -417,9 +417,12 @@ export function validateCompoundingMigrationDeposit(params: {
 }
 
 /**
- * Get the total vesting amount
- * @param lockedVesting - The locked vesting
- * @returns The total vesting amount
+ * Get the liquidity
+ * @param baseAmount - The base amount
+ * @param quoteAmount - The quote amount
+ * @param minSqrtPrice - The min sqrt price
+ * @param maxSqrtPrice - The max sqrt price
+ * @returns The liquidity
  */
 export const getLiquidity = (
     baseAmount: BN,
@@ -811,14 +814,13 @@ export const getMigrationQuoteAmount = (
 }
 
 /**
- * Get the fee scheduler parameters
- * @param {number} startingBaseFeeBps - Starting fee in basis points
- * @param {number} endingBaseFeeBps - Ending fee in basis points
- * @param {BaseFeeMode} baseFeeMode - Mode for fee reduction (Linear or Exponential)
- * @param {number} numberOfPeriod - Number of periods over which to schedule fee reduction
- * @param {BN} totalDuration - Total duration of the fee scheduler
- *
- * @returns {BaseFee}
+ * Get the two curve
+ * @param migrationSqrtPrice - The migration sqrt price
+ * @param midSqrtPrice - The mid sqrt price
+ * @param initialSqrtPrice - The initial sqrt price
+ * @param swapAmount - The swap amount
+ * @param migrationQuoteThreshold - The migration quote threshold
+ * @returns The two curve
  */
 export const getTwoCurve = (
     migrationSqrtPrice: BN,
@@ -876,13 +878,13 @@ export const getTwoCurve = (
 }
 
 /**
- * Check if rate limiter should be applied based on pool configuration and state
- * @param baseFeeMode - The base fee mode
- * @param swapBaseForQuote - Whether the swap is from base to quote
- * @param currentPoint - The current point
- * @param activationPoint - The activation point
- * @param maxLimiterDuration - The maximum limiter duration
- * @returns Whether rate limiter should be applied
+ * Get the tokenomics
+ * @param initialMarketCap - The initial market cap
+ * @param migrationMarketCap - The migration market cap
+ * @param totalLockedVestingAmount - The total locked vesting amount
+ * @param totalLeftover - The total leftover
+ * @param totalTokenSupply - The total token supply
+ * @returns The tokenomics
  */
 export const getTokenomics = (
     initialMarketCap: Decimal,
