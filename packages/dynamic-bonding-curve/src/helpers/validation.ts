@@ -23,11 +23,7 @@ import {
     U64_MAX,
 } from '../constants'
 import { getBaseTransferFee, type EpochTransferFee } from '../math/transferFee'
-import {
-    NATIVE_MINT_2022,
-    TOKEN_2022_PROGRAM_ID,
-    TOKEN_PROGRAM_ID,
-} from '@solana/spl-token'
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import {
     ActivationType,
     BaseFeeMode,
@@ -49,21 +45,20 @@ import {
     TransferFeeWithheldAuthority,
     MigratedTransferFeeAuthorityOption,
     type CreateConfigParams,
-    type PoolConfig,
     type TransferFeeParameters,
 } from '../types'
 import { Connection, PublicKey } from '@solana/web3.js'
 import {
-    calculateLockedLiquidityBpsAtTime,
-    getBaseTokenForSwap,
     getMigrationBaseToken,
     getMigrationQuoteAmountFromThreshold,
     getMigrationThresholdPrice,
     getSwapAmountWithBuffer,
     getTotalTokenSupply,
     validateCompoundingMigrationDeposit,
-} from './common'
-import { isDefaultLockedVesting, isNativeSol } from './utils'
+} from './migration'
+import { getBaseTokenForSwap } from './price'
+import { calculateLockedLiquidityBpsAtTime } from './vesting'
+import { isDefaultLockedVesting } from './utils'
 import {
     FEE_DENOMINATOR,
     MAX_FEE_NUMERATOR,
@@ -566,19 +561,6 @@ export async function validateTransferHookProgramExecutable(
         return false
     }
     return accountInfo.executable
-}
-
-/**
- * Return whether a quote mint passes the sync portion of the supported quote mint check.
- */
-export function validateQuoteMintBasic(quoteMint: PublicKey): boolean {
-    if (!quoteMint || quoteMint.equals(PublicKey.default)) {
-        return false
-    }
-    if (quoteMint.equals(NATIVE_MINT_2022)) {
-        return false
-    }
-    return true
 }
 
 /**
@@ -1317,59 +1299,6 @@ export function validateConfigParameters(
             quoteTransferFee: quoteEpochTransferFee,
         })
     }
-}
-
-/**
- * Return whether a pool creation token type matches its config.
- */
-export function validateBaseTokenType(
-    baseTokenType: TokenType,
-    poolConfig: PoolConfig
-): boolean {
-    return baseTokenType === poolConfig.tokenType
-}
-
-/**
- * Validate that an owner has enough SOL or token balance for a swap.
- */
-export async function validateBalance(
-    connection: Connection,
-    owner: PublicKey,
-    inputMint: PublicKey,
-    amountIn: BN,
-    inputTokenAccount: PublicKey
-): Promise<boolean> {
-    const isSOLInput = isNativeSol(inputMint)
-
-    if (isSOLInput) {
-        const balance = await connection.getBalance(owner)
-        const requiredBalance = BigInt(amountIn.toString()) + BigInt(10000000) // Add 0.01 SOL for fees and rent
-
-        if (balance < Number(requiredBalance)) {
-            throw new Error(
-                `Insufficient SOL balance. Required: ${requiredBalance.toString()} lamports, Found: ${balance} lamports`
-            )
-        }
-    } else {
-        let balance: BN
-        try {
-            const tokenBalance =
-                await connection.getTokenAccountBalance(inputTokenAccount)
-            balance = new BN(tokenBalance.value.amount)
-        } catch (error) {
-            throw new Error(
-                `Failed to fetch token balance or token account doesn't exist ${error}`
-            )
-        }
-
-        if (balance.lt(amountIn)) {
-            throw new Error(
-                `Insufficient token balance. Required: ${amountIn.toString()}, Found: ${balance.toString()}`
-            )
-        }
-    }
-
-    return true
 }
 
 /**

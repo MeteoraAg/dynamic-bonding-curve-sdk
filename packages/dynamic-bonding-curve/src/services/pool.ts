@@ -18,7 +18,8 @@ import {
 } from '../types'
 import { validateSwapAmount } from '../helpers'
 import { quoteSwap2 } from '../helpers/quoteSwap'
-import { swapQuote, getFeeMode } from '../math'
+import { getFeeMode } from '../math/feeMath'
+import { swapQuote } from '../math/swapQuote'
 import { prepareSwapAccounts, rateLimiterApplied } from '../helpers/swap'
 import BN from 'bn.js'
 

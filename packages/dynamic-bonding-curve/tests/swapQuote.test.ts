@@ -5,7 +5,6 @@ import {
     ActivationType,
     BaseFeeMode,
     buildCurveWithCustomSqrtPrices,
-    calculateBaseToQuoteFromAmountIn,
     CollectFeeMode,
     ConfigParameters,
     createSqrtPrices,
@@ -13,8 +12,6 @@ import {
     DammV2DynamicFeeMode,
     deriveDbcPoolAddress,
     DynamicBondingCurveClient,
-    getFeeMode,
-    getIncludedFeeAmount,
     MigratedCollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
@@ -24,6 +21,11 @@ import {
     TokenAuthorityOption,
     TradeDirection,
 } from '../src'
+import {
+    calculateBaseToQuoteFromAmountIn,
+    getFeeMode,
+    getIncludedFeeAmount,
+} from '../src/math'
 import { MAX_FEE_NUMERATOR, U64_MAX } from '../src/constants'
 import { BN } from 'bn.js'
 import { NATIVE_MINT } from '@solana/spl-token'
