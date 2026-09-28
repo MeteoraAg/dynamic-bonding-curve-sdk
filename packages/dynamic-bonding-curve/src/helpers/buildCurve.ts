@@ -1,3 +1,4 @@
+import { DbcValidationError } from '../errors'
 import Decimal from 'decimal.js'
 import BN from 'bn.js'
 import {
@@ -654,7 +655,9 @@ export function buildCurveWithTwoSegments(
         // precision loss is used for leftover
         const leftOverDelta = totalDynamicSupply.sub(totalSupply)
         if (!leftOverDelta.lt(totalLeftover)) {
-            throw new Error('leftOverDelta must be less than totalLeftover')
+            throw new DbcValidationError(
+                'leftOverDelta must be less than totalLeftover'
+            )
         }
     }
 
@@ -900,7 +903,9 @@ export function buildCurveWithMidPrice(
         // precision loss is used for leftover
         const leftOverDelta = totalDynamicSupply.sub(totalSupply)
         if (!leftOverDelta.lt(totalLeftover)) {
-            throw new Error('leftOverDelta must be less than totalLeftover')
+            throw new DbcValidationError(
+                'leftOverDelta must be less than totalLeftover'
+            )
         }
     }
 
@@ -1178,7 +1183,9 @@ export function buildCurveWithLiquidityWeights(
         // precision loss is used for leftover
         const leftOverDelta = totalDynamicSupply.sub(totalSupply)
         if (!leftOverDelta.lt(totalLeftover)) {
-            throw new Error('leftOverDelta must be less than totalLeftover')
+            throw new DbcValidationError(
+                'leftOverDelta must be less than totalLeftover'
+            )
         }
     }
 
@@ -1282,13 +1289,17 @@ export function buildCurveWithCustomSqrtPrices(
     let { liquidityWeights } = params
 
     if (sqrtPrices.length < 2) {
-        throw new Error('sqrtPrices array must have at least 2 elements')
+        throw new DbcValidationError(
+            'sqrtPrices array must have at least 2 elements'
+        )
     }
 
     // validate sqrtPrices are in ascending order
     for (let i = 1; i < sqrtPrices.length; i++) {
         if (sqrtPrices[i].lte(sqrtPrices[i - 1])) {
-            throw new Error('sqrtPrices must be in ascending order')
+            throw new DbcValidationError(
+                'sqrtPrices must be in ascending order'
+            )
         }
     }
 
@@ -1297,7 +1308,7 @@ export function buildCurveWithCustomSqrtPrices(
         const numSegments = sqrtPrices.length - 1
         liquidityWeights = Array(numSegments).fill(1)
     } else if (liquidityWeights.length !== sqrtPrices.length - 1) {
-        throw new Error(
+        throw new DbcValidationError(
             'liquidityWeights length must equal sqrtPrices.length - 1'
         )
     }
@@ -1474,7 +1485,9 @@ export function buildCurveWithCustomSqrtPrices(
         // precision loss is used for leftover
         const leftOverDelta = totalDynamicSupply.sub(totalSupply)
         if (!leftOverDelta.lt(totalLeftover)) {
-            throw new Error('leftOverDelta must be less than totalLeftover')
+            throw new DbcValidationError(
+                'leftOverDelta must be less than totalLeftover'
+            )
         }
     }
 

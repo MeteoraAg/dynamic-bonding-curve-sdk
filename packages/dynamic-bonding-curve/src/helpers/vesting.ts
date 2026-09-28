@@ -1,3 +1,4 @@
+import { DbcValidationError } from '../errors'
 import {
     TokenDecimal,
     type LockedVestingParameters,
@@ -70,17 +71,17 @@ export function getLockedVestingParams(
     }
 
     if (numberOfVestingPeriod <= 0) {
-        throw new Error('Total periods must be greater than zero')
+        throw new DbcValidationError('Total periods must be greater than zero')
     }
 
     if (numberOfVestingPeriod == 0 || totalVestingDuration == 0) {
-        throw new Error(
+        throw new DbcValidationError(
             'numberOfPeriod and totalVestingDuration must both be greater than zero'
         )
     }
 
     if (cliffUnlockAmount > totalLockedVestingAmount) {
-        throw new Error(
+        throw new DbcValidationError(
             'Cliff unlock amount cannot be greater than total locked vesting amount'
         )
     }
@@ -135,7 +136,9 @@ export const getLiquidityVestingInfoParams = (
 ): LiquidityVestingInfoParameters => {
     // validate vestingPercentage (0-100, u8)
     if (vestingPercentage < 0 || vestingPercentage > 100) {
-        throw new Error('vestingPercentage must be between 0 and 100')
+        throw new DbcValidationError(
+            'vestingPercentage must be between 0 and 100'
+        )
     }
 
     // if vestingPercentage is 0, all other params should be 0 (zero vesting case)
@@ -146,7 +149,7 @@ export const getLiquidityVestingInfoParams = (
             cliffDurationFromMigrationTime !== 0 ||
             totalDuration !== 0
         ) {
-            throw new Error(
+            throw new DbcValidationError(
                 'If vestingPercentage is 0, all other parameters must be 0'
             )
         }
@@ -160,34 +163,38 @@ export const getLiquidityVestingInfoParams = (
     }
 
     if (bpsPerPeriod < 0 || bpsPerPeriod > MAX_BASIS_POINT) {
-        throw new Error(`bpsPerPeriod must be between 0 and ${MAX_BASIS_POINT}`)
+        throw new DbcValidationError(
+            `bpsPerPeriod must be between 0 and ${MAX_BASIS_POINT}`
+        )
     }
 
     if (numberOfPeriods <= 0) {
-        throw new Error(
+        throw new DbcValidationError(
             'numberOfPeriods must be greater than zero when vestingPercentage > 0'
         )
     }
 
     if (cliffDurationFromMigrationTime < 0) {
-        throw new Error('cliffDurationFromMigrationTime must be >= 0')
+        throw new DbcValidationError(
+            'cliffDurationFromMigrationTime must be >= 0'
+        )
     }
 
     if (totalDuration <= 0) {
-        throw new Error('totalDuration must be greater than zero')
+        throw new DbcValidationError('totalDuration must be greater than zero')
     }
 
     const frequency = totalDuration / numberOfPeriods
 
     if (frequency <= 0) {
-        throw new Error(
+        throw new DbcValidationError(
             'frequency must be greater than zero (totalDuration / numberOfPeriods must be > 0)'
         )
     }
 
     const totalBps = bpsPerPeriod * numberOfPeriods
     if (totalBps > MAX_BASIS_POINT) {
-        throw new Error(
+        throw new DbcValidationError(
             `Total BPS (bpsPerPeriod * numberOfPeriods = ${totalBps}) must not exceed ${MAX_BASIS_POINT}`
         )
     }
@@ -195,13 +202,13 @@ export const getLiquidityVestingInfoParams = (
     const totalVestingDuration =
         cliffDurationFromMigrationTime + numberOfPeriods * frequency
     if (totalVestingDuration > MAX_LOCK_DURATION_IN_SECONDS) {
-        throw new Error(
+        throw new DbcValidationError(
             `Total vesting duration (${totalVestingDuration}s) must not exceed ${MAX_LOCK_DURATION_IN_SECONDS}s (2 years)`
         )
     }
 
     if (cliffDurationFromMigrationTime === 0 && numberOfPeriods === 0) {
-        throw new Error(
+        throw new DbcValidationError(
             'If cliffDurationFromMigrationTime is 0, numberOfPeriods must be > 0'
         )
     }

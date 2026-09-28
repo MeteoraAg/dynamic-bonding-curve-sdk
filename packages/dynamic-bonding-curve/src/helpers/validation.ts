@@ -1,3 +1,4 @@
+import { DbcValidationError } from '../errors'
 import BN from 'bn.js'
 import {
     DYNAMIC_BONDING_CURVE_PROGRAM_ID,
@@ -85,13 +86,13 @@ export function assertConfigAllowsNewPool(params: {
     migrationOption: number
 }): void {
     if (params.baseFeeMode === BaseFeeMode.RateLimiter) {
-        throw new Error(
+        throw new DbcValidationError(
             'BaseFeeMode.RateLimiter is deprecated. New configs and pools must use FeeSchedulerLinear or FeeSchedulerExponential. Existing rate-limiter pools are unaffected.'
         )
     }
 
     if (params.migrationOption === MigrationOption.MET_DAMM) {
-        throw new Error(
+        throw new DbcValidationError(
             'MigrationOption.MET_DAMM (DAMM v1) is deprecated. New configs and pools must use MigrationOption.MET_DAMM_V2. Existing DAMM v1 pools can still migrate.'
         )
     }
@@ -840,13 +841,15 @@ export function validateTransferFeeParameters(
             migratedTransferFeeAuthorityOption !==
                 MigratedTransferFeeAuthorityOption.Immutable
         ) {
-            throw new Error('Invalid transfer fee parameters')
+            throw new DbcValidationError('Invalid transfer fee parameters')
         }
         return
     }
 
     if (tokenType !== TokenType.Token2022) {
-        throw new Error('Base transfer fee requires token type Token2022')
+        throw new DbcValidationError(
+            'Base transfer fee requires token type Token2022'
+        )
     }
     if (
         transferFeeBasisPoints < 0 ||
@@ -862,7 +865,7 @@ export function validateTransferFeeParameters(
             MigratedTransferFeeAuthorityOption.Partner,
         ].includes(migratedTransferFeeAuthorityOption)
     ) {
-        throw new Error('Invalid transfer fee parameters')
+        throw new DbcValidationError('Invalid transfer fee parameters')
     }
 }
 
@@ -882,13 +885,17 @@ function validateTransferFeeConfigMode(configParam: {
             new BN(tokenSupply.postMigrationTokenSupply.toString())
         )
     ) {
-        throw new Error('Transfer fee configs require a constant token supply')
+        throw new DbcValidationError(
+            'Transfer fee configs require a constant token supply'
+        )
     }
     if (!isDefaultLockedVesting(configParam.lockedVesting)) {
-        throw new Error('Transfer fee configs cannot include locked vesting')
+        throw new DbcValidationError(
+            'Transfer fee configs cannot include locked vesting'
+        )
     }
     if (configParam.migrationFeeOption !== MigrationFeeOption.Customizable) {
-        throw new Error(
+        throw new DbcValidationError(
             'Transfer fee configs require MigrationFeeOption.Customizable'
         )
     }
@@ -896,7 +903,7 @@ function validateTransferFeeConfigMode(configParam: {
         configParam.migratedPoolFee.collectFeeMode !==
         MigratedCollectFeeMode.Compounding
     ) {
-        throw new Error(
+        throw new DbcValidationError(
             'Transfer fee configs require MigratedCollectFeeMode.Compounding'
         )
     }
@@ -937,7 +944,7 @@ export function validateConfigParameters(
 
     // pool fees validation
     if (!configParam.poolFees) {
-        throw new Error('Pool fees are required')
+        throw new DbcValidationError('Pool fees are required')
     }
     if (
         !validatePoolFees(
@@ -946,27 +953,29 @@ export function validateConfigParameters(
             configParam.activationType
         )
     ) {
-        throw new Error('Invalid pool fees')
+        throw new DbcValidationError('Invalid pool fees')
     }
 
     // dbc collect fee mode validation
     if (!validateCollectFeeMode(configParam.collectFeeMode)) {
-        throw new Error('Invalid collect fee mode')
+        throw new DbcValidationError('Invalid collect fee mode')
     }
 
     // update token authority option validation
     if (!validateTokenAuthorityOptions(configParam.tokenUpdateAuthority)) {
-        throw new Error('Invalid option for token update authority')
+        throw new DbcValidationError(
+            'Invalid option for token update authority'
+        )
     }
     if (!isTransferHook && hasMintAuthority(configParam.tokenUpdateAuthority)) {
-        throw new Error(
+        throw new DbcValidationError(
             'Mint authority token update options are only supported for transfer-hook configs'
         )
     }
 
     // transfer-hook config requires Token2022 base mint
     if (isTransferHook && configParam.tokenType !== TokenType.Token2022) {
-        throw new Error(
+        throw new DbcValidationError(
             'Transfer-hook configs require tokenType to be Token2022'
         )
     }
@@ -974,18 +983,18 @@ export function validateConfigParameters(
     // transfer-hook program validation
     if (isTransferHook && transferHookProgram !== undefined) {
         if (!validateTransferHookProgram(transferHookProgram)) {
-            throw new Error(
+            throw new DbcValidationError(
                 'Invalid transfer hook program: cannot be the DBC program, SPL Token, SPL Token-2022, or the default pubkey'
             )
         }
     }
 
     if (!validateMigrationOption(configParam.migrationOption)) {
-        throw new Error('Invalid migration option')
+        throw new DbcValidationError('Invalid migration option')
     }
 
     if (!validateTokenType(configParam.tokenType)) {
-        throw new Error('Invalid token type')
+        throw new DbcValidationError('Invalid token type')
     }
 
     // migration and token type validation
@@ -995,12 +1004,14 @@ export function validateConfigParameters(
             configParam.tokenType
         )
     ) {
-        throw new Error('Token type must be SPL for MeteoraDamm migration')
+        throw new DbcValidationError(
+            'Token type must be SPL for MeteoraDamm migration'
+        )
     }
 
     // activation type validation
     if (!validateActivationType(configParam.activationType)) {
-        throw new Error('Invalid activation type')
+        throw new DbcValidationError('Invalid activation type')
     }
 
     // migration fee validation
@@ -1010,12 +1021,12 @@ export function validateConfigParameters(
             configParam.migrationOption
         )
     ) {
-        throw new Error('Invalid migration fee option')
+        throw new DbcValidationError('Invalid migration fee option')
     }
 
     // migration fee percentages validation
     if (!validateMigrationFee(configParam.migrationFee)) {
-        throw new Error('Invalid migration fee')
+        throw new DbcValidationError('Invalid migration fee')
     }
 
     // creator trading fee percentage validation
@@ -1023,14 +1034,14 @@ export function validateConfigParameters(
         configParam.creatorTradingFeePercentage < 0 ||
         configParam.creatorTradingFeePercentage > 100
     ) {
-        throw new Error(
+        throw new DbcValidationError(
             'Creator trading fee percentage must be between 0 and 100'
         )
     }
 
     // token decimals validation
     if (!validateTokenDecimals(configParam.tokenDecimal)) {
-        throw new Error('Token decimal must be between 6 and 9')
+        throw new DbcValidationError('Token decimal must be between 6 and 9')
     }
 
     // get vesting percentages (default to 0 if not provided)
@@ -1050,12 +1061,12 @@ export function validateConfigParameters(
             creatorVestingPercentage
         )
     ) {
-        throw new Error('Sum of LP percentages must equal 100')
+        throw new DbcValidationError('Sum of LP percentages must equal 100')
     }
 
     // pool creation fee validation
     if (!validatePoolCreationFee(configParam.poolCreationFee)) {
-        throw new Error(
+        throw new DbcValidationError(
             `Pool creation fee must be 0 or between ${MIN_POOL_CREATION_FEE} and ${MAX_POOL_CREATION_FEE} lamports`
         )
     }
@@ -1082,7 +1093,7 @@ export function validateConfigParameters(
                 configParam.creatorLiquidityVestingInfo.frequency === 0)
 
         if (!isPartnerVestingZero || !isCreatorVestingZero) {
-            throw new Error(
+            throw new DbcValidationError(
                 'Liquidity vesting is not supported for MeteoraDamm migration'
             )
         }
@@ -1094,7 +1105,9 @@ export function validateConfigParameters(
                     configParam.partnerLiquidityVestingInfo
                 )
             ) {
-                throw new Error('Invalid partner liquidity vesting info')
+                throw new DbcValidationError(
+                    'Invalid partner liquidity vesting info'
+                )
             }
         }
         if (configParam.creatorLiquidityVestingInfo) {
@@ -1103,7 +1116,9 @@ export function validateConfigParameters(
                     configParam.creatorLiquidityVestingInfo
                 )
             ) {
-                throw new Error('Invalid creator liquidity vesting info')
+                throw new DbcValidationError(
+                    'Invalid creator liquidity vesting info'
+                )
             }
         }
     }
@@ -1115,7 +1130,7 @@ export function validateConfigParameters(
         configParam.curve
     )
     if (sqrtMigrationPrice.gte(new BN(MAX_SQRT_PRICE))) {
-        throw new Error('Migration sqrt price exceeds maximum')
+        throw new DbcValidationError('Migration sqrt price exceeds maximum')
     }
 
     // reject degenerate curves that yield no swap or migration base liquidity
@@ -1140,7 +1155,7 @@ export function validateConfigParameters(
         swapBaseAmountForCurve.lte(new BN(0)) ||
         migrationBaseAmountForCurve.lte(new BN(0))
     ) {
-        throw new Error(
+        throw new DbcValidationError(
             'Invalid curve: swap base amount and migration base amount must both be greater than 0'
         )
     }
@@ -1148,7 +1163,7 @@ export function validateConfigParameters(
         swapBaseAmountForCurve.gt(U64_MAX) ||
         migrationBaseAmountForCurve.gt(U64_MAX)
     ) {
-        throw new Error(
+        throw new DbcValidationError(
             'Invalid curve: swap base amount and migration base amount must fit in u64'
         )
     }
@@ -1169,7 +1184,7 @@ export function validateConfigParameters(
             configParam.creatorLiquidityVestingInfo,
             SECONDS_PER_DAY
         )
-        throw new Error(
+        throw new DbcValidationError(
             `Invalid migration locked liquidity. At least ${MIN_LOCKED_LIQUIDITY_BPS} BPS (10%) must be locked at day 1. ` +
                 `Current locked liquidity at day 1: ${lockedBpsAtDay1} BPS. ` +
                 `Consider increasing permanent locked liquidity percentage or extending vesting duration/cliff.`
@@ -1178,7 +1193,9 @@ export function validateConfigParameters(
 
     // migration quote threshold validation
     if (configParam.migrationQuoteThreshold.lte(new BN(0))) {
-        throw new Error('Migration quote threshold must be greater than 0')
+        throw new DbcValidationError(
+            'Migration quote threshold must be greater than 0'
+        )
     }
 
     // price validation
@@ -1186,7 +1203,7 @@ export function validateConfigParameters(
         new BN(configParam.sqrtStartPrice).lt(new BN(MIN_SQRT_PRICE)) ||
         new BN(configParam.sqrtStartPrice).gte(new BN(MAX_SQRT_PRICE))
     ) {
-        throw new Error('Invalid sqrt start price')
+        throw new DbcValidationError('Invalid sqrt start price')
     }
 
     // migrated pool fee validation
@@ -1201,7 +1218,7 @@ export function validateConfigParameters(
                 configParam.migratedPoolBaseFeeMode
             )
         ) {
-            throw new Error('Invalid migrated pool fee parameters')
+            throw new DbcValidationError('Invalid migrated pool fee parameters')
         }
     }
 
@@ -1223,7 +1240,7 @@ export function validateConfigParameters(
 
     // curve validation
     if (!validateCurve(configParam.curve, configParam.sqrtStartPrice)) {
-        throw new Error('Invalid curve')
+        throw new DbcValidationError('Invalid curve')
     }
 
     // locked vesting validation
@@ -1239,10 +1256,10 @@ export function validateConfigParameters(
                 totalAmount.eq(new BN(0)) ||
                 totalAmount.gt(U64_MAX)
             ) {
-                throw new Error('Invalid vesting parameters')
+                throw new DbcValidationError('Invalid vesting parameters')
             }
         } catch (error) {
-            throw new Error(`Invalid vesting parameters ${error}`)
+            throw new DbcValidationError(`Invalid vesting parameters ${error}`)
         }
     }
 
@@ -1286,7 +1303,7 @@ export function validateConfigParameters(
                 swapBaseAmountBuffer
             )
         ) {
-            throw new Error('Invalid token supply')
+            throw new DbcValidationError('Invalid token supply')
         }
     }
 
@@ -1321,7 +1338,7 @@ export function validateConfigParameters(
  */
 export function validateSwapAmount(amountIn: BN): boolean {
     if (amountIn.lte(new BN(0))) {
-        throw new Error('Swap amount must be greater than 0')
+        throw new DbcValidationError('Swap amount must be greater than 0')
     }
     return true
 }
@@ -1345,7 +1362,7 @@ export function validateMigratedPoolBaseFeeMode(
 
     // mode 2 (RateLimiter) is not supported for DAMM V2 migration
     if (migratedPoolBaseFeeMode === DammV2BaseFeeMode.RateLimiter) {
-        throw new Error(
+        throw new DbcValidationError(
             'RateLimiter (mode 2) is not supported for DAMM V2 migration. ' +
                 'Use FeeTimeSchedulerLinear (0), FeeTimeSchedulerExponential (1), ' +
                 'FeeMarketCapSchedulerLinear (3), or FeeMarketCapSchedulerExponential (4) instead.'
@@ -1366,7 +1383,7 @@ export function validateMigratedPoolBaseFeeMode(
             DammV2BaseFeeMode.FeeTimeSchedulerExponential
     ) {
         if (!isFixedFeeParams) {
-            throw new Error(
+            throw new DbcValidationError(
                 `FeeTimeSchedulerLinear (0) and FeeTimeSchedulerExponential (1) modes ` +
                     `only work as fixed fee for migrated pools. All market cap fee scheduler params must be 0: ` +
                     `numberOfPeriod, sqrtPriceStepBps, schedulerExpirationDuration, and reductionFactor.`
@@ -1392,7 +1409,7 @@ export function validateMigratedPoolBaseFeeMode(
                 new BN(0)
             )
         ) {
-            throw new Error(
+            throw new DbcValidationError(
                 `For FeeMarketCapSchedulerLinear (3) and FeeMarketCapSchedulerExponential (4) modes, ` +
                     `if using dynamic fee scheduling, numberOfPeriod, sqrtPriceStepBps, and ` +
                     `schedulerExpirationDuration must all be greater than 0, and reductionFactor must be greater than 0.`
@@ -1419,14 +1436,16 @@ export function validateMigratedPoolBaseFeeMode(
             minFeeNumerator.lt(new BN(DAMM_V2_MIN_FEE_NUMERATOR)) ||
             cliffFeeNumerator.gt(new BN(DAMM_V2_MAX_FEE_NUMERATOR))
         ) {
-            throw new Error('Invalid market cap fee scheduler fee bounds')
+            throw new DbcValidationError(
+                'Invalid market cap fee scheduler fee bounds'
+            )
         }
 
         return true
     }
 
     // unknown mode
-    throw new Error(
+    throw new DbcValidationError(
         `Unknown migratedPoolBaseFeeMode: ${migratedPoolBaseFeeMode}`
     )
 }
@@ -1447,7 +1466,7 @@ export function validateMarketCapFeeSchedulerRequiresPoolFeeBps(
 
     if (isMarketCapFeeSchedulerConfigured) {
         if (!migratedPoolFee || migratedPoolFee.poolFeeBps === 0) {
-            throw new Error(
+            throw new DbcValidationError(
                 'When marketCapFeeSchedulerParams is configured, migratedPoolFee.poolFeeBps is required and must be greater than 0. ' +
                     'The poolFeeBps serves as the starting (cliff) fee for the market cap fee scheduler.'
             )
@@ -1469,7 +1488,7 @@ export function validateMigrationFee(migrationFee: {
         !Number.isInteger(migrationFee.feePercentage) ||
         !Number.isInteger(migrationFee.creatorFeePercentage)
     ) {
-        throw new Error(
+        throw new DbcValidationError(
             'Migration fee percentage and creator fee percentage must be whole numbers (no decimals allowed)'
         )
     }
@@ -1478,7 +1497,7 @@ export function validateMigrationFee(migrationFee: {
         migrationFee.feePercentage < 0 ||
         migrationFee.feePercentage > MAX_MIGRATION_FEE_PERCENTAGE
     ) {
-        throw new Error(
+        throw new DbcValidationError(
             `Migration fee percentage must be between 0 and ${MAX_MIGRATION_FEE_PERCENTAGE}`
         )
     }
@@ -1486,7 +1505,7 @@ export function validateMigrationFee(migrationFee: {
         migrationFee.creatorFeePercentage < 0 ||
         migrationFee.creatorFeePercentage > MAX_CREATOR_MIGRATION_FEE_PERCENTAGE
     ) {
-        throw new Error(
+        throw new DbcValidationError(
             `Migration creator fee percentage must be between 0 and ${MAX_CREATOR_MIGRATION_FEE_PERCENTAGE}`
         )
     }
@@ -1494,7 +1513,7 @@ export function validateMigrationFee(migrationFee: {
         migrationFee.feePercentage === 0 &&
         migrationFee.creatorFeePercentage !== 0
     ) {
-        throw new Error(
+        throw new DbcValidationError(
             'Migration creator fee percentage must be 0 when migration fee percentage is 0'
         )
     }

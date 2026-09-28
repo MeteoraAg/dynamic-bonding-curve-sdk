@@ -149,6 +149,10 @@
     - [validateCompoundingFeeBps](#validateCompoundingFeeBps)
     - [validateTransferFeeParameters](#validateTransferFeeParameters)
 
+- [Errors](#errors)
+    - [getDbcError](#getDbcError)
+    - [DbcErrorCode](#DbcErrorCode)
+
 - [Events](#events)
     - [parseDbcEvents](#parseDbcEvents)
     - [decodeDbcEventInstruction](#decodeDbcEventInstruction)
@@ -6743,6 +6747,63 @@ tokenType: number // The TokenType of the base mint
 **Returns**
 
 - Nothing. Throws an `Error` on an invalid parameter.
+
+---
+
+## Errors
+
+The SDK throws two kinds of error. `DbcValidationError` comes from a parameter check before a transaction is built, for example a fee outside the allowed range or a curve the program would reject. `DbcError` is a custom error the program returned; `getDbcError` extracts it from a failed transaction.
+
+### getDbcError
+
+Returns the program error behind a failed transaction, or `null` when the failure did not originate in the program. It reads the logs of the error it is given: a `SendTransactionError` from a preflight failure, an Anchor `AnchorError` or `ProgramError`, or a `simulateTransaction` result. Pass `logs` for an error that carries none.
+
+**Function**
+
+```typescript
+function getDbcError(error: unknown, logs?: string[]): DbcError | null
+```
+
+**Parameters**
+
+```typescript
+error: unknown // The caught error or simulation result
+logs?: string[] // The transaction logs, when the error has none
+```
+
+**Returns**
+
+- A `DbcError` with `code`, `errorName`, `message`, and `logs`, or `null`.
+
+**Example**
+
+```typescript
+try {
+    await sendAndConfirmTransaction(connection, swapTx, [user])
+} catch (error) {
+    const dbcError = getDbcError(error)
+    if (dbcError?.errorName === 'exceededSlippage') {
+        // quote again and retry
+    }
+    throw error
+}
+```
+
+**Notes**
+
+- Error names use the camelCase form of the IDL names, as in Anchor's `Program` client: the program's `ExceededSlippage` is `exceededSlippage`.
+- A transaction that failed after preflight has no logs on the error. Fetch them with `connection.getTransaction(signature)` and pass `meta.logMessages`.
+
+---
+
+### DbcErrorCode
+
+The program's error codes by name.
+
+```typescript
+DbcErrorCode.exceededSlippage // 6002
+DbcErrorCode.amountIsZero // 6005
+```
 
 ---
 

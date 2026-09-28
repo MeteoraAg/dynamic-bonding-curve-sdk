@@ -11,6 +11,13 @@ export * from './constants'
 
 export { decodeDbcEventInstruction, parseDbcEvents } from './events'
 export type { DbcEvent, DbcEventName, DbcEvents } from './events'
+export {
+    DbcError,
+    DbcErrorCode,
+    DbcValidationError,
+    getDbcError,
+} from './errors'
+export type { DbcErrorName } from './errors'
 
 export {
     buildCurve,

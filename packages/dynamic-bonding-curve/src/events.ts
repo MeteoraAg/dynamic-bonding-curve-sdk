@@ -4,17 +4,14 @@ import {
     utils,
     type IdlEvents,
 } from '@coral-xyz/anchor'
-// Not re-exported from the package root. Program applies it to its IDL, so events decoded
-// here carry the same camelCase names and fields as Program's coder.
-import { convertIdlToCamelCase } from '@coral-xyz/anchor/dist/cjs/idl.js'
 import type {
     ParsedTransactionWithMeta,
     PublicKey,
     VersionedTransactionResponse,
 } from '@solana/web3.js'
 import { DYNAMIC_BONDING_CURVE_PROGRAM_ID } from './constants'
+import { dynamicBondingCurveIdl } from './idl/dynamic-bonding-curve/camelCase'
 import type { DynamicBondingCurve } from './idl/dynamic-bonding-curve/idl'
-import DynamicBondingCurveIDL from './idl/dynamic-bonding-curve/idl.json'
 
 // Event and field names are the camelCase form of the IDL names, as in Anchor's Program client.
 export type DbcEvents = IdlEvents<DynamicBondingCurve>
@@ -26,9 +23,7 @@ export type DbcEvent = {
 // emit_cpi! writes an event as the data of a self-CPI, behind this 8-byte tag.
 const EVENT_IX_TAG = Buffer.from('e445a52e51cb9a1d', 'hex')
 
-const coder = new BorshCoder(
-    convertIdlToCamelCase(DynamicBondingCurveIDL as DynamicBondingCurve)
-)
+const coder = new BorshCoder(dynamicBondingCurveIdl)
 const logParser = new EventParser(DYNAMIC_BONDING_CURVE_PROGRAM_ID, coder)
 
 /**

@@ -1,3 +1,4 @@
+import { DbcValidationError } from '../errors'
 import {
     BaseFee,
     DynamicFeeParameters,
@@ -54,7 +55,7 @@ export function getFeeSchedulerParams(
 ): BaseFee {
     if (startingBaseFeeBps == endingBaseFeeBps) {
         if (numberOfPeriod != 0 || totalDuration != 0) {
-            throw new Error(
+            throw new DbcValidationError(
                 'numberOfPeriod and totalDuration must both be zero'
             )
         }
@@ -69,29 +70,29 @@ export function getFeeSchedulerParams(
     }
 
     if (numberOfPeriod <= 0) {
-        throw new Error('Total periods must be greater than zero')
+        throw new DbcValidationError('Total periods must be greater than zero')
     }
 
     if (startingBaseFeeBps > MAX_FEE_BPS) {
-        throw new Error(
+        throw new DbcValidationError(
             `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
         )
     }
 
     if (endingBaseFeeBps < MIN_FEE_BPS) {
-        throw new Error(
+        throw new DbcValidationError(
             `endingBaseFeeBps (${endingBaseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
         )
     }
 
     if (endingBaseFeeBps > startingBaseFeeBps) {
-        throw new Error(
+        throw new DbcValidationError(
             'endingBaseFeeBps bps must be less than or equal to startingBaseFeeBps bps'
         )
     }
 
     if (numberOfPeriod == 0 || totalDuration == 0) {
-        throw new Error(
+        throw new DbcValidationError(
             'numberOfPeriod and totalDuration must both greater than zero'
         )
     }
@@ -193,29 +194,31 @@ export function getRateLimiterParams(
         referenceAmount <= 0 ||
         maxLimiterDuration <= 0
     ) {
-        throw new Error('All rate limiter parameters must be greater than zero')
+        throw new DbcValidationError(
+            'All rate limiter parameters must be greater than zero'
+        )
     }
 
     if (baseFeeBps > MAX_FEE_BPS) {
-        throw new Error(
+        throw new DbcValidationError(
             `Base fee (${baseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
         )
     }
 
     if (baseFeeBps < MIN_FEE_BPS) {
-        throw new Error(
+        throw new DbcValidationError(
             `Base fee (${baseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
         )
     }
 
     if (feeIncrementBps > MAX_FEE_BPS) {
-        throw new Error(
+        throw new DbcValidationError(
             `Fee increment (${feeIncrementBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
         )
     }
 
     if (feeIncrementNumerator.gte(new BN(FEE_DENOMINATOR))) {
-        throw new Error(
+        throw new DbcValidationError(
             'Fee increment numerator must be less than FEE_DENOMINATOR'
         )
     }
@@ -223,14 +226,16 @@ export function getRateLimiterParams(
     const deltaNumerator = new BN(MAX_FEE_NUMERATOR).sub(cliffFeeNumerator)
     const maxIndex = deltaNumerator.div(feeIncrementNumerator)
     if (maxIndex.lt(new BN(1))) {
-        throw new Error('Fee increment is too large for the given base fee')
+        throw new DbcValidationError(
+            'Fee increment is too large for the given base fee'
+        )
     }
 
     if (
         cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
         cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
     ) {
-        throw new Error('Base fee must be between 0.01% and 99%')
+        throw new DbcValidationError('Base fee must be between 0.01% and 99%')
     }
 
     const maxDuration =
@@ -239,7 +244,7 @@ export function getRateLimiterParams(
             : MAX_RATE_LIMITER_DURATION_IN_SECONDS
 
     if (maxLimiterDuration > maxDuration) {
-        throw new Error(
+        throw new DbcValidationError(
             `Max duration exceeds maximum allowed value of ${maxDuration}`
         )
     }
@@ -269,7 +274,7 @@ export function getDynamicFeeParams(
     maxPriceChangeBps: number = MAX_PRICE_CHANGE_BPS_DEFAULT // default 15%
 ): DynamicFeeParameters {
     if (maxPriceChangeBps > MAX_PRICE_CHANGE_BPS_DEFAULT) {
-        throw new Error(
+        throw new DbcValidationError(
             `maxPriceChangeBps (${maxPriceChangeBps} bps) must be less than or equal to ${MAX_PRICE_CHANGE_BPS_DEFAULT}`
         )
     }
@@ -355,35 +360,37 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
     }
 
     if (dammV2BaseFeeMode === DammV2BaseFeeMode.RateLimiter) {
-        throw new Error(
+        throw new DbcValidationError(
             'RateLimiter is not supported for DAMM v2 migration. Use either FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential instead.'
         )
     }
 
     if (numberOfPeriod <= 0) {
-        throw new Error('Total periods must be greater than zero')
+        throw new DbcValidationError('Total periods must be greater than zero')
     }
 
     const poolMaxFeeBps = MAX_FEE_BPS
 
     if (startingBaseFeeBps <= endingBaseFeeBps) {
-        throw new Error(
+        throw new DbcValidationError(
             `startingBaseFeeBps (${startingBaseFeeBps} bps) must be greater than endingBaseFeeBps (${endingBaseFeeBps} bps)`
         )
     }
 
     if (priceMultiple <= 1) {
-        throw new Error('priceMultiple must be greater than 1')
+        throw new DbcValidationError('priceMultiple must be greater than 1')
     }
 
     if (startingBaseFeeBps > poolMaxFeeBps) {
-        throw new Error(
+        throw new DbcValidationError(
             `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${poolMaxFeeBps} bps`
         )
     }
 
     if (schedulerExpirationDuration == 0) {
-        throw new Error('schedulerExpirationDuration must be greater than zero')
+        throw new DbcValidationError(
+            'schedulerExpirationDuration must be greater than zero'
+        )
     }
 
     const sqrtPriceStepBps = computeSqrtPriceStepBps(
@@ -407,7 +414,7 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
         const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
         reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
     } else {
-        throw new Error(
+        throw new DbcValidationError(
             'Migrated market-cap fee scheduler requires a market-cap scheduler base fee mode'
         )
     }
@@ -427,7 +434,7 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
  */
 export function getBaseFeeParams(baseFeeParams: BaseFeeParams): BaseFee {
     if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
-        throw new Error(
+        throw new DbcValidationError(
             'BaseFeeMode.RateLimiter is deprecated. New configs must use FeeSchedulerLinear or FeeSchedulerExponential.'
         )
     }
@@ -467,7 +474,7 @@ export function getMigratedPoolFeeParams(
     }
 
     if (migrationOption === MigrationOption.MET_DAMM) {
-        throw new Error(
+        throw new DbcValidationError(
             'MigrationOption.MET_DAMM (DAMM v1) is deprecated. New configs must use MigrationOption.MET_DAMM_V2.'
         )
     }
@@ -506,7 +513,7 @@ export function getMigratedPoolFeeParams(
         // use custom parameters if Customizable option is selected
         if (migrationFeeOption === MigrationFeeOption.Customizable) {
             if (migratedPoolFee?.poolFeeBps === undefined) {
-                throw new Error(
+                throw new DbcValidationError(
                     'migratedPoolFee.poolFeeBps is required when migrationFeeOption is Customizable'
                 )
             }

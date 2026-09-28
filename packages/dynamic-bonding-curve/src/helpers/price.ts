@@ -1,3 +1,4 @@
+import { DbcValidationError } from '../errors'
 import {
     Rounding,
     TokenDecimal,
@@ -150,16 +151,16 @@ export function computeSqrtPriceStepBps(
     numberOfPeriod: number
 ): number {
     if (priceMultiple <= 1) {
-        throw new Error('priceMultiple must be greater than 1')
+        throw new DbcValidationError('priceMultiple must be greater than 1')
     }
     if (numberOfPeriod <= 0) {
-        throw new Error('numberOfPeriod must be greater than 0')
+        throw new DbcValidationError('numberOfPeriod must be greater than 0')
     }
     const sqrtPriceStepBps = Math.floor(
         ((Math.sqrt(priceMultiple) - 1) * MAX_BASIS_POINT) / numberOfPeriod
     )
     if (sqrtPriceStepBps <= 0) {
-        throw new Error(
+        throw new DbcValidationError(
             'Computed sqrtPriceStepBps is 0 — increase priceMultiple or decrease numberOfPeriod'
         )
     }

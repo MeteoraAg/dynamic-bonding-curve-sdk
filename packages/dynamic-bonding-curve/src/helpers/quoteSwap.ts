@@ -1,3 +1,4 @@
+import { DbcValidationError } from '../errors'
 import BN from 'bn.js'
 import {
     swapQuoteExactIn,
@@ -21,7 +22,7 @@ import {
  */
 function normalizeQuoteConfig(config: SwapQuoteConfig): QuotePoolConfig {
     if (!config.curve?.length) {
-        throw new Error('config.curve is empty')
+        throw new DbcValidationError('config.curve is empty')
     }
 
     const migrationSqrtPrice =
@@ -68,7 +69,9 @@ function buildSimulatedVirtualPool(sqrtStartPrice: BN): QuoteVirtualPool {
  */
 export function quoteSwap2(params: QuoteSwap2Params): SwapQuote2Result {
     if (params.virtualPool && !params.currentPoint) {
-        throw new Error('currentPoint is required when virtualPool is set')
+        throw new DbcValidationError(
+            'currentPoint is required when virtualPool is set'
+        )
     }
 
     const config = normalizeQuoteConfig(params.config)
