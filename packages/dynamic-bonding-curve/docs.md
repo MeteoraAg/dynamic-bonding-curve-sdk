@@ -90,6 +90,28 @@
     - [deriveDammV2PoolAddress](#deriveDammV2PoolAddress)
     - [deriveDbcTokenVaultAddress](#deriveDbcTokenVaultAddress)
     - [deriveTokenBadgeAddress](#deriveTokenBadgeAddress)
+    - [deriveDbcPoolAuthority](#deriveDbcPoolAuthority)
+    - [deriveDbcEventAuthority](#deriveDbcEventAuthority)
+    - [deriveDbcPoolMetadata](#deriveDbcPoolMetadata)
+    - [derivePartnerMetadata](#derivePartnerMetadata)
+    - [deriveBaseKeyForLocker](#deriveBaseKeyForLocker)
+    - [deriveLockerEscrowAddress](#deriveLockerEscrowAddress)
+    - [deriveDammV1MigrationMetadataAddress](#deriveDammV1MigrationMetadataAddress)
+    - [getTokenBadgeRemainingAccounts](#getTokenBadgeRemainingAccounts)
+    - [createDbcProgram](#createDbcProgram)
+    - [getCurrentPoint](#getCurrentPoint)
+    - [prepareSwapAmountParam](#prepareSwapAmountParam)
+    - [convertToLamports](#convertToLamports)
+    - [getTokenType](#getTokenType)
+    - [getTokenProgram](#getTokenProgram)
+    - [getSwapQuoteTransferFees](#getSwapQuoteTransferFees)
+    - [getPriceFromSqrtPrice](#getPriceFromSqrtPrice)
+    - [getSqrtPriceFromPrice](#getSqrtPriceFromPrice)
+    - [createSqrtPrices](#createSqrtPrices)
+    - [getSqrtPriceFromMarketCap](#getSqrtPriceFromMarketCap)
+    - [bpsToFeeNumerator](#bpsToFeeNumerator)
+    - [feeNumeratorToBps](#feeNumeratorToBps)
+    - [fromDecimalToBN](#fromDecimalToBN)
 
 - [Calculation Functions](#calculation-functions)
     - [getFeeSchedulerParams](#getFeeSchedulerParams)
@@ -97,6 +119,36 @@
     - [getDynamicFeeParams](#getDynamicFeeParams)
     - [getLockedVestingParams](#getLockedVestingParams)
     - [getQuoteReserveFromNextSqrtPrice](#getQuoteReserveFromNextSqrtPrice)
+    - [getBaseFeeParams](#getBaseFeeParams)
+    - [getMigratedPoolFeeParams](#getMigratedPoolFeeParams)
+    - [getMigratedPoolMarketCapFeeSchedulerParams](#getMigratedPoolMarketCapFeeSchedulerParams)
+    - [calculateFeeSchedulerEndingBaseFeeBps](#calculateFeeSchedulerEndingBaseFeeBps)
+    - [getStartingBaseFeeBpsFromBaseFeeParams](#getStartingBaseFeeBpsFromBaseFeeParams)
+    - [getLiquidityVestingInfoParams](#getLiquidityVestingInfoParams)
+    - [getTotalVestingAmount](#getTotalVestingAmount)
+    - [getVestingLockedLiquidityBpsAtNSeconds](#getVestingLockedLiquidityBpsAtNSeconds)
+    - [calculateLockedLiquidityBpsAtTime](#calculateLockedLiquidityBpsAtTime)
+    - [getTotalSupplyFromCurve](#getTotalSupplyFromCurve)
+    - [getMigrationThresholdPrice](#getMigrationThresholdPrice)
+    - [getCurveBreakdown](#getCurveBreakdown)
+    - [getBaseTokenForSwap](#getBaseTokenForSwap)
+    - [getSwapAmountWithBuffer](#getSwapAmountWithBuffer)
+    - [getMigrationQuoteAmountFromThreshold](#getMigrationQuoteAmountFromThreshold)
+    - [getMigrationBaseToken](#getMigrationBaseToken)
+    - [getProtocolMigrationFee](#getProtocolMigrationFee)
+    - [getPercentageSupplyOnMigration](#getPercentageSupplyOnMigration)
+    - [getTokenomics](#getTokenomics)
+    - [calculateTransferFeeExcludedAmount](#calculateTransferFeeExcludedAmount)
+    - [calculateTransferFeeIncludedAmount](#calculateTransferFeeIncludedAmount)
+    - [resolveSwapTransferFees](#resolveSwapTransferFees)
+
+- [Validation Functions](#validation-functions)
+    - [validateConfigParameters](#validateConfigParameters)
+    - [validateMigratedPoolFee](#validateMigratedPoolFee)
+    - [validateCompoundingFeeBps](#validateCompoundingFeeBps)
+    - [validateTransferFeeParameters](#validateTransferFeeParameters)
+
+- [Math Functions](#math-functions)
 
 ---
 
@@ -2427,8 +2479,8 @@ const currentPoint = await getCurrentPoint(
     poolConfigState.activationType
 )
 
-const quote = await client.pool.swapQuote({
-    virtualPool: virtualPoolState.account,
+const quote = client.pool.swapQuote({
+    virtualPool: virtualPoolState,
     config: poolConfigState,
     swapBaseForQuote: false,
     amountIn,
@@ -2470,26 +2522,27 @@ Gets the exact swap out quotation in between quote and base swaps (only ExactIn)
 **Function**
 
 ```typescript
-swapQuote(params: SwapQuoteParams): Promise<SwapResult>
+swapQuote(params: SwapQuoteParams): SwapQuoteResult
 ```
 
 **Parameters**
 
 ```typescript
 interface SwapQuoteParams {
-    virtualPool: VirtualPool // The virtual pool address
-    config: PoolConfig // The pool config address
+    virtualPool: VirtualPool // The virtual pool state
+    config: PoolConfig // The pool config state
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     amountIn: BN // The amount of tokens to swap in
     slippageBps?: number // The slippage in bps
     hasReferral: boolean // Whether to include a referral fee
-    currentPoint: BN // The current point
+    eligibleForFirstSwapWithMinFee: boolean // True only for a creator swap bundled with pool creation
+    currentPoint: BN // The current point, see getCurrentPoint
 }
 ```
 
 **Returns**
 
-The exact swap out quotation in between quote and base swaps (only ExactIn).
+A `SwapQuoteResult`: the `SwapResult` fields plus `minimumAmountOut`, `includedTransferFeeAmountIn`, and `excludedTransferFeeAmountOut`.
 
 **Example**
 
@@ -2505,26 +2558,23 @@ const currentPoint = await getCurrentPoint(
     poolConfigState.activationType
 )
 
-const quote = await client.pool.swapQuote({
+const quote = client.pool.swapQuote({
     virtualPool: virtualPoolState,
     config: poolConfigState,
     swapBaseForQuote: false,
     amountIn,
     slippageBps: 50,
     hasReferral: false,
+    eligibleForFirstSwapWithMinFee: false,
     currentPoint,
 })
 ```
 
 **Notes**
 
-- The `swapMode` parameter determines the type of swap:
-    - `SwapMode.ExactIn`: Swap exact input amount
-    - `SwapMode.PartialFill`: Allow partial fills
-    - `SwapMode.ExactOut`: Swap for exact output amount
+- `swapQuote` quotes the original `swap` instruction, which is exact-in only. Use `swapQuote2` for partial-fill and exact-out.
 - The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
-- The `slippageBps` parameter protects against slippage. Set it to a value slightly lower than the expected output.
-- The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+- The `slippageBps` parameter protects against slippage. `minimumAmountOut` is the quoted output reduced by it.
 - `swapQuote` applies transfer fees the same way as `swapQuote2` for exact-in. `minimumAmountOut` is based on `excludedTransferFeeAmountOut`.
 
 ---
@@ -2585,13 +2635,14 @@ const currentPoint = await getCurrentPoint(
     poolConfigState.activationType
 )
 
-const quote = await client.pool.swapQuote2({
-    virtualPool: virtualPoolState.account,
+const quote = client.pool.swapQuote2({
+    virtualPool: virtualPoolState,
     config: poolConfigState,
     swapBaseForQuote: false,
     amountIn,
     slippageBps: 50,
     hasReferral: false,
+    eligibleForFirstSwapWithMinFee: false,
     currentPoint,
     swapMode: SwapMode.PartialFill,
 })
@@ -2669,8 +2720,8 @@ interface Swap2Params {
 ```typescript
 const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
 
-const quote = await client.pool.swapQuote2({
-    virtualPool: virtualPoolState.account,
+const quote = client.pool.swapQuote2({
+    virtualPool: virtualPoolState,
     config: poolConfigState,
     swapBaseForQuote: false,
     amountIn,
@@ -2702,7 +2753,7 @@ const transaction = await client.pool.swap2WithTransferHook({
 
 ### quoteSwap2
 
-Quotes `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut` without a client. Pass `virtualPool` for an existing pool. Omit it to quote a `buildCurve` result before the pool exists. `client.pool.swapQuote2`, `getQuoteFromInputAmount`, and `getQuoteFromOutputAmount` call this function.
+Quotes `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut` without a client. Pass `virtualPool` and `currentPoint` for an existing pool; the function throws when `virtualPool` is set without `currentPoint`, because time-based fees would be quoted at activation. Omit `virtualPool` to quote a `buildCurve` result before the pool exists. `client.pool.swapQuote2`, `getQuoteFromInputAmount`, and `getQuoteFromOutputAmount` call this function.
 
 **Function**
 
@@ -2745,18 +2796,19 @@ Gets the exact swap out quotation in between quote and base swaps with specific 
 **Function**
 
 ```typescript
-swapQuote2(params: SwapQuote2Params): Promise<SwapResult2>
+swapQuote2(params: SwapQuote2Params): SwapQuote2Result
 ```
 
 **Parameters**
 
 ```typescript
 interface SwapQuote2Params {
-    virtualPool: VirtualPool // The virtual pool address
-    config: PoolConfig // The pool config address
+    virtualPool: VirtualPool // The virtual pool state
+    config: PoolConfig // The pool config state
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     hasReferral: boolean // Whether to include a referral fee
-    currentPoint: BN // The current point
+    eligibleForFirstSwapWithMinFee: boolean // True only for a creator swap bundled with pool creation
+    currentPoint: BN // The current point, see getCurrentPoint
     slippageBps?: number // The slippage in bps
 } & (
     | {
@@ -2776,7 +2828,7 @@ interface SwapQuote2Params {
 
 **Returns**
 
-The exact swap out quotation in between quote and base swaps with specific swap modes (ExactIn, ExactOut, PartialFill).
+A `SwapQuote2Result`: the `SwapResult2` fields plus `minimumAmountOut` for exact-in and partial-fill, `maximumAmountIn` for exact-out, `includedTransferFeeAmountIn`, and `excludedTransferFeeAmountOut`.
 
 **Example**
 
@@ -2792,13 +2844,14 @@ const currentPoint = await getCurrentPoint(
     poolConfigState.activationType
 )
 
-const quote = await client.pool.swapQuote2({
-    virtualPool: virtualPoolState.account,
+const quote = client.pool.swapQuote2({
+    virtualPool: virtualPoolState,
     config: poolConfigState,
     swapBaseForQuote: false,
     amountIn,
     slippageBps: 50,
     hasReferral: false,
+    eligibleForFirstSwapWithMinFee: false,
     currentPoint,
     swapMode: SwapMode.PartialFill,
 })
@@ -2811,8 +2864,7 @@ const quote = await client.pool.swapQuote2({
     - `SwapMode.PartialFill`: Allow partial fills
     - `SwapMode.ExactOut`: Swap for exact output amount
 - The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
-- The `slippageBps` parameter protects against slippage. Set it to a value slightly lower than the expected output.
-- The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+- The `slippageBps` parameter protects against slippage. `minimumAmountOut` and `maximumAmountIn` are the quoted amounts adjusted by it.
 - Transfer fees are applied before the curve on the input mint and after the curve on the output mint. `amountIn` and `amountOut` are the amounts the user pays and receives. `includedTransferFeeAmountIn` is what the user pays. `excludedTransferFeeAmountOut` is what the user receives. `minimumAmountOut` and `maximumAmountIn` use those amounts.
 - A base transfer fee is read from `config.transferFeeBasisPoints`. Pass `baseMint` to use the mint's epoch fee instead, or `baseTransferFeeBasisPoints` before the mint exists. `currentEpoch` is required when either mint is set.
 - When `config.quoteTokenFlag` is Token-2022, `quoteMint` and `currentEpoch` are required, because the program applies the quote mint's fee for the current epoch. `getSwapQuoteTransferFees` fetches both and returns an empty object for an SPL Token quote mint:
@@ -4996,6 +5048,571 @@ const transaction = await client.partner.createConfig({
 
 ---
 
+### deriveDbcPoolAuthority
+
+Derives the pool authority PDA that signs for every Dynamic Bonding Curve pool.
+
+**Function**
+
+```typescript
+function deriveDbcPoolAuthority(): PublicKey
+```
+
+**Returns**
+
+- The pool authority address.
+
+---
+
+### deriveDbcEventAuthority
+
+Derives the event authority PDA the program uses for Anchor events.
+
+**Function**
+
+```typescript
+function deriveDbcEventAuthority(): PublicKey
+```
+
+**Returns**
+
+- The event authority address.
+
+---
+
+### deriveDbcPoolMetadata
+
+Derives the metadata account address of a Dynamic Bonding Curve pool.
+
+**Function**
+
+```typescript
+function deriveDbcPoolMetadata(pool: PublicKey): PublicKey
+```
+
+**Parameters**
+
+```typescript
+pool: PublicKey // The pool
+```
+
+**Returns**
+
+- The pool metadata address.
+
+---
+
+### derivePartnerMetadata
+
+Derives the partner metadata address for a fee claimer.
+
+**Function**
+
+```typescript
+function derivePartnerMetadata(feeClaimer: PublicKey): PublicKey
+```
+
+**Parameters**
+
+```typescript
+feeClaimer: PublicKey // The partner fee claimer
+```
+
+**Returns**
+
+- The partner metadata address.
+
+---
+
+### deriveBaseKeyForLocker
+
+Derives the base key of the locker escrow that holds the locked vesting of a pool.
+
+**Function**
+
+```typescript
+function deriveBaseKeyForLocker(virtualPool: PublicKey): PublicKey
+```
+
+**Parameters**
+
+```typescript
+virtualPool: PublicKey // The pool
+```
+
+**Returns**
+
+- The locker base key.
+
+---
+
+### deriveLockerEscrowAddress
+
+Derives a locker escrow address from its base key. Pass the result of `deriveBaseKeyForLocker` to find the vesting escrow of a pool.
+
+**Function**
+
+```typescript
+function deriveLockerEscrowAddress(base: PublicKey): PublicKey
+```
+
+**Parameters**
+
+```typescript
+base: PublicKey // The locker base key
+```
+
+**Returns**
+
+- The escrow address.
+
+**Example**
+
+```typescript
+const escrow = deriveLockerEscrowAddress(deriveBaseKeyForLocker(poolAddress))
+```
+
+---
+
+### deriveDammV1MigrationMetadataAddress
+
+Derives the DAMM V1 migration metadata address of a pool. Only pools created with `MigrationOption.MET_DAMM` have one.
+
+**Function**
+
+```typescript
+function deriveDammV1MigrationMetadataAddress(virtualPool: PublicKey): PublicKey
+```
+
+**Parameters**
+
+```typescript
+virtualPool: PublicKey // The pool
+```
+
+**Returns**
+
+- The migration metadata address.
+
+---
+
+### getTokenBadgeRemainingAccounts
+
+Builds the remaining accounts for an optional token badge. Config and pool creation read the badge at index 0 when the quote mint needs one.
+
+**Function**
+
+```typescript
+function getTokenBadgeRemainingAccounts(tokenBadge?: PublicKey): AccountMeta[]
+```
+
+**Parameters**
+
+```typescript
+tokenBadge?: PublicKey // The token badge address, or undefined
+```
+
+**Returns**
+
+- An empty array, or one read-only account meta.
+
+---
+
+### createDbcProgram
+
+Creates an Anchor `Program` for the Dynamic Bonding Curve IDL without a wallet. Use it to decode accounts or parse events when the client is not needed.
+
+**Function**
+
+```typescript
+function createDbcProgram(
+    connection: Connection,
+    commitment: Commitment = 'confirmed'
+): { program: Program<DynamicBondingCurveTypes> }
+```
+
+**Parameters**
+
+```typescript
+connection: Connection // The Solana connection
+commitment: Commitment // The commitment level, 'confirmed' by default
+```
+
+**Returns**
+
+- An object with the `program`.
+
+**Example**
+
+```typescript
+const { program } = createDbcProgram(connection)
+const pool = await program.account.virtualPool.fetch(poolAddress)
+```
+
+---
+
+### getCurrentPoint
+
+Gets the current slot or timestamp, depending on the activation type of a config. Quotes for an existing pool need it.
+
+**Function**
+
+```typescript
+function getCurrentPoint(
+    connection: Connection,
+    activationType: ActivationType
+): Promise<BN>
+```
+
+**Parameters**
+
+```typescript
+connection: Connection // The Solana connection
+activationType: ActivationType // Slot or Timestamp
+```
+
+**Returns**
+
+- The current point.
+
+---
+
+### prepareSwapAmountParam
+
+Converts a token amount to its smallest unit by fetching the decimals of the mint.
+
+**Function**
+
+```typescript
+function prepareSwapAmountParam(
+    amount: number,
+    mintAddress: PublicKey,
+    connection: Connection
+): Promise<BN>
+```
+
+**Parameters**
+
+```typescript
+amount: number // The amount in tokens
+mintAddress: PublicKey // The mint
+connection: Connection // The Solana connection
+```
+
+**Returns**
+
+- The amount in the smallest unit.
+
+**Example**
+
+```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection) // 1 SOL in lamports
+```
+
+---
+
+### convertToLamports
+
+Converts a token amount to its smallest unit for a known decimal count.
+
+**Function**
+
+```typescript
+function convertToLamports(amount: number | string, tokenDecimal: number): BN
+```
+
+**Parameters**
+
+```typescript
+amount: number | string // The amount in tokens
+tokenDecimal: number // The token decimals
+```
+
+**Returns**
+
+- The amount in the smallest unit.
+
+**Example**
+
+```typescript
+const amount = convertToLamports(1.5, TokenDecimal.NINE) // 1_500_000_000
+```
+
+---
+
+### getTokenType
+
+Reads a mint account and returns whether it belongs to SPL Token or Token-2022.
+
+**Function**
+
+```typescript
+function getTokenType(
+    connection: Connection,
+    tokenMint: PublicKey
+): Promise<TokenType>
+```
+
+**Parameters**
+
+```typescript
+connection: Connection // The Solana connection
+tokenMint: PublicKey // The mint
+```
+
+**Returns**
+
+- `TokenType.SPLToken` or `TokenType.Token2022`.
+
+---
+
+### getTokenProgram
+
+Returns the token program ID for a token type.
+
+**Function**
+
+```typescript
+function getTokenProgram(tokenType: TokenType): PublicKey
+```
+
+**Parameters**
+
+```typescript
+tokenType: TokenType // SPLToken or Token2022
+```
+
+**Returns**
+
+- `TOKEN_PROGRAM_ID` or `TOKEN_2022_PROGRAM_ID`.
+
+---
+
+### getSwapQuoteTransferFees
+
+Fetches the quote mint and the current epoch that quotes need for a Token-2022 quote mint. Spread the result into `swapQuote`, `swapQuote2`, or `quoteSwap2`.
+
+**Function**
+
+```typescript
+function getSwapQuoteTransferFees(
+    connection: Connection,
+    config: Pick<PoolConfig, 'quoteMint' | 'quoteTokenFlag'>,
+    commitment: Commitment = 'confirmed'
+): Promise<QuoteTransferFees>
+```
+
+**Parameters**
+
+```typescript
+connection: Connection // The Solana connection
+config: Pick<PoolConfig, 'quoteMint' | 'quoteTokenFlag'> // The pool config state
+commitment: Commitment // The commitment level, 'confirmed' by default
+```
+
+**Returns**
+
+- `{ quoteMint, currentEpoch }` for a Token-2022 quote mint, or an empty object for an SPL Token quote mint.
+
+**Example**
+
+```typescript
+const transferFees = await getSwapQuoteTransferFees(connection, poolConfigState)
+const quote = client.pool.swapQuote2({ ...params, ...transferFees })
+```
+
+---
+
+### getPriceFromSqrtPrice
+
+Converts a Q64.64 sqrt price to the price of one base token in quote tokens.
+
+**Function**
+
+```typescript
+function getPriceFromSqrtPrice(
+    sqrtPrice: BN,
+    tokenBaseDecimal: TokenDecimal,
+    tokenQuoteDecimal: number
+): Decimal
+```
+
+**Parameters**
+
+```typescript
+sqrtPrice: BN // The sqrt price
+tokenBaseDecimal: TokenDecimal // The base token decimals
+tokenQuoteDecimal: number // The quote token decimals
+```
+
+**Returns**
+
+- The price.
+
+**Example**
+
+```typescript
+const price = getPriceFromSqrtPrice(
+    virtualPoolState.sqrtPrice,
+    poolConfigState.tokenDecimal,
+    poolConfigState.tokenQuoteDecimal
+)
+```
+
+---
+
+### getSqrtPriceFromPrice
+
+Converts the price of one base token in quote tokens to a Q64.64 sqrt price.
+
+**Function**
+
+```typescript
+function getSqrtPriceFromPrice(
+    price: string,
+    tokenADecimal: number,
+    tokenBDecimal: number
+): BN
+```
+
+**Parameters**
+
+```typescript
+price: string // The price
+tokenADecimal: number // The base token decimals
+tokenBDecimal: number // The quote token decimals
+```
+
+**Returns**
+
+- The sqrt price.
+
+---
+
+### createSqrtPrices
+
+Converts a list of prices to Q64.64 sqrt prices, for `buildCurveWithCustomSqrtPrices`.
+
+**Function**
+
+```typescript
+function createSqrtPrices(
+    prices: number[],
+    tokenBaseDecimal: TokenDecimal,
+    tokenQuoteDecimal: number
+): BN[]
+```
+
+**Parameters**
+
+```typescript
+prices: number[] // The prices in ascending order
+tokenBaseDecimal: TokenDecimal // The base token decimals
+tokenQuoteDecimal: number // The quote token decimals
+```
+
+**Returns**
+
+- The sqrt prices.
+
+---
+
+### getSqrtPriceFromMarketCap
+
+Converts a market cap and total supply to a Q64.64 sqrt price.
+
+**Function**
+
+```typescript
+function getSqrtPriceFromMarketCap(
+    marketCap: number,
+    totalSupply: number,
+    tokenBaseDecimal: number,
+    tokenQuoteDecimal: number
+): BN
+```
+
+**Parameters**
+
+```typescript
+marketCap: number // The market cap in quote tokens
+totalSupply: number // The total supply in base tokens
+tokenBaseDecimal: number // The base token decimals
+tokenQuoteDecimal: number // The quote token decimals
+```
+
+**Returns**
+
+- The sqrt price.
+
+---
+
+### bpsToFeeNumerator
+
+Converts basis points to a fee numerator over `FEE_DENOMINATOR`.
+
+**Function**
+
+```typescript
+function bpsToFeeNumerator(bps: number): BN
+```
+
+**Parameters**
+
+```typescript
+bps: number // The fee in basis points
+```
+
+**Returns**
+
+- The fee numerator.
+
+---
+
+### feeNumeratorToBps
+
+Converts a fee numerator over `FEE_DENOMINATOR` to basis points.
+
+**Function**
+
+```typescript
+function feeNumeratorToBps(feeNumerator: BN): number
+```
+
+**Parameters**
+
+```typescript
+feeNumerator: BN // The fee numerator
+```
+
+**Returns**
+
+- The fee in basis points.
+
+---
+
+### fromDecimalToBN
+
+Converts a `Decimal` to a `BN`, rounding down.
+
+**Function**
+
+```typescript
+function fromDecimalToBN(value: Decimal): BN
+```
+
+**Parameters**
+
+```typescript
+value: Decimal // The value
+```
+
+**Returns**
+
+- The rounded-down value.
+
+---
+
 ## Calculation Functions
 
 ### getFeeSchedulerParams
@@ -5271,3 +5888,845 @@ const quoteReserve = getQuoteReserveFromNextSqrtPrice(
 
 - The `nextSqrtPrice` is the next sqrt price that you can fetch from swap cpi logs.
 - The `config` is the pool config that the token pool used to launch.
+
+### getBaseFeeParams
+
+Builds the `baseFee` field of a config from a fee scheduler or rate limiter description.
+
+**Function**
+
+```typescript
+function getBaseFeeParams(baseFeeParams: BaseFeeParams): BaseFee
+```
+
+**Parameters**
+
+```typescript
+baseFeeParams: BaseFeeParams // { baseFeeMode, feeSchedulerParam } or { baseFeeMode, rateLimiterParam }
+```
+
+**Returns**
+
+- The `BaseFee` for a config.
+
+**Example**
+
+```typescript
+const baseFee = getBaseFeeParams({
+    baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+    feeSchedulerParam: {
+        startingFeeBps: 5000,
+        endingFeeBps: 100,
+        numberOfPeriod: 100,
+        totalDuration: 600,
+    },
+})
+```
+
+**Notes**
+
+- `BaseFeeMode.RateLimiter` is rejected for new configs. The branch is kept for quoting existing pools.
+
+---
+
+### getMigratedPoolFeeParams
+
+Builds the migrated pool fee fields of a config. Fixed migration fee options use the preconfigured DAMM V2 config keys; `MigrationFeeOption.Customizable` uses `migratedPoolFee`.
+
+**Function**
+
+```typescript
+function getMigratedPoolFeeParams(
+    migrationOption: MigrationOption,
+    migrationFeeOption: MigrationFeeOption,
+    migratedPoolFee?: MigratedPoolFeeConfig,
+    baseFeeParams?: BaseFeeParams
+): MigratedPoolFeeResult
+```
+
+**Parameters**
+
+```typescript
+migrationOption: MigrationOption // The migration option
+migrationFeeOption: MigrationFeeOption // A fixed fee option or Customizable
+migratedPoolFee?: MigratedPoolFeeConfig // The custom migrated pool fee, only with Customizable
+baseFeeParams?: BaseFeeParams // The pre-migration base fee, used for the market cap scheduler starting fee
+```
+
+**Returns**
+
+- The migrated pool fee fields.
+
+**Notes**
+
+- Throws for `MigrationFeeOption.Customizable` when `migratedPoolFee.poolFeeBps` is not set.
+
+---
+
+### getMigratedPoolMarketCapFeeSchedulerParams
+
+Builds the market cap fee scheduler parameters of a migrated DAMM V2 pool. The fee decays from the starting fee to the ending fee as the spot price reaches `priceMultiple` times the migration price, or when the schedule expires.
+
+**Function**
+
+```typescript
+function getMigratedPoolMarketCapFeeSchedulerParams(
+    startingBaseFeeBps: number,
+    endingBaseFeeBps: number,
+    dammV2BaseFeeMode: DammV2BaseFeeMode,
+    numberOfPeriod: number,
+    priceMultiple: number,
+    schedulerExpirationDuration: number
+): MigratedPoolMarketCapFeeSchedulerParameters
+```
+
+**Parameters**
+
+```typescript
+startingBaseFeeBps: number // The starting fee in basis points
+endingBaseFeeBps: number // The ending fee in basis points
+dammV2BaseFeeMode: DammV2BaseFeeMode // Linear or exponential decay
+numberOfPeriod: number // The number of fee reduction periods
+priceMultiple: number // The spot price multiple that exhausts the schedule, greater than 1
+schedulerExpirationDuration: number // Seconds after which the ending fee applies regardless of price
+```
+
+**Returns**
+
+- The market cap fee scheduler parameters for `migratedPoolFee.marketCapFeeSchedulerParams`.
+
+---
+
+### calculateFeeSchedulerEndingBaseFeeBps
+
+Calculates the fee a fee scheduler ends at, in basis points, from the on-chain `baseFee` fields.
+
+**Function**
+
+```typescript
+function calculateFeeSchedulerEndingBaseFeeBps(
+    cliffFeeNumerator: number,
+    numberOfPeriod: number,
+    periodFrequency: number,
+    reductionFactor: number,
+    baseFeeMode: BaseFeeMode
+): number
+```
+
+**Parameters**
+
+```typescript
+cliffFeeNumerator: number // The cliff fee numerator
+numberOfPeriod: number // The number of periods
+periodFrequency: number // The period frequency
+reductionFactor: number // The reduction factor
+baseFeeMode: BaseFeeMode // Linear or exponential
+```
+
+**Returns**
+
+- The ending base fee in basis points.
+
+---
+
+### getStartingBaseFeeBpsFromBaseFeeParams
+
+Returns the fee a migrated pool starts at, in basis points: the ending fee of a fee scheduler, or the base fee of a rate limiter.
+
+**Function**
+
+```typescript
+function getStartingBaseFeeBpsFromBaseFeeParams(
+    baseFeeParams: BaseFeeParams
+): number
+```
+
+**Parameters**
+
+```typescript
+baseFeeParams: BaseFeeParams // The pre-migration base fee description
+```
+
+**Returns**
+
+- The starting base fee in basis points.
+
+---
+
+### getLiquidityVestingInfoParams
+
+Builds the liquidity vesting parameters for the partner or creator share of a migrated DAMM V2 pool.
+
+**Function**
+
+```typescript
+function getLiquidityVestingInfoParams(
+    vestingPercentage: number,
+    bpsPerPeriod: number,
+    numberOfPeriods: number,
+    cliffDurationFromMigrationTime: number,
+    totalDuration: number
+): LiquidityVestingInfoParameters
+```
+
+**Parameters**
+
+```typescript
+vestingPercentage: number // The percentage of the share that vests, 0 to 100
+bpsPerPeriod: number // The basis points of the vested liquidity unlocked per period
+numberOfPeriods: number // The number of periods
+cliffDurationFromMigrationTime: number // Seconds after migration before vesting starts
+totalDuration: number // The total vesting duration in seconds
+```
+
+**Returns**
+
+- The `LiquidityVestingInfoParameters`.
+
+**Notes**
+
+- A `vestingPercentage` of 0 requires every other parameter to be 0.
+
+---
+
+### getTotalVestingAmount
+
+Sums the cliff unlock amount and every vesting period of a `LockedVestingParameters`.
+
+**Function**
+
+```typescript
+function getTotalVestingAmount(lockedVesting: LockedVestingParameters): BN
+```
+
+**Parameters**
+
+```typescript
+lockedVesting: LockedVestingParameters // The locked vesting of a config
+```
+
+**Returns**
+
+- The total locked vesting amount.
+
+**Example**
+
+```typescript
+const totalVesting = getTotalVestingAmount(poolConfigState.lockedVestingConfig)
+```
+
+---
+
+### getVestingLockedLiquidityBpsAtNSeconds
+
+Calculates how much of one liquidity vesting schedule is still locked, in basis points, a number of seconds after migration.
+
+**Function**
+
+```typescript
+function getVestingLockedLiquidityBpsAtNSeconds(
+    vestingInfo: LiquidityVestingInfoParameters | undefined,
+    nSeconds: number
+): number
+```
+
+**Parameters**
+
+```typescript
+vestingInfo: LiquidityVestingInfoParameters | undefined // The vesting schedule
+nSeconds: number // Seconds after migration
+```
+
+**Returns**
+
+- The locked liquidity in basis points.
+
+---
+
+### calculateLockedLiquidityBpsAtTime
+
+Calculates how much of the migrated pool liquidity is locked, in basis points, a number of seconds after migration. Combines the permanent locks with both vesting schedules.
+
+**Function**
+
+```typescript
+function calculateLockedLiquidityBpsAtTime(
+    partnerPermanentLockedLiquidityPercentage: number,
+    creatorPermanentLockedLiquidityPercentage: number,
+    partnerLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
+    creatorLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
+    elapsedSeconds: number
+): number
+```
+
+**Parameters**
+
+```typescript
+partnerPermanentLockedLiquidityPercentage: number // The permanently locked partner share
+creatorPermanentLockedLiquidityPercentage: number // The permanently locked creator share
+partnerLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined // The partner vesting schedule
+creatorLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined // The creator vesting schedule
+elapsedSeconds: number // Seconds after migration
+```
+
+**Returns**
+
+- The total locked liquidity in basis points.
+
+**Notes**
+
+- The program requires at least `MIN_LOCKED_LIQUIDITY_BPS` to be locked one day after migration.
+
+---
+
+### getTotalSupplyFromCurve
+
+Calculates the minimum base token supply a curve needs: the swap amount with buffer, the migration deposit, the locked vesting amount, and the leftover.
+
+**Function**
+
+```typescript
+function getTotalSupplyFromCurve(
+    migrationQuoteThreshold: BN,
+    sqrtStartPrice: BN,
+    curve: Array<LiquidityDistributionParameters>,
+    lockedVesting: LockedVestingParameters,
+    migrationOption: MigrationOption,
+    leftover: BN,
+    migrationFeePercent: number,
+    migratedCollectFeeMode: MigratedCollectFeeMode = MigratedCollectFeeMode.QuoteToken
+): BN
+```
+
+**Parameters**
+
+```typescript
+migrationQuoteThreshold: BN // The migration quote threshold
+sqrtStartPrice: BN // The start sqrt price
+curve: Array<LiquidityDistributionParameters> // The curve segments
+lockedVesting: LockedVestingParameters // The locked vesting
+migrationOption: MigrationOption // The migration option
+leftover: BN // The leftover amount
+migrationFeePercent: number // The migration fee percentage
+migratedCollectFeeMode: MigratedCollectFeeMode // The migrated pool collect fee mode
+```
+
+**Returns**
+
+- The total base token supply.
+
+---
+
+### getMigrationThresholdPrice
+
+Calculates the sqrt price at which the curve has collected the migration quote threshold.
+
+**Function**
+
+```typescript
+function getMigrationThresholdPrice(
+    migrationThreshold: BN,
+    sqrtStartPrice: BN,
+    curve: Array<LiquidityDistributionParameters>
+): BN
+```
+
+**Parameters**
+
+```typescript
+migrationThreshold: BN // The migration quote threshold
+sqrtStartPrice: BN // The start sqrt price
+curve: Array<LiquidityDistributionParameters> // The curve segments
+```
+
+**Returns**
+
+- The migration sqrt price.
+
+---
+
+### getCurveBreakdown
+
+Splits the migration quote threshold across the curve segments and reports the sqrt price the last filled segment reaches.
+
+**Function**
+
+```typescript
+function getCurveBreakdown(
+    migrationQuoteThreshold: BN,
+    sqrtStartPrice: BN,
+    curve: Array<LiquidityDistributionParameters>
+): {
+    segmentAmounts: BN[]
+    finalSqrtPrice: BN
+    totalAmount: BN
+}
+```
+
+**Parameters**
+
+```typescript
+migrationQuoteThreshold: BN // The migration quote threshold
+sqrtStartPrice: BN // The start sqrt price
+curve: Array<LiquidityDistributionParameters> // The curve segments
+```
+
+**Returns**
+
+- `segmentAmounts` with the quote amount each segment collects, the `finalSqrtPrice`, and the `totalAmount` allocated.
+
+---
+
+### getBaseTokenForSwap
+
+Calculates the base tokens sold on the curve between two sqrt prices.
+
+**Function**
+
+```typescript
+function getBaseTokenForSwap(
+    sqrtStartPrice: BN,
+    sqrtMigrationPrice: BN,
+    curve: Array<LiquidityDistributionParameters>
+): BN
+```
+
+**Parameters**
+
+```typescript
+sqrtStartPrice: BN // The start sqrt price
+sqrtMigrationPrice: BN // The end sqrt price
+curve: Array<LiquidityDistributionParameters> // The curve segments
+```
+
+**Returns**
+
+- The base token amount.
+
+---
+
+### getSwapAmountWithBuffer
+
+Adds the `SWAP_BUFFER_PERCENTAGE` buffer to a swap base amount, capped at the base tokens the curve can sell up to `MAX_SQRT_PRICE`.
+
+**Function**
+
+```typescript
+function getSwapAmountWithBuffer(
+    swapBaseAmount: BN,
+    sqrtStartPrice: BN,
+    curve: Array<LiquidityDistributionParameters>
+): BN
+```
+
+**Parameters**
+
+```typescript
+swapBaseAmount: BN // The base tokens sold up to the migration price
+sqrtStartPrice: BN // The start sqrt price
+curve: Array<LiquidityDistributionParameters> // The curve segments
+```
+
+**Returns**
+
+- The swap base amount with buffer.
+
+---
+
+### getMigrationQuoteAmountFromThreshold
+
+Calculates the quote amount deposited into the migrated pool after the migration fee is taken from the threshold.
+
+**Function**
+
+```typescript
+function getMigrationQuoteAmountFromThreshold(
+    migrationQuoteThreshold: BN,
+    migrationFeePercentage: number
+): BN
+```
+
+**Parameters**
+
+```typescript
+migrationQuoteThreshold: BN // The migration quote threshold
+migrationFeePercentage: number // The migration fee percentage
+```
+
+**Returns**
+
+- The migration quote amount, rounded up.
+
+---
+
+### getMigrationBaseToken
+
+Calculates the base tokens deposited into the migrated pool for a quote amount at the migration sqrt price. Compounding DAMM V2 pools use constant product; the other modes use concentrated liquidity.
+
+**Function**
+
+```typescript
+function getMigrationBaseToken(
+    migrationQuoteAmount: BN,
+    sqrtMigrationPrice: BN,
+    migrationOption: MigrationOption,
+    migratedCollectFeeMode: MigratedCollectFeeMode = MigratedCollectFeeMode.QuoteToken
+): BN
+```
+
+**Parameters**
+
+```typescript
+migrationQuoteAmount: BN // The quote amount deposited into the migrated pool
+sqrtMigrationPrice: BN // The migration sqrt price
+migrationOption: MigrationOption // The migration option
+migratedCollectFeeMode: MigratedCollectFeeMode // The migrated pool collect fee mode
+```
+
+**Returns**
+
+- The migration base amount.
+
+---
+
+### getProtocolMigrationFee
+
+Calculates the protocol's share of the base and quote deposit at migration.
+
+**Function**
+
+```typescript
+function getProtocolMigrationFee(
+    depositBaseAmount: BN,
+    depositQuoteAmount: BN,
+    migrationSqrtPrice: BN,
+    migrationFeeBps: number,
+    migrationOption: MigrationOption,
+    migratedCollectFeeMode: MigratedCollectFeeMode = MigratedCollectFeeMode.QuoteToken
+): [BN, BN]
+```
+
+**Parameters**
+
+```typescript
+depositBaseAmount: BN // The base deposit
+depositQuoteAmount: BN // The quote deposit
+migrationSqrtPrice: BN // The migration sqrt price
+migrationFeeBps: number // The protocol migration fee in basis points
+migrationOption: MigrationOption // The migration option
+migratedCollectFeeMode: MigratedCollectFeeMode // The migrated pool collect fee mode
+```
+
+**Returns**
+
+- `[baseFeeAmount, quoteFeeAmount]`.
+
+---
+
+### getPercentageSupplyOnMigration
+
+Calculates the percentage of the total supply deposited into the migrated pool for an initial and a migration market cap.
+
+**Function**
+
+```typescript
+function getPercentageSupplyOnMigration(
+    initialMarketCap: Decimal,
+    migrationMarketCap: Decimal,
+    lockedVesting: LockedVestingParameters,
+    totalLeftover: BN,
+    totalTokenSupply: BN
+): number
+```
+
+**Parameters**
+
+```typescript
+initialMarketCap: Decimal // The initial market cap
+migrationMarketCap: Decimal // The migration market cap
+lockedVesting: LockedVestingParameters // The locked vesting
+totalLeftover: BN // The leftover amount
+totalTokenSupply: BN // The total supply
+```
+
+**Returns**
+
+- The percentage, 0 to 100.
+
+---
+
+### getTokenomics
+
+Splits the total supply into the bonding curve, migration, leftover, and locked vesting supplies for an initial and a migration market cap.
+
+**Function**
+
+```typescript
+function getTokenomics(
+    initialMarketCap: Decimal,
+    migrationMarketCap: Decimal,
+    totalLockedVestingAmount: BN,
+    totalLeftover: BN,
+    totalTokenSupply: BN
+): {
+    bondingCurveSupply: BN
+    migrationSupply: BN
+    leftoverSupply: BN
+    lockedVestingSupply: BN
+}
+```
+
+**Parameters**
+
+```typescript
+initialMarketCap: Decimal // The initial market cap
+migrationMarketCap: Decimal // The migration market cap
+totalLockedVestingAmount: BN // The total locked vesting amount
+totalLeftover: BN // The leftover amount
+totalTokenSupply: BN // The total supply
+```
+
+**Returns**
+
+- The four supplies. They sum to `totalTokenSupply`.
+
+---
+
+### calculateTransferFeeExcludedAmount
+
+Deducts a Token-2022 transfer fee from an amount.
+
+**Function**
+
+```typescript
+function calculateTransferFeeExcludedAmount(
+    transferFee: EpochTransferFee | null,
+    includedAmount: BN
+): TransferFeeAmount
+```
+
+**Parameters**
+
+```typescript
+transferFee: EpochTransferFee | null // The transfer fee of the current epoch, or null
+includedAmount: BN // The amount before the fee
+```
+
+**Returns**
+
+- `{ amount, transferFee }`: the amount after the fee, and the fee.
+
+---
+
+### calculateTransferFeeIncludedAmount
+
+Adds the Token-2022 transfer fee a sender must include for the recipient to receive an amount.
+
+**Function**
+
+```typescript
+function calculateTransferFeeIncludedAmount(
+    transferFee: EpochTransferFee | null,
+    excludedAmount: BN
+): TransferFeeAmount
+```
+
+**Parameters**
+
+```typescript
+transferFee: EpochTransferFee | null // The transfer fee of the current epoch, or null
+excludedAmount: BN // The amount the recipient receives
+```
+
+**Returns**
+
+- `{ amount, transferFee }`: the amount to send, and the fee.
+
+---
+
+### resolveSwapTransferFees
+
+Returns the transfer fees that apply to the input and output mints of a swap. The base fee comes from the config, or from `baseMint` when given; the quote fee comes from `quoteMint` and `currentEpoch`.
+
+**Function**
+
+```typescript
+function resolveSwapTransferFees(
+    config: PoolConfig,
+    swapBaseForQuote: boolean,
+    transferFees?: QuoteTransferFees
+): { input: EpochTransferFee | null; output: EpochTransferFee | null }
+```
+
+**Parameters**
+
+```typescript
+config: PoolConfig // The pool config state
+swapBaseForQuote: boolean // The trade direction
+transferFees?: QuoteTransferFees // The mints and epoch, see getSwapQuoteTransferFees
+```
+
+**Returns**
+
+- `{ input, output }`, each an `EpochTransferFee` or null.
+
+---
+
+## Validation Functions
+
+### validateConfigParameters
+
+Validates config parameters the way the program does and throws the first error found. The client calls it before sending `createConfig2`. Call it directly to validate a form before the user signs.
+
+**Function**
+
+```typescript
+function validateConfigParameters(
+    configParam: Omit<
+        CreateConfigParams,
+        'config' | 'feeClaimer' | 'quoteMint' | 'payer' | 'tokenBadge'
+    >,
+    options:
+        | boolean
+        | {
+              isTransferHook?: boolean
+              transferHookProgram?: PublicKey
+              transferFeeParameters?: TransferFeeParameters | null
+              quoteMintHasTransferFee?: boolean
+              quoteEpochTransferFee?: EpochTransferFee | null
+          } = false
+): void
+```
+
+**Parameters**
+
+```typescript
+configParam // The config parameters and leftoverReceiver, without the account fields
+options // true for a transfer-hook config, or the transfer hook and transfer fee context
+```
+
+**Returns**
+
+- Nothing. Throws an `Error` naming the first invalid parameter.
+
+**Example**
+
+```typescript
+const config = buildCurve(params)
+
+validateConfigParameters({ ...config, leftoverReceiver })
+```
+
+---
+
+### validateMigratedPoolFee
+
+Returns whether the migrated pool fee fields are consistent with the migration option, the migration fee option, the base fee mode, and the market cap scheduler parameters.
+
+**Function**
+
+```typescript
+function validateMigratedPoolFee(
+    migratedPoolFee: MigratedPoolFee,
+    migrationOption?: MigrationOption,
+    migrationFeeOption?: MigrationFeeOption,
+    migratedPoolMarketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParameters,
+    compoundingFeeBps?: number,
+    migratedPoolBaseFeeMode: DammV2BaseFeeMode = DammV2BaseFeeMode.FeeTimeSchedulerLinear
+): boolean
+```
+
+**Parameters**
+
+```typescript
+migratedPoolFee: MigratedPoolFee // The migrated pool fee fields
+migrationOption?: MigrationOption // The migration option
+migrationFeeOption?: MigrationFeeOption // The migration fee option
+migratedPoolMarketCapFeeSchedulerParams?: MigratedPoolMarketCapFeeSchedulerParameters // The market cap scheduler parameters
+compoundingFeeBps?: number // The compounding fee in basis points
+migratedPoolBaseFeeMode: DammV2BaseFeeMode // The migrated pool base fee mode
+```
+
+**Returns**
+
+- `true` when the fields are valid.
+
+---
+
+### validateCompoundingFeeBps
+
+Returns whether `compoundingFeeBps` is allowed for a migrated collect fee mode. Compounding allows 0 to 10,000; the other modes require 0.
+
+**Function**
+
+```typescript
+function validateCompoundingFeeBps(
+    collectFeeMode: number,
+    compoundingFeeBps: number
+): boolean
+```
+
+**Parameters**
+
+```typescript
+collectFeeMode: number // The MigratedCollectFeeMode
+compoundingFeeBps: number // The compounding fee in basis points
+```
+
+**Returns**
+
+- `true` when the fee is valid for the mode.
+
+---
+
+### validateTransferFeeParameters
+
+Validates the base transfer fee of `createConfig2` and throws the first error found. The fee is Token-2022 only and at most `MAX_BASE_TRANSFER_FEE_BPS`.
+
+**Function**
+
+```typescript
+function validateTransferFeeParameters(
+    transferFeeParameters: TransferFeeParameters,
+    tokenType: number
+): void
+```
+
+**Parameters**
+
+```typescript
+transferFeeParameters: TransferFeeParameters // The transfer fee parameters
+tokenType: number // The TokenType of the base mint
+```
+
+**Returns**
+
+- Nothing. Throws an `Error` on an invalid parameter.
+
+---
+
+## Math Functions
+
+The ports of the program's curve, fee, and swap math are published as a separate entry point. They mirror the program source and change when the program changes, so pin the SDK version when you depend on them.
+
+```typescript
+import {
+    getFeeMode,
+    getSwapResult,
+} from '@meteora-ag/dynamic-bonding-curve-sdk/math'
+```
+
+| Group         | Functions                                                                                                                                                                                                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Curve         | `getDeltaAmountBaseUnsigned`, `getDeltaAmountQuoteUnsigned`, their `256` and `Unchecked` variants, `getNextSqrtPriceFromInput`, `getNextSqrtPriceFromOutput`, the rounding-specific `getNextSqrtPriceFrom*` functions, `getInitialLiquidityFromDeltaBase`, `getInitialLiquidityFromDeltaQuote`               |
+| Fees          | `getFeeMode`, `getTotalFeeNumerator`, `getTotalFeeNumeratorFromIncludedFeeAmount`, `getTotalFeeNumeratorFromExcludedFeeAmount`, `getFeeOnAmount`, `getIncludedFeeAmount`, `getExcludedFeeAmount`, `splitFees`, `toNumerator`                                                                                 |
+| Fee scheduler | `FeeScheduler`, `getBaseFeeNumerator`, `getBaseFeeNumeratorByPeriod`, `getFeeNumeratorOnLinearFeeScheduler`, `getFeeNumeratorOnExponentialFeeScheduler`, `getFeeSchedulerMaxBaseFeeNumerator`, `getFeeSchedulerMinBaseFeeNumerator`                                                                          |
+| Rate limiter  | `FeeRateLimiter`, `isRateLimiterApplied`, `isZeroRateLimiter`, `isNonZeroRateLimiter`, `getMaxIndex`, `getMaxOutAmountWithMinBaseFee`, `getCheckedAmounts`, `getFeeNumeratorFromIncludedAmount`, `getFeeNumeratorFromExcludedAmount`, `getRateLimiterExcludedFeeAmount`, `getRateLimiterMinBaseFeeNumerator` |
+| Dynamic fee   | `isDynamicFeeEnabled`, `getVariableFeeNumerator`, `getBaseFeeHandler`                                                                                                                                                                                                                                        |
+| Swap results  | `getSwapResult`, `getSwapResultFromExactInput`, `getSwapResultFromPartialInput`, `getSwapResultFromExactOutput`, `calculateBaseToQuoteFromAmountIn`, `calculateQuoteToBaseFromAmountIn`, `calculateBaseToQuoteFromAmountOut`, `calculateQuoteToBaseFromAmountOut`                                            |
+| Transfer fees | `getEpochTransferFee`, `getBaseTransferFee`, `resolveSwapTransferFees`, `calculateTransferFeeExcludedAmount`, `calculateTransferFeeIncludedAmount`                                                                                                                                                           |
+| Arithmetic    | `SafeMath`, `mulDiv`, `mulShr`, `sqrt`, `pow`                                                                                                                                                                                                                                                                |
+
+Quotes for an app belong to `quoteSwap2` and `client.pool`. Reach for this entry point to reproduce a single step of the program, for example the fee numerator a pool charges at a point in time.
+
+---
