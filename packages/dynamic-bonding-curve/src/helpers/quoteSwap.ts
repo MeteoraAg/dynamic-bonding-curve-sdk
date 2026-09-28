@@ -102,7 +102,10 @@ function quoteAtInitialization(
         )
 ): SwapQuote2Result {
     const currentPoint = params.currentPoint ?? new BN(0)
-    const config = poolConfigFromParameters(params.config, params.quoteTokenFlag)
+    const config = poolConfigFromParameters(
+        params.config,
+        params.quoteTokenFlag
+    )
     const virtualPool = initialVirtualPool(
         params.config.sqrtStartPrice,
         currentPoint
