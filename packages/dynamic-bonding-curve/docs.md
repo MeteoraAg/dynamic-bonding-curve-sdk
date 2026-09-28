@@ -149,6 +149,10 @@
     - [validateCompoundingFeeBps](#validateCompoundingFeeBps)
     - [validateTransferFeeParameters](#validateTransferFeeParameters)
 
+- [Events](#events)
+    - [parseDbcEvents](#parseDbcEvents)
+    - [decodeDbcEventInstruction](#decodeDbcEventInstruction)
+
 - [Math Functions](#math-functions)
 
 ---
@@ -6739,6 +6743,77 @@ tokenType: number // The TokenType of the base mint
 **Returns**
 
 - Nothing. Throws an `Error` on an invalid parameter.
+
+---
+
+## Events
+
+The program emits its events through an event CPI, so they are not in the transaction logs. Read them from a confirmed transaction with `parseDbcEvents`. Every event is typed from the IDL: `DbcEvent` is the union of `{ name, data }` pairs, `DbcEvents` maps a name to its data type, and `DbcEventName` is the set of names. Names and fields use the camelCase form of the IDL names, as in Anchor's `Program` client: the program's `EvtSwap3` is `evtSwap3`, and its `quote_reserve` field is `quoteReserve`.
+
+### parseDbcEvents
+
+Returns the program's events in a confirmed transaction. Events emitted through an event CPI come first, in execution order, followed by events emitted through the logs. Only `evtClaimProtocolFee2` uses the logs.
+
+**Function**
+
+```typescript
+function parseDbcEvents(
+    transaction: VersionedTransactionResponse | ParsedTransactionWithMeta
+): DbcEvent[]
+```
+
+**Parameters**
+
+```typescript
+transaction: VersionedTransactionResponse | ParsedTransactionWithMeta // The result of getTransaction or getParsedTransaction
+```
+
+**Returns**
+
+- The events, each with its `name` and typed `data`.
+
+**Example**
+
+```typescript
+const transaction = await connection.getTransaction(signature, {
+    commitment: 'confirmed',
+    maxSupportedTransactionVersion: 0,
+})
+if (!transaction) {
+    return
+}
+
+for (const event of parseDbcEvents(transaction)) {
+    if (event.name === 'evtSwap3') {
+        console.log(
+            event.data.pool.toBase58(),
+            event.data.tradingFee.toString()
+        )
+    }
+}
+```
+
+---
+
+### decodeDbcEventInstruction
+
+Decodes the event carried by one event CPI instruction. Use it when you read inner instructions yourself, for example from a Geyser stream.
+
+**Function**
+
+```typescript
+function decodeDbcEventInstruction(data: Uint8Array): DbcEvent | null
+```
+
+**Parameters**
+
+```typescript
+data: Uint8Array // The instruction data of an inner instruction sent to the program
+```
+
+**Returns**
+
+- The event, or `null` when the instruction is not an event.
 
 ---
 

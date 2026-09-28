@@ -16,6 +16,7 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - `getTokenType`, `getTokenProgram`, `convertToLamports`, and `createDbcProgram` at the package root.
 - `deriveDbcEventAuthority`, `deriveBaseKeyForLocker`, `deriveLockerEscrowAddress`, and `deriveDammV1MigrationMetadataAddress` at the package root.
 - `EpochTransferFee` type.
+- `parseDbcEvents` reads the program's events from a confirmed transaction, and `decodeDbcEventInstruction` decodes one event CPI instruction. `DbcEvent`, `DbcEvents`, and `DbcEventName` type them from the IDL.
 - `rateLimiterApplied` at the package root: whether the rate limiter applies to a swap right now, for callers who build the swap instruction themselves and need to know whether to include the instructions sysvar.
 - The quote math takes `QuotePoolConfig` and `QuoteVirtualPool`, the fields it reads, in place of full `PoolConfig` and `VirtualPool` values. Both still satisfy the new types.
 - `SwapQuoteConfig` accepts `quoteTokenFlag`, `quoteMint`, and `enableFirstSwapWithMinFee`, so a curve can be quoted before the pool exists with the same transfer fee and first-swap rules as a live pool. Set `quoteTokenFlag` to `TokenType.Token2022` and the quote requires `quoteMint` and `currentEpoch`.

@@ -9,6 +9,9 @@ export { StateService } from './services/state'
 export * from './types'
 export * from './constants'
 
+export { decodeDbcEventInstruction, parseDbcEvents } from './events'
+export type { DbcEvent, DbcEventName, DbcEvents } from './events'
+
 export {
     buildCurve,
     buildCurveWithCustomSqrtPrices,
