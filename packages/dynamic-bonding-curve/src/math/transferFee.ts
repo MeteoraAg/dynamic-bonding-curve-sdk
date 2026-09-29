@@ -7,11 +7,7 @@ import {
 } from '@solana/spl-token'
 import BN from 'bn.js'
 import { U64_MAX } from '../constants'
-import {
-    type QuotePoolConfig,
-    type QuoteTransferFees,
-    TokenType,
-} from '../types'
+import { type PoolConfig, type QuoteTransferFees, TokenType } from '../types'
 
 export type EpochTransferFee = {
     transferFeeBasisPoints: number
@@ -64,10 +60,7 @@ export function getEpochTransferFee(
 }
 
 export function resolveSwapTransferFees(
-    config: Pick<
-        QuotePoolConfig,
-        'quoteMint' | 'quoteTokenFlag' | 'transferFeeBasisPoints'
-    >,
+    config: PoolConfig,
     swapBaseForQuote: boolean,
     transferFees?: QuoteTransferFees
 ): { input: EpochTransferFee | null; output: EpochTransferFee | null } {

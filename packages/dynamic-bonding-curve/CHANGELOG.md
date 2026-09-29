@@ -31,9 +31,8 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 
 ### Breaking Changes
 
-- Import the public API from `@meteora-ag/dynamic-bonding-curve-sdk`. The package root no longer re-exports every helper, math function, or `DynamicBondingCurveProgram`, and the `exports` map exposes only that entry and `./math`. `swapQuoteExactIn`, `swapQuoteExactOut`, and `swapQuotePartialFill` are not exported; use `quoteSwap2`. `convertDecimalToBN` was removed in favour of `fromDecimalToBN`.
+- Import the public API from `@meteora-ag/dynamic-bonding-curve-sdk`. The package root no longer re-exports every helper, math function, or `DynamicBondingCurveProgram`, and the `exports` map exposes only that entry and `./math`. `swapQuoteExactIn`, `swapQuoteExactOut`, and `swapQuotePartialFill` are not exported; use `swapQuote2` for an existing pool and `getQuoteFromInputAmount` or `getQuoteFromOutputAmount` for a `buildCurve` result. `convertDecimalToBN` was removed in favour of `fromDecimalToBN`.
 - `calculateBaseToQuoteFromAmountIn`, `getFeeMode`, `getIncludedFeeAmount`, and `getFeeNumeratorFromIncludedAmount` moved from the package root to `@meteora-ag/dynamic-bonding-curve-sdk/math`.
-- `quoteSwap2` throws when `virtualPool` is set without `currentPoint`.
 - `deriveEscrow` was renamed to `deriveLockerEscrowAddress`.
 - Removed unused helpers: `getAccountData`, `getAccountCreationTimestamp`, `getAccountCreationTimestamps`, `prepareTokenAccountTx`, `cleanUpTokenAccountTx`, `checkRateLimiterApplied`, `validateBalance`, `validateBaseTokenType`, `validateQuoteMintBasic`, `deriveDammV1EventAuthority`, `deriveDammV1PoolAuthority`, and `deriveDammV2LockEscrowAddress`.
 - Construct services through `DynamicBondingCurveClient`. `new PoolService(connection, commitment)`, `new StateService(connection, commitment)`, `new PartnerService(connection, commitment)`, `new CreatorService(connection, commitment)`, and `new MigrationService(connection, commitment)` are no longer supported. Reads go through `client.state`.

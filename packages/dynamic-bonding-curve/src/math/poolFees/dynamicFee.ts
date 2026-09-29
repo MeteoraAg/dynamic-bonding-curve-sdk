@@ -2,7 +2,7 @@ import {
     DYNAMIC_FEE_ROUNDING_OFFSET,
     DYNAMIC_FEE_SCALING_FACTOR,
 } from '../../constants'
-import { QuoteDynamicFee, QuoteVolatilityTracker } from '../../types'
+import { DynamicFeeConfig, VolatilityTracker } from '../../types'
 import { SafeMath } from '../safeMath'
 import BN from 'bn.js'
 
@@ -11,7 +11,7 @@ import BN from 'bn.js'
  * @param dynamicFee Dynamic fee parameters
  * @returns True if dynamic fee is enabled
  */
-export function isDynamicFeeEnabled(dynamicFee: QuoteDynamicFee): boolean {
+export function isDynamicFeeEnabled(dynamicFee: DynamicFeeConfig): boolean {
     return dynamicFee.initialized !== 0
 }
 
@@ -23,8 +23,8 @@ export function isDynamicFeeEnabled(dynamicFee: QuoteDynamicFee): boolean {
  * @returns Variable fee numerator
  */
 export function getVariableFeeNumerator(
-    dynamicFee: QuoteDynamicFee,
-    volatilityTracker: QuoteVolatilityTracker
+    dynamicFee: DynamicFeeConfig,
+    volatilityTracker: VolatilityTracker
 ): BN {
     if (!isDynamicFeeEnabled(dynamicFee)) {
         return new BN(0)

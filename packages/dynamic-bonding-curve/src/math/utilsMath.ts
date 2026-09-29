@@ -24,7 +24,7 @@ export function mulDiv(x: BN, y: BN, denominator: BN, rounding: Rounding): BN {
     const prod = x.mul(y)
 
     if (rounding === Rounding.Up) {
-        // ceiling division: (prod + denominator - 1) / denominator
+        // Calculate ceiling division: (prod + denominator - 1) / denominator
         const numerator = prod.add(denominator.sub(new BN(1)))
         return numerator.div(denominator)
     } else {

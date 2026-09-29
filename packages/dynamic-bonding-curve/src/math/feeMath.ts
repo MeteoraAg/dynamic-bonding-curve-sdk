@@ -13,10 +13,10 @@ import {
     FeeMode,
     Rounding,
     TradeDirection,
-    type QuoteDynamicFee,
+    type DynamicFeeConfig,
     type FeeOnAmountResult,
-    type QuotePoolFees,
-    type QuoteVolatilityTracker,
+    type PoolFeesConfig,
+    type VolatilityTracker,
 } from '../types'
 import { getBaseFeeHandler } from './poolFees/baseFee'
 import { getVariableFeeNumerator } from './poolFees/dynamicFee'
@@ -81,8 +81,8 @@ export function getFeeMode(
  * @returns Total fee numerator
  */
 export function getTotalFeeNumeratorFromIncludedFeeAmount(
-    poolFees: QuotePoolFees,
-    volatilityTracker: QuoteVolatilityTracker,
+    poolFees: PoolFeesConfig,
+    volatilityTracker: VolatilityTracker,
     currentPoint: BN,
     activationPoint: BN,
     includedFeeAmount: BN,
@@ -122,8 +122,8 @@ export function getTotalFeeNumeratorFromIncludedFeeAmount(
  * @returns Total fee numerator
  */
 export function getTotalFeeNumeratorFromExcludedFeeAmount(
-    poolFees: QuotePoolFees,
-    volatilityTracker: QuoteVolatilityTracker,
+    poolFees: PoolFeesConfig,
+    volatilityTracker: VolatilityTracker,
     currentPoint: BN,
     activationPoint: BN,
     excludedFeeAmount: BN,
@@ -161,8 +161,8 @@ export function getTotalFeeNumeratorFromExcludedFeeAmount(
  */
 export function getTotalFeeNumerator(
     baseFeeNumerator: BN,
-    dynamicFee: QuoteDynamicFee,
-    volatilityTracker: QuoteVolatilityTracker
+    dynamicFee: DynamicFeeConfig,
+    volatilityTracker: VolatilityTracker
 ): BN {
     const variableFeeNumerator = getVariableFeeNumerator(
         dynamicFee,
@@ -193,7 +193,7 @@ export function getTotalFeeNumerator(
 export function getFeeOnAmount(
     tradeFeeNumerator: BN,
     amount: BN,
-    poolFees: QuotePoolFees,
+    poolFees: PoolFeesConfig,
     hasReferral: boolean
 ): FeeOnAmountResult {
     const [amountAfterFee, tradingFee] = getExcludedFeeAmount(
@@ -282,7 +282,7 @@ export function getIncludedFeeAmount(
  * @returns [trading fee, protocol fee, referral fee]
  */
 export function splitFees(
-    poolFees: QuotePoolFees,
+    poolFees: PoolFeesConfig,
     feeAmount: BN,
     hasReferral: boolean
 ): [BN, BN, BN] {

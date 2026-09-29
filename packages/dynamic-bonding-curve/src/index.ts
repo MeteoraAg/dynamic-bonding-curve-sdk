@@ -63,7 +63,10 @@ export {
     getSqrtPriceFromMarketCap,
     getSqrtPriceFromPrice,
 } from './helpers/price'
-export { quoteSwap2 } from './helpers/quoteSwap'
+export {
+    getQuoteFromInputAmount,
+    getQuoteFromOutputAmount,
+} from './helpers/quoteSwap'
 export { rateLimiterApplied } from './helpers/swap'
 export {
     getSwapQuoteTransferFees,
