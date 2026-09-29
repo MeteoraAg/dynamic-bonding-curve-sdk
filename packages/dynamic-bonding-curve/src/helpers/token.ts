@@ -3,7 +3,6 @@ import {
     Connection,
     PublicKey,
     SystemProgram,
-    Transaction,
     TransactionInstruction,
 } from '@solana/web3.js'
 
@@ -191,68 +190,6 @@ export async function getTokenType(
     return accountInfo.owner.equals(TOKEN_PROGRAM_ID)
         ? TokenType.SPLToken
         : TokenType.Token2022
-}
-
-/**
- * Build a setup transaction for a token account, including SOL wrapping when needed.
- */
-export async function prepareTokenAccountTx(
-    connection: Connection,
-    owner: PublicKey,
-    payer: PublicKey,
-    tokenMint: PublicKey,
-    amount: bigint,
-    tokenProgram: PublicKey,
-    commitment: Commitment = 'confirmed'
-): Promise<{
-    tokenAccount: PublicKey
-    transaction: Transaction
-}> {
-    const instructions: TransactionInstruction[] = []
-    const { ataPubkey: tokenAccount, ix: createAtaIx } =
-        await getOrCreateATAInstruction(
-            connection,
-            tokenMint,
-            owner,
-            payer,
-            true,
-            tokenProgram,
-            commitment
-        )
-
-    createAtaIx && instructions.push(createAtaIx)
-
-    if (tokenMint.equals(NATIVE_MINT)) {
-        const wrapIx = wrapSOLInstruction(owner, tokenAccount, amount)
-        instructions.push(...wrapIx)
-    }
-
-    const transaction = new Transaction()
-    if (instructions.length > 0) {
-        transaction.add(...instructions)
-    }
-
-    return { tokenAccount, transaction }
-}
-
-/**
- * Build a cleanup transaction for wrapped SOL accounts.
- */
-export async function cleanUpTokenAccountTx(
-    owner: PublicKey,
-    receiver: PublicKey,
-    tokenMint: PublicKey
-): Promise<{
-    transaction: Transaction
-} | null> {
-    if (tokenMint.equals(NATIVE_MINT)) {
-        const unwrapIx = unwrapSOLInstruction(owner, receiver)
-        if (unwrapIx) {
-            return { transaction: new Transaction().add(unwrapIx) }
-        }
-    }
-
-    return null
 }
 
 /**

@@ -4,8 +4,8 @@ import {
     getBaseFeeParams,
     BaseFeeMode,
     bpsToFeeNumerator,
-    getFeeNumeratorFromIncludedAmount,
 } from '../src'
+import { getFeeNumeratorFromIncludedAmount } from '../src/math'
 import { expect, test, describe } from 'vitest'
 import BN from 'bn.js'
 
@@ -27,8 +27,6 @@ describe('Rate Limiter tests', () => {
             activationType
         )
 
-        console.log(params)
-
         expect(params.baseFeeMode).toBe(BaseFeeMode.RateLimiter)
         expect(params.cliffFeeNumerator.toNumber()).toBe(
             bpsToFeeNumerator(baseFeeBps).toNumber()
@@ -45,7 +43,6 @@ describe('Rate Limiter tests', () => {
             new BN(feeIncrementBps),
             new BN(0.4 * 1e9)
         )
-        console.log('0.4 SOL tx fee:', fee.toString())
 
         const fee2 = getFeeNumeratorFromIncludedAmount(
             params.cliffFeeNumerator,
@@ -53,7 +50,6 @@ describe('Rate Limiter tests', () => {
             new BN(feeIncrementBps),
             new BN(0.2 * 1e9)
         )
-        console.log('0.2 SOL tx fee:', fee2.toString())
 
         const fee3 = getFeeNumeratorFromIncludedAmount(
             params.cliffFeeNumerator,
@@ -61,7 +57,6 @@ describe('Rate Limiter tests', () => {
             new BN(feeIncrementBps),
             new BN(0.1 * 1e9)
         )
-        console.log('0.1 SOL tx fee:', fee3.toString())
 
         const fee4 = getFeeNumeratorFromIncludedAmount(
             params.cliffFeeNumerator,
@@ -69,7 +64,6 @@ describe('Rate Limiter tests', () => {
             new BN(feeIncrementBps),
             new BN(1 * 1e9)
         )
-        console.log('1 SOL tx fee:', fee4.toString())
 
         expect(fee.toNumber()).toBeGreaterThan(fee2.toNumber())
         expect(fee2.toNumber()).toBe(fee3.toNumber())

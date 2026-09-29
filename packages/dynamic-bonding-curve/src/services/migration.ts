@@ -21,7 +21,7 @@ import {
     deriveDammV1PoolAddress,
     deriveDammV2EventAuthority,
     deriveDammV2PoolAddress,
-    deriveEscrow,
+    deriveLockerEscrowAddress,
     deriveMintMetadata,
     derivePositionAddress,
     derivePositionNftAccount,
@@ -91,7 +91,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
         const base = deriveBaseKeyForLocker(pool)
 
-        const escrow = deriveEscrow(base)
+        const escrow = deriveLockerEscrowAddress(base)
 
         const tokenProgram =
             poolConfigState.tokenType === 0

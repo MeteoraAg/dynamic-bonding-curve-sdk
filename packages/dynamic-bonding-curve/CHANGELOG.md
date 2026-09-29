@@ -2,7 +2,7 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
-## [1.6.0] - 2026-10-02
+## [2.0.0] - 2026-10-02
 
 ### Added
 
@@ -10,6 +10,13 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - `TransferFeeWithheldAuthority` and `MigratedTransferFeeAuthorityOption`.
 - Swap quotes account for Token-2022 transfer fees and return `includedTransferFeeAmountIn` and `excludedTransferFeeAmountOut`. `getSwapQuoteTransferFees` fetches the quote mint and current epoch.
 - `getQuoteFromInputAmount` and `getQuoteFromOutputAmount` quote a `buildCurve` result before a pool exists. `client.pool.swapQuote2` quotes an existing pool and requires `currentPoint`.
+- `@meteora-ag/dynamic-bonding-curve-sdk/math` exports the ports of the program's curve, fee, and swap math. It tracks the program version.
+- Curve readouts at the package root: `getTotalSupplyFromCurve`, `getMigrationThresholdPrice`, `getCurveBreakdown`, `getTokenomics`, `getPercentageSupplyOnMigration`, `getSqrtPriceFromMarketCap`, `getBaseTokenForSwap`, `getSwapAmountWithBuffer`, `getMigrationBaseToken`, `getMigrationQuoteAmountFromThreshold`, and `getProtocolMigrationFee`.
+- Parameter builders at the package root: `getMigratedPoolMarketCapFeeSchedulerParams`, `calculateFeeSchedulerEndingBaseFeeBps`, `getStartingBaseFeeBpsFromBaseFeeParams`, and `getTotalVestingAmount`.
+- `getTokenType`, `getTokenProgram`, `convertToLamports`, and `createDbcProgram` at the package root.
+- `deriveDbcEventAuthority`, `deriveBaseKeyForLocker`, `deriveLockerEscrowAddress`, and `deriveDammV1MigrationMetadataAddress` at the package root.
+- `EpochTransferFee` type.
+- `rateLimiterApplied` at the package root: whether the rate limiter applies to a swap right now, for callers who build the swap instruction themselves and need to know whether to include the instructions sysvar.
 
 ### Changed
 
@@ -24,6 +31,11 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 
 ### Breaking Changes
 
+- Import the public API from `@meteora-ag/dynamic-bonding-curve-sdk`. The package root no longer re-exports every helper, math function, or `DynamicBondingCurveProgram`, and the `exports` map exposes only that entry and `./math`. `swapQuoteExactIn`, `swapQuoteExactOut`, and `swapQuotePartialFill` are not exported; use `swapQuote2` for an existing pool and `getQuoteFromInputAmount` or `getQuoteFromOutputAmount` for a `buildCurve` result. `convertDecimalToBN` was removed in favour of `fromDecimalToBN`.
+- `calculateBaseToQuoteFromAmountIn`, `getFeeMode`, `getIncludedFeeAmount`, and `getFeeNumeratorFromIncludedAmount` moved from the package root to `@meteora-ag/dynamic-bonding-curve-sdk/math`.
+- `deriveEscrow` was renamed to `deriveLockerEscrowAddress`.
+- Removed unused helpers: `getAccountData`, `getAccountCreationTimestamp`, `getAccountCreationTimestamps`, `prepareTokenAccountTx`, `cleanUpTokenAccountTx`, `checkRateLimiterApplied`, `validateBalance`, `validateBaseTokenType`, `validateQuoteMintBasic`, `deriveDammV1EventAuthority`, `deriveDammV1PoolAuthority`, and `deriveDammV2LockEscrowAddress`.
+- Construct services through `DynamicBondingCurveClient`. `new PoolService(connection, commitment)`, `new StateService(connection, commitment)`, `new PartnerService(connection, commitment)`, `new CreatorService(connection, commitment)`, and `new MigrationService(connection, commitment)` are no longer supported. Reads go through `client.state`.
 - Swap quotes for a Token-2022 quote mint require `quoteMint` and `currentEpoch`.
 - Removed `quoteSwap2` and `SwapQuoteConfig`. Quote an existing pool with `swapQuote2`. Quote a `buildCurve` result with `getQuoteFromInputAmount` or `getQuoteFromOutputAmount`. `getQuoteFrom*` takes `ConfigParameters` and does not accept a decoded `PoolConfig`.
 - `getMigratedPoolFeeParams` throws for `MigrationFeeOption.Customizable` when `migratedPoolFee.poolFeeBps` is not set.

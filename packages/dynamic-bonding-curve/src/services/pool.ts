@@ -21,13 +21,14 @@ import {
     getQuoteFromInputAmount as quoteFromInputAmount,
     getQuoteFromOutputAmount as quoteFromOutputAmount,
 } from '../helpers/quoteSwap'
+import { getFeeMode } from '../math/feeMath'
 import {
     swapQuote,
     swapQuoteExactIn,
     swapQuoteExactOut,
     swapQuotePartialFill,
-    getFeeMode,
-} from '../math'
+} from '../math/swapQuote'
+import { prepareSwapAccounts, rateLimiterApplied } from '../helpers/swap'
 import BN from 'bn.js'
 
 export class PoolService extends DynamicBondingCurveProgram {
@@ -58,12 +59,9 @@ export class PoolService extends DynamicBondingCurveProgram {
 
         validateSwapAmount(amountIn)
 
-        const rateLimited = await this.rateLimiterApplied({
+        const rateLimited = await rateLimiterApplied({
             connection: this.connection,
-            baseFeeMode: poolConfigState.poolFees.baseFee.baseFeeMode,
-            firstFactor: poolConfigState.poolFees.baseFee.firstFactor,
-            secondFactor: poolConfigState.poolFees.baseFee.secondFactor,
-            thirdFactor: poolConfigState.poolFees.baseFee.thirdFactor,
+            baseFee: poolConfigState.poolFees.baseFee,
             activationType: poolConfigState.activationType,
             activationPoint: virtualPool.poolState.activationPoint,
             swapBaseForQuote,
@@ -82,7 +80,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             preInstructions,
             postInstructions,
             remainingAccounts,
-        } = await this.prepareSwapAccounts({
+        } = await prepareSwapAccounts({
             connection: this.connection,
             commitment: this.commitment,
             payer: payer ? payer : owner,
@@ -166,12 +164,9 @@ export class PoolService extends DynamicBondingCurveProgram {
             )
         }
 
-        const rateLimited = await this.rateLimiterApplied({
+        const rateLimited = await rateLimiterApplied({
             connection: this.connection,
-            baseFeeMode: poolConfigState.poolFees.baseFee.baseFeeMode,
-            firstFactor: poolConfigState.poolFees.baseFee.firstFactor,
-            secondFactor: poolConfigState.poolFees.baseFee.secondFactor,
-            thirdFactor: poolConfigState.poolFees.baseFee.thirdFactor,
+            baseFee: poolConfigState.poolFees.baseFee,
             activationType: poolConfigState.activationType,
             activationPoint: virtualPool.poolState.activationPoint,
             swapBaseForQuote,
@@ -194,7 +189,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             preInstructions,
             postInstructions,
             remainingAccounts,
-        } = await this.prepareSwapAccounts({
+        } = await prepareSwapAccounts({
             connection: this.connection,
             commitment: this.commitment,
             payer: payer ? payer : owner,
@@ -274,12 +269,9 @@ export class PoolService extends DynamicBondingCurveProgram {
             throw new Error('Pool does not use a transfer hook, use swap2')
         }
 
-        const rateLimited = await this.rateLimiterApplied({
+        const rateLimited = await rateLimiterApplied({
             connection: this.connection,
-            baseFeeMode: poolConfigState.poolFees.baseFee.baseFeeMode,
-            firstFactor: poolConfigState.poolFees.baseFee.firstFactor,
-            secondFactor: poolConfigState.poolFees.baseFee.secondFactor,
-            thirdFactor: poolConfigState.poolFees.baseFee.thirdFactor,
+            baseFee: poolConfigState.poolFees.baseFee,
             activationType: poolConfigState.activationType,
             activationPoint: virtualPool.poolState.activationPoint,
             swapBaseForQuote,
@@ -302,7 +294,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             preInstructions,
             postInstructions,
             remainingAccounts,
-        } = await this.prepareSwapAccounts({
+        } = await prepareSwapAccounts({
             connection: this.connection,
             commitment: this.commitment,
             payer: payer ? payer : owner,

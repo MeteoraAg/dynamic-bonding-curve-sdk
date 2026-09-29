@@ -86,12 +86,6 @@ export function isDefaultLockedVesting(lockedVesting: {
 }
 
 /**
- * Convert decimal to a BN
- * @deprecated Use `fromDecimalToBN`.
- */
-export const convertDecimalToBN = fromDecimalToBN
-
-/**
  * Converts basis points (bps) to fee numerator
  * 1 bps = 0.01% = 0.0001 in decimal
  *

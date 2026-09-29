@@ -4,7 +4,7 @@ import {
     swapQuoteExactOut,
     swapQuotePartialFill,
 } from '../math/swapQuote'
-import { getMigrationThresholdPrice } from './common'
+import { getMigrationThresholdPrice } from './migration'
 import {
     SwapMode,
     type ConfigParameters,
