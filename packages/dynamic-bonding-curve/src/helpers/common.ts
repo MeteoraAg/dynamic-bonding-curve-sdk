@@ -708,16 +708,17 @@ export const getCurveBreakdown = (
             Rounding.Up
         )
 
-        if (maxSegmentAmount.gte(migrationQuoteThreshold)) {
+        const amountRemaining = migrationQuoteThreshold.sub(totalAllocated)
+        if (maxSegmentAmount.gt(amountRemaining)) {
             // this segment contains the migration point
-            segmentAmounts.push(migrationQuoteThreshold)
-            totalAllocated = totalAllocated.add(migrationQuoteThreshold)
+            segmentAmounts.push(amountRemaining)
+            totalAllocated = totalAllocated.add(amountRemaining)
 
             // calculate the exact sqrt price where migration threshold is reached
             finalSqrtPrice = getNextSqrtPriceFromInput(
                 lowerSqrtPrice,
                 liquidity,
-                migrationQuoteThreshold,
+                amountRemaining,
                 false
             )
 
@@ -732,6 +733,12 @@ export const getCurveBreakdown = (
             totalAllocated = totalAllocated.add(maxSegmentAmount)
             currentSqrtPrice = upperSqrtPrice
             finalSqrtPrice = upperSqrtPrice
+            if (totalAllocated.eq(migrationQuoteThreshold)) {
+                for (let j = i + 1; j < curve.length; j++) {
+                    segmentAmounts.push(new BN(0))
+                }
+                break
+            }
 
             // check if we've processed all segments but haven't reached threshold
             if (
