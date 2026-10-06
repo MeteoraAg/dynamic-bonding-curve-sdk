@@ -986,13 +986,19 @@ export class DynamicBondingCurveProgram {
             .transaction()
     }
 
+    /**
+     * Get or create `owner`'s token accounts for both mints. When `tokenBOwner`
+     * is given, the token B account belongs to it instead (for example a swap's
+     * output going to another wallet).
+     */
     protected async prepareTokenAccounts(
         owner: PublicKey,
         payer: PublicKey,
         tokenAMint: PublicKey,
         tokenBMint: PublicKey,
         tokenAProgram: PublicKey,
-        tokenBProgram: PublicKey
+        tokenBProgram: PublicKey,
+        tokenBOwner?: PublicKey
     ): Promise<{
         ataTokenA: PublicKey
         ataTokenB: PublicKey
@@ -1015,7 +1021,7 @@ export class DynamicBondingCurveProgram {
             getOrCreateATAInstruction(
                 this.connection,
                 tokenBMint,
-                owner,
+                tokenBOwner ?? owner,
                 payer,
                 true,
                 tokenBProgram,

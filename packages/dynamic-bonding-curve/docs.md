@@ -2339,6 +2339,7 @@ interface SwapParams {
     poolAddress: PublicKey // The pool address
     referralTokenAccount: PublicKey | null // The referral token account (optional)
     payer?: PublicKey // The payer of the transaction (optional)
+    receiver?: PublicKey // The owner of the output token account (optional, defaults to owner)
 }
 ```
 
@@ -2393,6 +2394,7 @@ const transaction = await client.pool.swap({
 - If the transaction fails with "insufficient balance", check that you have enough tokens plus fees for the transaction.
 - The pool address can be derived using `deriveDbcPoolAddress`.
 - The `payer` parameter is optional. If not provided, the owner will be used as the payer to fund ATA creation.
+- The `receiver` parameter is optional. If provided, the output goes to the receiver's associated token account, which `payer` (or `owner`) creates if needed. The input still comes from `owner`'s account and `owner` still signs; the receiver does not sign. If the output is SOL and the receiver is not `owner`, the receiver gets wrapped SOL in its own wrapped SOL account, which it unwraps itself.
 
 ---
 
@@ -2480,6 +2482,7 @@ interface Swap2Params {
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     referralTokenAccount: PublicKey | null // The referral token account (optional)
     payer?: PublicKey // The payer of the transaction (optional)
+    receiver?: PublicKey // The owner of the output token account (optional, defaults to owner)
 } & (
     | {
           swapMode: SwapMode.ExactIn // Swap exact input amount
@@ -2551,6 +2554,7 @@ const transaction = await client.pool.swap2({
 - The `maximumAmountIn` parameter protects against slippage. Set it to a value slightly higher than the expected input.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
 - The `payer` parameter is optional. If not provided, the owner will be used as the payer to fund ATA creation.
+- The `receiver` parameter is optional. If provided, the output goes to the receiver's associated token account, which `payer` (or `owner`) creates if needed. The input still comes from `owner`'s account and `owner` still signs; the receiver does not sign. If the output is SOL and the receiver is not `owner`, the receiver gets wrapped SOL in its own wrapped SOL account, which it unwraps itself.
 
 ---
 
@@ -2573,6 +2577,7 @@ interface Swap2Params {
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     referralTokenAccount: PublicKey | null // The referral token account (optional)
     payer?: PublicKey // The payer of the transaction (optional)
+    receiver?: PublicKey // The owner of the output token account (optional, defaults to owner)
 } & (
     | {
           swapMode: SwapMode.ExactIn // Swap exact input amount
