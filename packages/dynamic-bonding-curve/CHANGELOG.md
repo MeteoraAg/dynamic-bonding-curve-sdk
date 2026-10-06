@@ -2,6 +2,12 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Optional `receiver` on `swap`, `swap2` and `swap2WithTransferHook`: the output goes to the receiver's associated token account while the input still comes from `owner`, who still signs. When the output is SOL and the receiver is not `owner`, the receiver keeps wrapped SOL (closing its account would need its signature). Without `receiver` the transaction is the same as before.
+
 ## [1.5.13] - 2026-09-24
 
 ### Changed

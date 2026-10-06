@@ -529,6 +529,13 @@ export type SwapParams = {
     swapBaseForQuote: boolean
     referralTokenAccount: PublicKey | null
     payer?: PublicKey
+    /**
+     * Owner of the output token account. Defaults to `owner`. The input still
+     * comes from `owner`'s token account and `owner` still signs; the receiver
+     * does not sign. When the output is SOL and the receiver is not `owner`,
+     * the receiver gets wrapped SOL in its own wrapped SOL account.
+     */
+    receiver?: PublicKey
 }
 
 export type Swap2Params = {
@@ -537,6 +544,13 @@ export type Swap2Params = {
     swapBaseForQuote: boolean
     referralTokenAccount: PublicKey | null
     payer?: PublicKey
+    /**
+     * Owner of the output token account. Defaults to `owner`. The input still
+     * comes from `owner`'s token account and `owner` still signs; the receiver
+     * does not sign. When the output is SOL and the receiver is not `owner`,
+     * the receiver gets wrapped SOL in its own wrapped SOL account.
+     */
+    receiver?: PublicKey
 } & (
     | {
           swapMode: SwapMode.ExactIn

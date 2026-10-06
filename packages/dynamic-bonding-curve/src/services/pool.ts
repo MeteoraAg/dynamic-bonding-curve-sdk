@@ -53,6 +53,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             swapBaseForQuote,
             owner,
             payer,
+            receiver,
             pool,
             referralTokenAccount,
         } = params
@@ -108,7 +109,8 @@ export class PoolService extends DynamicBondingCurveProgram {
             inputMint,
             outputMint,
             inputTokenProgram,
-            outputTokenProgram
+            outputTokenProgram,
+            receiver
         )
 
         // add SOL wrapping instructions if needed
@@ -125,10 +127,12 @@ export class PoolService extends DynamicBondingCurveProgram {
         // add postInstructions for SOL unwrapping
         const postInstructions: TransactionInstruction[] = []
         if (
-            [inputMint.toBase58(), outputMint.toBase58()].includes(
-                NATIVE_MINT.toBase58()
-            )
+            inputMint.equals(NATIVE_MINT) ||
+            (outputMint.equals(NATIVE_MINT) &&
+                (!receiver || receiver.equals(owner)))
         ) {
+            // A receiver other than the owner keeps its wrapped SOL: closing
+            // that account needs the receiver's signature.
             const unwrapIx = unwrapSOLInstruction(owner, owner)
             unwrapIx && postInstructions.push(unwrapIx)
         }
@@ -187,6 +191,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             swapMode,
             owner,
             payer,
+            receiver,
             referralTokenAccount,
         } = params
 
@@ -252,7 +257,8 @@ export class PoolService extends DynamicBondingCurveProgram {
             inputMint,
             outputMint,
             inputTokenProgram,
-            outputTokenProgram
+            outputTokenProgram,
+            receiver
         )
 
         // add SOL wrapping instructions if needed
@@ -274,10 +280,12 @@ export class PoolService extends DynamicBondingCurveProgram {
         // add postInstructions for SOL unwrapping
         const postInstructions: TransactionInstruction[] = []
         if (
-            [inputMint.toBase58(), outputMint.toBase58()].includes(
-                NATIVE_MINT.toBase58()
-            )
+            inputMint.equals(NATIVE_MINT) ||
+            (outputMint.equals(NATIVE_MINT) &&
+                (!receiver || receiver.equals(owner)))
         ) {
+            // A receiver other than the owner keeps its wrapped SOL: closing
+            // that account needs the receiver's signature.
             const unwrapIx = unwrapSOLInstruction(owner, owner)
             unwrapIx && postInstructions.push(unwrapIx)
         }
@@ -334,6 +342,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             swapMode,
             owner,
             payer,
+            receiver,
             referralTokenAccount,
         } = params
 
@@ -392,7 +401,8 @@ export class PoolService extends DynamicBondingCurveProgram {
             inputMint,
             outputMint,
             inputTokenProgram,
-            outputTokenProgram
+            outputTokenProgram,
+            receiver
         )
 
         if (inputMint.equals(NATIVE_MINT)) {
@@ -412,10 +422,12 @@ export class PoolService extends DynamicBondingCurveProgram {
 
         const postInstructions: TransactionInstruction[] = []
         if (
-            [inputMint.toBase58(), outputMint.toBase58()].includes(
-                NATIVE_MINT.toBase58()
-            )
+            inputMint.equals(NATIVE_MINT) ||
+            (outputMint.equals(NATIVE_MINT) &&
+                (!receiver || receiver.equals(owner)))
         ) {
+            // A receiver other than the owner keeps its wrapped SOL: closing
+            // that account needs the receiver's signature.
             const unwrapIx = unwrapSOLInstruction(owner, owner)
             unwrapIx && postInstructions.push(unwrapIx)
         }
