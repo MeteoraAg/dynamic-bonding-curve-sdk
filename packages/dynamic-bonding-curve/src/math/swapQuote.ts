@@ -1212,9 +1212,7 @@ export function swapQuotePartialFill(
     ).amount
     // A partial fill with an active rate limiter can reconstruct an input above amountIn
     if (includedAmountIn.gt(amountIn)) {
-        throw new Error(
-            'Required input amount exceeds the provided amount in'
-        )
+        throw new Error('Required input amount exceeds the provided amount in')
     }
 
     return {
