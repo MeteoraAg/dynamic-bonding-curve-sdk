@@ -187,9 +187,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
         if (Number(poolConfig.version) === LEGACY_CONFIG_VERSION) {
             if (!isZeroTransferFee(epochTransferFee)) {
-                throw new Error(
-                    'Quote mint has a non zero transfer fee or a live transfer fee config authority'
-                )
+                throw new Error('Quote mint has a non-zero transfer fee')
             }
             return
         }

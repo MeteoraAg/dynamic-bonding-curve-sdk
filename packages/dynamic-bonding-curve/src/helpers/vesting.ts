@@ -69,11 +69,7 @@ export function getLockedVestingParams(
         }
     }
 
-    if (numberOfVestingPeriod <= 0) {
-        throw new Error('Total periods must be greater than zero')
-    }
-
-    if (numberOfVestingPeriod == 0 || totalVestingDuration == 0) {
+    if (numberOfVestingPeriod <= 0 || totalVestingDuration <= 0) {
         throw new Error(
             'numberOfPeriod and totalVestingDuration must both be greater than zero'
         )
@@ -100,7 +96,9 @@ export function getLockedVestingParams(
     // add the remainder to cliffUnlockAmount to maintain total amount
     const adjustedCliffUnlockAmount = cliffUnlockAmount + remainder
 
-    const periodFrequency = new BN(totalVestingDuration / numberOfVestingPeriod)
+    const periodFrequency = new BN(
+        Math.floor(totalVestingDuration / numberOfVestingPeriod)
+    )
 
     return {
         amountPerPeriod: convertToLamports(
