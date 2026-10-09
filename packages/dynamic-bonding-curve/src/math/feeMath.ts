@@ -21,13 +21,6 @@ import {
 import { getBaseFeeHandler } from './poolFees/baseFee'
 import { getVariableFeeNumerator } from './poolFees/dynamicFee'
 
-/**
- * Get fee mode
- * @param collectFeeMode Collect fee mode
- * @param tradeDirection Trade direction
- * @param hasReferral Whether referral is used
- * @returns Fee mode
- */
 export function getFeeMode(
     collectFeeMode: CollectFeeMode,
     tradeDirection: TradeDirection,
@@ -208,7 +201,6 @@ export function getFeeOnAmount(
         Rounding.Down
     )
 
-    // update trading fee
     const updatedTradingFee = SafeMath.sub(tradingFee, protocolFee)
 
     const referralFee = hasReferral
@@ -246,7 +238,6 @@ export function getExcludedFeeAmount(
         new BN(FEE_DENOMINATOR),
         Rounding.Up
     )
-    // update amount
     const excludedFeeAmount = SafeMath.sub(includedFeeAmount, tradingFee)
     return [excludedFeeAmount, tradingFee]
 }
@@ -293,7 +284,6 @@ export function splitFees(
         Rounding.Down
     )
 
-    // update trading fee
     const tradingFee = SafeMath.sub(feeAmount, protocolFee)
 
     const referralFee = hasReferral

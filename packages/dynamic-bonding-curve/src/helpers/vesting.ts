@@ -117,14 +117,6 @@ export function getLockedVestingParams(
     }
 }
 
-/**
- * Get the liquidity vesting info parameters
- * @param vestingPercentage - The vesting percentage
- * @param bpsPerPeriod - The BPS per period
- * @param numberOfPeriods - The number of periods
- * @param cliffDurationFromMigrationTime - The cliff duration from migration time
- * @param totalDuration - The total duration
- */
 export const getLiquidityVestingInfoParams = (
     vestingPercentage: number,
     bpsPerPeriod: number,
@@ -132,7 +124,6 @@ export const getLiquidityVestingInfoParams = (
     cliffDurationFromMigrationTime: number,
     totalDuration: number
 ): LiquidityVestingInfoParameters => {
-    // validate vestingPercentage (0-100, u8)
     if (vestingPercentage < 0 || vestingPercentage > 100) {
         throw new Error('vestingPercentage must be between 0 and 100')
     }
@@ -176,7 +167,7 @@ export const getLiquidityVestingInfoParams = (
         throw new Error('totalDuration must be greater than zero')
     }
 
-    const frequency = totalDuration / numberOfPeriods
+    const frequency = Math.floor(totalDuration / numberOfPeriods)
 
     if (frequency <= 0) {
         throw new Error(
@@ -210,7 +201,7 @@ export const getLiquidityVestingInfoParams = (
         bpsPerPeriod,
         numberOfPeriods,
         cliffDurationFromMigrationTime,
-        frequency: Math.round(frequency),
+        frequency,
     }
 }
 

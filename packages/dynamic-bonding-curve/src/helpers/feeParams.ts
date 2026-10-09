@@ -34,6 +34,50 @@ import BN from 'bn.js'
 import Decimal from 'decimal.js'
 import { bpsToFeeNumerator, convertToLamports } from './utils'
 import { computeSqrtPriceStepBps } from './price'
+import { getFeeNumeratorOnExponentialFeeScheduler } from '../math/poolFees/feeScheduler'
+
+function exponentialReductionFactor(
+    maxBaseFeeNumerator: BN,
+    minBaseFeeNumerator: BN,
+    numberOfPeriod: number
+): BN {
+    const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
+        new Decimal(maxBaseFeeNumerator.toString())
+    )
+    const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
+    let reductionFactor = new BN(
+        new Decimal(MAX_BASIS_POINT)
+            .mul(new Decimal(1).sub(decayBase))
+            .floor()
+            .toFixed()
+    )
+    if (reductionFactor.isNeg()) {
+        reductionFactor = new BN(0)
+    } else if (reductionFactor.gtn(MAX_BASIS_POINT)) {
+        reductionFactor = new BN(MAX_BASIS_POINT)
+    }
+    const feeAt = (factor: BN) =>
+        getFeeNumeratorOnExponentialFeeScheduler(
+            maxBaseFeeNumerator,
+            factor,
+            numberOfPeriod
+        )
+
+    while (
+        reductionFactor.gtn(0) &&
+        feeAt(reductionFactor).lt(minBaseFeeNumerator)
+    ) {
+        reductionFactor = reductionFactor.subn(1)
+    }
+    while (reductionFactor.ltn(MAX_BASIS_POINT)) {
+        const nextFee = feeAt(reductionFactor.addn(1))
+        if (nextFee.lt(minBaseFeeNumerator)) {
+            break
+        }
+        reductionFactor = reductionFactor.addn(1)
+    }
+    return reductionFactor
+}
 
 /**
  * Get the fee scheduler parameters
@@ -100,24 +144,16 @@ export function getFeeSchedulerParams(
 
     const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
 
-    const periodFrequency = new BN(totalDuration / numberOfPeriod)
+    const periodFrequency = new BN(totalDuration).div(new BN(numberOfPeriod))
 
-    let reductionFactor: BN
-    if (baseFeeMode == BaseFeeMode.FeeSchedulerLinear) {
-        const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator)
-        reductionFactor = totalReduction.divn(numberOfPeriod)
-    } else {
-        const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
-            new Decimal(maxBaseFeeNumerator.toString())
-        )
-        const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
-        reductionFactor = new BN(
-            new Decimal(MAX_BASIS_POINT)
-                .mul(new Decimal(1).sub(decayBase))
-                .floor()
-                .toFixed()
-        )
-    }
+    const reductionFactor =
+        baseFeeMode == BaseFeeMode.FeeSchedulerLinear
+            ? maxBaseFeeNumerator.sub(minBaseFeeNumerator).divn(numberOfPeriod)
+            : exponentialReductionFactor(
+                  maxBaseFeeNumerator,
+                  minBaseFeeNumerator,
+                  numberOfPeriod
+              )
 
     return {
         cliffFeeNumerator: maxBaseFeeNumerator,
@@ -402,10 +438,11 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
     } else if (
         dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
     ) {
-        const ratio =
-            minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber()
-        const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
-        reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
+        reductionFactor = exponentialReductionFactor(
+            maxBaseFeeNumerator,
+            minBaseFeeNumerator,
+            numberOfPeriod
+        )
     } else {
         throw new Error(
             'Migrated market-cap fee scheduler requires a market-cap scheduler base fee mode'

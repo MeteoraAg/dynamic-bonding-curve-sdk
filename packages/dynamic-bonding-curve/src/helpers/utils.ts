@@ -109,12 +109,6 @@ export function feeNumeratorToBps(feeNumerator: BN): number {
         .toNumber()
 }
 
-/**
- * Convert an address to a PublicKey.
- * @param value - The address
- * @param name - The parameter name included in the error when the address is missing
- * @returns The public key
- */
 export function requirePublicKey(
     value: PublicKeyInitData | undefined,
     name: string

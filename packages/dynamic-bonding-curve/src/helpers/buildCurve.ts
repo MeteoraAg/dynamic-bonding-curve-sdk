@@ -543,9 +543,9 @@ export function buildCurveWithTwoSegments(
         baseFeeParams
     )
 
-    const migrationBaseSupply = new BN(totalTokenSupply)
-        .mul(new BN(percentageSupplyOnMigration))
-        .div(new BN(100))
+    const migrationBaseSupply = new Decimal(totalTokenSupply)
+        .mul(new Decimal(percentageSupplyOnMigration))
+        .div(new Decimal(100))
 
     const totalSupply = convertToLamports(totalTokenSupply, tokenBaseDecimal)
     const migrationQuoteAmount = getMigrationQuoteAmount(
@@ -558,9 +558,7 @@ export function buildCurveWithTwoSegments(
             new Decimal(migrationFee.feePercentage)
         )
 
-    const migrationPrice = migrationQuoteAmount.div(
-        new Decimal(migrationBaseSupply.toString())
-    )
+    const migrationPrice = migrationQuoteAmount.div(migrationBaseSupply)
 
     const migrationQuoteThresholdInLamport = fromDecimalToBN(
         migrationQuoteThreshold.mul(new Decimal(10 ** tokenQuoteDecimal))
@@ -809,9 +807,9 @@ export function buildCurveWithMidPrice(
         baseFeeParams
     )
 
-    const migrationBaseSupply = new BN(totalTokenSupply)
-        .mul(new BN(percentageSupplyOnMigration))
-        .div(new BN(100))
+    const migrationBaseSupply = new Decimal(totalTokenSupply)
+        .mul(new Decimal(percentageSupplyOnMigration))
+        .div(new Decimal(100))
 
     const totalSupply = convertToLamports(totalTokenSupply, tokenBaseDecimal)
     const migrationQuoteAmount = getMigrationQuoteAmount(
@@ -824,9 +822,7 @@ export function buildCurveWithMidPrice(
             new Decimal(migrationFee.feePercentage)
         )
 
-    const migrationPrice = migrationQuoteAmount.div(
-        new Decimal(migrationBaseSupply.toString())
-    )
+    const migrationPrice = migrationQuoteAmount.div(migrationBaseSupply)
 
     const migrationQuoteThresholdInLamport = fromDecimalToBN(
         migrationQuoteThreshold.mul(new Decimal(10 ** tokenQuoteDecimal))

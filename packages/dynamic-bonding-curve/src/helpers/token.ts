@@ -177,9 +177,6 @@ export function getTokenProgram(tokenType: TokenType): PublicKey {
         : TOKEN_2022_PROGRAM_ID
 }
 
-/**
- * Return the token type from the mint account owner.
- */
 export async function getTokenType(
     connection: Connection,
     tokenMint: PublicKey

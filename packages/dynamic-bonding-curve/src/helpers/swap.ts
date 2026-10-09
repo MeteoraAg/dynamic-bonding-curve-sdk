@@ -22,9 +22,6 @@ import {
     TradeDirection,
 } from '../types'
 
-/**
- * Return whether the rate limiter applies to this swap.
- */
 export async function rateLimiterApplied(params: {
     connection: Connection
     baseFee: BaseFee

@@ -33,6 +33,11 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - `getTransferFeeMigrationPositionSplit` returns the second-position numerator and liquidity for a transfer-fee migration. The numerator is `(1_000_000_000 / 100) * percentage`, and the liquidity rounds down.
 - `migrateToDammV2` rejects a version 0 config when the quote mint's current transfer fee is non-zero. Any other version with `transferFeeFlag` 1, or a quote mint that has a transfer fee or a live transfer fee config authority, must use a constant token supply, no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`.
 - Curve builders reserve the program migration base, `ceil(migrationQuoteThreshold * (100 - migrationFee.feePercentage) / 100)`. `buildCurveWithLiquidityWeights` and `buildCurveWithCustomSqrtPrices` use constant product for `Compounding`, and concentrated liquidity for `QuoteToken` and `OutputToken`.
+- `buildCurveWithTwoSegments` and `buildCurveWithMidPrice` keep a fractional `percentageSupplyOnMigration` when sizing the migration base.
+- Liquidity vesting `frequency` is `floor(totalDuration / numberOfPeriods)`.
+- Exponential fee schedulers, including the migrated market-cap scheduler, choose `reductionFactor` with the program's Q64 decay so the last period stays at or above the requested ending fee.
+- Rate-limiter validation checks the fee at `u64::MAX`.
+- Swap quotes reject amounts outside the program's `u64` and `u128` bounds. Insufficient-liquidity quotes use the program error text.
 
 ### Deprecated
 

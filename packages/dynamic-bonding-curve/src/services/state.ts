@@ -124,9 +124,6 @@ export class StateService {
         )
     }
 
-    /**
-     * Return whether a config account is a transfer-hook config.
-     */
     async isTransferHookConfig(
         configAddress: PublicKey | string
     ): Promise<boolean> {
@@ -136,18 +133,12 @@ export class StateService {
         )
     }
 
-    /**
-     * Return whether a pool account is a transfer-hook pool.
-     */
     async isTransferHookPool(
         poolAddress: PublicKey | string
     ): Promise<boolean> {
         return this.hasAccountDiscriminator(poolAddress, 'transferHookPool')
     }
 
-    /**
-     * Fetch a transfer-hook config account.
-     */
     async getConfigWithTransferHook(
         configAddress: PublicKey | string
     ): Promise<ConfigWithTransferHook | null> {

@@ -302,10 +302,6 @@ export class MigrationService extends DynamicBondingCurveProgram {
         return transaction
     }
 
-    ///////////////////////
-    // DAMM V1 FUNCTIONS //
-    ///////////////////////
-
     /**
      * Build a transaction that creates DAMM V1 migration metadata.
      */
@@ -718,10 +714,6 @@ export class MigrationService extends DynamicBondingCurveProgram {
             .preInstructions(preInstructions)
             .transaction()
     }
-
-    ///////////////////////
-    // DAMM V2 FUNCTIONS //
-    ///////////////////////
 
     /**
      * Build transactions and derived addresses for migrating a completed virtual pool to DAMM V2.

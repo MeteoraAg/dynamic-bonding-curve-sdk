@@ -384,7 +384,7 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
                 swapMode: SwapMode.ExactIn,
                 amountIn,
             })
-        ).toThrow('Insufficient Liquidity')
+        ).toThrow('Liquidity in bonding curve is insufficient')
 
         const quote = dbcClient.pool.getQuoteFromInputAmount({
             config: curveConfig,

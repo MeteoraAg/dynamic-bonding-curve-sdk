@@ -489,15 +489,7 @@ export function validateCompoundingMigrationDeposit(params: {
     }
 }
 
-/**
- * Get the liquidity
- * @param baseAmount - The base amount
- * @param quoteAmount - The quote amount
- * @param minSqrtPrice - The min sqrt price
- * @param maxSqrtPrice - The max sqrt price
- * @returns The liquidity
- */
-export const getLiquidity = (
+const getLiquidity = (
     baseAmount: BN,
     quoteAmount: BN,
     minSqrtPrice: BN,

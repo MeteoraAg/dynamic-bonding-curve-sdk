@@ -96,4 +96,24 @@ describe('buildCurveWithTwoSegments tests', () => {
 
         expect(config).toBeDefined()
     })
+
+    test('keeps a fractional percentageSupplyOnMigration', () => {
+        const params = {
+            ...baseParams,
+            initialMarketCap: 30,
+            migrationMarketCap: 300,
+            percentageSupplyOnMigration: 20,
+        }
+        const whole = buildCurveWithTwoSegments(params)
+        const fraction = buildCurveWithTwoSegments({
+            ...params,
+            percentageSupplyOnMigration: 20.5,
+        })
+        expect(
+            fraction.migrationQuoteThreshold.eq(whole.migrationQuoteThreshold)
+        ).toBe(false)
+        expect(fraction.curve[0].liquidity.eq(whole.curve[0].liquidity)).toBe(
+            false
+        )
+    })
 })

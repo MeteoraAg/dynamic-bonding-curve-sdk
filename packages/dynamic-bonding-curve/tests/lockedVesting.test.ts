@@ -1,4 +1,5 @@
 import {
+    getLiquidityVestingInfoParams,
     getLockedVestingParams,
     getTotalVestingAmount,
     TokenDecimal,
@@ -61,4 +62,9 @@ describe('getLockedVestingParams', () => {
             )
         }
     )
+})
+
+test('liquidity vesting frequency truncates the period length', () => {
+    const params = getLiquidityVestingInfoParams(10, 1000, 6, 0, 100)
+    expect(params.frequency).toBe(16)
 })

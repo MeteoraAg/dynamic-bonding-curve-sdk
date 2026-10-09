@@ -110,7 +110,7 @@ describe('getQuoteFrom', () => {
                 swapMode: SwapMode.ExactIn,
                 amountIn,
             })
-        ).toThrow('Insufficient Liquidity')
+        ).toThrow('Liquidity in bonding curve is insufficient')
 
         const partial = getQuoteFromInputAmount({
             config: curveConfig,

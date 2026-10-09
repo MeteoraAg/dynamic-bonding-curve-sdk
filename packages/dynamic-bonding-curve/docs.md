@@ -2802,7 +2802,7 @@ const quote = client.pool.swapQuote2({
 
 ### getQuoteFromInputAmount
 
-Quotes a swap from an input amount before a pool exists. `config` is a `ConfigParameters` value, which is what `buildCurve` returns and what `createConfig` takes. The quote is the pool `initialize_pool` would write at `currentPoint`: sqrt price is `sqrtStartPrice`, volatility is zero, and `hasSwap` is 0. Elapsed time is 0, so a fee scheduler is at the cliff fee. The same function is exported from the package.
+Quotes a swap from an input amount before a pool exists. `config` is a `ConfigParameters` value, which is what `buildCurve` returns and what `createConfig` takes. The quote is the pool `initialize_pool` would write at `currentPoint`: sqrt price is `sqrtStartPrice`, volatility is zero, and `hasSwap` is 0. Elapsed time is 0, so a fee scheduler is at the cliff fee.
 
 **Function**
 
@@ -2858,7 +2858,7 @@ const quote = client.pool.getQuoteFromInputAmount({
 
 ### getQuoteFromOutputAmount
 
-Quotes an exact-out swap before a pool exists, using the same initial pool as `getQuoteFromInputAmount`. The same function is exported from the package.
+Quotes an exact-out swap before a pool exists, using the same initial pool as `getQuoteFromInputAmount`.
 
 **Function**
 

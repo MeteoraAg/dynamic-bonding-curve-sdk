@@ -108,13 +108,11 @@ export function validatePoolFees(
 ): boolean {
     if (!poolFees) return false
 
-    // check base fee if it exists
     if (poolFees.baseFee) {
         if (poolFees.baseFee.cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR))) {
             return false
         }
 
-        // validate fee scheduler if it exists
         if (
             poolFees.baseFee.baseFeeMode === BaseFeeMode.FeeSchedulerLinear ||
             poolFees.baseFee.baseFeeMode === BaseFeeMode.FeeSchedulerExponential
@@ -131,7 +129,6 @@ export function validatePoolFees(
                 return false
             }
         } else if (poolFees.baseFee.baseFeeMode === BaseFeeMode.RateLimiter) {
-            // validate fee rate limiter if it exists
             if (
                 !validateFeeRateLimiter(
                     poolFees.baseFee.cliffFeeNumerator,
@@ -149,7 +146,6 @@ export function validatePoolFees(
         }
     }
 
-    // validate dynamic fee if it exists
     if (!validateDynamicFee(poolFees.dynamicFee ?? undefined)) {
         return false
     }
@@ -190,7 +186,6 @@ export function validateFeeScheduler(
     const maxFeeNumerator =
         getFeeSchedulerMaxBaseFeeNumerator(cliffFeeNumerator)
 
-    // validate fee fractions - check if within valid range
     if (
         minFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
         maxFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
@@ -259,7 +254,6 @@ export function validateFeeRateLimiter(
         return false
     }
 
-    // validate max fee (more amount, then more fee)
     const minFeeNumerator = getFeeNumeratorFromIncludedAmount(
         cliffFeeNumerator,
         referenceAmount,
@@ -270,7 +264,7 @@ export function validateFeeRateLimiter(
         cliffFeeNumerator,
         referenceAmount,
         feeIncrementBps,
-        new BN(Number.MAX_SAFE_INTEGER)
+        U64_MAX
     )
 
     return (
@@ -966,7 +960,6 @@ export function validateConfigParameters(
         migrationOption: configParam.migrationOption,
     })
 
-    // pool fees validation
     if (!configParam.poolFees) {
         throw new Error('Pool fees are required')
     }
@@ -980,12 +973,10 @@ export function validateConfigParameters(
         throw new Error('Invalid pool fees')
     }
 
-    // dbc collect fee mode validation
     if (!validateCollectFeeMode(configParam.collectFeeMode)) {
         throw new Error('Invalid collect fee mode')
     }
 
-    // update token authority option validation
     if (!validateTokenAuthorityOptions(configParam.tokenUpdateAuthority)) {
         throw new Error('Invalid option for token update authority')
     }
@@ -1002,7 +993,6 @@ export function validateConfigParameters(
         )
     }
 
-    // transfer-hook program validation
     if (isTransferHook && transferHookProgram !== undefined) {
         if (!validateTransferHookProgram(transferHookProgram)) {
             throw new Error(
@@ -1019,7 +1009,6 @@ export function validateConfigParameters(
         throw new Error('Invalid token type')
     }
 
-    // migration and token type validation
     if (
         !validateMigrationAndTokenType(
             configParam.migrationOption,
@@ -1029,12 +1018,10 @@ export function validateConfigParameters(
         throw new Error('Token type must be SPL for MeteoraDamm migration')
     }
 
-    // activation type validation
     if (!validateActivationType(configParam.activationType)) {
         throw new Error('Invalid activation type')
     }
 
-    // migration fee validation
     if (
         !validateMigrationFeeOption(
             configParam.migrationFeeOption,
@@ -1044,7 +1031,6 @@ export function validateConfigParameters(
         throw new Error('Invalid migration fee option')
     }
 
-    // migration fee percentages validation
     if (!validateMigrationFee(configParam.migrationFee)) {
         throw new Error('Invalid migration fee')
     }
@@ -1059,7 +1045,6 @@ export function validateConfigParameters(
         )
     }
 
-    // token decimals validation
     if (!validateTokenDecimals(configParam.tokenDecimal)) {
         throw new Error('Token decimal must be between 6 and 9')
     }
@@ -1084,7 +1069,6 @@ export function validateConfigParameters(
         throw new Error('Sum of LP percentages must equal 100')
     }
 
-    // pool creation fee validation
     if (!validatePoolCreationFee(configParam.poolCreationFee)) {
         throw new Error(
             `Pool creation fee must be 0 or between ${MIN_POOL_CREATION_FEE} and ${MAX_POOL_CREATION_FEE} lamports`
@@ -1139,7 +1123,6 @@ export function validateConfigParameters(
         }
     }
 
-    // migration sqrt price validation
     const sqrtMigrationPrice = getMigrationThresholdPrice(
         configParam.migrationQuoteThreshold,
         configParam.sqrtStartPrice,
@@ -1207,7 +1190,6 @@ export function validateConfigParameters(
         )
     }
 
-    // migration quote threshold validation
     if (configParam.migrationQuoteThreshold.lte(new BN(0))) {
         throw new Error('Migration quote threshold must be greater than 0')
     }
@@ -1252,7 +1234,6 @@ export function validateConfigParameters(
         )
     }
 
-    // curve validation
     if (!validateCurve(configParam.curve, configParam.sqrtStartPrice)) {
         throw new Error('Invalid curve')
     }
@@ -1277,7 +1258,6 @@ export function validateConfigParameters(
         }
     }
 
-    // token supply validation
     if (configParam.tokenSupply) {
         const sqrtMigrationPrice = getMigrationThresholdPrice(
             configParam.migrationQuoteThreshold,
