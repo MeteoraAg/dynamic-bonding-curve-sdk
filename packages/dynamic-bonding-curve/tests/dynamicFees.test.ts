@@ -27,13 +27,9 @@ describe('getMinBaseFeeBps tests', () => {
         // linear mode: cliffFeeNumerator - (numberOfPeriod * reductionFactor)
         const expectedMinFeeNumerator =
             cliffFeeNumerator - numberOfPeriod * reductionFactor
-        const expectedMinFeeBps = Math.max(
-            0,
-            (expectedMinFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
+        const expectedMinFeeBps = Math.floor(
+            (expectedMinFeeNumerator * MAX_BASIS_POINT) / FEE_DENOMINATOR
         )
-
-        console.log('minBaseFeeBps:', minBaseFeeBps)
-        console.log('expectedMinFeeBps:', expectedMinFeeBps)
 
         expect(minBaseFeeBps).toBeLessThan(baseFeeBps)
         expect(minBaseFeeBps).toEqual(expectedMinFeeBps)
@@ -58,13 +54,9 @@ describe('getMinBaseFeeBps tests', () => {
 
         // Q64 fee for cliff 500_000_000, reduction 823, 38 periods
         const expectedMinFeeNumerator = 19124839
-        const expectedMinFeeBps = Math.max(
-            0,
-            (expectedMinFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
+        const expectedMinFeeBps = Math.floor(
+            (expectedMinFeeNumerator * MAX_BASIS_POINT) / FEE_DENOMINATOR
         )
-
-        console.log('minBaseFeeBps:', minBaseFeeBps)
-        console.log('expectedMinFeeBps:', expectedMinFeeBps)
 
         expect(minBaseFeeBps).toBeLessThan(baseFeeBps)
         expect(minBaseFeeBps).toEqual(expectedMinFeeBps)

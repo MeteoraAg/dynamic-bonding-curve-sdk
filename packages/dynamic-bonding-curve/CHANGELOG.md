@@ -22,6 +22,8 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - Exponential fee schedulers, including the migrated market-cap scheduler, choose `reductionFactor` with the program's Q64 decay so the last period stays at or above the requested ending fee.
 - Rate-limiter validation checks the fee at `u64::MAX`.
 - Swap quotes reject amounts outside the program's u64 and u128 bounds. Insufficient-liquidity quotes use the program error text.
+- Synced the DAMM v2 IDL and `cp_amm.so` fixture to cp_amm 0.2.5.
+- `calculateFeeSchedulerEndingBaseFeeBps` uses the program's integer conversion, `numerator * 10_000 / FEE_DENOMINATOR`.
 
 ### Deprecated
 
