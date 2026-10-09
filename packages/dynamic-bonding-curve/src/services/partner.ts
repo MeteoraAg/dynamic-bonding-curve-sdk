@@ -64,7 +64,7 @@ export class PartnerService extends DynamicBondingCurveProgram {
 
     /**
      * Build a transaction that creates a partner-owned pool config.
-     * `transferFeeParameters` configures the base mint fee. Pass `null` when only the quote mint has a transfer fee.
+     * `transferFeeParameters` sets the base mint fee, including at 0 basis points. Pass `null` when there is no base fee.
      */
     async createConfig2(params: CreateConfig2Params): Promise<Transaction> {
         const {

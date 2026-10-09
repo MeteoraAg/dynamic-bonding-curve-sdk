@@ -8,6 +8,7 @@ import {
     TransactionInstruction,
     type Transaction,
 } from '@solana/web3.js'
+import BN from 'bn.js'
 import { DynamicBondingCurveProgram } from './program'
 import type { Vault } from '../idl/dynamic-vault/idl'
 import type { Program } from '@coral-xyz/anchor'
@@ -37,6 +38,8 @@ import {
     deriveDammV1LockEscrowAddress,
     deriveDammV1ProtocolFeeAddress,
     deriveLockerEventAuthority,
+    hasTransferFeeOrConfigAuthority,
+    validateTransferFeeRestrictions,
 } from '../helpers'
 import type { Amm } from '../idl/damm-v1/idl'
 import type {
@@ -51,17 +54,27 @@ import type {
 import {
     ASSOCIATED_TOKEN_PROGRAM_ID,
     createAssociatedTokenAccountIdempotentInstruction,
+    getAccount,
     getAssociatedTokenAddressSync,
+    getMint,
+    unpackMint,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 import {
     DAMM_V1_PROGRAM_ID,
     DAMM_V2_PROGRAM_ID,
+    LEGACY_CONFIG_VERSION,
     LOCKER_PROGRAM_ID,
     METAPLEX_PROGRAM_ID,
     VAULT_PROGRAM_ID,
 } from '../constants'
+import {
+    calculateTransferFeeExcludedAmount,
+    getEpochTransferFee,
+    isZeroTransferFee,
+} from '../math/transferFee'
+import type { PoolConfig, VirtualPool } from '../types'
 
 export class MigrationService extends DynamicBondingCurveProgram {
     /**
@@ -141,8 +154,93 @@ export class MigrationService extends DynamicBondingCurveProgram {
             .transaction()
     }
 
+    private async assertDammV2MigrationTransferFee(
+        poolConfig: PoolConfig
+    ): Promise<void> {
+        const quoteMintInfo = await this.connection.getAccountInfo(
+            poolConfig.quoteMint,
+            this.commitment
+        )
+        if (!quoteMintInfo) {
+            throw new Error(
+                `Quote mint ${poolConfig.quoteMint.toBase58()} not found`
+            )
+        }
+
+        let epochTransferFee = null
+        let quoteHasTransferFee = false
+        if (quoteMintInfo.owner.equals(TOKEN_2022_PROGRAM_ID)) {
+            const quoteMint = unpackMint(
+                poolConfig.quoteMint,
+                quoteMintInfo,
+                quoteMintInfo.owner
+            )
+            const { epoch } = await this.connection.getEpochInfo(
+                this.commitment
+            )
+            epochTransferFee = getEpochTransferFee(quoteMint, epoch)
+            quoteHasTransferFee = hasTransferFeeOrConfigAuthority(
+                quoteMint,
+                epoch
+            )
+        }
+
+        if (Number(poolConfig.version) === LEGACY_CONFIG_VERSION) {
+            if (!isZeroTransferFee(epochTransferFee)) {
+                throw new Error(
+                    'Quote mint has a non zero transfer fee or a live transfer fee config authority'
+                )
+            }
+            return
+        }
+
+        if (Number(poolConfig.transferFeeFlag) === 1 || quoteHasTransferFee) {
+            validateTransferFeeRestrictions(poolConfig)
+        }
+    }
+
+    private async leftoverWithdrawalChargesTransferFee(
+        virtualPool: VirtualPool,
+        tokenBaseProgram: PublicKey
+    ): Promise<boolean> {
+        const baseMint = await getMint(
+            this.connection,
+            virtualPool.poolState.baseMint,
+            this.commitment,
+            tokenBaseProgram
+        )
+        const { epoch } = await this.connection.getEpochInfo(this.commitment)
+        const transferFee = getEpochTransferFee(baseMint, epoch)
+        if (isZeroTransferFee(transferFee)) {
+            return false
+        }
+
+        const vault = await getAccount(
+            this.connection,
+            virtualPool.poolState.baseVault,
+            this.commitment,
+            tokenBaseProgram
+        )
+        const { poolState } = virtualPool
+        const reserved = poolState.partnerBaseFee
+            .clone()
+            .add(poolState.protocolBaseFee)
+            .add(poolState.creatorBaseFee)
+            .add(poolState.protocolMigrationBaseFeeAmount)
+        const vaultAmount = new BN(vault.amount.toString())
+        if (vaultAmount.lte(reserved)) {
+            return false
+        }
+
+        return calculateTransferFeeExcludedAmount(
+            transferFee,
+            vaultAmount.sub(reserved)
+        ).transferFee.gtn(0)
+    }
+
     /**
      * Build a transaction that withdraws leftover base tokens after migration.
+     * `leftoverReceiver` signs when that transfer charges a fee.
      */
     async withdrawLeftover(
         params: WithdrawLeftoverParams
@@ -169,7 +267,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
         createBaseTokenAccountIx &&
             preInstructions.push(createBaseTokenAccountIx)
 
-        return this.program.methods
+        const transaction = await this.program.methods
             .withdrawLeftover()
             .accountsPartial({
                 poolAuthority: this.poolAuthority,
@@ -183,6 +281,25 @@ export class MigrationService extends DynamicBondingCurveProgram {
             })
             .preInstructions(preInstructions)
             .transaction()
+
+        if (
+            await this.leftoverWithdrawalChargesTransferFee(
+                virtualPool,
+                tokenBaseProgram
+            )
+        ) {
+            const leftoverReceiver = transaction.instructions
+                .find((ix) => ix.programId.equals(this.program.programId))
+                ?.keys.find((key) =>
+                    key.pubkey.equals(poolConfigState.leftoverReceiver)
+                )
+            if (!leftoverReceiver) {
+                throw new Error('withdrawLeftover instruction was not built')
+            }
+            leftoverReceiver.isSigner = true
+        }
+
+        return transaction
     }
 
     ///////////////////////
@@ -619,6 +736,7 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
         const { virtualPool, poolConfigState } =
             await this.getPoolWithConfig(pool)
+        await this.assertDammV2MigrationTransferFee(poolConfigState)
 
         const migrationMetadata = deriveDammV2MigrationMetadataAddress(pool)
 

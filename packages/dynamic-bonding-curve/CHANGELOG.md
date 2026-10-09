@@ -8,7 +8,7 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 
 - `client.partner.createConfig2`. Pass `transferFeeParameters` for a base-mint transfer fee, or `null` when there is none.
 - `TransferFeeWithheldAuthority` and `MigratedTransferFeeAuthorityOption`.
-- Swap quotes account for Token-2022 transfer fees and return `includedTransferFeeAmountIn` and `excludedTransferFeeAmountOut`. `getSwapQuoteTransferFees` fetches the quote mint and current epoch.
+- Swap quotes account for Token-2022 transfer fees and return `includedTransferFeeAmountIn` and `excludedTransferFeeAmountOut`. `getSwapQuoteTransferFees` fetches the quote mint and current epoch. Pass `baseMint` to use the base mint's epoch fee.
 - `getQuoteFromInputAmount` and `getQuoteFromOutputAmount` quote a `buildCurve` result before a pool exists. `client.pool.swapQuote2` quotes an existing pool and requires `currentPoint`.
 - `@meteora-ag/dynamic-bonding-curve-sdk/math` exports the ports of the program's curve, fee, and swap math. It tracks the program version.
 - Curve readouts at the package root: `getTotalSupplyFromCurve`, `getMigrationThresholdPrice`, `getCurveBreakdown`, `getTokenomics`, `getPercentageSupplyOnMigration`, `getSqrtPriceFromMarketCap`, `getBaseTokenForSwap`, `getSwapAmountWithBuffer`, `getMigrationBaseToken`, `getMigrationQuoteAmountFromThreshold`, and `getProtocolMigrationFee`.
@@ -23,6 +23,15 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - `createConfigAndPool` and `createConfigAndPoolWithFirstBuy` always use `createConfig2`. Omitting `transferFeeParameters` is the same as `null`.
 - A base transfer fee, or a quote mint with a non-zero transfer fee or a live transfer fee config authority, requires a constant token supply, no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`. The base fee is Token-2022 only and at most 10%.
 - `MigratedCollectFeeMode.Compounding` allows `compoundingFeeBps` of `0`.
+- Configs created by program 0.2.2 have `PoolConfig.version` 1 and `transferFeeFlag`. Flag 1 means `createConfig2` was given `transferFeeParameters`, including when the basis points are 0. Swap quotes read the base fee from that flag.
+- A transfer fee is zero when its basis points are 0 or its maximum fee is 0.
+- Passing `transferFeeParameters` always creates a base-mint `TransferFeeConfig`. 0 basis points are rejected when the migrated authority is `Immutable` or `RevokeZeroFee`. A partner transfer-fee authority, and a Token-2022 partner token-update authority, require a non-default `feeClaimer`.
+- A legacy config (`version` 0) cannot initialize a pool on a quote mint with a non-zero transfer fee or a live transfer fee config authority. Transfer-hook pool initialization rejects those quote mints at any version. `createConfig2` accepts a badged quote mint that has one.
+- Compounding migration deposits round the scaled base up, so the price stays at or below the budget ratio.
+- Partial-fill quotes throw `Required input amount exceeds the provided amount in` when the reconstructed input is larger than `amountIn`.
+- `withdrawLeftover` requires `leftoverReceiver` to sign when the leftover charges a transfer fee.
+- `getTransferFeeMigrationPositionSplit` returns the second-position numerator and liquidity for a transfer-fee migration. The numerator is `(1_000_000_000 / 100) * percentage`, and the liquidity rounds down.
+- `migrateToDammV2` rejects a version 0 config when the quote mint's current transfer fee is non-zero. Any other version with `transferFeeFlag` 1, or a quote mint that has a transfer fee or a live transfer fee config authority, must use a constant token supply, no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`.
 - Curve builders reserve the program migration base, `ceil(migrationQuoteThreshold * (100 - migrationFee.feePercentage) / 100)`. `buildCurveWithLiquidityWeights` and `buildCurveWithCustomSqrtPrices` use constant product for `Compounding`, and concentrated liquidity for `QuoteToken` and `OutputToken`.
 
 ### Deprecated

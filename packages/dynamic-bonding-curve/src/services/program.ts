@@ -179,10 +179,20 @@ export class DynamicBondingCurveProgram {
     protected async resolveQuoteMintTokenBadge(
         quoteMint: Mint,
         currentEpoch: number,
-        tokenBadge?: PublicKey
+        tokenBadge?: PublicKey,
+        allowQuoteTransferFee = true
     ): Promise<PublicKey | undefined> {
         if (isSupportedQuoteMint(quoteMint, currentEpoch)) {
             return tokenBadge
+        }
+
+        if (
+            !allowQuoteTransferFee &&
+            hasTransferFeeOrConfigAuthority(quoteMint, currentEpoch)
+        ) {
+            throw new Error(
+                `Invalid quote mint ${quoteMint.address.toBase58()}`
+            )
         }
 
         const expectedTokenBadge = deriveTokenBadgeAddress(quoteMint.address)
@@ -215,7 +225,10 @@ export class DynamicBondingCurveProgram {
         payer: PublicKey,
         tokenBadge?: PublicKey
     ): Promise<Transaction> {
-        validateConfigParameters({ ...configParam, leftoverReceiver })
+        validateConfigParameters(
+            { ...configParam, leftoverReceiver },
+            { feeClaimer }
+        )
         const { mint, currentEpoch } = await this.getQuoteMintState(quoteMint)
         if (hasTransferFeeOrConfigAuthority(mint, currentEpoch)) {
             throw new Error(
@@ -225,7 +238,8 @@ export class DynamicBondingCurveProgram {
         const resolvedTokenBadge = await this.resolveQuoteMintTokenBadge(
             mint,
             currentEpoch,
-            tokenBadge
+            tokenBadge,
+            false
         )
 
         return this.program.methods
@@ -263,6 +277,7 @@ export class DynamicBondingCurveProgram {
                     currentEpoch
                 ),
                 quoteEpochTransferFee: getEpochTransferFee(mint, currentEpoch),
+                feeClaimer,
             }
         )
         const resolvedTokenBadge = await this.resolveQuoteMintTokenBadge(
@@ -298,7 +313,7 @@ export class DynamicBondingCurveProgram {
     ): Promise<Transaction> {
         validateConfigParameters(
             { ...configParam, leftoverReceiver },
-            { isTransferHook: true, transferHookProgram }
+            { isTransferHook: true, transferHookProgram, feeClaimer }
         )
         const { mint, currentEpoch } = await this.getQuoteMintState(quoteMint)
         if (hasTransferFeeOrConfigAuthority(mint, currentEpoch)) {
@@ -319,7 +334,8 @@ export class DynamicBondingCurveProgram {
         const resolvedTokenBadge = await this.resolveQuoteMintTokenBadge(
             mint,
             currentEpoch,
-            tokenBadge
+            tokenBadge,
+            false
         )
 
         return this.program.methods
@@ -475,7 +491,8 @@ export class DynamicBondingCurveProgram {
     protected async buildCreatePoolTx(
         createPoolParam: CreatePoolParams,
         tokenType: TokenType,
-        quoteMint: PublicKey
+        quoteMint: PublicKey,
+        allowQuoteTransferFee = true
     ): Promise<Transaction> {
         const {
             baseMint,
@@ -513,7 +530,8 @@ export class DynamicBondingCurveProgram {
             tokenBadge: await this.resolveQuoteMintTokenBadge(
                 mint,
                 currentEpoch,
-                tokenBadge
+                tokenBadge,
+                allowQuoteTransferFee
             ),
         }
 
@@ -577,7 +595,8 @@ export class DynamicBondingCurveProgram {
             tokenBadge: await this.resolveQuoteMintTokenBadge(
                 mint,
                 currentEpoch,
-                tokenBadge
+                tokenBadge,
+                false
             ),
         })
     }

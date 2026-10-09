@@ -3250,6 +3250,16 @@ export type DynamicBondingCurve = {
             name: 'invalidTransferFeeParameters'
             msg: 'Invalid transfer fee parameters'
         },
+        {
+            code: 6085
+            name: 'exceededInputAmount'
+            msg: 'Required input amount exceeds the provided amount in'
+        },
+        {
+            code: 6086
+            name: 'invalidFeeClaimer'
+            msg: 'Invalid fee claimer'
+        },
     ]
     types: [
         {
@@ -3898,8 +3908,10 @@ export type DynamicBondingCurve = {
                     {
                         name: 'transferFeeParameters'
                         type: {
-                            defined: {
-                                name: 'transferFeeParameters'
+                            option: {
+                                defined: {
+                                    name: 'transferFeeParameters'
+                                }
                             }
                         }
                     },
@@ -5077,10 +5089,15 @@ export type DynamicBondingCurve = {
                         type: 'u8'
                     },
                     {
+                        name: 'transferFeeFlag'
+                        docs: ['Transfer fee flag']
+                        type: 'u8'
+                    },
+                    {
                         name: 'padding0'
                         docs: ['Padding for future use']
                         type: {
-                            array: ['u8', 10]
+                            array: ['u8', 9]
                         }
                     },
                     {
@@ -5112,7 +5129,7 @@ export type DynamicBondingCurve = {
                     },
                     {
                         name: 'version'
-                        docs: ['version']
+                        docs: ['config version, see `CONFIG_VERSION`']
                         type: 'u8'
                     },
                     {

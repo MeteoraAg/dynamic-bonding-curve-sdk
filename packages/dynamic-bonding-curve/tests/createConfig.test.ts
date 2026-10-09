@@ -68,6 +68,8 @@ describe('createConfig tests', { timeout: 60000 }, () => {
             config.publicKey
         )
         expect(configState).not.toBeNull()
+        expect(configState!.version).toBe(1)
+        expect(configState!.transferFeeFlag).toBe(0)
     })
 
     test('createConfig includes tokenBadge remaining account when provided', async () => {
@@ -353,6 +355,8 @@ describe('createConfig tests', { timeout: 60000 }, () => {
         const configState = await dbcClient.state.getPoolConfig(
             config.publicKey
         )
+        expect(configState!.version).toBe(1)
+        expect(configState!.transferFeeFlag).toBe(1)
         expect(configState!.transferFeeBasisPoints).toBe(250)
         expect(configState!.transferFeeWithheldAuthority).toBe(
             TransferFeeWithheldAuthority.Partner

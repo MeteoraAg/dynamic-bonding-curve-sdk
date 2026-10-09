@@ -240,4 +240,33 @@ describe('createConfigAndPool', { timeout: 60000 }, () => {
         )
         expect(configState!.quoteMint.equals(quoteMint)).toBe(true)
     })
+
+    test('treats a zero maximum fee as a zero transfer fee', async () => {
+        const quoteMint = await createTransferFeeQuoteMint(
+            connection,
+            partner,
+            100,
+            null,
+            BigInt(0)
+        )
+        const config = Keypair.generate()
+
+        const tx = await dbcClient.partner.createConfig({
+            config: config.publicKey,
+            feeClaimer: partner.publicKey,
+            leftoverReceiver: partner.publicKey,
+            payer: partner.publicKey,
+            quoteMint,
+            ...buildTestCurveConfig(),
+        })
+        tx.feePayer = partner.publicKey
+        await sendAndConfirmTransaction(connection, tx, [partner, config])
+
+        const configState = await dbcClient.state.getPoolConfig(
+            config.publicKey
+        )
+        expect(configState!.quoteMint.equals(quoteMint)).toBe(true)
+        expect(configState!.version).toBe(1)
+        expect(configState!.transferFeeFlag).toBe(0)
+    })
 })

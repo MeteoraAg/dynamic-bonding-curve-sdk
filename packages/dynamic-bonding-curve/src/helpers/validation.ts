@@ -45,6 +45,7 @@ import {
     TransferFeeWithheldAuthority,
     MigratedTransferFeeAuthorityOption,
     type CreateConfigParams,
+    type PoolConfig,
     type TransferFeeParameters,
 } from '../types'
 import { Connection, PublicKey } from '@solana/web3.js'
@@ -809,29 +810,16 @@ export function validateMigratedPoolFee(
     return true
 }
 
-/**
- * Validate create_config2 transfer fee parameters and throw the first error encountered.
- */
 export function validateTransferFeeParameters(
     transferFeeParameters: TransferFeeParameters,
-    tokenType: number
+    tokenType: number,
+    feeClaimer: PublicKey
 ): void {
     const {
         transferFeeBasisPoints,
         withheldAuthority,
         migratedTransferFeeAuthorityOption,
     } = transferFeeParameters
-
-    if (transferFeeBasisPoints === 0) {
-        if (
-            withheldAuthority !== TransferFeeWithheldAuthority.Partner ||
-            migratedTransferFeeAuthorityOption !==
-                MigratedTransferFeeAuthorityOption.Immutable
-        ) {
-            throw new Error('Invalid transfer fee parameters')
-        }
-        return
-    }
 
     if (tokenType !== TokenType.Token2022) {
         throw new Error('Base transfer fee requires token type Token2022')
@@ -852,6 +840,62 @@ export function validateTransferFeeParameters(
     ) {
         throw new Error('Invalid transfer fee parameters')
     }
+    if (
+        transferFeeBasisPoints === 0 &&
+        (migratedTransferFeeAuthorityOption ===
+            MigratedTransferFeeAuthorityOption.Immutable ||
+            migratedTransferFeeAuthorityOption ===
+                MigratedTransferFeeAuthorityOption.RevokeZeroFee)
+    ) {
+        throw new Error('Invalid transfer fee parameters')
+    }
+
+    const isPartnerAuthority =
+        withheldAuthority === TransferFeeWithheldAuthority.Partner ||
+        migratedTransferFeeAuthorityOption ===
+            MigratedTransferFeeAuthorityOption.Partner
+    if (isPartnerAuthority && feeClaimer.equals(PublicKey.default)) {
+        throw new Error('Invalid fee claimer')
+    }
+}
+
+export function validateTransferFeeRestrictions(
+    config: Pick<
+        PoolConfig,
+        | 'fixedTokenSupplyFlag'
+        | 'preMigrationTokenSupply'
+        | 'postMigrationTokenSupply'
+        | 'lockedVestingConfig'
+        | 'migrationFeeOption'
+        | 'migratedCollectFeeMode'
+    >
+): void {
+    const constantSupply =
+        Number(config.fixedTokenSupplyFlag) === 1 &&
+        new BN(config.preMigrationTokenSupply.toString()).eq(
+            new BN(config.postMigrationTokenSupply.toString())
+        )
+    if (!constantSupply) {
+        throw new Error('Invalid token supply')
+    }
+    if (!isDefaultLockedVesting(config.lockedVestingConfig)) {
+        throw new Error('Invalid vesting parameters')
+    }
+    if (Number(config.migrationFeeOption) !== MigrationFeeOption.Customizable) {
+        throw new Error('Invalid migration fee option')
+    }
+
+    const collectFeeMode = Number(config.migratedCollectFeeMode)
+    if (collectFeeMode === MigratedCollectFeeMode.Compounding) {
+        return
+    }
+    if (
+        collectFeeMode === MigratedCollectFeeMode.QuoteToken ||
+        collectFeeMode === MigratedCollectFeeMode.OutputToken
+    ) {
+        throw new Error('Invalid migrated pool fee params')
+    }
+    throw new Error('Invalid collect fee mode')
 }
 
 function validateTransferFeeConfigMode(configParam: {
@@ -903,6 +947,7 @@ export function validateConfigParameters(
               transferFeeParameters?: TransferFeeParameters | null
               quoteMintHasTransferFee?: boolean
               quoteEpochTransferFee?: EpochTransferFee | null
+              feeClaimer?: PublicKey
           } = false
 ) {
     const {
@@ -911,6 +956,7 @@ export function validateConfigParameters(
         transferFeeParameters,
         quoteMintHasTransferFee = false,
         quoteEpochTransferFee = null,
+        feeClaimer,
     }: Exclude<typeof options, boolean> = typeof options === 'boolean'
         ? { isTransferHook: options }
         : options
@@ -1275,16 +1321,26 @@ export function validateConfigParameters(
         }
     }
 
+    if (
+        configParam.tokenType === TokenType.Token2022 &&
+        (configParam.tokenUpdateAuthority ===
+            TokenAuthorityOption.PartnerUpdateAuthority ||
+            configParam.tokenUpdateAuthority ===
+                TokenAuthorityOption.PartnerUpdateAndMintAuthority) &&
+        (!feeClaimer || feeClaimer.equals(PublicKey.default))
+    ) {
+        throw new Error('Invalid fee claimer')
+    }
+
     if (transferFeeParameters) {
         validateTransferFeeParameters(
             transferFeeParameters,
-            configParam.tokenType
+            configParam.tokenType,
+            feeClaimer ?? PublicKey.default
         )
     }
-    if (
-        (transferFeeParameters?.transferFeeBasisPoints ?? 0) > 0 ||
-        quoteMintHasTransferFee
-    ) {
+    // 0 bps still creates a TransferFeeConfig
+    if (transferFeeParameters != null || quoteMintHasTransferFee) {
         validateTransferFeeConfigMode(configParam)
     }
 

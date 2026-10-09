@@ -15,6 +15,8 @@ export const FEE_DENOMINATOR = 1_000_000_000
 export const MAX_BASIS_POINT = 10_000
 export const MAX_BASE_TRANSFER_FEE_BPS = 1_000
 
+export const LEGACY_CONFIG_VERSION = 0
+
 export const U16_MAX = 65_535
 export const U24_MAX = 16_777_215
 export const U64_MAX = new BN('18446744073709551615')

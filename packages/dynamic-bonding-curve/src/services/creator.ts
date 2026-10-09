@@ -34,7 +34,11 @@ import {
     validateMinimumLockedLiquidity,
 } from '../helpers'
 import { getFeeSchedulerMinBaseFeeNumerator } from '../math/poolFees/feeScheduler'
-import { MIN_FEE_NUMERATOR, MIN_LOCKED_LIQUIDITY_BPS } from '../constants'
+import {
+    LEGACY_CONFIG_VERSION,
+    MIN_FEE_NUMERATOR,
+    MIN_LOCKED_LIQUIDITY_BPS,
+} from '../constants'
 import BN from 'bn.js'
 
 export class CreatorService extends DynamicBondingCurveProgram {
@@ -154,7 +158,8 @@ export class CreatorService extends DynamicBondingCurveProgram {
         return this.buildCreatePoolTx(
             params,
             poolConfigState.tokenType,
-            poolConfigState.quoteMint
+            poolConfigState.quoteMint,
+            poolConfigState.version !== LEGACY_CONFIG_VERSION
         )
     }
 
@@ -198,7 +203,8 @@ export class CreatorService extends DynamicBondingCurveProgram {
         const createPoolWithFirstBuyTx = await this.buildCreatePoolTx(
             createPoolParam,
             poolConfigState.tokenType,
-            poolConfigState.quoteMint
+            poolConfigState.quoteMint,
+            poolConfigState.version !== LEGACY_CONFIG_VERSION
         )
 
         if (firstBuyParam && firstBuyParam.buyAmount.gt(new BN(0))) {
@@ -272,7 +278,8 @@ export class CreatorService extends DynamicBondingCurveProgram {
         const createPoolWithFirstBuysTx = await this.buildCreatePoolTx(
             createPoolParam,
             poolConfigState.tokenType,
-            poolConfigState.quoteMint
+            poolConfigState.quoteMint,
+            poolConfigState.version !== LEGACY_CONFIG_VERSION
         )
 
         if (
@@ -635,6 +642,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
     /**
      * Build a transaction that transfers pool creator ownership.
+     * Token-2022 and metadata authorities on the creator wallet are not moved.
      */
     async transferPoolCreator(
         params: TransferPoolCreatorParams

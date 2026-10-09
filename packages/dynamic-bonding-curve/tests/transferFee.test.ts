@@ -1,9 +1,11 @@
-import { Connection, Keypair } from '@solana/web3.js'
+import { Connection, Keypair, PublicKey } from '@solana/web3.js'
 import { expect, test, describe } from 'vitest'
 import BN from 'bn.js'
 import {
     constantProductBaseFromQuote,
     getMigrationBaseToken,
+    getMigrationDepositAmounts,
+    getTransferFeeMigrationPositionSplit,
     validateCompoundingMigrationDeposit,
     getMigrationThresholdPrice,
 } from '../src/helpers/migration'
@@ -23,11 +25,13 @@ import {
     TokenDecimal,
     TokenType,
     TransferFeeWithheldAuthority,
+    isZeroTransferFee,
     resolveSwapTransferFees,
     validateConfigParameters,
     validateTransferFeeParameters,
     type PoolConfig,
 } from '../src'
+import { validateTransferFeeRestrictions } from '../src/helpers/validation'
 import type { Mint } from '@solana/spl-token'
 import { MAX_BASE_TRANSFER_FEE_BPS, U64_MAX } from '../src/constants'
 
@@ -141,6 +145,25 @@ describe('transfer fee math', () => {
         ).toThrow('Math overflow')
     })
 
+    test('treats a zero maximum fee as no fee', () => {
+        const amount = new BN(1_000_000)
+        const transferFee = {
+            transferFeeBasisPoints: 100,
+            maximumFee: new BN(0),
+        }
+        expect(isZeroTransferFee(transferFee)).toBe(true)
+        expect(
+            calculateTransferFeeExcludedAmount(transferFee, amount).amount.eq(
+                amount
+            )
+        ).toBe(true)
+        expect(
+            calculateTransferFeeIncludedAmount(transferFee, amount).amount.eq(
+                amount
+            )
+        ).toBe(true)
+    })
+
     test('leaves the amount unchanged when there is no fee', () => {
         const amount = new BN(123)
         expect(
@@ -187,6 +210,17 @@ describe('compounding migration deposit', () => {
         ).not.toThrow()
     })
 
+    test('rounds the scaled base up so the deposit price stays at or below the budget', () => {
+        const [depositBase, depositQuote] = getMigrationDepositAmounts(
+            new BN(10),
+            new BN(3),
+            new BN(10),
+            new BN(1)
+        )
+        expect(depositBase.eqn(4)).toBe(true)
+        expect(depositQuote.eqn(1)).toBe(true)
+    })
+
     test('rejects a compounding deposit below dead liquidity', () => {
         expect(() =>
             validateCompoundingMigrationDeposit({
@@ -195,6 +229,48 @@ describe('compounding migration deposit', () => {
                 migrationSqrtPrice: sqrtPrice,
             })
         ).toThrow()
+    })
+})
+
+describe('transfer fee migration position split', () => {
+    test('uses the configured percentage instead of the rounded bucket total', () => {
+        const split = getTransferFeeMigrationPositionSplit({
+            distributableLiquidity: new BN(199),
+            partnerLiquidityPercentage: 1,
+            partnerPermanentLockedLiquidityPercentage: 1,
+            partnerVestingPercentage: 1,
+        })
+        const roundedBucketTotal = new BN(199).muln(1).divn(100).muln(3)
+
+        expect(split.secondPosition).toBe('partner')
+        expect(split.numerator.eqn(30_000_000)).toBe(true)
+        expect(split.secondPositionLiquidity.eqn(5)).toBe(true)
+        expect(roundedBucketTotal.eqn(3)).toBe(true)
+    })
+
+    test('splits the creator side when the partner holds more liquidity', () => {
+        const split = getTransferFeeMigrationPositionSplit({
+            distributableLiquidity: new BN(199),
+            partnerLiquidityPercentage: 60,
+            partnerPermanentLockedLiquidityPercentage: 0,
+            partnerVestingPercentage: 0,
+        })
+
+        expect(split.secondPosition).toBe('creator')
+        expect(split.numerator.eq(new BN('400000000'))).toBe(true)
+        expect(split.secondPositionLiquidity.eqn(79)).toBe(true)
+    })
+
+    test('splits the partner side when the two sides are equal', () => {
+        const split = getTransferFeeMigrationPositionSplit({
+            distributableLiquidity: new BN(100),
+            partnerLiquidityPercentage: 50,
+            partnerPermanentLockedLiquidityPercentage: 0,
+            partnerVestingPercentage: 0,
+        })
+
+        expect(split.secondPosition).toBe('partner')
+        expect(split.secondPositionLiquidity.eqn(50)).toBe(true)
     })
 })
 
@@ -292,6 +368,7 @@ describe('transfer fee quotes', () => {
 })
 
 describe('transfer fee config validation', () => {
+    const feeClaimer = Keypair.generate().publicKey
     const transferFeeParameters = {
         transferFeeBasisPoints: 250,
         withheldAuthority: TransferFeeWithheldAuthority.Creator,
@@ -303,7 +380,8 @@ describe('transfer fee config validation', () => {
         expect(() =>
             validateTransferFeeParameters(
                 transferFeeParameters,
-                TokenType.Token2022
+                TokenType.Token2022,
+                feeClaimer
             )
         ).not.toThrow()
     })
@@ -315,7 +393,8 @@ describe('transfer fee config validation', () => {
                     ...transferFeeParameters,
                     transferFeeBasisPoints: MAX_BASE_TRANSFER_FEE_BPS + 1,
                 },
-                TokenType.Token2022
+                TokenType.Token2022,
+                feeClaimer
             )
         ).toThrow('Invalid transfer fee parameters')
     })
@@ -324,12 +403,13 @@ describe('transfer fee config validation', () => {
         expect(() =>
             validateTransferFeeParameters(
                 transferFeeParameters,
-                TokenType.SPLToken
+                TokenType.SPLToken,
+                feeClaimer
             )
         ).toThrow('Base transfer fee requires token type Token2022')
     })
 
-    test('rejects authority fields when the fee is zero', () => {
+    test('rejects a zero fee that is immutable before and after migration', () => {
         expect(() =>
             validateTransferFeeParameters(
                 {
@@ -338,9 +418,47 @@ describe('transfer fee config validation', () => {
                     migratedTransferFeeAuthorityOption:
                         MigratedTransferFeeAuthorityOption.Immutable,
                 },
-                TokenType.Token2022
+                TokenType.Token2022,
+                feeClaimer
             )
         ).toThrow('Invalid transfer fee parameters')
+        expect(() =>
+            validateTransferFeeParameters(
+                {
+                    transferFeeBasisPoints: 0,
+                    withheldAuthority: TransferFeeWithheldAuthority.Creator,
+                    migratedTransferFeeAuthorityOption:
+                        MigratedTransferFeeAuthorityOption.RevokeZeroFee,
+                },
+                TokenType.Token2022,
+                feeClaimer
+            )
+        ).toThrow('Invalid transfer fee parameters')
+    })
+
+    test('accepts a zero fee when an authority remains after migration', () => {
+        expect(() =>
+            validateTransferFeeParameters(
+                {
+                    transferFeeBasisPoints: 0,
+                    withheldAuthority: TransferFeeWithheldAuthority.Creator,
+                    migratedTransferFeeAuthorityOption:
+                        MigratedTransferFeeAuthorityOption.Creator,
+                },
+                TokenType.Token2022,
+                feeClaimer
+            )
+        ).not.toThrow()
+    })
+
+    test('rejects a default fee claimer when the partner holds a transfer fee authority', () => {
+        expect(() =>
+            validateTransferFeeParameters(
+                transferFeeParameters,
+                TokenType.Token2022,
+                PublicKey.default
+            )
+        ).toThrow('Invalid fee claimer')
     })
 
     test('requires constant supply, no vesting, customizable migration, and compounding', () => {
@@ -351,6 +469,7 @@ describe('transfer fee config validation', () => {
                 {
                     transferFeeParameters,
                     quoteMintHasTransferFee: false,
+                    feeClaimer,
                 }
             )
         ).not.toThrow()
@@ -362,8 +481,103 @@ describe('transfer fee config validation', () => {
                     tokenSupply: null,
                     leftoverReceiver,
                 },
-                { transferFeeParameters, quoteMintHasTransferFee: false }
+                {
+                    transferFeeParameters,
+                    quoteMintHasTransferFee: false,
+                    feeClaimer,
+                }
             )
         ).toThrow('Transfer fee configs require a constant token supply')
+    })
+
+    test('applies the transfer fee restrictions when the basis points are zero', () => {
+        const leftoverReceiver = Keypair.generate().publicKey
+        expect(() =>
+            validateConfigParameters(
+                {
+                    ...baseCurve,
+                    tokenSupply: null,
+                    leftoverReceiver,
+                },
+                {
+                    transferFeeParameters: {
+                        transferFeeBasisPoints: 0,
+                        withheldAuthority: TransferFeeWithheldAuthority.Creator,
+                        migratedTransferFeeAuthorityOption:
+                            MigratedTransferFeeAuthorityOption.Creator,
+                    },
+                    feeClaimer,
+                }
+            )
+        ).toThrow('Transfer fee configs require a constant token supply')
+    })
+
+    test('rejects a default fee claimer for a Token-2022 partner authority', () => {
+        const leftoverReceiver = Keypair.generate().publicKey
+        expect(() =>
+            validateConfigParameters(
+                {
+                    ...baseCurve,
+                    tokenType: TokenType.Token2022,
+                    tokenUpdateAuthority:
+                        TokenAuthorityOption.PartnerUpdateAuthority,
+                    leftoverReceiver,
+                },
+                { feeClaimer: PublicKey.default }
+            )
+        ).toThrow('Invalid fee claimer')
+    })
+
+    test('enforces the transfer-fee migration restrictions', () => {
+        const lockedVestingConfig = {
+            amountPerPeriod: new BN(0),
+            cliffDurationFromMigrationTime: new BN(0),
+            frequency: new BN(0),
+            numberOfPeriod: new BN(0),
+            cliffUnlockAmount: new BN(0),
+            padding: new BN(0),
+        }
+        const config = {
+            fixedTokenSupplyFlag: 1,
+            preMigrationTokenSupply: new BN(1),
+            postMigrationTokenSupply: new BN(1),
+            lockedVestingConfig,
+            migrationFeeOption: MigrationFeeOption.Customizable,
+            migratedCollectFeeMode: MigratedCollectFeeMode.Compounding,
+        }
+        expect(() => validateTransferFeeRestrictions(config)).not.toThrow()
+        expect(() =>
+            validateTransferFeeRestrictions({
+                ...config,
+                fixedTokenSupplyFlag: 0,
+            })
+        ).toThrow('Invalid token supply')
+        expect(() =>
+            validateTransferFeeRestrictions({
+                ...config,
+                lockedVestingConfig: {
+                    ...lockedVestingConfig,
+                    cliffUnlockAmount: new BN(1),
+                },
+            })
+        ).toThrow('Invalid vesting parameters')
+        expect(() =>
+            validateTransferFeeRestrictions({
+                ...config,
+                migrationFeeOption: MigrationFeeOption.FixedBps100,
+            })
+        ).toThrow('Invalid migration fee option')
+        expect(() =>
+            validateTransferFeeRestrictions({
+                ...config,
+                migratedCollectFeeMode: MigratedCollectFeeMode.QuoteToken,
+            })
+        ).toThrow('Invalid migrated pool fee params')
+        expect(() =>
+            validateTransferFeeRestrictions({
+                ...config,
+                migratedCollectFeeMode: 9,
+            })
+        ).toThrow('Invalid collect fee mode')
     })
 })

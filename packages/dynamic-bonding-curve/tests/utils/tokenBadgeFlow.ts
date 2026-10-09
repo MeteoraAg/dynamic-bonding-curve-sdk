@@ -108,7 +108,8 @@ export async function createTransferFeeQuoteMint(
     connection: Connection,
     payer: Keypair,
     transferFeeBasisPoints: number,
-    transferFeeConfigAuthority: PublicKey | null = payer.publicKey
+    transferFeeConfigAuthority: PublicKey | null = payer.publicKey,
+    maximumFee: bigint = BigInt('18446744073709551615')
 ): Promise<PublicKey> {
     const mintKeypair = Keypair.generate()
     const mintLen = getMintLen([ExtensionType.TransferFeeConfig])
@@ -127,7 +128,7 @@ export async function createTransferFeeQuoteMint(
             transferFeeConfigAuthority,
             payer.publicKey,
             transferFeeBasisPoints,
-            BigInt('18446744073709551615'),
+            maximumFee,
             TOKEN_2022_PROGRAM_ID
         ),
         createInitializeMint2Instruction(

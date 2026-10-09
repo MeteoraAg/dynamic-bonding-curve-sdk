@@ -311,7 +311,8 @@ export function getMigrationBaseWeight(
     return maxSqrtPrice.sub(p).div(p.sub(minSqrtPrice).mul(p).mul(maxSqrtPrice))
 }
 
-function migrationDepositAmounts(
+/** Quote rounds down and base rounds up, so the price stays at or below the budget ratio. */
+export function getMigrationDepositAmounts(
     baseBudget: BN,
     quoteBudget: BN,
     baseAmount: BN,
@@ -326,7 +327,7 @@ function migrationDepositAmounts(
         .lte(quoteAmount.mul(baseBudget))
     const depositBase = baseSideBinds
         ? baseAmount
-        : mulDiv(baseBudget, quoteAmount, quoteBudget, Rounding.Down)
+        : mulDiv(baseBudget, quoteAmount, quoteBudget, Rounding.Up)
     const depositQuote = baseSideBinds
         ? mulDiv(quoteBudget, baseAmount, baseBudget, Rounding.Down)
         : quoteAmount
@@ -335,6 +336,78 @@ function migrationDepositAmounts(
         throw new Error('Amount is zero')
     }
     return [depositBase, depositQuote]
+}
+
+const SPLIT_POSITION_DENOMINATOR = new BN(1_000_000_000)
+
+export type TransferFeeMigrationPositionSplit = {
+    numerator: BN
+    secondPositionLiquidity: BN
+    secondPosition: 'partner' | 'creator'
+}
+
+function wholePercentage(name: string, percentage: number): void {
+    if (!Number.isInteger(percentage) || percentage < 0 || percentage > 100) {
+        throw new Error(`${name} must be an integer from 0 to 100`)
+    }
+}
+
+/**
+ * Liquidity moved into the second DAMM v2 position on a transfer-fee migration.
+ * The percentage is the configured share, not the sum of the rounded liquidity buckets.
+ */
+export function getTransferFeeMigrationPositionSplit(params: {
+    distributableLiquidity: BN
+    partnerLiquidityPercentage: number
+    partnerPermanentLockedLiquidityPercentage: number
+    partnerVestingPercentage: number
+}): TransferFeeMigrationPositionSplit {
+    wholePercentage(
+        'partnerLiquidityPercentage',
+        params.partnerLiquidityPercentage
+    )
+    wholePercentage(
+        'partnerPermanentLockedLiquidityPercentage',
+        params.partnerPermanentLockedLiquidityPercentage
+    )
+    wholePercentage('partnerVestingPercentage', params.partnerVestingPercentage)
+
+    const partnerPercentage =
+        params.partnerLiquidityPercentage +
+        params.partnerPermanentLockedLiquidityPercentage +
+        params.partnerVestingPercentage
+    if (partnerPercentage > 100) {
+        throw new Error('Invalid liquidity percentage')
+    }
+
+    const liquidity = params.distributableLiquidity
+    const partnerTotal = liquidity
+        .muln(params.partnerLiquidityPercentage)
+        .divn(100)
+        .add(
+            liquidity
+                .muln(params.partnerPermanentLockedLiquidityPercentage)
+                .divn(100)
+        )
+        .add(liquidity.muln(params.partnerVestingPercentage).divn(100))
+    const creatorTotal = liquidity.sub(partnerTotal)
+    const secondPosition = partnerTotal.gt(creatorTotal) ? 'creator' : 'partner'
+    const percentage =
+        secondPosition === 'creator'
+            ? 100 - partnerPercentage
+            : partnerPercentage
+    const numerator = SPLIT_POSITION_DENOMINATOR.divn(100).muln(percentage)
+
+    return {
+        numerator,
+        secondPositionLiquidity: mulDiv(
+            liquidity,
+            numerator,
+            SPLIT_POSITION_DENOMINATOR,
+            Rounding.Down
+        ),
+        secondPosition,
+    }
 }
 
 function compoundingInitialSqrtPriceAndLiquidity(
@@ -394,7 +467,7 @@ export function validateCompoundingMigrationDeposit(params: {
         params.quoteTransferFee ?? null,
         excludedProtocolQuote
     ).amount
-    const [depositBase, depositQuote] = migrationDepositAmounts(
+    const [depositBase, depositQuote] = getMigrationDepositAmounts(
         excludedProtocolBase,
         excludedProtocolQuote,
         excludedTransferBase,

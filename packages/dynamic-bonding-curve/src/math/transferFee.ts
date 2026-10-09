@@ -29,9 +29,22 @@ function toSplTransferFee(transferFee: EpochTransferFee) {
     }
 }
 
-/**
- * Return the base mint transfer fee a config creates. The program always sets the maximum fee to u64::MAX.
- */
+/** Token-2022 charges min(amount * bps / 10_000, maximumFee), so either being zero means no fee. */
+export function isZeroTransferFee(
+    transferFee: {
+        transferFeeBasisPoints: number
+        maximumFee: BN | bigint
+    } | null
+): boolean {
+    if (!transferFee || transferFee.transferFeeBasisPoints === 0) {
+        return true
+    }
+    const maximumFee = transferFee.maximumFee
+    return typeof maximumFee === 'bigint'
+        ? maximumFee === BigInt(0)
+        : maximumFee.isZero()
+}
+
 export function getBaseTransferFee(
     transferFeeBasisPoints: number
 ): EpochTransferFee | null {
@@ -40,6 +53,19 @@ export function getBaseTransferFee(
     }
     return {
         transferFeeBasisPoints,
+        maximumFee: U64_MAX,
+    }
+}
+
+/** Flag 1 is a TransferFeeConfig, including at 0 basis points. */
+function getConfigBaseTransferFee(
+    config: Pick<PoolConfig, 'transferFeeFlag' | 'transferFeeBasisPoints'>
+): EpochTransferFee | null {
+    if (Number(config.transferFeeFlag) !== 1) {
+        return null
+    }
+    return {
+        transferFeeBasisPoints: config.transferFeeBasisPoints,
         maximumFee: U64_MAX,
     }
 }
@@ -76,7 +102,7 @@ export function resolveSwapTransferFees(
     } else if (transferFees?.baseTransferFeeBasisPoints !== undefined) {
         base = getBaseTransferFee(transferFees.baseTransferFeeBasisPoints)
     } else {
-        base = getBaseTransferFee(config.transferFeeBasisPoints ?? 0)
+        base = getConfigBaseTransferFee(config)
     }
 
     let quote: EpochTransferFee | null = null
@@ -113,7 +139,7 @@ export function calculateTransferFeeExcludedAmount(
 ): TransferFeeAmount {
     if (
         !transferFee ||
-        transferFee.transferFeeBasisPoints === 0 ||
+        isZeroTransferFee(transferFee) ||
         includedAmount.isZero()
     ) {
         return { amount: includedAmount, transferFee: ZERO }
@@ -135,7 +161,7 @@ function calculatePreFeeAmount(
     transferFee: EpochTransferFee,
     excludedAmount: BN
 ): BN {
-    if (excludedAmount.isZero() || transferFee.transferFeeBasisPoints === 0) {
+    if (excludedAmount.isZero() || isZeroTransferFee(transferFee)) {
         return excludedAmount
     }
 
@@ -167,7 +193,7 @@ export function calculateTransferFeeIncludedAmount(
     if (excludedAmount.isZero()) {
         return { amount: ZERO, transferFee: ZERO }
     }
-    if (!transferFee || transferFee.transferFeeBasisPoints === 0) {
+    if (!transferFee || isZeroTransferFee(transferFee)) {
         return { amount: excludedAmount, transferFee: ZERO }
     }
 

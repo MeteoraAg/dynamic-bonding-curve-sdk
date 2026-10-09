@@ -35,6 +35,7 @@ export {
     getMigrationQuoteAmountFromThreshold,
     getMigrationThresholdPrice,
     getPercentageSupplyOnMigration,
+    getTransferFeeMigrationPositionSplit,
     getProtocolMigrationFee,
     getSwapAmountWithBuffer,
     getTokenomics,
@@ -96,6 +97,7 @@ export { swapQuote } from './math/swapQuote'
 export {
     calculateTransferFeeExcludedAmount,
     calculateTransferFeeIncludedAmount,
+    isZeroTransferFee,
     resolveSwapTransferFees,
 } from './math/transferFee'
 export type { EpochTransferFee, TransferFeeAmount } from './math/transferFee'

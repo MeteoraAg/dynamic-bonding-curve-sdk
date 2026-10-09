@@ -16,6 +16,7 @@ import {
     getExtensionTypes,
     getMint,
     getTransferFeeConfig,
+    unpackMint,
     NATIVE_MINT,
     NATIVE_MINT_2022,
     TOKEN_2022_PROGRAM_ID,
@@ -24,6 +25,7 @@ import {
     TokenInvalidAccountOwnerError,
     type Mint,
 } from '@solana/spl-token'
+import { isZeroTransferFee } from '../math/transferFee'
 import { type PoolConfig, type QuoteTransferFees, TokenType } from '../types'
 
 /**
@@ -212,11 +214,11 @@ export function hasTransferFeeOrConfigAuthority(
     const { olderTransferFee, newerTransferFee } = transferFeeConfig
     if (BigInt(currentEpoch) < newerTransferFee.epoch) {
         return (
-            olderTransferFee.transferFeeBasisPoints > 0 ||
-            newerTransferFee.transferFeeBasisPoints > 0
+            !isZeroTransferFee(olderTransferFee) ||
+            !isZeroTransferFee(newerTransferFee)
         )
     }
-    return newerTransferFee.transferFeeBasisPoints > 0
+    return !isZeroTransferFee(newerTransferFee)
 }
 
 /**
@@ -244,27 +246,66 @@ export function isSupportedQuoteMint(
     )
 }
 
+async function fetchMint(
+    connection: Connection,
+    mint: PublicKey,
+    commitment: Commitment,
+    tokenProgram?: PublicKey
+): Promise<Mint> {
+    if (tokenProgram) {
+        return getMint(connection, mint, commitment, tokenProgram)
+    }
+
+    const accountInfo = await connection.getAccountInfo(mint, commitment)
+    if (!accountInfo) {
+        throw new Error(`Mint account ${mint.toBase58()} not found`)
+    }
+    return unpackMint(mint, accountInfo, accountInfo.owner)
+}
+
 /**
- * Fetch the quote mint and current epoch that swap quotes need for a Token-2022 quote mint.
- * Returns an empty object for an SPL Token quote mint, which has no transfer fee.
+ * Fetch the quote mint, optional base mint, and current epoch for an existing-pool swap quote.
+ * Returns an empty object when the quote mint is SPL Token and `baseMint` is omitted.
  */
 export async function getSwapQuoteTransferFees(
     connection: Connection,
     config: Pick<PoolConfig, 'quoteMint' | 'quoteTokenFlag'>,
-    commitment: Commitment = 'confirmed'
+    commitmentOrOptions:
+        | Commitment
+        | {
+              commitment?: Commitment
+              baseMint?: PublicKey
+          } = 'confirmed'
 ): Promise<QuoteTransferFees> {
-    if (Number(config.quoteTokenFlag) !== TokenType.Token2022) {
+    const options =
+        typeof commitmentOrOptions === 'string'
+            ? { commitment: commitmentOrOptions }
+            : commitmentOrOptions
+    const commitment = options.commitment ?? 'confirmed'
+    const quoteIsToken2022 =
+        Number(config.quoteTokenFlag) === TokenType.Token2022
+    if (!quoteIsToken2022 && !options.baseMint) {
         return {}
     }
 
-    const [quoteMint, { epoch }] = await Promise.all([
-        getMint(
-            connection,
-            config.quoteMint,
-            commitment,
-            TOKEN_2022_PROGRAM_ID
-        ),
+    const [epochInfo, quoteMint, baseMint] = await Promise.all([
         connection.getEpochInfo(commitment),
+        quoteIsToken2022
+            ? fetchMint(
+                  connection,
+                  config.quoteMint,
+                  commitment,
+                  TOKEN_2022_PROGRAM_ID
+              )
+            : Promise.resolve(undefined),
+        options.baseMint
+            ? fetchMint(connection, options.baseMint, commitment)
+            : Promise.resolve(undefined),
     ])
-    return { quoteMint, currentEpoch: epoch }
+
+    return {
+        ...(quoteMint ? { quoteMint } : {}),
+        ...(baseMint ? { baseMint } : {}),
+        currentEpoch: epochInfo.epoch,
+    }
 }
