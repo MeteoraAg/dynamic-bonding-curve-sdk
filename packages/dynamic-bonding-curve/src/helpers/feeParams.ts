@@ -32,7 +32,11 @@ import {
 } from '../constants'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
-import { bpsToFeeNumerator, convertToLamports } from './utils'
+import {
+    bpsToFeeNumerator,
+    convertToLamports,
+    feeNumeratorToBps,
+} from './utils'
 import { computeSqrtPriceStepBps } from './price'
 import { getFeeNumeratorOnExponentialFeeScheduler } from '../math/poolFees/feeScheduler'
 
@@ -164,14 +168,7 @@ export function getFeeSchedulerParams(
     }
 }
 
-/**
- * Calculate the ending base fee of fee scheduler in basis points
- * @param cliffFeeNumerator - The cliff fee numerator
- * @param numberOfPeriod - The number of period
- * @param reductionFactor - The reduction factor
- * @param feeSchedulerMode - The fee scheduler mode
- * @returns The minimum base fee in basis points
- */
+/** Ending fee in basis points, using the program's floor(numerator * 10_000 / FEE_DENOMINATOR). */
 export function calculateFeeSchedulerEndingBaseFeeBps(
     cliffFeeNumerator: number,
     numberOfPeriod: number,
@@ -180,7 +177,7 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
     baseFeeMode: BaseFeeMode
 ): number {
     if (numberOfPeriod === 0 || periodFrequency === 0) {
-        return (cliffFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
+        return numeratorToBps(cliffFeeNumerator)
     }
 
     const baseFeeNumerator =
@@ -192,7 +189,14 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
                   Math.floor(numberOfPeriod)
               ).toNumber()
 
-    return Math.max(0, (baseFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT)
+    return numeratorToBps(baseFeeNumerator)
+}
+
+function numeratorToBps(numerator: number): number {
+    if (!Number.isFinite(numerator) || numerator <= 0) {
+        return 0
+    }
+    return feeNumeratorToBps(new BN(Math.floor(numerator)))
 }
 
 /**

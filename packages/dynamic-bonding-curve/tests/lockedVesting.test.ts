@@ -65,14 +65,7 @@ describe('getLockedVestingParams', () => {
 })
 
 test('locked vesting frequency floors the period length', () => {
-    const result = getLockedVestingParams(
-        100,
-        13,
-        0,
-        100,
-        0,
-        TokenDecimal.SIX
-    )
+    const result = getLockedVestingParams(100, 13, 0, 100, 0, TokenDecimal.SIX)
     expect(result.frequency.toNumber()).toBe(7)
 })
 
