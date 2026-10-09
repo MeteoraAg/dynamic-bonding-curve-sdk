@@ -2,7 +2,9 @@ import BN from 'bn.js'
 import { SafeMath } from './safeMath'
 import {
     getDeltaAmountBaseUnsigned,
+    getDeltaAmountBaseUnsigned256,
     getDeltaAmountQuoteUnsigned,
+    getDeltaAmountQuoteUnsigned256,
     getNextSqrtPriceFromInput,
     getNextSqrtPriceFromOutput,
 } from './curve'
@@ -33,7 +35,22 @@ import {
     calculateTransferFeeIncludedAmount,
     resolveSwapTransferFees,
 } from './transferFee'
-import { MAX_BASIS_POINT } from '../constants'
+import { MAX_BASIS_POINT, U64_MAX } from '../constants'
+
+function addU64(total: BN, amount: BN): BN {
+    const sum = total.add(amount)
+    if (sum.gt(U64_MAX)) {
+        throw new Error('Math overflow')
+    }
+    return sum
+}
+
+function u64(amount: BN): BN {
+    if (amount.gt(U64_MAX)) {
+        throw new Error('Math overflow')
+    }
+    return amount
+}
 
 function minimumAmountOutWithSlippage(amount: BN, slippageBps: number): BN {
     if (slippageBps > 0) {
@@ -180,7 +197,7 @@ export function getSwapResult(
     const { outputAmount, nextSqrtPrice, amountLeft } = swapAmountFromInput
 
     if (!amountLeft.isZero()) {
-        throw new Error('Insufficient Liquidity')
+        throw new Error('Liquidity in bonding curve is insufficient')
     }
 
     const actualAmountOut = feeMode.feesOnInput
@@ -357,7 +374,7 @@ export function getSwapResultFromExactInput(
     const { outputAmount, nextSqrtPrice, amountLeft } = swapAmountFromInput
 
     if (!amountLeft.isZero()) {
-        throw new Error('Insufficient Liquidity')
+        throw new Error('Liquidity in bonding curve is insufficient')
     }
 
     const actualAmountOut = feeMode.feesOnInput
@@ -568,7 +585,7 @@ export function calculateBaseToQuoteFromAmountIn(
         }
 
         if (configState.curve[i].sqrtPrice.lt(currentSqrtPriceLocal)) {
-            const maxAmountIn = getDeltaAmountBaseUnsigned(
+            const maxAmountIn = getDeltaAmountBaseUnsigned256(
                 configState.curve[i].sqrtPrice,
                 currentSqrtPriceLocal,
                 configState.curve[i + 1].liquidity,
@@ -590,10 +607,7 @@ export function calculateBaseToQuoteFromAmountIn(
                     Rounding.Down
                 )
 
-                totalOutputAmount = SafeMath.add(
-                    totalOutputAmount,
-                    outputAmount
-                )
+                totalOutputAmount = addU64(totalOutputAmount, outputAmount)
                 currentSqrtPriceLocal = nextSqrtPrice
                 amountLeft = new BN(0)
                 break
@@ -606,12 +620,9 @@ export function calculateBaseToQuoteFromAmountIn(
                     Rounding.Down
                 )
 
-                totalOutputAmount = SafeMath.add(
-                    totalOutputAmount,
-                    outputAmount
-                )
+                totalOutputAmount = addU64(totalOutputAmount, outputAmount)
                 currentSqrtPriceLocal = nextSqrtPrice
-                amountLeft = SafeMath.sub(amountLeft, maxAmountIn)
+                amountLeft = SafeMath.sub(amountLeft, u64(maxAmountIn))
             }
         }
     }
@@ -645,7 +656,7 @@ export function calculateBaseToQuoteFromAmountIn(
             Rounding.Down
         )
 
-        totalOutputAmount = SafeMath.add(totalOutputAmount, outputAmount)
+        totalOutputAmount = addU64(totalOutputAmount, outputAmount)
         currentSqrtPriceLocal = nextSqrtPrice
     }
 
@@ -702,7 +713,7 @@ export function calculateQuoteToBaseFromAmountIn(
         )
 
         if (referenceSqrtPrice.gt(currentSqrtPriceLocal)) {
-            const maxAmountIn = getDeltaAmountQuoteUnsigned(
+            const maxAmountIn = getDeltaAmountQuoteUnsigned256(
                 currentSqrtPriceLocal,
                 referenceSqrtPrice,
                 configState.curve[i].liquidity,
@@ -724,10 +735,7 @@ export function calculateQuoteToBaseFromAmountIn(
                     Rounding.Down
                 )
 
-                totalOutputAmount = SafeMath.add(
-                    totalOutputAmount,
-                    outputAmount
-                )
+                totalOutputAmount = addU64(totalOutputAmount, outputAmount)
                 currentSqrtPriceLocal = nextSqrtPrice
                 amountLeft = new BN(0)
                 break
@@ -740,12 +748,9 @@ export function calculateQuoteToBaseFromAmountIn(
                     Rounding.Down
                 )
 
-                totalOutputAmount = SafeMath.add(
-                    totalOutputAmount,
-                    outputAmount
-                )
+                totalOutputAmount = addU64(totalOutputAmount, outputAmount)
                 currentSqrtPriceLocal = nextSqrtPrice
-                amountLeft = SafeMath.sub(amountLeft, maxAmountIn)
+                amountLeft = SafeMath.sub(amountLeft, u64(maxAmountIn))
 
                 if (nextSqrtPrice.eq(stopSqrtPrice)) {
                     break
@@ -844,7 +849,7 @@ export function getSwapResultFromExactOutput(
     const { outputAmount: amountIn, nextSqrtPrice } = swapAmountFromOutput
 
     if (nextSqrtPrice.gt(config.migrationSqrtPrice)) {
-        throw new Error('Insufficient Liquidity')
+        throw new Error('Liquidity in bonding curve is insufficient')
     }
 
     const [excludedFeeInputAmount, includedFeeInputAmount] = feeMode.feesOnInput
@@ -917,7 +922,7 @@ export function calculateBaseToQuoteFromAmountOut(
         }
 
         if (configState.curve[i].sqrtPrice.lt(currentSqrtPriceLocal)) {
-            const maxAmountOut = getDeltaAmountQuoteUnsigned(
+            const maxAmountOut = getDeltaAmountQuoteUnsigned256(
                 configState.curve[i].sqrtPrice,
                 currentSqrtPriceLocal,
                 configState.curve[i + 1].liquidity,
@@ -939,7 +944,7 @@ export function calculateBaseToQuoteFromAmountOut(
                     Rounding.Up
                 )
 
-                totalAmountIn = SafeMath.add(totalAmountIn, inAmount)
+                totalAmountIn = addU64(totalAmountIn, inAmount)
                 currentSqrtPriceLocal = nextSqrtPrice
                 amountLeft = new BN(0)
                 break
@@ -952,15 +957,15 @@ export function calculateBaseToQuoteFromAmountOut(
                     Rounding.Up
                 )
 
-                totalAmountIn = SafeMath.add(totalAmountIn, inAmount)
+                totalAmountIn = addU64(totalAmountIn, inAmount)
                 currentSqrtPriceLocal = nextSqrtPrice
-                amountLeft = SafeMath.sub(amountLeft, maxAmountOut)
+                amountLeft = SafeMath.sub(amountLeft, u64(maxAmountOut))
             }
         }
     }
 
     if (!amountLeft.isZero()) {
-        const maxAmountOut = getDeltaAmountQuoteUnsigned(
+        const maxAmountOut = getDeltaAmountQuoteUnsigned256(
             configState.sqrtStartPrice,
             currentSqrtPriceLocal,
             configState.curve[0].liquidity,
@@ -968,7 +973,7 @@ export function calculateBaseToQuoteFromAmountOut(
         )
 
         if (amountLeft.gt(maxAmountOut)) {
-            throw new Error('Insufficient Liquidity')
+            throw new Error('Liquidity in bonding curve is insufficient')
         }
 
         const nextSqrtPrice = getNextSqrtPriceFromOutput(
@@ -979,7 +984,7 @@ export function calculateBaseToQuoteFromAmountOut(
         )
 
         if (nextSqrtPrice.lt(configState.sqrtStartPrice)) {
-            throw new Error('Insufficient Liquidity')
+            throw new Error('Liquidity in bonding curve is insufficient')
         }
 
         const inAmount = getDeltaAmountBaseUnsigned(
@@ -989,7 +994,7 @@ export function calculateBaseToQuoteFromAmountOut(
             Rounding.Up
         )
 
-        totalAmountIn = SafeMath.add(totalAmountIn, inAmount)
+        totalAmountIn = addU64(totalAmountIn, inAmount)
         currentSqrtPriceLocal = nextSqrtPrice
     }
 
@@ -1026,7 +1031,7 @@ export function calculateQuoteToBaseFromAmountOut(
         }
 
         if (configState.curve[i].sqrtPrice.gt(currentSqrtPriceLocal)) {
-            const maxAmountOut = getDeltaAmountBaseUnsigned(
+            const maxAmountOut = getDeltaAmountBaseUnsigned256(
                 currentSqrtPriceLocal,
                 configState.curve[i].sqrtPrice,
                 configState.curve[i].liquidity,
@@ -1048,7 +1053,7 @@ export function calculateQuoteToBaseFromAmountOut(
                     Rounding.Up
                 )
 
-                totalInAmount = SafeMath.add(totalInAmount, inAmount)
+                totalInAmount = addU64(totalInAmount, inAmount)
                 currentSqrtPriceLocal = nextSqrtPrice
                 amountLeft = new BN(0)
                 break
@@ -1061,15 +1066,15 @@ export function calculateQuoteToBaseFromAmountOut(
                     Rounding.Up
                 )
 
-                totalInAmount = SafeMath.add(totalInAmount, inAmount)
+                totalInAmount = addU64(totalInAmount, inAmount)
                 currentSqrtPriceLocal = nextSqrtPrice
-                amountLeft = SafeMath.sub(amountLeft, maxAmountOut)
+                amountLeft = SafeMath.sub(amountLeft, u64(maxAmountOut))
             }
         }
     }
 
     if (!amountLeft.isZero()) {
-        throw new Error('Not enough liquidity')
+        throw new Error('Amount left is not zero')
     }
 
     return {

@@ -17,6 +17,11 @@ All notable changes to the Dynamic Bonding Curve SDK will be documented in this 
 - A base transfer fee, or a quote mint with a non-zero transfer fee or a live transfer fee config authority, requires a constant token supply, no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`. The base fee is Token-2022 only and at most 10%.
 - `MigratedCollectFeeMode.Compounding` allows `compoundingFeeBps` of `0`.
 - Curve builders reserve the program migration base, `ceil(migrationQuoteThreshold * (100 - migrationFee.feePercentage) / 100)`. `buildCurveWithLiquidityWeights` and `buildCurveWithCustomSqrtPrices` use constant product for `Compounding`, and concentrated liquidity for `QuoteToken` and `OutputToken`.
+- `buildCurveWithTwoSegments` and `buildCurveWithMidPrice` keep a fractional `percentageSupplyOnMigration` when sizing the migration base.
+- Liquidity vesting frequency is `floor(totalDuration / numberOfPeriods)`.
+- Exponential fee schedulers, including the migrated market-cap scheduler, choose `reductionFactor` with the program's Q64 decay so the last period stays at or above the requested ending fee.
+- Rate-limiter validation checks the fee at `u64::MAX`.
+- Swap quotes reject amounts outside the program's u64 and u128 bounds. Insufficient-liquidity quotes use the program error text.
 
 ### Deprecated
 

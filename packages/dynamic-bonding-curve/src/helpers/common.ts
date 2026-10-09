@@ -51,6 +51,7 @@ import { Commitment, Connection, PublicKey } from '@solana/web3.js'
 import type { DynamicBondingCurve } from '../idl/dynamic-bonding-curve/idl'
 import { Program } from '@coral-xyz/anchor'
 import { bpsToFeeNumerator, convertToLamports } from './utils'
+import { getFeeNumeratorOnExponentialFeeScheduler } from '../math/poolFees/feeScheduler'
 import { getTokenDecimals } from './token'
 import {
     getDeltaAmountBaseUnsigned,
@@ -549,7 +550,7 @@ export const getLiquidityVestingInfoParams = (
         throw new Error('totalDuration must be greater than zero')
     }
 
-    const frequency = totalDuration / numberOfPeriods
+    const frequency = Math.floor(totalDuration / numberOfPeriods)
 
     if (frequency <= 0) {
         throw new Error(
@@ -583,7 +584,7 @@ export const getLiquidityVestingInfoParams = (
         bpsPerPeriod,
         numberOfPeriods,
         cliffDurationFromMigrationTime,
-        frequency: Math.round(frequency),
+        frequency,
     }
 }
 
@@ -727,6 +728,49 @@ export function calculateLockedLiquidityBpsAtTime(
     return totalLockedLiquidityBpsAtNSeconds
 }
 
+function exponentialReductionFactor(
+    maxBaseFeeNumerator: BN,
+    minBaseFeeNumerator: BN,
+    numberOfPeriod: number
+): BN {
+    const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
+        new Decimal(maxBaseFeeNumerator.toString())
+    )
+    const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
+    let reductionFactor = new BN(
+        new Decimal(MAX_BASIS_POINT)
+            .mul(new Decimal(1).sub(decayBase))
+            .floor()
+            .toFixed()
+    )
+    if (reductionFactor.isNeg()) {
+        reductionFactor = new BN(0)
+    } else if (reductionFactor.gtn(MAX_BASIS_POINT)) {
+        reductionFactor = new BN(MAX_BASIS_POINT)
+    }
+    const feeAt = (factor: BN) =>
+        getFeeNumeratorOnExponentialFeeScheduler(
+            maxBaseFeeNumerator,
+            factor,
+            numberOfPeriod
+        )
+
+    while (
+        reductionFactor.gtn(0) &&
+        feeAt(reductionFactor).lt(minBaseFeeNumerator)
+    ) {
+        reductionFactor = reductionFactor.subn(1)
+    }
+    while (reductionFactor.ltn(MAX_BASIS_POINT)) {
+        const nextFee = feeAt(reductionFactor.addn(1))
+        if (nextFee.lt(minBaseFeeNumerator)) {
+            break
+        }
+        reductionFactor = reductionFactor.addn(1)
+    }
+    return reductionFactor
+}
+
 /**
  * Get the fee scheduler parameters
  * @param {number} startingBaseFeeBps - Starting fee in basis points
@@ -792,22 +836,17 @@ export function getFeeSchedulerParams(
 
     const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
 
-    const periodFrequency = new BN(totalDuration / numberOfPeriod)
+    const periodFrequency = new BN(totalDuration).div(new BN(numberOfPeriod))
 
     let reductionFactor: BN
     if (baseFeeMode == BaseFeeMode.FeeSchedulerLinear) {
         const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator)
         reductionFactor = totalReduction.divn(numberOfPeriod)
     } else {
-        const ratio = new Decimal(minBaseFeeNumerator.toString()).div(
-            new Decimal(maxBaseFeeNumerator.toString())
-        )
-        const decayBase = ratio.pow(new Decimal(1).div(numberOfPeriod))
-        reductionFactor = new BN(
-            new Decimal(MAX_BASIS_POINT)
-                .mul(new Decimal(1).sub(decayBase))
-                .floor()
-                .toFixed()
+        reductionFactor = exponentialReductionFactor(
+            maxBaseFeeNumerator,
+            minBaseFeeNumerator,
+            numberOfPeriod
         )
     }
 
@@ -1093,10 +1132,11 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
     } else if (
         dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
     ) {
-        const ratio =
-            minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber()
-        const decayBase = Math.pow(ratio, 1 / numberOfPeriod)
-        reductionFactor = new BN(MAX_BASIS_POINT * (1 - decayBase))
+        reductionFactor = exponentialReductionFactor(
+            maxBaseFeeNumerator,
+            minBaseFeeNumerator,
+            numberOfPeriod
+        )
     } else {
         throw new Error(
             'Migrated market-cap fee scheduler requires a market-cap scheduler base fee mode'

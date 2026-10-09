@@ -274,7 +274,7 @@ export function validateFeeRateLimiter(
         cliffFeeNumerator,
         referenceAmount,
         feeIncrementBps,
-        new BN(Number.MAX_SAFE_INTEGER)
+        U64_MAX
     )
 
     return (
