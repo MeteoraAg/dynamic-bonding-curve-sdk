@@ -164,6 +164,18 @@ describe('calculateLockedVesting tests', () => {
     })
 })
 
+test('locked vesting frequency floors the period length', () => {
+    const result = getLockedVestingParams(
+        100,
+        13,
+        0,
+        100,
+        0,
+        TokenDecimal.SIX
+    )
+    expect(result.frequency.toNumber()).toBe(7)
+})
+
 test('liquidity vesting frequency truncates the period length', () => {
     const params = getLiquidityVestingInfoParams(10, 1000, 6, 0, 100)
     expect(params.frequency).toBe(16)

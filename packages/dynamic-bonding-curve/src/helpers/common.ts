@@ -451,11 +451,7 @@ export function getLockedVestingParams(
         }
     }
 
-    if (numberOfVestingPeriod <= 0) {
-        throw new Error('Total periods must be greater than zero')
-    }
-
-    if (numberOfVestingPeriod == 0 || totalVestingDuration == 0) {
+    if (numberOfVestingPeriod <= 0 || totalVestingDuration <= 0) {
         throw new Error(
             'numberOfPeriod and totalVestingDuration must both be greater than zero'
         )
@@ -482,7 +478,9 @@ export function getLockedVestingParams(
     // add the remainder to cliffUnlockAmount to maintain total amount
     const adjustedCliffUnlockAmount = cliffUnlockAmount + remainder
 
-    const periodFrequency = new BN(totalVestingDuration / numberOfVestingPeriod)
+    const periodFrequency = new BN(
+        Math.floor(totalVestingDuration / numberOfVestingPeriod)
+    )
 
     return {
         amountPerPeriod: convertToLamports(
@@ -878,21 +876,15 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
         return (cliffFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT
     }
 
-    let baseFeeNumerator: number
-    if (baseFeeMode == BaseFeeMode.FeeSchedulerLinear) {
-        // linear mode
-        baseFeeNumerator = cliffFeeNumerator - numberOfPeriod * reductionFactor
-    } else {
-        // exponential mode
-        const decayRate = new Decimal(1).sub(
-            new Decimal(reductionFactor).div(MAX_BASIS_POINT)
-        )
-        baseFeeNumerator = new Decimal(cliffFeeNumerator)
-            .mul(decayRate.pow(numberOfPeriod))
-            .toNumber()
-    }
+    const baseFeeNumerator =
+        baseFeeMode == BaseFeeMode.FeeSchedulerLinear
+            ? cliffFeeNumerator - numberOfPeriod * reductionFactor
+            : getFeeNumeratorOnExponentialFeeScheduler(
+                  new BN(Math.floor(cliffFeeNumerator)),
+                  new BN(Math.floor(reductionFactor)),
+                  Math.floor(numberOfPeriod)
+              ).toNumber()
 
-    // ensure base fee is not negative
     return Math.max(0, (baseFeeNumerator / FEE_DENOMINATOR) * MAX_BASIS_POINT)
 }
 
