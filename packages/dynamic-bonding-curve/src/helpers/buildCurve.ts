@@ -286,6 +286,11 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
         .sub(migrationBaseAmount)
         .sub(totalVestingAmount)
         .sub(totalLeftover)
+    if (swapAmount.lte(new BN(0))) {
+        throw new Error(
+            'migration base, locked vesting and leftover exceed the total supply'
+        )
+    }
 
     const { sqrtStartPrice, curve } = getFirstCurve(
         migrateSqrtPrice,
@@ -588,6 +593,11 @@ export function buildCurveWithTwoSegments(
         .sub(migrationBaseAmount)
         .sub(totalVestingAmount)
         .sub(totalLeftover)
+    if (swapAmount.lte(new BN(0))) {
+        throw new Error(
+            'migration base, locked vesting and leftover exceed the total supply'
+        )
+    }
 
     const initialSqrtPrice = getSqrtPriceFromMarketCap(
         initialMarketCap,
@@ -634,6 +644,11 @@ export function buildCurveWithTwoSegments(
             break
         }
     }
+    if (curve.length === 0) {
+        throw new Error(
+            'no mid price gives a two-segment curve with positive liquidity'
+        )
+    }
 
     const totalDynamicSupply = getTotalSupplyFromCurve(
         migrationQuoteThresholdInLamport,
@@ -646,12 +661,10 @@ export function buildCurveWithTwoSegments(
         migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
-    if (totalDynamicSupply.gt(totalSupply)) {
-        // precision loss is used for leftover
-        const leftOverDelta = totalDynamicSupply.sub(totalSupply)
-        if (!leftOverDelta.lt(totalLeftover)) {
-            throw new Error('leftOverDelta must be less than totalLeftover')
-        }
+    if (totalDynamicSupply.sub(totalSupply).gt(totalLeftover)) {
+        throw new Error(
+            'leftover is too small to cover the migration base rounding'
+        )
     }
 
     return toConfigParameters({
@@ -851,6 +864,11 @@ export function buildCurveWithMidPrice(
         .sub(migrationBaseAmount)
         .sub(totalVestingAmount)
         .sub(totalLeftover)
+    if (swapAmount.lte(new BN(0))) {
+        throw new Error(
+            'migration base, locked vesting and leftover exceed the total supply'
+        )
+    }
 
     const initialSqrtPrice = getSqrtPriceFromMarketCap(
         initialMarketCap,
@@ -875,6 +893,11 @@ export function buildCurveWithMidPrice(
         swapAmount,
         migrationQuoteThresholdInLamport
     )
+    if (!result.isOk) {
+        throw new Error(
+            'midPrice does not give a two-segment curve with positive liquidity'
+        )
+    }
     curve = result.curve
     sqrtStartPrice = result.sqrtStartPrice
 
@@ -889,12 +912,10 @@ export function buildCurveWithMidPrice(
         migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
-    if (totalDynamicSupply.gt(totalSupply)) {
-        // precision loss is used for leftover
-        const leftOverDelta = totalDynamicSupply.sub(totalSupply)
-        if (!leftOverDelta.lt(totalLeftover)) {
-            throw new Error('leftOverDelta must be less than totalLeftover')
-        }
+    if (totalDynamicSupply.sub(totalSupply).gt(totalLeftover)) {
+        throw new Error(
+            'leftover is too small to cover the migration base rounding'
+        )
     }
 
     return toConfigParameters({
@@ -943,6 +964,9 @@ export function buildCurveWithLiquidityWeights(
         migrationMarketCap,
         liquidityWeights,
     } = params
+    if (liquidityWeights.length !== 16) {
+        throw new Error('liquidityWeights must have 16 entries')
+    }
 
     const {
         tokenType,
@@ -1083,6 +1107,11 @@ export function buildCurveWithLiquidityWeights(
     const totalSwapAndMigrationAmount = totalSupply
         .sub(totalVestingAmount)
         .sub(totalLeftover)
+    if (totalSwapAndMigrationAmount.lte(new BN(0))) {
+        throw new Error(
+            'migration base, locked vesting and leftover exceed the total supply'
+        )
+    }
 
     // Swap_Amount = sum(li * (1/p(i-1) - 1/pi))
     // Quote_Amount = sum(li * (pi-p(i-1)))
@@ -1166,12 +1195,10 @@ export function buildCurveWithLiquidityWeights(
         migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
-    if (totalDynamicSupply.gt(totalSupply)) {
-        // precision loss is used for leftover
-        const leftOverDelta = totalDynamicSupply.sub(totalSupply)
-        if (!leftOverDelta.lt(totalLeftover)) {
-            throw new Error('leftOverDelta must be less than totalLeftover')
-        }
+    if (totalDynamicSupply.sub(totalSupply).gt(totalLeftover)) {
+        throw new Error(
+            'leftover is too small to cover the migration base rounding'
+        )
     }
 
     return toConfigParameters({
@@ -1373,6 +1400,11 @@ export function buildCurveWithCustomSqrtPrices(
     const totalSwapAndMigrationAmount = totalSupply
         .sub(totalVestingAmount)
         .sub(totalLeftover)
+    if (totalSwapAndMigrationAmount.lte(new BN(0))) {
+        throw new Error(
+            'migration base, locked vesting and leftover exceed the total supply'
+        )
+    }
 
     // calculate the sum factor for liquidity distribution
     // l0 * sum_factor = sum(li * (1/p(i-1) - 1/pi)) + sum(li * (pi-p(i-1))) * (1-migrationFee/100) * migration_base_weight
@@ -1461,12 +1493,10 @@ export function buildCurveWithCustomSqrtPrices(
         migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
-    if (totalDynamicSupply.gt(totalSupply)) {
-        // precision loss is used for leftover
-        const leftOverDelta = totalDynamicSupply.sub(totalSupply)
-        if (!leftOverDelta.lt(totalLeftover)) {
-            throw new Error('leftOverDelta must be less than totalLeftover')
-        }
+    if (totalDynamicSupply.sub(totalSupply).gt(totalLeftover)) {
+        throw new Error(
+            'leftover is too small to cover the migration base rounding'
+        )
     }
 
     return toConfigParameters({

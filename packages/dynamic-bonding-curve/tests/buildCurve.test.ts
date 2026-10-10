@@ -3,6 +3,7 @@ import BN from 'bn.js'
 import {
     BaseFeeMode,
     buildCurve,
+    buildCurveWithLiquidityWeights,
     DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
     MigratedCollectFeeMode,
@@ -240,5 +241,32 @@ describe('buildCurve migration fee options', () => {
                 },
             })
         ).toThrow(/MET_DAMM \(DAMM v1\) is deprecated/)
+    })
+})
+
+describe('buildCurve guards', () => {
+    test('rejects a leftover that leaves nothing for the curve', () => {
+        expect(() =>
+            buildCurve({
+                ...baseParams,
+                token: {
+                    ...baseParams.token,
+                    leftover: baseParams.token.totalTokenSupply,
+                },
+                percentageSupplyOnMigration: 20,
+                migrationQuoteThreshold: 10,
+            })
+        ).toThrow('exceed the total supply')
+    })
+
+    test('buildCurveWithLiquidityWeights requires one weight per segment', () => {
+        expect(() =>
+            buildCurveWithLiquidityWeights({
+                ...baseParams,
+                initialMarketCap: 30,
+                migrationMarketCap: 300,
+                liquidityWeights: [1, 2, 3],
+            })
+        ).toThrow('liquidityWeights must have 16 entries')
     })
 })
