@@ -4,6 +4,7 @@
 
 - [Partner Functions](#partner-functions)
     - [createConfig](#createConfig)
+    - [createConfig2](#createConfig2)
     - [createConfigWithTransferHook](#createConfigWithTransferHook)
     - [createConfigAndPool](#createConfigAndPool)
     - [createConfigAndPoolWithTransferHook](#createConfigAndPoolWithTransferHook)
@@ -78,6 +79,9 @@
     - [getPoolsFeesByCreator](#getPoolsFeesByCreator)
     - [getDammV1MigrationMetadata](#getDammV1MigrationMetadata)
     - [getTokenBadge](#getTokenBadge)
+    - [isTransferHookConfig](#isTransferHookConfig)
+    - [isTransferHookPool](#isTransferHookPool)
+    - [getConfigWithTransferHook](#getConfigWithTransferHook)
 
 - [Helper Functions](#helper-functions)
     - [deriveDbcPoolAddress](#deriveDbcPoolAddress)
@@ -173,7 +177,7 @@ interface CreateConfigParams {
         collectFeeMode: number // 0: QuoteToken, 1: OutputToken, 2: Compounding
         dynamicFee: number // 0: Disabled, 1: Enabled
         poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
-        compoundingFeeBps?: number // Required when collectFeeMode = 2 (Compounding), otherwise must be 0
+        compoundingFeeBps?: number // 0 to 10_000 when collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
     }
     poolCreationFee: BN // The pool creation fee
     partnerLiquidityVestingInfo: {
@@ -330,7 +334,10 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 **Migration and Token Type**
 
 - New configs must use DAMM v2 (`MigrationOption.MET_DAMM_V2`). DAMM v1 migration is deprecated for new configs and new pools. Existing DAMM v1 pools can still migrate.
-- Token-badge remaining account is required when the quote mint is not permissionless-supported. Use `deriveTokenBadgeAddress(quoteMint)` and pass it as `tokenBadge`. A token badge does not allow a non-zero transfer fee.
+- Token-badge remaining account is required when the quote mint is not permissionless-supported. Use `deriveTokenBadgeAddress(quoteMint)` and pass it as `tokenBadge`.
+- A quote mint with a zero transfer fee and a revoked transfer fee config authority is permissionless-supported. A fee is zero when its basis points are 0 or its maximum fee is 0. A non-zero transfer fee or a live transfer fee config authority is only accepted by `createConfig2`, and still needs a token badge when the mint is not otherwise permissionless-supported.
+- A Token-2022 config whose token update authority is `PartnerUpdateAuthority` or `PartnerUpdateAndMintAuthority` requires a non-default `feeClaimer`.
+- `createConfig` and `createConfigWithTransferHook` reject those quote mints. Use `createConfig2`.
 
 **Activation Type**
 
@@ -420,6 +427,68 @@ When creating a new configuration for a dynamic bonding curve, several validatio
     - `baseFeeMode` must be `FeeMarketCapSchedulerLinear` (3) or `FeeMarketCapSchedulerExponential` (4).
     - `endingBaseFeeBps` must be strictly less than the bonding curve's `endingFeeBps`.
 - For DAMM V1 migration, all migrated pool fee parameters are ignored.
+
+---
+
+### createConfig2
+
+Creates a config through `create_config2`. This is the instruction that accepts a base-mint transfer fee and a quote mint with a non-zero transfer fee or a live transfer fee config authority.
+
+`createConfig` is deprecated. It still creates a config with no base transfer fee, and the program rejects the quote mints above.
+
+**Function**
+
+```typescript
+async createConfig2(params: CreateConfig2Params): Promise<Transaction>
+```
+
+**Parameters**
+
+`CreateConfig2Params` is `CreateConfigParams` plus:
+
+```typescript
+transferFeeParameters?: {
+    transferFeeBasisPoints: number // 0 to 1000 (10%). The object always creates a TransferFeeConfig, including at 0
+    withheldAuthority: number // 0: Partner, 1: Creator
+    migratedTransferFeeAuthorityOption: number // 0: Immutable, 1: RevokeZeroFee, 2: Creator, 3: Partner
+} | null
+```
+
+Pass `null` or omit the field when the base mint has no transfer fee, including when only the quote mint has one.
+
+`createConfigAndPool` and `createConfigAndPoolWithFirstBuy` always call `createConfig2`. Omitting `transferFeeParameters` is the same as passing `null`.
+
+**Returns**
+
+- A transaction that can be signed and sent to the network. The `config` account must sign.
+
+**Example**
+
+```typescript
+const transaction = await client.partner.createConfig2({
+    payer,
+    config: configKeypair.publicKey,
+    feeClaimer,
+    leftoverReceiver,
+    quoteMint,
+    ...configParameters,
+    transferFeeParameters: {
+        transferFeeBasisPoints: 250,
+        withheldAuthority: TransferFeeWithheldAuthority.Partner,
+        migratedTransferFeeAuthorityOption:
+            MigratedTransferFeeAuthorityOption.Immutable,
+    },
+})
+```
+
+**Notes**
+
+- Passing `transferFeeParameters` requires `tokenType` Token-2022 and basis points of at most 1000. The base mint is created with that fee and `maximumFee = u64::MAX`, and `PoolConfig.transferFeeFlag` is set to 1. This includes 0 basis points. 0 basis points are rejected when `migratedTransferFeeAuthorityOption` is `Immutable` or `RevokeZeroFee`.
+- A partner withheld authority or a partner migrated authority requires a non-default `feeClaimer`.
+- When `transferFeeParameters` is set, or the quote mint has a non-zero transfer fee or a live transfer fee config authority, the config must use a constant token supply (`preMigrationTokenSupply == postMigrationTokenSupply`), no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`.
+- New configs are `PoolConfig.version` 1. A legacy config (`version` 0) cannot initialize a pool on a quote mint with a non-zero transfer fee or a live transfer fee config authority. Transfer-hook pool initialization rejects those quote mints at any version.
+- A base or quote transfer fee lowers what DAMM v2 receives at migration. The program keeps the migration price at or below the budget ratio by depositing the side that lost the larger share as is and scaling the other side: quote rounds down, base rounds up. The migrated pool starts with less liquidity. The amount not deposited is added to the protocol migration fee.
+- Swap quotes read the base transfer fee from `config.transferFeeFlag` unless `baseMint` is passed. Flag 1 means the config created a TransferFeeConfig. For a Token-2022 quote mint they throw unless `quoteMint` and `currentEpoch` are passed. `getSwapQuoteTransferFees(connection, config, { baseMint })` fetches the quote mint, the base mint, and the current epoch. See [swapQuote2](#swapQuote2).
 
 ---
 
@@ -547,7 +616,7 @@ interface CreateConfigAndPoolParams {
         collectFeeMode: number // 0: QuoteToken, 1: OutputToken, 2: Compounding
         dynamicFee: number // 0: Disabled, 1: Enabled
         poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
-        compoundingFeeBps?: number // Required when collectFeeMode = 2 (Compounding), otherwise must be 0
+        compoundingFeeBps?: number // 0 to 10_000 when collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
     }
     migratedPoolBaseFeeMode: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeTimeSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams: {
@@ -845,7 +914,7 @@ interface CreateConfigAndPoolWithFirstBuyParams {
         collectFeeMode: number // 0: QuoteToken, 1: OutputToken, 2: Compounding
         dynamicFee: number // 0: Disabled, 1: Enabled
         poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
-        compoundingFeeBps?: number // Required when collectFeeMode = 2 (Compounding), otherwise must be 0
+        compoundingFeeBps?: number // 0 to 10_000 when collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
     }
     migratedPoolBaseFeeMode: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeTimeSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams: {
@@ -1455,7 +1524,7 @@ interface BuildCurveParams {
             collectFeeMode: MigratedCollectFeeMode // 0: QuoteToken, 1: OutputToken, 2: Compounding
             dynamicFee: DammV2DynamicFeeMode // 0: Disabled, 1: Enabled
             poolFeeBps: number // The pool fee in basis points
-            compoundingFeeBps?: number // Required when collectFeeMode = 2 (Compounding), otherwise must be 0
+            compoundingFeeBps?: number // 0 to 10_000 when collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
             baseFeeMode?: DammV2BaseFeeMode // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential
             marketCapFeeSchedulerParams?: {
                 // Configure for market cap-based fee scheduling
@@ -1690,7 +1759,7 @@ const transaction = await client.partner.createConfig({
     - `priceMultiple` is required and must be greater than 1.
     - The SDK derives on-chain `sqrtPriceStepBps` from `priceMultiple` and `numberOfPeriod`.
     - `poolFeeBps` must be greater than 0.
-- If `migratedPoolFee.collectFeeMode = MigratedCollectFeeMode.Compounding` (2), `compoundingFeeBps` must be `> 0` and `<= 10_000`; otherwise `compoundingFeeBps` must be `0`.
+- If `migratedPoolFee.collectFeeMode = MigratedCollectFeeMode.Compounding` (2), `compoundingFeeBps` must be `>= 0` and `<= 10_000`. `0` collects the trading fee in the quote token. Otherwise `compoundingFeeBps` must be `0`.
 - For DAMM V1 migration, all `migratedPoolFee` parameters are ignored and defaults are used.
 
 ---
@@ -2458,6 +2527,7 @@ const quote = await client.pool.swapQuote({
 - The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
 - The `slippageBps` parameter protects against slippage. Set it to a value slightly lower than the expected output.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+- `swapQuote` applies transfer fees the same way as `swapQuote2` for exact-in. `minimumAmountOut` is based on `excludedTransferFeeAmountOut`.
 
 ---
 
@@ -2634,7 +2704,7 @@ const transaction = await client.pool.swap2WithTransferHook({
 
 ### swapQuote2
 
-Gets the exact swap out quotation in between quote and base swaps with specific swap modes (ExactIn, ExactOut, PartialFill).
+Gets the exact swap out quotation in between quote and base swaps with specific swap modes (ExactIn, ExactOut, PartialFill). `currentPoint` is required. It is the chain's current point and is not taken from `activationPoint`.
 
 **Function**
 
@@ -2702,17 +2772,37 @@ const quote = await client.pool.swapQuote2({
 
 - The `swapMode` parameter determines the type of swap:
     - `SwapMode.ExactIn`: Swap exact input amount
-    - `SwapMode.PartialFill`: Allow partial fills
+    - `SwapMode.PartialFill`: Allow partial fills. The quote throws when rounding reconstructs an input larger than `amountIn`
     - `SwapMode.ExactOut`: Swap for exact output amount
 - The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
 - The `slippageBps` parameter protects against slippage. Set it to a value slightly lower than the expected output.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+- Transfer fees are applied before the curve on the input mint and after the curve on the output mint. `amountIn` and `amountOut` are the amounts the user pays and receives. `includedTransferFeeAmountIn` is what the user pays. `excludedTransferFeeAmountOut` is what the user receives. `minimumAmountOut` and `maximumAmountIn` use those amounts.
+- A base transfer fee is read from `config.transferFeeFlag` when `baseMint` is omitted. Flag 1 uses `config.transferFeeBasisPoints` and a maximum fee of `u64::MAX`. Pass `baseMint` to use the mint's epoch fee, or `baseTransferFeeBasisPoints` before the mint exists. `currentEpoch` is required when either mint is set. A fee with basis points of 0 or a maximum fee of 0 charges nothing.
+- When `config.quoteTokenFlag` is Token-2022, `quoteMint` and `currentEpoch` are required, because the program applies the quote mint's fee for the current epoch. `getSwapQuoteTransferFees` fetches that mint. Pass the pool's base mint to fetch its epoch fee too. With neither a Token-2022 quote mint nor a base mint, it returns an empty object:
+
+```typescript
+const quote = client.pool.swapQuote2({
+    virtualPool: virtualPoolState,
+    config: poolConfigState,
+    swapBaseForQuote: false,
+    amountIn,
+    slippageBps: 50,
+    hasReferral: false,
+    eligibleForFirstSwapWithMinFee: false,
+    currentPoint,
+    swapMode: SwapMode.ExactIn,
+    ...(await getSwapQuoteTransferFees(connection, poolConfigState, {
+        baseMint: virtualPoolState.poolState.baseMint,
+    })),
+})
+```
 
 ---
 
 ### getQuoteFromInputAmount
 
-Quotes a launch-state swap from an input amount before a pool exists. This is useful when a builder has a curve/config but has not deployed the pool yet.
+Quotes a swap from an input amount before a pool exists. `config` is a `ConfigParameters` value, which is what `buildCurve` returns and what `createConfig` takes. The quote is the pool `initialize_pool` would write at `currentPoint`: sqrt price is `sqrtStartPrice`, volatility is zero, and `hasSwap` is 0. Elapsed time is 0, so a fee scheduler is at the cliff fee.
 
 **Function**
 
@@ -2723,38 +2813,17 @@ getQuoteFromInputAmount(params: SimulatedQuoteFromInputAmountParams): SwapQuote2
 **Parameters**
 
 ```typescript
-interface SwapQuoteConfig {
-    poolFees: {
-        baseFee: {
-            cliffFeeNumerator: BN
-            firstFactor: number
-            secondFactor: BN
-            thirdFactor: BN
-            baseFeeMode: number
-        }
-        dynamicFee?: {
-            initialized?: number
-            binStep: number
-            variableFeeControl: number
-        } | null
-    }
-    collectFeeMode: number
-    sqrtStartPrice: BN
-    migrationQuoteThreshold: BN
-    curve: Array<{ sqrtPrice: BN; liquidity: BN }>
-    migrationSqrtPrice?: BN
-}
-
 type SimulatedQuoteFromInputAmountParams = {
-    config: SwapQuoteConfig
+    config: ConfigParameters
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     amountIn: BN
     swapMode?: SwapMode.ExactIn | SwapMode.PartialFill
     slippageBps?: number
     hasReferral?: boolean
-    currentPoint?: BN // Elapsed slot/timestamp since launch; defaults to 0
+    currentPoint?: BN // Initialization point. Omit to use 0
     eligibleForFirstSwapWithMinFee?: boolean
-}
+    quoteTokenFlag?: number // TokenType.Token2022 when the quote mint is Token-2022
+} & QuoteTransferFees
 ```
 
 **Returns**
@@ -2779,16 +2848,17 @@ const quote = client.pool.getQuoteFromInputAmount({
 
 **Notes**
 
-- `config` can be a `buildCurve` output or a fetched pool config from `client.state.getPoolConfig(...)`.
-- If `migrationSqrtPrice` is omitted, it is derived from `migrationQuoteThreshold`, `sqrtStartPrice`, and `curve`.
-- `SwapMode.ExactIn` throws if the full input cannot be absorbed by the launch-state curve. Use `SwapMode.PartialFill` to fill up to the available curve liquidity and inspect `amountLeft`.
-- `currentPoint` is only needed when simulating fee-scheduler or rate-limiter behavior after launch. It defaults to `0`, which represents the launch/cliff fee.
+- `migrationSqrtPrice` is computed the way `process_create_config` computes it, from `migrationQuoteThreshold`, `sqrtStartPrice`, and `curve`.
+- `SwapMode.ExactIn` throws if the full input cannot be absorbed by the curve. Use `SwapMode.PartialFill` to fill up to the available curve liquidity and inspect `amountLeft`.
+- Omit `currentPoint` to use 0 for both the activation point and the current point. A caller-supplied `currentPoint` is used for both, so elapsed time stays 0.
+- Pass `baseTransferFeeBasisPoints` when `createConfig2` sets a base transfer fee. Pass `quoteTokenFlag: TokenType.Token2022` for a Token-2022 quote mint; `quoteMint` and `currentEpoch` are then required.
+- An existing pool is quoted with `swapQuote2` once the pool exists. This function does not accept a decoded `PoolConfig`.
 
 ---
 
 ### getQuoteFromOutputAmount
 
-Quotes a launch-state exact-out swap before a pool exists. This is useful when a builder wants to know how much input is required to receive a target output amount.
+Quotes an exact-out swap before a pool exists, using the same initial pool as `getQuoteFromInputAmount`.
 
 **Function**
 
@@ -2800,14 +2870,15 @@ getQuoteFromOutputAmount(params: SimulatedQuoteFromOutputAmountParams): SwapQuot
 
 ```typescript
 type SimulatedQuoteFromOutputAmountParams = {
-    config: SwapQuoteConfig
+    config: ConfigParameters
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     amountOut: BN
     slippageBps?: number
     hasReferral?: boolean
-    currentPoint?: BN // Elapsed slot/timestamp since launch; defaults to 0
+    currentPoint?: BN // Initialization point. Omit to use 0
     eligibleForFirstSwapWithMinFee?: boolean
-}
+    quoteTokenFlag?: number
+} & QuoteTransferFees
 ```
 
 **Returns**
@@ -2817,10 +2888,12 @@ type SimulatedQuoteFromOutputAmountParams = {
 **Example**
 
 ```typescript
-const config = await client.state.getPoolConfig(configAddress)
+const curveConfig = buildCurve({
+    // token, fee, migration, liquidity distribution, and activation params
+})
 
 const quote = client.pool.getQuoteFromOutputAmount({
-    config,
+    config: curveConfig,
     swapBaseForQuote: false, // quote -> base
     amountOut: new BN(1_000_000_000_000),
     slippageBps: 100,
@@ -2832,8 +2905,7 @@ console.log('maximum input with slippage:', quote.maximumAmountIn?.toString())
 
 **Notes**
 
-- This helper uses the same exact-out quote math as `swapQuote2` with `SwapMode.ExactOut`, but simulates a fresh pool at `sqrtStartPrice`.
-- It throws if the requested output is not fillable by the launch-state curve.
+- It throws if the requested output is not fillable by the curve.
 - Amounts are returned in token base units. Use token decimals when displaying human-readable values.
 
 ---
@@ -2914,6 +2986,7 @@ const transaction = await client.migration.withdrawLeftover({
 
 - This function is called when there are leftover tokens in the Dynamic Bonding Curve pool after migration.
 - The leftover tokens will be sent to the `leftoverReceiver` that was specified in the config key.
+- When the base mint charges a transfer fee on the leftover, `leftoverReceiver` must sign the instruction.
 
 ---
 
@@ -3150,6 +3223,8 @@ const transaction = await client.migration.migrateToDammV2({
         - migration_metadata must have a matching virtual_pool
         - first_position_nft_mint must not equal second_position_nft_mint
     7. Exactly one remaining account must be provided (for the DAMM V2 config)
+- A version 0 config is rejected when the quote mint's current transfer fee is non-zero. Any other version with `transferFeeFlag` 1, or a quote mint that has a transfer fee or a live transfer fee config authority, must use a constant token supply, no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`.
+- On that path, `getTransferFeeMigrationPositionSplit` returns the second position's numerator and liquidity.
 - You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V2_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
 
 ---
@@ -4394,6 +4469,92 @@ type TokenBadge = {
 
 ```typescript
 const tokenBadge = await client.state.getTokenBadge(quoteMint)
+```
+
+---
+
+### isTransferHookConfig
+
+Checks whether a config account is a transfer-hook config.
+
+**Function**
+
+```typescript
+async isTransferHookConfig(configAddress: PublicKey | string): Promise<boolean>
+```
+
+**Parameters**
+
+```typescript
+configAddress: PublicKey | string // The address of the config account
+```
+
+**Returns**
+
+- `true` if the account is a `ConfigWithTransferHook`, `false` otherwise or if the account does not exist.
+
+**Example**
+
+```typescript
+const isTransferHookConfig =
+    await client.state.isTransferHookConfig(configAddress)
+```
+
+---
+
+### isTransferHookPool
+
+Checks whether a pool account is a transfer-hook pool.
+
+**Function**
+
+```typescript
+async isTransferHookPool(poolAddress: PublicKey | string): Promise<boolean>
+```
+
+**Parameters**
+
+```typescript
+poolAddress: PublicKey | string // The address of the pool account
+```
+
+**Returns**
+
+- `true` if the account is a `TransferHookPool`, `false` otherwise or if the account does not exist.
+
+**Example**
+
+```typescript
+const isTransferHookPool = await client.state.isTransferHookPool(poolAddress)
+```
+
+---
+
+### getConfigWithTransferHook
+
+Fetches a transfer-hook config account, including its transfer hook program.
+
+**Function**
+
+```typescript
+async getConfigWithTransferHook(configAddress: PublicKey | string): Promise<ConfigWithTransferHook | null>
+```
+
+**Parameters**
+
+```typescript
+configAddress: PublicKey | string // The address of the transfer-hook config account
+```
+
+**Returns**
+
+- The `ConfigWithTransferHook` account (`config` and `transferHookProgram`), or `null` if it does not exist.
+
+**Example**
+
+```typescript
+const configWithTransferHook =
+    await client.state.getConfigWithTransferHook(configAddress)
 ```
 
 ---

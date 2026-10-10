@@ -30,6 +30,15 @@ const client = new DynamicBondingCurveClient(connection, 'confirmed')
 
 Refer to the [docs](./docs.md) for how to use the functions.
 
+The package root exports the client, the curve builders, quotes, parameter builders, and address derivations. The ports of the program's curve, fee, and swap math are published separately and track the program version:
+
+```typescript
+import {
+    getFeeMode,
+    getSwapResult,
+} from '@meteora-ag/dynamic-bonding-curve-sdk/math'
+```
+
 ## Flow
 
 The generic flow of how Dynamic Bonding Curve works is as follows:
