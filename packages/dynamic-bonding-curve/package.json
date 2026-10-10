@@ -3,7 +3,6 @@
   "version": "2.0.0",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
-  "source": "src/index.ts",
   "types": "dist/index.d.ts",
   "author": "Dann Wee <dann@raccoons.dev>",
   "repository": {
@@ -24,9 +23,11 @@
   ],
   "files": [
     "dist",
+    "docs.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
-  "description": "A Typescript SDK for interacting with the Dynamic Bonding Curve on Meteora.",
+  "description": "A TypeScript SDK for interacting with the Dynamic Bonding Curve on Meteora.",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -55,7 +56,6 @@
     "@types/bn.js": "^5.1.6",
     "@types/node": "^25.0.3",
     "eslint": "^9.24.0",
-    "jito-ts": "^4.2.1",
     "tsup": "^8.4.0",
     "tsx": "^4.19.3",
     "vitest": "^3.2.7"

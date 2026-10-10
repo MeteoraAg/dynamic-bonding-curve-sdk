@@ -8,6 +8,8 @@
         "moduleResolution": "bundler",
         "esModuleInterop": true,
         "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
         "skipLibCheck": true
     },
     "include": ["src/**/*.ts", "tests/**/*.ts"],
