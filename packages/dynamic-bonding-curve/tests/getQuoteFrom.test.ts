@@ -1,68 +1,18 @@
 import { expect, test, describe } from 'vitest'
 import BN from 'bn.js'
 import {
-    ActivationType,
     BaseFeeMode,
     BuildCurveParams,
-    CollectFeeMode,
-    MigrationFeeOption,
-    MigrationOption,
     SwapMode,
-    TokenAuthorityOption,
-    TokenDecimal,
     TokenType,
     buildCurve,
     getQuoteFromInputAmount,
     getQuoteFromOutputAmount,
 } from '../src'
+import { curveBaseParams } from './utils/curve'
 
 const curveParams: BuildCurveParams = {
-    token: {
-        tokenType: TokenType.SPLToken,
-        tokenBaseDecimal: TokenDecimal.SIX,
-        tokenQuoteDecimal: TokenDecimal.NINE,
-        tokenAuthorityOption: TokenAuthorityOption.Immutable,
-        totalTokenSupply: 1_000_000_000,
-        leftover: 0,
-    },
-    fee: {
-        baseFeeParams: {
-            baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-            feeSchedulerParam: {
-                startingFeeBps: 100,
-                endingFeeBps: 100,
-                numberOfPeriod: 0,
-                totalDuration: 0,
-            },
-        },
-        dynamicFeeEnabled: false,
-        collectFeeMode: CollectFeeMode.QuoteToken,
-        creatorTradingFeePercentage: 0,
-        poolCreationFee: 0,
-        enableFirstSwapWithMinFee: false,
-    },
-    migration: {
-        migrationOption: MigrationOption.MET_DAMM_V2,
-        migrationFeeOption: MigrationFeeOption.FixedBps100,
-        migrationFee: {
-            feePercentage: 0,
-            creatorFeePercentage: 0,
-        },
-    },
-    liquidityDistribution: {
-        partnerLiquidityPercentage: 0,
-        partnerPermanentLockedLiquidityPercentage: 100,
-        creatorLiquidityPercentage: 0,
-        creatorPermanentLockedLiquidityPercentage: 0,
-    },
-    lockedVesting: {
-        totalLockedVestingAmount: 0,
-        numberOfVestingPeriod: 0,
-        cliffUnlockAmount: 0,
-        totalVestingDuration: 0,
-        cliffDurationFromMigrationTime: 0,
-    },
-    activationType: ActivationType.Slot,
+    ...curveBaseParams(),
     percentageSupplyOnMigration: 20,
     migrationQuoteThreshold: 10,
 }

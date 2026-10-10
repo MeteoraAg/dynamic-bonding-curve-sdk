@@ -546,8 +546,13 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
                 },
             })
 
-        expect(createConfigTx).toBeDefined()
-        expect(createPoolWithFirstBuyTx).toBeDefined()
+        const dbcInstructions = (tx: Transaction) =>
+            tx.instructions.filter((ix) =>
+                ix.programId.equals(dbcClient.program.programId)
+            )
+        expect(dbcInstructions(createConfigTx)).toHaveLength(1)
+        // initialize pool and the first buy
+        expect(dbcInstructions(createPoolWithFirstBuyTx)).toHaveLength(2)
 
         createConfigTx.feePayer = poolCreator.publicKey
 

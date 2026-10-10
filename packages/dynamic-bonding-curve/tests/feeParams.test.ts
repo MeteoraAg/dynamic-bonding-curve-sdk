@@ -44,9 +44,7 @@ describe('getFeeSchedulerParams', () => {
                     0,
                     0
                 )
-            ).toThrow(
-                /exceeds maximum allowed value|less than minimum allowed value/
-            )
+            ).toThrow('must be between 25 and 9900 bps')
         }
     )
 
@@ -106,6 +104,19 @@ describe('getFeeSchedulerParams', () => {
 })
 
 describe('getMigratedPoolMarketCapFeeSchedulerParams', () => {
+    test('rejects a time scheduler mode', () => {
+        expect(() =>
+            getMigratedPoolMarketCapFeeSchedulerParams(
+                1000,
+                100,
+                DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+                10,
+                1000,
+                3600
+            )
+        ).toThrow('must be FeeMarketCapSchedulerLinear')
+    })
+
     test('rejects an exponential ending fee that is not reachable', () => {
         expect(() =>
             getMigratedPoolMarketCapFeeSchedulerParams(

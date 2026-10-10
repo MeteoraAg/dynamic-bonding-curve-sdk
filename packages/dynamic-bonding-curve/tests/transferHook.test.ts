@@ -46,7 +46,6 @@ const TOKEN_URI =
 let partner: Keypair
 let poolCreator: Keypair
 let user: Keypair
-let creator: Keypair
 let dbcClient: DynamicBondingCurveClient
 
 describe('transfer hook SDK tests', { timeout: 90000 }, () => {
@@ -54,9 +53,8 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         partner = Keypair.generate()
         poolCreator = Keypair.generate()
         user = Keypair.generate()
-        creator = Keypair.generate()
 
-        for (const account of [partner, poolCreator, user, creator]) {
+        for (const account of [partner, poolCreator, user]) {
             await fundSol(connection, account.publicKey)
         }
 
@@ -92,7 +90,7 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
 
         const configWithTransferHook = await createDbcProgram(
             connection
-        ).program.account.configWithTransferHook.fetch(config.publicKey)
+        ).account.configWithTransferHook.fetch(config.publicKey)
         expect(configWithTransferHook.transferHookProgram.toString()).toBe(
             TRANSFER_HOOK_COUNTER_PROGRAM_ID.toString()
         )
@@ -161,7 +159,7 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
     })
 
     test('swap2WithTransferHook executes the hook program', async () => {
-        const { config, baseMint, pool } = await createPoolAndHookAccounts()
+        const { baseMint, pool } = await createPoolAndHookAccounts()
         const amountIn = new BN(1)
         const params: Swap2Params = {
             swapMode: SwapMode.ExactIn,
@@ -180,7 +178,6 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
 
         expect(await dbcClient.state.getPool(pool)).not.toBeNull()
         expect(await getCounterValue(connection, baseMint.publicKey)).toBe(1)
-        expect(config.publicKey).toBeDefined()
     })
 
     test('swap2WithTransferHook skips base referral hook accounts when the referral fee is in quote', async () => {
@@ -386,7 +383,6 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         const pool = derivePool(config.publicKey, baseMint.publicKey)
         expect(await dbcClient.state.getPool(pool)).not.toBeNull()
         expect(await getCounterValue(connection, baseMint.publicKey)).toBe(2)
-        expect(creator.publicKey).toBeDefined()
     })
 
     test('createConfigAndPoolWithFirstBuyWithTransferHook returns config and bundled pool transactions', async () => {

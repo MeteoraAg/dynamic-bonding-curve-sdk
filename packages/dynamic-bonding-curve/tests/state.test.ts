@@ -126,6 +126,7 @@ describe('state query endpoints', { timeout: 90000 }, () => {
             poolFeeBreakdown,
             poolsFeesByConfig,
             poolsFeesByCreator,
+            poolSurplus,
         ] = await Promise.all([
             dbcClient.state.getPoolConfig(config),
             dbcClient.state.getPool(pool),
@@ -142,6 +143,7 @@ describe('state query endpoints', { timeout: 90000 }, () => {
             dbcClient.state.getPoolFeeBreakdown(pool),
             dbcClient.state.getPoolsFeesByConfig(config),
             dbcClient.state.getPoolsFeesByCreator(creator),
+            dbcClient.state.getPoolSurplus(pool),
         ])
 
         expect(configState).not.toBeNull()
@@ -165,14 +167,16 @@ describe('state query endpoints', { timeout: 90000 }, () => {
         expect(poolFeeBreakdown.partner.unclaimedQuoteFee.isZero()).toBe(true)
         expectPoolFeeListToContain(poolsFeesByConfig, pool)
         expectPoolFeeListToContain(poolsFeesByCreator, pool)
+        expect(poolSurplus.total.isZero()).toBe(true)
+        expect(poolSurplus.partnerWithdrawn).toBe(false)
+        expect(poolSurplus.creatorWithdrawn).toBe(false)
 
-        // metadata getters: none created here, so the lists are empty
         const [poolMetadata, partnerMetadata] = await Promise.all([
             dbcClient.state.getPoolMetadata(pool),
             dbcClient.state.getPartnerMetadata(owner),
         ])
-        expect(Array.isArray(poolMetadata)).toBe(true)
-        expect(Array.isArray(partnerMetadata)).toBe(true)
+        expect(poolMetadata).toBeNull()
+        expect(partnerMetadata).toBeNull()
     }
 
     async function createStandardConfigAndPool(

@@ -1,67 +1,14 @@
-import { expect, test, describe } from 'vitest'
+import { test, describe } from 'vitest'
 import { buildCurveWithLiquidityWeights } from '../src/helpers'
-import {
-    ActivationType,
-    BuildCurveBaseParams,
-    CollectFeeMode,
-    BaseFeeMode,
-    MigrationFeeOption,
-    MigrationOption,
-    TokenDecimal,
-    TokenType,
-    TokenAuthorityOption,
-} from '../src'
+import { TokenDecimal, TokenType, TokenAuthorityOption } from '../src'
 import Decimal from 'decimal.js'
+import { curveBaseParams, expectProgramValidCurve } from './utils/curve'
 
 describe('buildCurveWithLiquidityWeights tests', () => {
-    const baseParams: BuildCurveBaseParams = {
-        token: {
-            tokenType: TokenType.SPLToken,
-            tokenBaseDecimal: TokenDecimal.SIX,
-            tokenQuoteDecimal: TokenDecimal.NINE,
-            tokenAuthorityOption: TokenAuthorityOption.Immutable,
-            totalTokenSupply: 1000000000,
-            leftover: 1000,
-        },
-        fee: {
-            baseFeeParams: {
-                baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-                feeSchedulerParam: {
-                    startingFeeBps: 100,
-                    endingFeeBps: 100,
-                    numberOfPeriod: 0,
-                    totalDuration: 0,
-                },
-            },
-            dynamicFeeEnabled: true,
-            collectFeeMode: CollectFeeMode.QuoteToken,
-            creatorTradingFeePercentage: 0,
-            poolCreationFee: 1,
-            enableFirstSwapWithMinFee: false,
-        },
-        migration: {
-            migrationOption: MigrationOption.MET_DAMM_V2,
-            migrationFeeOption: MigrationFeeOption.FixedBps100,
-            migrationFee: {
-                feePercentage: 0,
-                creatorFeePercentage: 0,
-            },
-        },
-        liquidityDistribution: {
-            partnerLiquidityPercentage: 0,
-            partnerPermanentLockedLiquidityPercentage: 100,
-            creatorLiquidityPercentage: 0,
-            creatorPermanentLockedLiquidityPercentage: 0,
-        },
-        lockedVesting: {
-            totalLockedVestingAmount: 0,
-            numberOfVestingPeriod: 0,
-            cliffUnlockAmount: 0,
-            totalVestingDuration: 0,
-            cliffDurationFromMigrationTime: 0,
-        },
-        activationType: ActivationType.Slot,
-    }
+    const baseParams = curveBaseParams({
+        token: { leftover: 1000 },
+        fee: { dynamicFeeEnabled: true },
+    })
 
     test('build curve with liquidity weights 1.2^n', () => {
         const liquidityWeights: number[] = []
@@ -80,7 +27,7 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
         const config = buildCurveWithLiquidityWeights(curveGraphParams)
 
-        expect(config).toBeDefined()
+        expectProgramValidCurve(config)
     })
 
     test('build curve with liquidity weights 0.6^n', () => {
@@ -100,7 +47,7 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
         const config = buildCurveWithLiquidityWeights(curveGraphParams)
 
-        expect(config).toBeDefined()
+        expectProgramValidCurve(config)
     })
 
     test('build curve with liquidity weights v1', () => {
@@ -125,14 +72,6 @@ describe('buildCurveWithLiquidityWeights tests', () => {
                 totalTokenSupply: 1000000000,
                 leftover: 200000000,
             },
-            migration: {
-                migrationOption: MigrationOption.MET_DAMM_V2,
-                migrationFeeOption: MigrationFeeOption.FixedBps100,
-                migrationFee: {
-                    feePercentage: 0,
-                    creatorFeePercentage: 0,
-                },
-            },
             lockedVesting: {
                 totalLockedVestingAmount: 10000000,
                 numberOfVestingPeriod: 1,
@@ -147,7 +86,7 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
         const config = buildCurveWithLiquidityWeights(curveGraphParams)
 
-        expect(config).toBeDefined()
+        expectProgramValidCurve(config)
     })
 
     test('build curve with liquidity weights v2', () => {
@@ -166,14 +105,6 @@ describe('buildCurveWithLiquidityWeights tests', () => {
                 totalTokenSupply: 100000000,
                 leftover: 50000000,
             },
-            migration: {
-                migrationOption: MigrationOption.MET_DAMM_V2,
-                migrationFeeOption: MigrationFeeOption.FixedBps100,
-                migrationFee: {
-                    feePercentage: 0,
-                    creatorFeePercentage: 0,
-                },
-            },
             initialMarketCap: 50,
             migrationMarketCap: 100000,
             liquidityWeights,
@@ -181,6 +112,6 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
         const config = buildCurveWithLiquidityWeights(curveGraphParams)
 
-        expect(config).toBeDefined()
+        expectProgramValidCurve(config)
     })
 })

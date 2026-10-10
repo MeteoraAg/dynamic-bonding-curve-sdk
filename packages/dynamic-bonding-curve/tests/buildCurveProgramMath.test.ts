@@ -14,18 +14,12 @@ import {
     getTotalVestingAmount,
 } from '../src/helpers'
 import {
-    ActivationType,
-    BaseFeeMode,
-    BuildCurveBaseParams,
-    CollectFeeMode,
     ConfigParameters,
     MigratedCollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
-    TokenAuthorityOption,
-    TokenDecimal,
-    TokenType,
 } from '../src'
+import { curveBaseParams } from './utils/curve'
 
 function programSupplyGap(config: ConfigParameters): { gap: BN } {
     const sqrtMigrationPrice = getMigrationThresholdPrice(
@@ -66,61 +60,20 @@ describe('buildCurve math matches program migration math', () => {
         MigratedCollectFeeMode.Compounding,
     ]
 
-    const baseParams = (
-        collectFeeMode: MigratedCollectFeeMode
-    ): BuildCurveBaseParams => ({
-        token: {
-            tokenType: TokenType.SPLToken,
-            tokenBaseDecimal: TokenDecimal.SIX,
-            tokenQuoteDecimal: TokenDecimal.NINE,
-            tokenAuthorityOption: TokenAuthorityOption.Immutable,
-            totalTokenSupply: 1_000_000_000,
-            leftover: 1_000,
-        },
-        fee: {
-            baseFeeParams: {
-                baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-                feeSchedulerParam: {
-                    startingFeeBps: 100,
-                    endingFeeBps: 100,
-                    numberOfPeriod: 0,
-                    totalDuration: 0,
+    const baseParams = (collectFeeMode: MigratedCollectFeeMode) =>
+        curveBaseParams({
+            token: { leftover: 1_000 },
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM_V2,
+                migrationFeeOption: MigrationFeeOption.Customizable,
+                migrationFee: { feePercentage: 3, creatorFeePercentage: 0 },
+                migratedPoolFee: {
+                    collectFeeMode,
+                    dynamicFee: 0,
+                    poolFeeBps: 100,
                 },
             },
-            dynamicFeeEnabled: false,
-            collectFeeMode: CollectFeeMode.QuoteToken,
-            creatorTradingFeePercentage: 0,
-            poolCreationFee: 0,
-            enableFirstSwapWithMinFee: false,
-        },
-        migration: {
-            migrationOption: MigrationOption.MET_DAMM_V2,
-            migrationFeeOption: MigrationFeeOption.Customizable,
-            migrationFee: {
-                feePercentage: 3,
-                creatorFeePercentage: 0,
-            },
-            migratedPoolFee: {
-                collectFeeMode,
-                dynamicFee: 0,
-                poolFeeBps: 100,
-            },
-        },
-        liquidityDistribution: {
-            partnerLiquidityPercentage: 0,
-            partnerPermanentLockedLiquidityPercentage: 100,
-            creatorLiquidityPercentage: 0,
-            creatorPermanentLockedLiquidityPercentage: 0,
-        },
-        lockedVesting: {
-            totalLockedVestingAmount: 0,
-            numberOfVestingPeriod: 0,
-            cliffUnlockAmount: 0,
-            totalVestingDuration: 0,
-            cliffDurationFromMigrationTime: 0,
-        },
-        activationType: ActivationType.Timestamp,
-    })
+        })
 
     const liquidityWeights = Array.from({ length: 16 }, (_, i) =>
         new Decimal(1.2).pow(i).toNumber()

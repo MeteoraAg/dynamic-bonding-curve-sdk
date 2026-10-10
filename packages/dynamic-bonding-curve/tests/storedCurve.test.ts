@@ -5,6 +5,7 @@ import {
     getBaseTokenForSwap,
     getCurveBreakdown,
     getMigrationThresholdPrice,
+    getQuoteReserveFromNextSqrtPrice,
     getSwapAmountWithBuffer,
     MAX_CURVE_POINT,
 } from '../src'
@@ -66,6 +67,13 @@ describe('stored curve padding', () => {
                     config.curve
                 )
             )
+        ).toBe(true)
+
+        expect(
+            getQuoteReserveFromNextSqrtPrice(migrationSqrtPrice, {
+                curve: stored,
+                sqrtStartPrice: config.sqrtStartPrice,
+            }).eq(config.migrationQuoteThreshold)
         ).toBe(true)
 
         const breakdown = getCurveBreakdown(

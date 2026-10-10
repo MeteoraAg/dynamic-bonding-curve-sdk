@@ -185,7 +185,7 @@ export async function createDbcTokenBadge(
     operator: Keypair,
     tokenMint: PublicKey
 ): Promise<PublicKey> {
-    const program = createDbcProgram(connection).program
+    const program = createDbcProgram(connection)
     const operatorPda = deriveOperatorAddress(
         operator.publicKey,
         DYNAMIC_BONDING_CURVE_PROGRAM_ID

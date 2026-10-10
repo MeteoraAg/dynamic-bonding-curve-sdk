@@ -92,12 +92,19 @@ describe(
             expect(tx.instructions.length).toBeGreaterThan(0)
         })
 
-        test('withdrawLeftover builds a transaction', async () => {
+        test('withdrawLeftover does not ask the leftover receiver to sign for a mint without a transfer fee', async () => {
             const tx = await dbcClient.migration.withdrawLeftover({
                 pool,
                 payer: partner.publicKey,
             })
-            expect(tx.instructions.length).toBeGreaterThan(0)
+            const withdrawIx = tx.instructions.find((ix) =>
+                ix.programId.equals(dbcClient.program.programId)
+            )
+            expect(withdrawIx).toBeDefined()
+            const leftoverReceiver = withdrawIx!.keys.find((key) =>
+                key.pubkey.equals(partner.publicKey)
+            )
+            expect(leftoverReceiver?.isSigner).toBe(false)
         })
 
         test('createDammV1MigrationMetadata builds a transaction', async () => {
@@ -158,9 +165,21 @@ describe(
                 dammConfig: dammV2Config,
                 payer: poolCreator.publicKey,
             })
-            expect(result.transaction.instructions.length).toBeGreaterThan(0)
-            expect(result.firstPositionNftKeypair).toBeDefined()
-            expect(result.secondPositionNftKeypair).toBeDefined()
+            const migrateIx = result.transaction.instructions.find((ix) =>
+                ix.programId.equals(dbcClient.program.programId)
+            )
+            expect(migrateIx).toBeDefined()
+            // the DAMM v2 config is remaining account 0, after the 25 named accounts
+            expect(migrateIx!.keys[25].pubkey.equals(dammV2Config)).toBe(true)
+            for (const keypair of [
+                result.firstPositionNftKeypair,
+                result.secondPositionNftKeypair,
+            ]) {
+                const nftMint = migrateIx!.keys.find((key) =>
+                    key.pubkey.equals(keypair.publicKey)
+                )
+                expect(nftMint?.isSigner).toBe(true)
+            }
         })
 
         test('partnerWithdrawSurplus builds a transaction', async () => {

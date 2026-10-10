@@ -11,10 +11,7 @@ import {
 } from '@solana/spl-token'
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
-    ActivationType,
-    BaseFeeMode,
     buildCurve,
-    CollectFeeMode,
     deriveDammV2PoolAddress,
     deriveDbcPoolAddress,
     deriveDbcPoolAuthority,
@@ -38,6 +35,7 @@ import {
     createStockQuoteMint,
     mintToken2022,
 } from './utils/tokenBadgeFlow'
+import { constantFee, curveBaseParams } from './utils/curve'
 
 const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
 const TOKEN_NAME = 'TEST'
@@ -49,52 +47,20 @@ const QUOTE_DECIMALS = TokenDecimal.SIX
 
 function buildBadgedQuoteCurveConfig() {
     return buildCurve({
-        token: {
-            tokenType: TokenType.Token2022,
-            tokenBaseDecimal: TokenDecimal.SIX,
-            tokenQuoteDecimal: QUOTE_DECIMALS,
-            tokenAuthorityOption: TokenAuthorityOption.PartnerUpdateAuthority,
-            totalTokenSupply: 1_000_000_000,
-            leftover: 0,
-        },
-        fee: {
-            baseFeeParams: {
-                baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-                feeSchedulerParam: {
-                    startingFeeBps: 25,
-                    endingFeeBps: 25,
-                    numberOfPeriod: 0,
-                    totalDuration: 0,
-                },
+        ...curveBaseParams({
+            token: {
+                tokenType: TokenType.Token2022,
+                tokenQuoteDecimal: QUOTE_DECIMALS,
+                tokenAuthorityOption:
+                    TokenAuthorityOption.PartnerUpdateAuthority,
             },
-            dynamicFeeEnabled: false,
-            collectFeeMode: CollectFeeMode.QuoteToken,
-            creatorTradingFeePercentage: 0,
-            poolCreationFee: 0,
-            enableFirstSwapWithMinFee: false,
-        },
-        migration: {
-            migrationOption: MigrationOption.MET_DAMM_V2,
-            migrationFeeOption: MigrationFeeOption.FixedBps25,
-            migrationFee: {
-                feePercentage: 0,
-                creatorFeePercentage: 0,
+            fee: { baseFeeParams: constantFee(25) },
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM_V2,
+                migrationFeeOption: MigrationFeeOption.FixedBps25,
+                migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
             },
-        },
-        liquidityDistribution: {
-            partnerLiquidityPercentage: 0,
-            partnerPermanentLockedLiquidityPercentage: 100,
-            creatorLiquidityPercentage: 0,
-            creatorPermanentLockedLiquidityPercentage: 0,
-        },
-        lockedVesting: {
-            totalLockedVestingAmount: 0,
-            numberOfVestingPeriod: 0,
-            cliffUnlockAmount: 0,
-            totalVestingDuration: 0,
-            cliffDurationFromMigrationTime: 0,
-        },
-        activationType: ActivationType.Timestamp,
+        }),
         percentageSupplyOnMigration: 20,
         migrationQuoteThreshold: MIGRATION_QUOTE_THRESHOLD,
     })

@@ -10,19 +10,15 @@ import {
     getMigrationThresholdPrice,
 } from '../src/helpers/migration'
 import {
-    ActivationType,
-    BaseFeeMode,
     buildCurve,
     calculateTransferFeeExcludedAmount,
     calculateTransferFeeIncludedAmount,
-    CollectFeeMode,
     DynamicBondingCurveClient,
     MigratedCollectFeeMode,
     MigratedTransferFeeAuthorityOption,
     MigrationFeeOption,
     MigrationOption,
     TokenAuthorityOption,
-    TokenDecimal,
     TokenType,
     TransferFeeWithheldAuthority,
     isZeroTransferFee,
@@ -34,60 +30,23 @@ import {
 import { validateTransferFeeRestrictions } from '../src/helpers/validation'
 import type { Mint } from '@solana/spl-token'
 import { MAX_BASE_TRANSFER_FEE_BPS, U64_MAX } from '../src/constants'
+import { curveBaseParams } from './utils/curve'
 
 const baseCurve = buildCurve({
-    token: {
-        tokenType: TokenType.Token2022,
-        tokenBaseDecimal: TokenDecimal.SIX,
-        tokenQuoteDecimal: TokenDecimal.NINE,
-        tokenAuthorityOption: TokenAuthorityOption.Immutable,
-        totalTokenSupply: 1_000_000_000,
-        leftover: 0,
-    },
-    fee: {
-        baseFeeParams: {
-            baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-            feeSchedulerParam: {
-                startingFeeBps: 100,
-                endingFeeBps: 100,
-                numberOfPeriod: 0,
-                totalDuration: 0,
+    ...curveBaseParams({
+        token: { tokenType: TokenType.Token2022 },
+        migration: {
+            migrationOption: MigrationOption.MET_DAMM_V2,
+            migrationFeeOption: MigrationFeeOption.Customizable,
+            migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
+            migratedPoolFee: {
+                collectFeeMode: MigratedCollectFeeMode.Compounding,
+                dynamicFee: 0,
+                poolFeeBps: 100,
+                compoundingFeeBps: 0,
             },
         },
-        dynamicFeeEnabled: false,
-        collectFeeMode: CollectFeeMode.QuoteToken,
-        creatorTradingFeePercentage: 0,
-        poolCreationFee: 0,
-        enableFirstSwapWithMinFee: false,
-    },
-    migration: {
-        migrationOption: MigrationOption.MET_DAMM_V2,
-        migrationFeeOption: MigrationFeeOption.Customizable,
-        migrationFee: {
-            feePercentage: 0,
-            creatorFeePercentage: 0,
-        },
-        migratedPoolFee: {
-            collectFeeMode: MigratedCollectFeeMode.Compounding,
-            dynamicFee: 0,
-            poolFeeBps: 100,
-            compoundingFeeBps: 0,
-        },
-    },
-    liquidityDistribution: {
-        partnerPermanentLockedLiquidityPercentage: 100,
-        partnerLiquidityPercentage: 0,
-        creatorPermanentLockedLiquidityPercentage: 0,
-        creatorLiquidityPercentage: 0,
-    },
-    lockedVesting: {
-        totalLockedVestingAmount: 0,
-        numberOfVestingPeriod: 0,
-        cliffUnlockAmount: 0,
-        totalVestingDuration: 0,
-        cliffDurationFromMigrationTime: 0,
-    },
-    activationType: ActivationType.Timestamp,
+    }),
     percentageSupplyOnMigration: 20,
     migrationQuoteThreshold: 50,
 })
@@ -136,13 +95,13 @@ describe('transfer fee math', () => {
     test('rejects an included amount above u64', () => {
         expect(() =>
             calculateTransferFeeIncludedAmount(transferFee, U64_MAX)
-        ).toThrow('Math overflow')
+        ).toThrow('Math operation overflow')
         expect(() =>
             calculateTransferFeeIncludedAmount(
                 { transferFeeBasisPoints: 10_000, maximumFee: new BN(1) },
                 U64_MAX
             )
-        ).toThrow('Math overflow')
+        ).toThrow('Math operation overflow')
     })
 
     test('treats a zero maximum fee as no fee', () => {
