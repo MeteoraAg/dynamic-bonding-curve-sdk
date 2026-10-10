@@ -3,26 +3,27 @@ import {
     Commitment,
     Connection,
     PublicKey,
-    SYSVAR_INSTRUCTIONS_PUBKEY,
     Transaction,
     TransactionInstruction,
 } from '@solana/web3.js'
 import {
     deriveDbcPoolAddress,
-    createDbcProgram,
     deriveDbcPoolAuthority,
     deriveDbcTokenVaultAddress,
     deriveMintMetadata,
-    getCurrentPoint,
     getOrCreateATAInstruction,
     getTokenProgram,
     getTokenType,
     getTokenBadgeRemainingAccounts,
+    deriveTokenBadgeAddress,
+    hasTransferFeeOrConfigAuthority,
+    isSupportedQuoteMint,
     unwrapSOLInstruction,
+    isNativeSol,
     validateConfigParameters,
     validateSwapAmount,
     validateTransferHookProgram,
-    wrapSOLInstruction,
+    validateTransferHookProgramExecutable,
     findAssociatedTokenAddress,
 } from '../helpers'
 import type { Program } from '@coral-xyz/anchor'
@@ -31,7 +32,7 @@ import {
     ActivationType,
     AccountsType,
     BaseFee,
-    BaseFeeMode,
+    CollectFeeMode,
     ConfigParameters,
     CreatePoolParams,
     CreatePoolWithTransferHookParams,
@@ -43,6 +44,7 @@ import {
     SwapMode,
     TokenType,
     TradeDirection,
+    TransferFeeParameters,
     TransferHookAccountsInfo,
     VirtualPool,
 } from '../types'
@@ -55,10 +57,14 @@ import {
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     unpackMint,
+    type Mint,
 } from '@solana/spl-token'
-import { isRateLimiterApplied } from '../math'
+import { getFeeMode } from '../math/feeMath'
+import { getEpochTransferFee } from '../math/transferFee'
 import BN from 'bn.js'
+import type { DbcClientContext } from '../client'
 import { StateService } from './state'
+import { prepareSwapAccounts, rateLimiterApplied } from '../helpers/swap'
 
 type ClaimTradingFeeAccountParams = {
     payer: PublicKey
@@ -76,6 +82,13 @@ type ClaimTradingFeeSolAccountParams = ClaimTradingFeeAccountParams & {
 
 type AccountsTypeValue = (typeof AccountsType)[keyof typeof AccountsType]
 
+export type TransferHookTransfer = {
+    accountsType: AccountsTypeValue
+    source: PublicKey
+    destination: PublicKey
+    authority: PublicKey
+}
+
 export class DynamicBondingCurveProgram {
     program: Program<DynamicBondingCurveIDL>
     protected connection: Connection
@@ -83,20 +96,23 @@ export class DynamicBondingCurveProgram {
     protected commitment: Commitment
     protected state: StateService
 
-    constructor(connection: Connection, commitment: Commitment) {
-        const { program } = createDbcProgram(connection, commitment)
-        this.program = program
-        this.connection = connection
+    constructor(client: DbcClientContext) {
+        this.state = client.state
+        this.program = client.program
+        this.connection = client.connection
         this.poolAuthority = deriveDbcPoolAuthority()
-        this.commitment = commitment
-        this.state = new StateService(connection, commitment)
+        this.commitment = client.commitment
     }
 
     protected async getPoolWithConfig(pool: PublicKey | string): Promise<{
         virtualPool: VirtualPool
         poolConfigState: PoolConfig
+        isTransferHookPool: boolean
     }> {
-        const virtualPool = await this.state.getPool(pool)
+        const [virtualPool, isTransferHookPool] = await Promise.all([
+            this.state.getPool(pool),
+            this.state.isTransferHookPool(pool),
+        ])
         if (!virtualPool) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
@@ -108,7 +124,7 @@ export class DynamicBondingCurveProgram {
             throw new Error(`Pool config not found for virtual pool`)
         }
 
-        return { virtualPool, poolConfigState }
+        return { virtualPool, poolConfigState, isTransferHookPool }
     }
 
     protected prepareSwapParams(
@@ -141,6 +157,65 @@ export class DynamicBondingCurveProgram {
         }
     }
 
+    protected async getQuoteMintState(quoteMint: PublicKey): Promise<{
+        mint: Mint
+        tokenProgram: PublicKey
+        currentEpoch: number
+    }> {
+        const [accountInfo, { epoch }] = await Promise.all([
+            this.connection.getAccountInfo(quoteMint, this.commitment),
+            this.connection.getEpochInfo(this.commitment),
+        ])
+        if (!accountInfo) {
+            throw new Error(`Quote mint not found: ${quoteMint.toBase58()}`)
+        }
+        return {
+            mint: unpackMint(quoteMint, accountInfo, accountInfo.owner),
+            tokenProgram: accountInfo.owner,
+            currentEpoch: epoch,
+        }
+    }
+
+    protected async resolveQuoteMintTokenBadge(
+        quoteMint: Mint,
+        currentEpoch: number,
+        tokenBadge?: PublicKey,
+        allowQuoteTransferFee = true
+    ): Promise<PublicKey | undefined> {
+        if (isSupportedQuoteMint(quoteMint, currentEpoch)) {
+            return tokenBadge
+        }
+
+        if (
+            !allowQuoteTransferFee &&
+            hasTransferFeeOrConfigAuthority(quoteMint, currentEpoch)
+        ) {
+            throw new Error(
+                `Invalid quote mint ${quoteMint.address.toBase58()}`
+            )
+        }
+
+        const expectedTokenBadge = deriveTokenBadgeAddress(quoteMint.address)
+        if (tokenBadge && !tokenBadge.equals(expectedTokenBadge)) {
+            throw new Error(
+                `Invalid token badge for quote mint ${quoteMint.address.toBase58()}`
+            )
+        }
+        const tokenBadgeAccount = await this.connection.getAccountInfo(
+            expectedTokenBadge,
+            this.commitment
+        )
+        if (
+            !tokenBadgeAccount ||
+            !tokenBadgeAccount.owner.equals(this.program.programId)
+        ) {
+            throw new Error(
+                `Quote mint ${quoteMint.address.toBase58()} requires an initialized token badge`
+            )
+        }
+        return expectedTokenBadge
+    }
+
     protected async buildCreateConfigTx(
         configParam: ConfigParameters,
         config: PublicKey,
@@ -150,7 +225,22 @@ export class DynamicBondingCurveProgram {
         payer: PublicKey,
         tokenBadge?: PublicKey
     ): Promise<Transaction> {
-        validateConfigParameters({ ...configParam, leftoverReceiver })
+        validateConfigParameters(
+            { ...configParam, leftoverReceiver },
+            { feeClaimer }
+        )
+        const { mint, currentEpoch } = await this.getQuoteMintState(quoteMint)
+        if (hasTransferFeeOrConfigAuthority(mint, currentEpoch)) {
+            throw new Error(
+                'Quote mint has a non-zero transfer fee or a live transfer fee config authority, use createConfig2'
+            )
+        }
+        const resolvedTokenBadge = await this.resolveQuoteMintTokenBadge(
+            mint,
+            currentEpoch,
+            tokenBadge,
+            false
+        )
 
         return this.program.methods
             .createConfig(configParam)
@@ -161,7 +251,53 @@ export class DynamicBondingCurveProgram {
                 quoteMint,
                 payer,
             })
-            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
+            .remainingAccounts(
+                getTokenBadgeRemainingAccounts(resolvedTokenBadge)
+            )
+            .transaction()
+    }
+
+    protected async buildCreateConfig2Tx(
+        configParam: ConfigParameters,
+        config: PublicKey,
+        feeClaimer: PublicKey,
+        leftoverReceiver: PublicKey,
+        quoteMint: PublicKey,
+        payer: PublicKey,
+        transferFeeParameters: TransferFeeParameters | null,
+        tokenBadge?: PublicKey
+    ): Promise<Transaction> {
+        const { mint, currentEpoch } = await this.getQuoteMintState(quoteMint)
+        validateConfigParameters(
+            { ...configParam, leftoverReceiver },
+            {
+                transferFeeParameters,
+                quoteMintHasTransferFee: hasTransferFeeOrConfigAuthority(
+                    mint,
+                    currentEpoch
+                ),
+                quoteEpochTransferFee: getEpochTransferFee(mint, currentEpoch),
+                feeClaimer,
+            }
+        )
+        const resolvedTokenBadge = await this.resolveQuoteMintTokenBadge(
+            mint,
+            currentEpoch,
+            tokenBadge
+        )
+
+        return this.program.methods
+            .createConfig2(configParam, transferFeeParameters)
+            .accountsPartial({
+                config,
+                feeClaimer,
+                leftoverReceiver,
+                quoteMint,
+                payer,
+            })
+            .remainingAccounts(
+                getTokenBadgeRemainingAccounts(resolvedTokenBadge)
+            )
             .transaction()
     }
 
@@ -177,7 +313,29 @@ export class DynamicBondingCurveProgram {
     ): Promise<Transaction> {
         validateConfigParameters(
             { ...configParam, leftoverReceiver },
-            { isTransferHook: true, transferHookProgram }
+            { isTransferHook: true, transferHookProgram, feeClaimer }
+        )
+        const { mint, currentEpoch } = await this.getQuoteMintState(quoteMint)
+        if (hasTransferFeeOrConfigAuthority(mint, currentEpoch)) {
+            throw new Error(
+                'Quote mint has a non-zero transfer fee or a live transfer fee config authority'
+            )
+        }
+        if (
+            !(await validateTransferHookProgramExecutable(
+                this.connection,
+                transferHookProgram
+            ))
+        ) {
+            throw new Error(
+                `Transfer hook program ${transferHookProgram.toBase58()} is not an executable account`
+            )
+        }
+        const resolvedTokenBadge = await this.resolveQuoteMintTokenBadge(
+            mint,
+            currentEpoch,
+            tokenBadge,
+            false
         )
 
         return this.program.methods
@@ -190,7 +348,9 @@ export class DynamicBondingCurveProgram {
                 transferHookProgram,
                 payer,
             })
-            .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
+            .remainingAccounts(
+                getTokenBadgeRemainingAccounts(resolvedTokenBadge)
+            )
             .transaction()
     }
 
@@ -331,7 +491,8 @@ export class DynamicBondingCurveProgram {
     protected async buildCreatePoolTx(
         createPoolParam: CreatePoolParams,
         tokenType: TokenType,
-        quoteMint: PublicKey
+        quoteMint: PublicKey,
+        allowQuoteTransferFee = true
     ): Promise<Transaction> {
         const {
             baseMint,
@@ -348,11 +509,11 @@ export class DynamicBondingCurveProgram {
         const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
         const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
 
-        const quoteTokenType = await getTokenType(this.connection, quoteMint)
-        if (quoteTokenType === null) {
-            throw new Error(`Invalid quote mint: ${quoteMint.toString()}`)
-        }
-        const tokenQuoteProgram = getTokenProgram(quoteTokenType)
+        const {
+            mint,
+            tokenProgram: tokenQuoteProgram,
+            currentEpoch,
+        } = await this.getQuoteMintState(quoteMint)
 
         const baseParams: InitializePoolBaseParams = {
             name,
@@ -366,7 +527,12 @@ export class DynamicBondingCurveProgram {
             baseVault,
             quoteVault,
             quoteMint,
-            tokenBadge,
+            tokenBadge: await this.resolveQuoteMintTokenBadge(
+                mint,
+                currentEpoch,
+                tokenBadge,
+                allowQuoteTransferFee
+            ),
         }
 
         if (tokenType === TokenType.SPLToken) {
@@ -410,6 +576,7 @@ export class DynamicBondingCurveProgram {
         const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
         const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
         const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
+        const { mint, currentEpoch } = await this.getQuoteMintState(quoteMint)
 
         return this.initializeToken2022PoolWithTransferHook({
             name,
@@ -425,7 +592,12 @@ export class DynamicBondingCurveProgram {
             quoteMint,
             transferHookProgram,
             tokenQuoteProgram,
-            tokenBadge,
+            tokenBadge: await this.resolveQuoteMintTokenBadge(
+                mint,
+                currentEpoch,
+                tokenBadge,
+                false
+            ),
         })
     }
 
@@ -450,24 +622,13 @@ export class DynamicBondingCurveProgram {
 
         validateSwapAmount(buyAmount)
 
-        let rateLimiterApplied = false
-        if (baseFee.baseFeeMode === BaseFeeMode.RateLimiter) {
-            const currentPoint = await getCurrentPoint(
-                this.connection,
-                activationType
-            )
-
-            rateLimiterApplied = isRateLimiterApplied(
-                currentPoint,
-                new BN(0),
-                swapBaseForQuote
-                    ? TradeDirection.BaseToQuote
-                    : TradeDirection.QuoteToBase,
-                baseFee.secondFactor,
-                baseFee.thirdFactor,
-                new BN(baseFee.firstFactor)
-            )
-        }
+        const rateLimited = await rateLimiterApplied({
+            connection: this.connection,
+            baseFee,
+            activationType,
+            activationPoint: new BN(0),
+            swapBaseForQuote,
+        })
 
         const quoteTokenFlag = await getTokenType(this.connection, quoteMint)
 
@@ -488,62 +649,26 @@ export class DynamicBondingCurveProgram {
         const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
         const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
 
-        const preInstructions: TransactionInstruction[] = []
-
-        const [
-            { ataPubkey: inputTokenAccount, ix: createAtaTokenAIx },
-            { ataPubkey: outputTokenAccount, ix: createAtaTokenBIx },
-        ] = await Promise.all([
-            getOrCreateATAInstruction(
-                this.connection,
-                inputMint,
-                buyer,
-                buyer,
-                true,
-                inputTokenProgram,
-                this.commitment
-            ),
-            getOrCreateATAInstruction(
-                this.connection,
-                outputMint,
-                receiver ? receiver : buyer,
-                buyer,
-                true,
-                outputTokenProgram,
-                this.commitment
-            ),
-        ])
-        createAtaTokenAIx && preInstructions.push(createAtaTokenAIx)
-        createAtaTokenBIx && preInstructions.push(createAtaTokenBIx)
-
-        if (inputMint.equals(NATIVE_MINT)) {
-            preInstructions.push(
-                ...wrapSOLInstruction(
-                    buyer,
-                    inputTokenAccount,
-                    BigInt(buyAmount.toString())
-                )
-            )
-        }
-
-        const postInstructions: TransactionInstruction[] = []
-        if (
-            [inputMint.toBase58(), outputMint.toBase58()].includes(
-                NATIVE_MINT.toBase58()
-            )
-        ) {
-            const unwrapIx = unwrapSOLInstruction(buyer, buyer)
-            unwrapIx && postInstructions.push(unwrapIx)
-        }
-
-        const remainingAccounts: AccountMeta[] = []
-        if (rateLimiterApplied || enableFirstSwapWithMinFee) {
-            remainingAccounts.push({
-                isSigner: false,
-                isWritable: false,
-                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-            })
-        }
+        const {
+            inputTokenAccount,
+            outputTokenAccount,
+            preInstructions,
+            postInstructions,
+            remainingAccounts,
+        } = await prepareSwapAccounts({
+            connection: this.connection,
+            commitment: this.commitment,
+            payer: buyer,
+            inputOwner: buyer,
+            outputOwner: receiver ? receiver : buyer,
+            unwrapAuthority: buyer,
+            inputMint,
+            outputMint,
+            inputTokenProgram,
+            outputTokenProgram,
+            wrapAmount: buyAmount,
+            includeInstructionSysvar: rateLimited || enableFirstSwapWithMinFee,
+        })
 
         return this.program.methods
             .swap({
@@ -577,6 +702,7 @@ export class DynamicBondingCurveProgram {
         config: PublicKey,
         baseFee: BaseFee,
         activationType: ActivationType,
+        collectFeeMode: CollectFeeMode,
         quoteMint: PublicKey,
         enableFirstSwapWithMinFee: boolean
     ): Promise<Transaction> {
@@ -590,22 +716,13 @@ export class DynamicBondingCurveProgram {
 
         validateSwapAmount(buyAmount)
 
-        let rateLimiterApplied = false
-        if (baseFee.baseFeeMode === BaseFeeMode.RateLimiter) {
-            const currentPoint = await getCurrentPoint(
-                this.connection,
-                activationType
-            )
-
-            rateLimiterApplied = isRateLimiterApplied(
-                currentPoint,
-                new BN(0),
-                TradeDirection.QuoteToBase,
-                baseFee.secondFactor,
-                baseFee.thirdFactor,
-                new BN(baseFee.firstFactor)
-            )
-        }
+        const rateLimited = await rateLimiterApplied({
+            connection: this.connection,
+            baseFee,
+            activationType,
+            activationPoint: new BN(0),
+            swapBaseForQuote: false,
+        })
 
         const quoteTokenFlag = await getTokenType(this.connection, quoteMint)
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
@@ -624,70 +741,47 @@ export class DynamicBondingCurveProgram {
         const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
         const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
         const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
-        const preInstructions: TransactionInstruction[] = []
+        const {
+            inputTokenAccount,
+            outputTokenAccount,
+            preInstructions,
+            postInstructions,
+            remainingAccounts,
+        } = await prepareSwapAccounts({
+            connection: this.connection,
+            commitment: this.commitment,
+            payer: buyer,
+            inputOwner: buyer,
+            outputOwner: receiver ? receiver : buyer,
+            unwrapAuthority: buyer,
+            inputMint,
+            outputMint,
+            inputTokenProgram,
+            outputTokenProgram,
+            wrapAmount: buyAmount,
+            includeInstructionSysvar: rateLimited || enableFirstSwapWithMinFee,
+        })
 
-        const [
-            { ataPubkey: inputTokenAccount, ix: createAtaTokenAIx },
-            { ataPubkey: outputTokenAccount, ix: createAtaTokenBIx },
-        ] = await Promise.all([
-            getOrCreateATAInstruction(
-                this.connection,
-                inputMint,
-                buyer,
-                buyer,
-                true,
-                inputTokenProgram,
-                this.commitment
-            ),
-            getOrCreateATAInstruction(
-                this.connection,
-                outputMint,
-                receiver ? receiver : buyer,
-                buyer,
-                true,
-                outputTokenProgram,
-                this.commitment
-            ),
-        ])
-        createAtaTokenAIx && preInstructions.push(createAtaTokenAIx)
-        createAtaTokenBIx && preInstructions.push(createAtaTokenBIx)
-
-        if (inputMint.equals(NATIVE_MINT)) {
-            preInstructions.push(
-                ...wrapSOLInstruction(
-                    buyer,
-                    inputTokenAccount,
-                    BigInt(buyAmount.toString())
-                )
-            )
-        }
-
-        const postInstructions: TransactionInstruction[] = []
+        const transferHookTransfers: TransferHookTransfer[] = [
+            {
+                accountsType: AccountsType.TransferHookBase,
+                source: baseVault,
+                destination: outputTokenAccount,
+                authority: this.poolAuthority,
+            },
+        ]
         if (
-            [inputMint.toBase58(), outputMint.toBase58()].includes(
-                NATIVE_MINT.toBase58()
-            )
+            referralTokenAccount != null &&
+            getFeeMode(collectFeeMode, TradeDirection.QuoteToBase, true)
+                .feesOnBaseToken
         ) {
-            const unwrapIx = unwrapSOLInstruction(buyer, buyer)
-            unwrapIx && postInstructions.push(unwrapIx)
-        }
-
-        const remainingAccounts: AccountMeta[] = []
-        if (rateLimiterApplied || enableFirstSwapWithMinFee) {
-            remainingAccounts.push({
-                isSigner: false,
-                isWritable: false,
-                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+            transferHookTransfers.push({
+                accountsType: AccountsType.TransferHookBaseReferral,
+                source: baseVault,
+                destination: referralTokenAccount,
+                authority: this.poolAuthority,
             })
         }
-
-        const transferHookAccountTypes =
-            referralTokenAccount != null
-                ? [
-                      AccountsType.TransferHookBase,
-                      AccountsType.TransferHookBaseReferral,
-                  ]
-                : [AccountsType.TransferHookBase]
         let transferHookAccountsResult: {
             info: TransferHookAccountsInfo
             accounts: AccountMeta[]
@@ -705,7 +799,7 @@ export class DynamicBondingCurveProgram {
                 transferHookAccountsResult =
                     await this.getRemainingAccountsForTransferHook(
                         baseMint,
-                        transferHookAccountTypes
+                        transferHookTransfers
                     )
             } catch {
                 throw new Error(
@@ -883,9 +977,35 @@ export class DynamicBondingCurveProgram {
         return { accounts, preInstructions }
     }
 
+    protected async resolveTradingFeeAccounts(
+        params: ClaimTradingFeeSolAccountParams
+    ): Promise<{
+        accounts: {
+            poolAuthority: PublicKey
+            pool: PublicKey
+            tokenAAccount: PublicKey
+            tokenBAccount: PublicKey
+            baseVault: PublicKey
+            quoteVault: PublicKey
+            baseMint: PublicKey
+            quoteMint: PublicKey
+            tokenBaseProgram: PublicKey
+            tokenQuoteProgram: PublicKey
+        }
+        preInstructions: TransactionInstruction[]
+        postInstructions: TransactionInstruction[]
+    }> {
+        if (isNativeSol(params.poolConfigState.quoteMint)) {
+            return this.buildClaimTradingFeeAccountsForSol(params)
+        }
+
+        const result = await this.buildClaimTradingFeeAccountsForNonSol(params)
+        return { ...result, postInstructions: [] }
+    }
+
     protected async getRemainingAccountsForTransferHook(
         mint: PublicKey,
-        accountTypes: AccountsTypeValue[] = [AccountsType.TransferHookBase]
+        transfers: TransferHookTransfer[]
     ): Promise<{
         info: TransferHookAccountsInfo
         accounts: AccountMeta[]
@@ -913,26 +1033,29 @@ export class DynamicBondingCurveProgram {
             return emptyAccounts
         }
 
-        const transferWithHookIx =
-            await createTransferCheckedWithTransferHookInstruction(
-                this.connection,
-                PublicKey.default,
-                mint,
-                PublicKey.default,
-                PublicKey.default,
-                BigInt(0),
-                mintState.decimals,
-                [],
-                this.commitment,
-                TOKEN_2022_PROGRAM_ID
-            )
-
-        const transferHookAccounts = transferWithHookIx.keys.slice(4)
-        const slices = accountTypes.map((accountsType) => ({
-            accountsType,
-            length: transferHookAccounts.length,
-        }))
-        const accounts = accountTypes.flatMap(() => transferHookAccounts)
+        const slices: TransferHookAccountsInfo['slices'] = []
+        const accounts: AccountMeta[] = []
+        for (const transfer of transfers) {
+            const transferWithHookIx =
+                await createTransferCheckedWithTransferHookInstruction(
+                    this.connection,
+                    transfer.source,
+                    mint,
+                    transfer.destination,
+                    transfer.authority,
+                    BigInt(0),
+                    mintState.decimals,
+                    [],
+                    this.commitment,
+                    TOKEN_2022_PROGRAM_ID
+                )
+            const transferHookAccounts = transferWithHookIx.keys.slice(4)
+            slices.push({
+                accountsType: transfer.accountsType,
+                length: transferHookAccounts.length,
+            })
+            accounts.push(...transferHookAccounts)
+        }
 
         return { info: { slices }, accounts }
     }
