@@ -5,11 +5,10 @@ import {
     SystemProgram,
     TransactionInstruction,
 } from '@solana/web3.js'
-
 import {
-    ASSOCIATED_TOKEN_PROGRAM_ID,
     createAssociatedTokenAccountIdempotentInstruction,
     createCloseAccountInstruction,
+    createSyncNativeInstruction,
     ExtensionType,
     getAccount,
     getAssociatedTokenAddressSync,
@@ -29,75 +28,62 @@ import { isZeroTransferFee } from '../math/transferFee'
 import { type PoolConfig, type QuoteTransferFees, TokenType } from '../types'
 
 /**
- * Return an ATA address and an idempotent create instruction when the account is missing.
+ * The owner's ATA for a mint, with an idempotent create instruction when the
+ * account does not exist yet. Off-curve owners (PDAs) are allowed.
  */
 export const getOrCreateATAInstruction = async (
     connection: Connection,
     tokenMint: PublicKey,
     owner: PublicKey,
     payer: PublicKey,
-    allowOwnerOffCurve = true,
     tokenProgram: PublicKey,
     commitment: Commitment = 'confirmed'
 ): Promise<{ ataPubkey: PublicKey; ix?: TransactionInstruction }> => {
     const toAccount = getAssociatedTokenAddressSync(
         tokenMint,
         owner,
-        allowOwnerOffCurve,
+        true,
         tokenProgram
     )
 
     try {
         await getAccount(connection, toAccount, commitment, tokenProgram)
-        return { ataPubkey: toAccount, ix: undefined }
+        return { ataPubkey: toAccount }
     } catch (e) {
         if (
             e instanceof TokenAccountNotFoundError ||
             e instanceof TokenInvalidAccountOwnerError
         ) {
-            const ix = createAssociatedTokenAccountIdempotentInstruction(
-                payer,
-                toAccount,
-                owner,
-                tokenMint,
-                tokenProgram
-            )
-
-            return { ataPubkey: toAccount, ix }
+            return {
+                ataPubkey: toAccount,
+                ix: createAssociatedTokenAccountIdempotentInstruction(
+                    payer,
+                    toAccount,
+                    owner,
+                    tokenMint,
+                    tokenProgram
+                ),
+            }
         }
         throw e
     }
 }
 
-/**
- * Build an instruction that closes the owner's wrapped SOL ATA into a receiver.
- */
+/** Close the owner's wrapped SOL ATA and send the lamports to receiver. */
 export function unwrapSOLInstruction(
     owner: PublicKey,
-    receiver: PublicKey,
-    allowOwnerOffCurve = true
-): TransactionInstruction | null {
-    const wSolATAAccount = getAssociatedTokenAddressSync(
-        NATIVE_MINT,
+    receiver: PublicKey
+): TransactionInstruction {
+    return createCloseAccountInstruction(
+        getAssociatedTokenAddressSync(NATIVE_MINT, owner, true),
+        receiver,
         owner,
-        allowOwnerOffCurve
+        [],
+        TOKEN_PROGRAM_ID
     )
-    if (wSolATAAccount) {
-        const closedWrappedSolInstruction = createCloseAccountInstruction(
-            wSolATAAccount,
-            receiver,
-            owner,
-            [],
-            TOKEN_PROGRAM_ID
-        )
-        return closedWrappedSolInstruction
-    }
-    return null
 }
 
-/**
- * Build transfer and sync instructions that wrap SOL into an existing wrapped SOL account.
- */
+/** Transfer lamports into an existing wrapped SOL account and sync its balance. */
 export function wrapSOLInstruction(
     from: PublicKey,
     to: PublicKey,
@@ -109,90 +95,65 @@ export function wrapSOLInstruction(
             toPubkey: to,
             lamports: amount,
         }),
-        new TransactionInstruction({
-            keys: [
-                {
-                    pubkey: to,
-                    isSigner: false,
-                    isWritable: true,
-                },
-            ],
-            data: Buffer.from(new Uint8Array([17])),
-            programId: TOKEN_PROGRAM_ID,
-        }),
+        createSyncNativeInstruction(to),
     ]
 }
 
-/**
- * Derive the associated token address for a wallet, mint, and token program.
- */
-export function findAssociatedTokenAddress(
-    walletAddress: PublicKey,
-    tokenMintAddress: PublicKey,
-    tokenProgramId: PublicKey
-): PublicKey {
-    return PublicKey.findProgramAddressSync(
-        [
-            walletAddress.toBuffer(),
-            tokenProgramId.toBuffer(),
-            tokenMintAddress.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-    )[0]
+/** Unpack a mint owned by either token program. */
+async function fetchMint(
+    connection: Connection,
+    mint: PublicKey,
+    commitment: Commitment,
+    tokenProgram?: PublicKey
+): Promise<Mint> {
+    if (tokenProgram) {
+        return getMint(connection, mint, commitment, tokenProgram)
+    }
+    const accountInfo = await connection.getAccountInfo(mint, commitment)
+    if (!accountInfo) {
+        throw new Error(`Mint account ${mint.toBase58()} not found`)
+    }
+    return unpackMint(mint, accountInfo, accountInfo.owner)
 }
 
-/**
- * Fetch a mint account and return its token decimals.
- */
 export async function getTokenDecimals(
     connection: Connection,
-    mintAddress: PublicKey | string
+    mintAddress: PublicKey | string,
+    commitment: Commitment = 'confirmed'
 ): Promise<number> {
-    const mintPubkey =
-        mintAddress instanceof PublicKey
-            ? mintAddress
-            : new PublicKey(mintAddress)
-
-    const mintAccount = await connection.getAccountInfo(mintPubkey)
-    if (!mintAccount) {
-        throw new Error(`Mint account ${mintPubkey.toBase58()} not found`)
-    }
-    const tokenProgram = mintAccount.owner
-
-    const mintInfo = await getMint(
+    const mint = await fetchMint(
         connection,
-        mintPubkey,
-        'confirmed',
-        tokenProgram
+        new PublicKey(mintAddress),
+        commitment
     )
-    return mintInfo.decimals
+    return mint.decimals
 }
 
-/**
- * Return the SPL Token program ID for a token type.
- */
+/** The token program for a DBC token type or token flag. */
 export function getTokenProgram(tokenType: TokenType): PublicKey {
     return tokenType === TokenType.SPLToken
         ? TOKEN_PROGRAM_ID
         : TOKEN_2022_PROGRAM_ID
 }
 
+/** The DBC token type of an existing mint, from the program that owns it. */
 export async function getTokenType(
     connection: Connection,
-    tokenMint: PublicKey
+    tokenMint: PublicKey,
+    commitment: Commitment = 'confirmed'
 ): Promise<TokenType> {
-    const accountInfo = await connection.getAccountInfo(tokenMint)
+    const accountInfo = await connection.getAccountInfo(tokenMint, commitment)
     if (!accountInfo) {
         throw new Error(`Mint account ${tokenMint.toBase58()} not found`)
     }
-
     return accountInfo.owner.equals(TOKEN_PROGRAM_ID)
         ? TokenType.SPLToken
         : TokenType.Token2022
 }
 
 /**
- * Return whether a mint has a non-zero transfer fee, active or scheduled, or a transfer fee config authority.
+ * Whether a mint has a non-zero transfer fee, active or scheduled, or a
+ * transfer fee config authority; the program's has_transfer_fee_or_config_authority.
  */
 export function hasTransferFeeOrConfigAuthority(
     mint: Mint,
@@ -219,9 +180,9 @@ export function hasTransferFeeOrConfigAuthority(
 }
 
 /**
- * Return whether a quote mint is supported without a token badge.
- * SPL Token mints are supported. Token-2022 mints are supported when their only
- * extensions are metadata and a zero transfer fee with no config authority.
+ * Whether a quote mint is supported without a token badge: SPL Token mints,
+ * and Token-2022 mints whose only extensions are metadata and a zero
+ * transfer fee with no config authority.
  */
 export function isSupportedQuoteMint(
     mint: Mint,
@@ -243,44 +204,18 @@ export function isSupportedQuoteMint(
     )
 }
 
-async function fetchMint(
-    connection: Connection,
-    mint: PublicKey,
-    commitment: Commitment,
-    tokenProgram?: PublicKey
-): Promise<Mint> {
-    if (tokenProgram) {
-        return getMint(connection, mint, commitment, tokenProgram)
-    }
-
-    const accountInfo = await connection.getAccountInfo(mint, commitment)
-    if (!accountInfo) {
-        throw new Error(`Mint account ${mint.toBase58()} not found`)
-    }
-    return unpackMint(mint, accountInfo, accountInfo.owner)
-}
-
 /**
- * Fetch the quote mint, optional base mint, and current epoch for an existing-pool swap quote.
- * Returns an empty object when the quote mint is SPL Token and `baseMint` is omitted.
+ * The quote mint, optional base mint and current epoch a swap quote on an
+ * existing pool needs. Empty when the quote mint is SPL Token and no baseMint
+ * is given, since neither side can then carry a transfer fee.
  */
 export async function getSwapQuoteTransferFees(
     connection: Connection,
     config: Pick<PoolConfig, 'quoteMint' | 'quoteTokenFlag'>,
-    commitmentOrOptions:
-        | Commitment
-        | {
-              commitment?: Commitment
-              baseMint?: PublicKey
-          } = 'confirmed'
+    options: { commitment?: Commitment; baseMint?: PublicKey } = {}
 ): Promise<QuoteTransferFees> {
-    const options =
-        typeof commitmentOrOptions === 'string'
-            ? { commitment: commitmentOrOptions }
-            : commitmentOrOptions
     const commitment = options.commitment ?? 'confirmed'
-    const quoteIsToken2022 =
-        Number(config.quoteTokenFlag) === TokenType.Token2022
+    const quoteIsToken2022 = config.quoteTokenFlag === TokenType.Token2022
     if (!quoteIsToken2022 && !options.baseMint) {
         return {}
     }
@@ -294,15 +229,42 @@ export async function getSwapQuoteTransferFees(
                   commitment,
                   TOKEN_2022_PROGRAM_ID
               )
-            : Promise.resolve(undefined),
+            : undefined,
         options.baseMint
             ? fetchMint(connection, options.baseMint, commitment)
-            : Promise.resolve(undefined),
+            : undefined,
     ])
 
     return {
         ...(quoteMint ? { quoteMint } : {}),
         ...(baseMint ? { baseMint } : {}),
         currentEpoch: epochInfo.epoch,
+    }
+}
+
+/** ATAs for several (mint, owner) pairs and the create instructions for the missing ones. */
+export async function getOrCreateATAs(
+    connection: Connection,
+    payer: PublicKey,
+    accounts: { mint: PublicKey; owner: PublicKey; tokenProgram: PublicKey }[],
+    commitment: Commitment = 'confirmed'
+): Promise<{ addresses: PublicKey[]; instructions: TransactionInstruction[] }> {
+    const results = await Promise.all(
+        accounts.map(({ mint, owner, tokenProgram }) =>
+            getOrCreateATAInstruction(
+                connection,
+                mint,
+                owner,
+                payer,
+                tokenProgram,
+                commitment
+            )
+        )
+    )
+    return {
+        addresses: results.map((result) => result.ataPubkey),
+        instructions: results.flatMap((result) =>
+            result.ix ? [result.ix] : []
+        ),
     }
 }

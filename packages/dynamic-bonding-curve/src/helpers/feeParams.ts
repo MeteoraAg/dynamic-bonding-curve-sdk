@@ -1,15 +1,15 @@
 import {
-    BaseFee,
-    DynamicFeeParameters,
-    BaseFeeMode,
-    MigrationOption,
     ActivationType,
-    MigratedPoolFeeConfig,
-    MigrationFeeOption,
-    DammV2BaseFeeMode,
-    MigratedPoolMarketCapFeeSchedulerParameters,
+    BaseFee,
+    BaseFeeMode,
     BaseFeeParams,
+    DammV2BaseFeeMode,
+    DynamicFeeParameters,
+    MigratedPoolFeeConfig,
     MigratedPoolFeeResult,
+    MigratedPoolMarketCapFeeSchedulerParameters,
+    MigrationFeeOption,
+    MigrationOption,
 } from '../types'
 import {
     BIN_STEP_BPS_DEFAULT,
@@ -19,16 +19,17 @@ import {
     DYNAMIC_FEE_DECAY_PERIOD_DEFAULT,
     DYNAMIC_FEE_FILTER_PERIOD_DEFAULT,
     DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
-    FEE_DENOMINATOR,
+    DYNAMIC_FEE_ROUNDING_OFFSET,
+    DYNAMIC_FEE_SCALING_FACTOR,
     MAX_BASIS_POINT,
+    MAX_DYNAMIC_FEE_PERCENT,
     MAX_FEE_BPS,
-    MAX_FEE_NUMERATOR,
     MAX_PRICE_CHANGE_BPS_DEFAULT,
     MAX_RATE_LIMITER_DURATION_IN_SECONDS,
     MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     MIN_FEE_BPS,
-    MIN_FEE_NUMERATOR,
     ONE_Q64,
+    U16_MAX,
 } from '../constants'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
@@ -39,7 +40,21 @@ import {
 } from './utils'
 import { computeSqrtPriceStepBps } from './price'
 import { getFeeNumeratorOnExponentialFeeScheduler } from '../math/poolFees/feeScheduler'
+import { getMaxIndex } from '../math/poolFees/rateLimiter'
+import { ProgramError } from '../math/errors'
 
+function assertFeeBpsRange(name: string, bps: number): void {
+    if (bps < MIN_FEE_BPS || bps > MAX_FEE_BPS) {
+        throw new Error(
+            `${name} must be between ${MIN_FEE_BPS} and ${MAX_FEE_BPS} bps`
+        )
+    }
+}
+
+/**
+ * Largest reduction factor whose fee after numberOfPeriod periods of the
+ * program's Q64 decay is still at or above minBaseFeeNumerator.
+ */
 function exponentialReductionFactor(
     maxBaseFeeNumerator: BN,
     minBaseFeeNumerator: BN,
@@ -89,14 +104,9 @@ function exponentialReductionFactor(
 }
 
 /**
- * Get the fee scheduler parameters
- * @param {number} startingBaseFeeBps - Starting fee in basis points
- * @param {number} endingBaseFeeBps - Ending fee in basis points
- * @param {BaseFeeMode} baseFeeMode - Mode for fee reduction (Linear or Exponential)
- * @param {number} numberOfPeriod - Number of periods over which to schedule fee reduction
- * @param {BN} totalDuration - Total duration of the fee scheduler
- *
- * @returns {BaseFee}
+ * Build a fee scheduler that decays from startingBaseFeeBps to endingBaseFeeBps
+ * over numberOfPeriod periods of floor(totalDuration / numberOfPeriod) each.
+ * A constant fee takes numberOfPeriod 0 and totalDuration 0.
  */
 export function getFeeSchedulerParams(
     startingBaseFeeBps: number,
@@ -105,31 +115,26 @@ export function getFeeSchedulerParams(
     numberOfPeriod: number,
     totalDuration: number
 ): BaseFee {
-    if (startingBaseFeeBps > MAX_FEE_BPS) {
-        throw new Error(
-            `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
-        )
+    if (
+        baseFeeMode !== BaseFeeMode.FeeSchedulerLinear &&
+        baseFeeMode !== BaseFeeMode.FeeSchedulerExponential
+    ) {
+        throw new Error(ProgramError.InvalidBaseFeeMode)
     }
-
-    if (endingBaseFeeBps < MIN_FEE_BPS) {
-        throw new Error(
-            `endingBaseFeeBps (${endingBaseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
-        )
-    }
-
+    assertFeeBpsRange('startingBaseFeeBps', startingBaseFeeBps)
+    assertFeeBpsRange('endingBaseFeeBps', endingBaseFeeBps)
     if (endingBaseFeeBps > startingBaseFeeBps) {
         throw new Error(
-            'endingBaseFeeBps bps must be less than or equal to startingBaseFeeBps bps'
+            'endingBaseFeeBps must be less than or equal to startingBaseFeeBps'
         )
     }
 
-    if (startingBaseFeeBps == endingBaseFeeBps) {
-        if (numberOfPeriod != 0 || totalDuration != 0) {
+    if (startingBaseFeeBps === endingBaseFeeBps) {
+        if (numberOfPeriod !== 0 || totalDuration !== 0) {
             throw new Error(
-                'numberOfPeriod and totalDuration must both be zero'
+                'numberOfPeriod and totalDuration must both be zero when the fee is constant'
             )
         }
-
         return {
             cliffFeeNumerator: bpsToFeeNumerator(startingBaseFeeBps),
             firstFactor: 0,
@@ -141,21 +146,21 @@ export function getFeeSchedulerParams(
 
     if (numberOfPeriod <= 0 || totalDuration <= 0) {
         throw new Error(
-            'numberOfPeriod and totalDuration must both greater than zero'
+            'numberOfPeriod and totalDuration must both be greater than zero'
         )
     }
-
-    const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
-
-    const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
-
-    const periodFrequency = new BN(totalDuration).div(new BN(numberOfPeriod))
-    if (periodFrequency.isZero()) {
+    if (numberOfPeriod > U16_MAX) {
+        throw new Error(`numberOfPeriod must be at most ${U16_MAX}`)
+    }
+    const periodFrequency = Math.floor(totalDuration / numberOfPeriod)
+    if (periodFrequency === 0) {
         throw new Error('totalDuration must be at least numberOfPeriod')
     }
 
+    const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
+    const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
     const reductionFactor =
-        baseFeeMode == BaseFeeMode.FeeSchedulerLinear
+        baseFeeMode === BaseFeeMode.FeeSchedulerLinear
             ? maxBaseFeeNumerator.sub(minBaseFeeNumerator).divn(numberOfPeriod)
             : exponentialReductionFactor(
                   maxBaseFeeNumerator,
@@ -166,7 +171,7 @@ export function getFeeSchedulerParams(
     return {
         cliffFeeNumerator: maxBaseFeeNumerator,
         firstFactor: numberOfPeriod,
-        secondFactor: periodFrequency,
+        secondFactor: new BN(periodFrequency),
         thirdFactor: reductionFactor,
         baseFeeMode,
     }
@@ -185,7 +190,7 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
     }
 
     const baseFeeNumerator =
-        baseFeeMode == BaseFeeMode.FeeSchedulerLinear
+        baseFeeMode === BaseFeeMode.FeeSchedulerLinear
             ? cliffFeeNumerator - numberOfPeriod * reductionFactor
             : getFeeNumeratorOnExponentialFeeScheduler(
                   new BN(Math.floor(cliffFeeNumerator)),
@@ -196,6 +201,7 @@ export function calculateFeeSchedulerEndingBaseFeeBps(
     return numeratorToBps(baseFeeNumerator)
 }
 
+// a linear schedule that underflows reads as 0 bps rather than a negative number
 function numeratorToBps(numerator: number): number {
     if (!Number.isFinite(numerator) || numerator <= 0) {
         return 0
@@ -204,15 +210,8 @@ function numeratorToBps(numerator: number): number {
 }
 
 /**
- * Get the rate limiter parameters.
- * @deprecated New configs cannot use RateLimiter. Kept for quoting existing rate-limiter pools.
- * @param baseFeeBps - The base fee in basis points
- * @param feeIncrementBps - The fee increment in basis points
- * @param referenceAmount - The reference amount
- * @param maxLimiterDuration - The max rate limiter duration
- * @param tokenQuoteDecimal - The token quote decimal
- * @param activationType - The activation type
- * @returns The rate limiter parameters
+ * Build rate limiter parameters.
+ * @deprecated The program rejects BaseFeeMode.RateLimiter for new configs.
  */
 export function getRateLimiterParams(
     baseFeeBps: number,
@@ -222,9 +221,6 @@ export function getRateLimiterParams(
     tokenQuoteDecimal: number,
     activationType: ActivationType
 ): BaseFee {
-    const cliffFeeNumerator = bpsToFeeNumerator(baseFeeBps)
-    const feeIncrementNumerator = bpsToFeeNumerator(feeIncrementBps)
-
     if (
         baseFeeBps <= 0 ||
         feeIncrementBps <= 0 ||
@@ -233,87 +229,49 @@ export function getRateLimiterParams(
     ) {
         throw new Error('All rate limiter parameters must be greater than zero')
     }
-
-    if (baseFeeBps > MAX_FEE_BPS) {
-        throw new Error(
-            `Base fee (${baseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
-        )
-    }
-
-    if (baseFeeBps < MIN_FEE_BPS) {
-        throw new Error(
-            `Base fee (${baseFeeBps} bps) is less than minimum allowed value of ${MIN_FEE_BPS} bps`
-        )
-    }
-
+    assertFeeBpsRange('baseFeeBps', baseFeeBps)
     if (feeIncrementBps > MAX_FEE_BPS) {
-        throw new Error(
-            `Fee increment (${feeIncrementBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
-        )
+        throw new Error(`feeIncrementBps must be at most ${MAX_FEE_BPS} bps`)
     }
 
-    if (feeIncrementNumerator.gte(new BN(FEE_DENOMINATOR))) {
-        throw new Error(
-            'Fee increment numerator must be less than FEE_DENOMINATOR'
-        )
-    }
-
-    const deltaNumerator = new BN(MAX_FEE_NUMERATOR).sub(cliffFeeNumerator)
-    const maxIndex = deltaNumerator.div(feeIncrementNumerator)
-    if (maxIndex.lt(new BN(1))) {
+    const cliffFeeNumerator = bpsToFeeNumerator(baseFeeBps)
+    if (getMaxIndex(cliffFeeNumerator, new BN(feeIncrementBps)).isZero()) {
         throw new Error('Fee increment is too large for the given base fee')
-    }
-
-    if (
-        cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
-        cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
-    ) {
-        throw new Error('Base fee must be between 0.01% and 99%')
     }
 
     const maxDuration =
         activationType === ActivationType.Slot
             ? MAX_RATE_LIMITER_DURATION_IN_SLOTS
             : MAX_RATE_LIMITER_DURATION_IN_SECONDS
-
     if (maxLimiterDuration > maxDuration) {
-        throw new Error(
-            `Max duration exceeds maximum allowed value of ${maxDuration}`
-        )
+        throw new Error(`maxLimiterDuration must be at most ${maxDuration}`)
     }
-
-    const referenceAmountInLamports = convertToLamports(
-        referenceAmount,
-        tokenQuoteDecimal
-    )
 
     return {
         cliffFeeNumerator,
         firstFactor: feeIncrementBps,
         secondFactor: new BN(maxLimiterDuration),
-        thirdFactor: new BN(referenceAmountInLamports),
+        thirdFactor: convertToLamports(referenceAmount, tokenQuoteDecimal),
         baseFeeMode: BaseFeeMode.RateLimiter,
     }
 }
 
 /**
- * Get the dynamic fee parameters (20% of base fee)
- * @param baseFeeBps - The base fee in basis points
- * @param maxPriceChangeBps - The max price change in basis points
- * @returns The dynamic fee parameters
+ * Dynamic fee parameters that add up to MAX_DYNAMIC_FEE_PERCENT of the base fee
+ * at a price move of maxPriceChangeBps, using the program's bin step and
+ * volatility defaults.
  */
 export function getDynamicFeeParams(
     baseFeeBps: number,
-    maxPriceChangeBps: number = MAX_PRICE_CHANGE_BPS_DEFAULT // default 15%
+    maxPriceChangeBps: number = MAX_PRICE_CHANGE_BPS_DEFAULT
 ): DynamicFeeParameters {
     if (maxPriceChangeBps > MAX_PRICE_CHANGE_BPS_DEFAULT) {
         throw new Error(
-            `maxPriceChangeBps (${maxPriceChangeBps} bps) must be less than or equal to ${MAX_PRICE_CHANGE_BPS_DEFAULT}`
+            `maxPriceChangeBps must be at most ${MAX_PRICE_CHANGE_BPS_DEFAULT}`
         )
     }
 
     const priceRatio = maxPriceChangeBps / MAX_BASIS_POINT + 1
-    // Q64
     const sqrtPriceRatioQ64 = new BN(
         Decimal.sqrt(priceRatio.toString())
             .mul(Decimal.pow(2, 64))
@@ -324,20 +282,18 @@ export function getDynamicFeeParams(
         .sub(ONE_Q64)
         .div(BIN_STEP_BPS_U128_DEFAULT)
         .muln(2)
-
-    const maxVolatilityAccumulator = new BN(deltaBinId.muln(MAX_BASIS_POINT))
-
+    const maxVolatilityAccumulator = deltaBinId.muln(MAX_BASIS_POINT)
     const squareVfaBin = maxVolatilityAccumulator
         .mul(new BN(BIN_STEP_BPS_DEFAULT))
         .pow(new BN(2))
 
-    const baseFeeNumerator = new BN(bpsToFeeNumerator(baseFeeBps))
-    const maxDynamicFeeNumerator = baseFeeNumerator.muln(20).divn(100) // default max dynamic fee = 20% of base fee.
-    const vFee = maxDynamicFeeNumerator
-        .mul(new BN(100_000_000_000))
-        .sub(new BN(99_999_999_999))
-
-    const variableFeeControl = vFee.div(squareVfaBin)
+    const maxDynamicFeeNumerator = bpsToFeeNumerator(baseFeeBps)
+        .muln(MAX_DYNAMIC_FEE_PERCENT)
+        .divn(100)
+    const variableFeeControl = maxDynamicFeeNumerator
+        .mul(DYNAMIC_FEE_SCALING_FACTOR)
+        .sub(DYNAMIC_FEE_ROUNDING_OFFSET)
+        .div(squareVfaBin)
 
     return {
         binStep: BIN_STEP_BPS_DEFAULT,
@@ -350,32 +306,20 @@ export function getDynamicFeeParams(
     }
 }
 
-/**
- * Derive the starting base fee BPS from baseFeeParams
- * For FeeSchedulerLinear/FeeSchedulerExponential: uses endingFeeBps (the fee at end of pre-migration curve)
- * For RateLimiter: uses baseFeeBps (the cliff fee)
- * @param baseFeeParams - The base fee parameters from the pre-migration pool
- * @returns The starting base fee in basis points for the migrated pool
- */
+/** The fee the pre-migration pool ends on, which the migrated pool starts from. */
 export function getStartingBaseFeeBpsFromBaseFeeParams(
     baseFeeParams: BaseFeeParams
 ): number {
-    if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
-        return baseFeeParams.rateLimiterParam.baseFeeBps
-    } else {
-        return baseFeeParams.feeSchedulerParam.endingFeeBps
-    }
+    return baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter
+        ? baseFeeParams.rateLimiterParam.baseFeeBps
+        : baseFeeParams.feeSchedulerParam.endingFeeBps
 }
 
 /**
- * Get the migrated pool market cap fee scheduler parameters
- * @param startingBaseFeeBps - Starting (max) fee in basis points
- * @param endingBaseFeeBps - Ending (min) fee in basis points
- * @param baseFeeMode - Linear or exponential decay
- * @param numberOfPeriod - Number of fee reduction periods
- * @param priceMultiple - Target spot-price multiple from the initial price (e.g. 1000 for 1000x). Must be > 1.
- * @param schedulerExpirationDuration - Seconds after which the schedule expires to the ending fee regardless of price
- * @returns The migrated pool market cap fee scheduler parameters
+ * Build the DAMM v2 market cap fee scheduler for a migrated pool: the fee
+ * decays from startingBaseFeeBps to endingBaseFeeBps over numberOfPeriod price
+ * steps spanning priceMultiple times the migration price, and expires to the
+ * ending fee after schedulerExpirationDuration seconds.
  */
 export function getMigratedPoolMarketCapFeeSchedulerParams(
     startingBaseFeeBps: number,
@@ -386,84 +330,54 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
     schedulerExpirationDuration: number
 ): MigratedPoolMarketCapFeeSchedulerParameters {
     if (
-        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeTimeSchedulerLinear ||
-        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeTimeSchedulerExponential
+        dammV2BaseFeeMode !== DammV2BaseFeeMode.FeeMarketCapSchedulerLinear &&
+        dammV2BaseFeeMode !== DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
     ) {
-        return DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS
-    }
-
-    if (dammV2BaseFeeMode === DammV2BaseFeeMode.RateLimiter) {
         throw new Error(
-            'RateLimiter is not supported for DAMM v2 migration. Use either FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential instead.'
+            'dammV2BaseFeeMode must be FeeMarketCapSchedulerLinear or FeeMarketCapSchedulerExponential'
         )
     }
-
-    if (numberOfPeriod <= 0) {
-        throw new Error('Total periods must be greater than zero')
+    if (numberOfPeriod <= 0 || numberOfPeriod > U16_MAX) {
+        throw new Error(`numberOfPeriod must be between 1 and ${U16_MAX}`)
     }
-
-    const poolMaxFeeBps = MAX_FEE_BPS
-
+    if (startingBaseFeeBps > MAX_FEE_BPS) {
+        throw new Error(`startingBaseFeeBps must be at most ${MAX_FEE_BPS} bps`)
+    }
     if (startingBaseFeeBps <= endingBaseFeeBps) {
         throw new Error(
-            `startingBaseFeeBps (${startingBaseFeeBps} bps) must be greater than endingBaseFeeBps (${endingBaseFeeBps} bps)`
+            'startingBaseFeeBps must be greater than endingBaseFeeBps'
         )
     }
-
     if (priceMultiple <= 1) {
         throw new Error('priceMultiple must be greater than 1')
     }
-
-    if (startingBaseFeeBps > poolMaxFeeBps) {
-        throw new Error(
-            `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${poolMaxFeeBps} bps`
-        )
-    }
-
-    if (schedulerExpirationDuration == 0) {
+    if (schedulerExpirationDuration <= 0) {
         throw new Error('schedulerExpirationDuration must be greater than zero')
     }
 
-    const sqrtPriceStepBps = computeSqrtPriceStepBps(
-        priceMultiple,
-        numberOfPeriod
-    )
-
     const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
     const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
-
-    let reductionFactor: BN
-
-    if (dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerLinear) {
-        const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator)
-        reductionFactor = totalReduction.divn(numberOfPeriod)
-    } else if (
-        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
-    ) {
-        reductionFactor = exponentialReductionFactor(
-            maxBaseFeeNumerator,
-            minBaseFeeNumerator,
-            numberOfPeriod
-        )
-    } else {
-        throw new Error(
-            'Migrated market-cap fee scheduler requires a market-cap scheduler base fee mode'
-        )
-    }
+    const reductionFactor =
+        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerLinear
+            ? maxBaseFeeNumerator.sub(minBaseFeeNumerator).divn(numberOfPeriod)
+            : exponentialReductionFactor(
+                  maxBaseFeeNumerator,
+                  minBaseFeeNumerator,
+                  numberOfPeriod
+              )
 
     return {
         numberOfPeriod,
-        sqrtPriceStepBps,
+        sqrtPriceStepBps: computeSqrtPriceStepBps(
+            priceMultiple,
+            numberOfPeriod
+        ),
         schedulerExpirationDuration,
         reductionFactor,
     }
 }
 
-/**
- * Get base fee parameters based on the base fee mode
- * @param baseFeeParams - The base fee parameters
- * @returns The base fee parameters
- */
+/** Fee scheduler parameters for a new config; RateLimiter is rejected. */
 export function getBaseFeeParams(baseFeeParams: BaseFeeParams): BaseFee {
     if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
         throw new Error(
@@ -484,46 +398,40 @@ export function getBaseFeeParams(baseFeeParams: BaseFeeParams): BaseFee {
 }
 
 /**
- * Get migrated pool fee parameters based on migration options
- * @param migrationOption - The migration option (DAMM or DAMM_V2)
- * @param migrationFeeOption - The fee option (fixed rates 0-5 or customizable)
- * @param migratedPoolFee - Optional custom migrated pool fee parameters (only used with DAMM_V2 + Customizable)
- * @returns Migrated pool fee parameters with appropriate defaults
+ * Migrated pool fee parameters for a DAMM v2 migration. A fixed
+ * MigrationFeeOption uses a preset DAMM v2 config, so the program requires
+ * every migrated pool fee field to be zero; Customizable takes migratedPoolFee.
  */
 export function getMigratedPoolFeeParams(
     migrationOption: MigrationOption,
     migrationFeeOption: MigrationFeeOption,
     migratedPoolFee?: MigratedPoolFeeConfig
 ): MigratedPoolFeeResult {
-    const defaultResult: MigratedPoolFeeResult = {
-        migratedPoolFee: DEFAULT_MIGRATED_POOL_FEE_PARAMS,
-        migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-        migratedPoolMarketCapFeeSchedulerParams:
-            DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
-        migrationFeeOption,
-        compoundingFeeBps: 0,
-    }
-
     if (migrationOption === MigrationOption.MET_DAMM) {
         throw new Error(
             'MigrationOption.MET_DAMM (DAMM v1) is deprecated. New configs must use MigrationOption.MET_DAMM_V2.'
         )
     }
 
-    // fixed options use a preset DAMM v2 config, so a custom base fee mode or
-    // market cap scheduler is only valid with Customizable
     if (migrationFeeOption !== MigrationFeeOption.Customizable) {
         if (
+            migratedPoolFee?.marketCapFeeSchedulerParams ||
             (migratedPoolFee?.baseFeeMode !== undefined &&
                 migratedPoolFee.baseFeeMode !==
-                    DammV2BaseFeeMode.FeeTimeSchedulerLinear) ||
-            migratedPoolFee?.marketCapFeeSchedulerParams
+                    DammV2BaseFeeMode.FeeTimeSchedulerLinear)
         ) {
             throw new Error(
                 'migratedPoolFee.baseFeeMode and marketCapFeeSchedulerParams require MigrationFeeOption.Customizable'
             )
         }
-        return defaultResult
+        return {
+            migratedPoolFee: DEFAULT_MIGRATED_POOL_FEE_PARAMS,
+            migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+            migratedPoolMarketCapFeeSchedulerParams:
+                DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+            migrationFeeOption,
+            compoundingFeeBps: 0,
+        }
     }
 
     if (migratedPoolFee?.poolFeeBps === undefined) {
@@ -534,29 +442,15 @@ export function getMigratedPoolFeeParams(
 
     const baseFeeMode =
         migratedPoolFee.baseFeeMode ?? DammV2BaseFeeMode.FeeTimeSchedulerLinear
-    const isMarketCapScheduler =
+    const scheduler = migratedPoolFee.marketCapFeeSchedulerParams
+    const isMarketCapMode =
         baseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerLinear ||
         baseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
-    if (
-        isMarketCapScheduler !==
-        Boolean(migratedPoolFee.marketCapFeeSchedulerParams)
-    ) {
+    if (Boolean(scheduler) !== isMarketCapMode) {
         throw new Error(
             'marketCapFeeSchedulerParams must be set exactly when baseFeeMode is a market cap scheduler'
         )
     }
-
-    const schedulerParams = migratedPoolFee.marketCapFeeSchedulerParams
-        ? getMigratedPoolMarketCapFeeSchedulerParams(
-              migratedPoolFee.poolFeeBps,
-              migratedPoolFee.marketCapFeeSchedulerParams.endingBaseFeeBps,
-              baseFeeMode,
-              migratedPoolFee.marketCapFeeSchedulerParams.numberOfPeriod,
-              migratedPoolFee.marketCapFeeSchedulerParams.priceMultiple,
-              migratedPoolFee.marketCapFeeSchedulerParams
-                  .schedulerExpirationDuration
-          )
-        : DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS
 
     return {
         migratedPoolFee: {
@@ -565,8 +459,17 @@ export function getMigratedPoolFeeParams(
             poolFeeBps: migratedPoolFee.poolFeeBps,
         },
         migratedPoolBaseFeeMode: baseFeeMode,
-        migratedPoolMarketCapFeeSchedulerParams: schedulerParams,
-        migrationFeeOption: MigrationFeeOption.Customizable,
+        migratedPoolMarketCapFeeSchedulerParams: scheduler
+            ? getMigratedPoolMarketCapFeeSchedulerParams(
+                  migratedPoolFee.poolFeeBps,
+                  scheduler.endingBaseFeeBps,
+                  baseFeeMode,
+                  scheduler.numberOfPeriod,
+                  scheduler.priceMultiple,
+                  scheduler.schedulerExpirationDuration
+              )
+            : DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
+        migrationFeeOption,
         compoundingFeeBps: migratedPoolFee.compoundingFeeBps ?? 0,
     }
 }

@@ -6,7 +6,6 @@ import {
     SYSVAR_INSTRUCTIONS_PUBKEY,
     TransactionInstruction,
 } from '@solana/web3.js'
-import { NATIVE_MINT } from '@solana/spl-token'
 import BN from 'bn.js'
 import { getCurrentPoint } from './chain'
 import {
@@ -14,6 +13,7 @@ import {
     unwrapSOLInstruction,
     wrapSOLInstruction,
 } from './token'
+import { isNativeSol } from './utils'
 import { isRateLimiterApplied } from '../math/poolFees/rateLimiter'
 import {
     ActivationType,
@@ -22,6 +22,10 @@ import {
     TradeDirection,
 } from '../types'
 
+/**
+ * Whether the rate limiter applies to a swap right now, for callers who build
+ * the swap instruction themselves and have to pass the instructions sysvar.
+ */
 export async function rateLimiterApplied(params: {
     connection: Connection
     baseFee: BaseFee
@@ -38,7 +42,6 @@ export async function rateLimiterApplied(params: {
         params.connection,
         params.activationType
     )
-
     return isRateLimiterApplied(
         currentPoint,
         params.activationPoint,
@@ -51,9 +54,7 @@ export async function rateLimiterApplied(params: {
     )
 }
 
-/**
- * Create the swap input and output token accounts, including SOL wrap, unwrap, and the instructions sysvar.
- */
+/** Create the input and output token accounts of a swap, wrap and unwrap SOL, and add the instructions sysvar. */
 export async function prepareSwapAccounts(params: {
     connection: Connection
     commitment: Commitment
@@ -74,7 +75,6 @@ export async function prepareSwapAccounts(params: {
     postInstructions: TransactionInstruction[]
     remainingAccounts: AccountMeta[]
 }> {
-    const preInstructions: TransactionInstruction[] = []
     const [
         { ataPubkey: inputTokenAccount, ix: createInputAtaIx },
         { ataPubkey: outputTokenAccount, ix: createOutputAtaIx },
@@ -84,7 +84,6 @@ export async function prepareSwapAccounts(params: {
             params.inputMint,
             params.inputOwner,
             params.payer,
-            true,
             params.inputTokenProgram,
             params.commitment
         ),
@@ -93,15 +92,19 @@ export async function prepareSwapAccounts(params: {
             params.outputMint,
             params.outputOwner,
             params.payer,
-            true,
             params.outputTokenProgram,
             params.commitment
         ),
     ])
-    createInputAtaIx && preInstructions.push(createInputAtaIx)
-    createOutputAtaIx && preInstructions.push(createOutputAtaIx)
 
-    if (params.inputMint.equals(NATIVE_MINT)) {
+    const preInstructions: TransactionInstruction[] = []
+    if (createInputAtaIx) {
+        preInstructions.push(createInputAtaIx)
+    }
+    if (createOutputAtaIx) {
+        preInstructions.push(createOutputAtaIx)
+    }
+    if (isNativeSol(params.inputMint)) {
         preInstructions.push(
             ...wrapSOLInstruction(
                 params.inputOwner,
@@ -112,26 +115,21 @@ export async function prepareSwapAccounts(params: {
     }
 
     const postInstructions: TransactionInstruction[] = []
-    if (
-        [params.inputMint.toBase58(), params.outputMint.toBase58()].includes(
-            NATIVE_MINT.toBase58()
+    if (isNativeSol(params.inputMint) || isNativeSol(params.outputMint)) {
+        postInstructions.push(
+            unwrapSOLInstruction(params.unwrapAuthority, params.unwrapAuthority)
         )
-    ) {
-        const unwrapIx = unwrapSOLInstruction(
-            params.unwrapAuthority,
-            params.unwrapAuthority
-        )
-        unwrapIx && postInstructions.push(unwrapIx)
     }
 
-    const remainingAccounts: AccountMeta[] = []
-    if (params.includeInstructionSysvar) {
-        remainingAccounts.push({
-            pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-            isSigner: false,
-            isWritable: false,
-        })
-    }
+    const remainingAccounts: AccountMeta[] = params.includeInstructionSysvar
+        ? [
+              {
+                  pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+                  isSigner: false,
+                  isWritable: false,
+              },
+          ]
+        : []
 
     return {
         inputTokenAccount,

@@ -11,11 +11,7 @@ import {
 import BN from 'bn.js'
 import { convertToLamports } from './utils'
 
-/**
- * Get the total vesting amount
- * @param lockedVesting - The locked vesting
- * @returns The total vesting amount
- */
+/** Get the total vesting amount */
 export const getTotalVestingAmount = (
     lockedVesting: LockedVestingParameters
 ): BN => {
@@ -31,7 +27,6 @@ export const getTotalVestingAmount = (
  * @param numberOfVestingPeriod - The number of periods
  * @param cliffUnlockAmount - The amount to unlock at cliff
  * @param totalVestingDuration - The total duration of vesting
- * @param cliffDurationFromMigrationTime - The cliff duration from migration time
  * @param tokenBaseDecimal - The decimal of the base token
  * @returns The locked vesting parameters
  * total_locked_vesting_amount = cliff_unlock_amount + (amount_per_period * number_of_period)
@@ -44,7 +39,7 @@ export function getLockedVestingParams(
     cliffDurationFromMigrationTime: number,
     tokenBaseDecimal: TokenDecimal
 ): LockedVestingParameters {
-    if (totalLockedVestingAmount == 0) {
+    if (totalLockedVestingAmount === 0) {
         return {
             amountPerPeriod: new BN(0),
             cliffDurationFromMigrationTime: new BN(0),
@@ -54,7 +49,9 @@ export function getLockedVestingParams(
         }
     }
 
-    if (totalLockedVestingAmount == cliffUnlockAmount) {
+    // The program requires a non-zero frequency and total, so an all-cliff
+    // schedule vests one token over one period after the cliff.
+    if (totalLockedVestingAmount === cliffUnlockAmount) {
         if (totalLockedVestingAmount < 1) {
             throw new Error(
                 'totalLockedVestingAmount must be at least 1 token when it is all unlocked at the cliff'
@@ -86,25 +83,18 @@ export function getLockedVestingParams(
         )
     }
 
-    // amount_per_period = (total_locked_vesting_amount - cliff_unlock_amount) / number_of_period
-    const amountPerPeriod =
+    // amount_per_period rounds down; the remainder is added to the cliff unlock
+    const roundedAmountPerPeriod = Math.floor(
         (totalLockedVestingAmount - cliffUnlockAmount) / numberOfVestingPeriod
-
-    // round amountPerPeriod down to ensure we don't exceed total amount
-    const roundedAmountPerPeriod = Math.floor(amountPerPeriod)
-
-    // calculate the remainder from rounding down
-    const totalPeriodicAmount = roundedAmountPerPeriod * numberOfVestingPeriod
-    const remainder =
-        totalLockedVestingAmount - (cliffUnlockAmount + totalPeriodicAmount)
-
-    // add the remainder to cliffUnlockAmount to maintain total amount
-    const adjustedCliffUnlockAmount = cliffUnlockAmount + remainder
-
-    const periodFrequency = new BN(
-        Math.floor(totalVestingDuration / numberOfVestingPeriod)
     )
-    if (periodFrequency.isZero()) {
+    const adjustedCliffUnlockAmount =
+        totalLockedVestingAmount -
+        roundedAmountPerPeriod * numberOfVestingPeriod
+
+    const periodFrequency = Math.floor(
+        totalVestingDuration / numberOfVestingPeriod
+    )
+    if (periodFrequency === 0) {
         throw new Error(
             'totalVestingDuration must be at least numberOfVestingPeriod seconds'
         )
@@ -116,7 +106,7 @@ export function getLockedVestingParams(
             tokenBaseDecimal
         ),
         cliffDurationFromMigrationTime: new BN(cliffDurationFromMigrationTime),
-        frequency: periodFrequency,
+        frequency: new BN(periodFrequency),
         numberOfPeriod: new BN(numberOfVestingPeriod),
         cliffUnlockAmount: convertToLamports(
             adjustedCliffUnlockAmount,
@@ -136,7 +126,6 @@ export const getLiquidityVestingInfoParams = (
         throw new Error('vestingPercentage must be between 0 and 100')
     }
 
-    // if vestingPercentage is 0, all other params should be 0 (zero vesting case)
     if (vestingPercentage === 0) {
         if (
             bpsPerPeriod !== 0 ||
@@ -223,7 +212,6 @@ export function getVestingLockedLiquidityBpsAtNSeconds(
     vestingInfo: LiquidityVestingInfoParameters | undefined,
     nSeconds: number
 ): number {
-    // If no vesting info or vesting percentage is 0, return 0
     if (!vestingInfo || vestingInfo.vestingPercentage === 0) {
         return 0
     }
@@ -240,7 +228,6 @@ export function getVestingLockedLiquidityBpsAtNSeconds(
     const frequency = vestingInfo.frequency
     const cliffDuration = vestingInfo.cliffDurationFromMigrationTime
 
-    // calculate total BPS that will be unlocked over all periods
     const totalBpsAfterCliff = bpsPerPeriod * numberOfPeriods
 
     // total_vesting_liquidity_after_cliff = floor(total_vested_liquidity * total_bps_after_cliff / MAX_BASIS_POINT)
@@ -272,7 +259,6 @@ export function getVestingLockedLiquidityBpsAtNSeconds(
         liquidityPerPeriod.mul(new BN(adjustedNumberOfPeriods))
     )
 
-    // calculate unlocked liquidity at nSeconds using vesting parameters
     // cliff_point = current_timestamp (0) + cliff_duration
     const cliffPoint = new BN(adjustedCliffDuration)
     const currentPoint = new BN(nSeconds)
@@ -280,10 +266,8 @@ export function getVestingLockedLiquidityBpsAtNSeconds(
     let unlockedLiquidity = new BN(0)
 
     if (currentPoint.gte(cliffPoint)) {
-        // past cliff - add cliff unlock amount
         unlockedLiquidity = cliffUnlockLiquidity
 
-        // calculate periods elapsed after cliff
         if (adjustedFrequency > 0 && adjustedNumberOfPeriods > 0) {
             const timeAfterCliff = currentPoint.sub(cliffPoint)
             const periodsElapsed = timeAfterCliff
@@ -326,7 +310,6 @@ export function calculateLockedLiquidityBpsAtTime(
     creatorLiquidityVestingInfo: LiquidityVestingInfoParameters | undefined,
     elapsedSeconds: number
 ): number {
-    // calculate vested locked BPS using the same u128 arithmetic as on-chain
     const partnerVestedLockedLiquidityBps =
         getVestingLockedLiquidityBpsAtNSeconds(
             partnerLiquidityVestingInfo,
@@ -343,7 +326,6 @@ export function calculateLockedLiquidityBpsAtTime(
     const creatorPermanentLockedLiquidityBps =
         creatorPermanentLockedLiquidityPercentage * 100
 
-    // total locked = partner_vested + partner_permanent + creator_vested + creator_permanent
     const totalLockedLiquidityBpsAtNSeconds =
         partnerVestedLockedLiquidityBps +
         partnerPermanentLockedLiquidityBps +

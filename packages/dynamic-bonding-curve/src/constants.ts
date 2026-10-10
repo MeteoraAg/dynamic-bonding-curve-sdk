@@ -7,7 +7,6 @@ import {
 
 export const MAX_CURVE_POINT = 16
 
-export const OFFSET = 64
 export const RESOLUTION = 64
 export const ONE_Q64 = new BN(1).shln(RESOLUTION)
 
@@ -45,9 +44,11 @@ export const BIN_STEP_BPS_DEFAULT = 1
 //  bin_step << 64 / MAX_BASIS_POINT
 export const BIN_STEP_BPS_U128_DEFAULT = new BN('1844674407370955')
 export const MAX_PRICE_CHANGE_BPS_DEFAULT = 1500 // 15%
+export const MAX_DYNAMIC_FEE_PERCENT = 20 // of the base fee
 
 // Protocol Fee
 export const PROTOCOL_FEE_PERCENT = 20 // 20%
+export const PARTNER_AND_CREATOR_SURPLUS_SHARE = 80 // 80%
 
 // Referral Fee
 export const HOST_FEE_PERCENT = 20 // 20%

@@ -12,82 +12,51 @@ import {
     getDeltaAmountQuoteUnsigned,
     liveCurve,
 } from '../math/curve'
-/**
- * Get the price from the sqrt start price
- * @param sqrtStartPrice - The sqrt start price
- * @param tokenBaseDecimal - The base token decimal
- * @param tokenQuoteDecimal - The quote token decimal
- * @returns The initial price
- */
+import { ProgramError } from '../math/errors'
+
+/** Price of one base token in quote tokens: (sqrtPrice / 2^64)^2 * 10^(baseDecimal - quoteDecimal). */
 export function getPriceFromSqrtPrice(
     sqrtPrice: BN,
     tokenBaseDecimal: TokenDecimal,
     tokenQuoteDecimal: number
 ): Decimal {
-    // lamport price = sqrtStartPrice * sqrtStartPrice / 2^128
     const sqrtPriceDecimal = new Decimal(sqrtPrice.toString())
     const lamportPrice = sqrtPriceDecimal
         .mul(sqrtPriceDecimal)
         .div(new Decimal(2).pow(128))
-
-    // token price = lamport price * 10^(base_decimal - quote_decimal)
-    const tokenPrice = lamportPrice.mul(
+    return lamportPrice.mul(
         new Decimal(10).pow(tokenBaseDecimal - tokenQuoteDecimal)
     )
-
-    return tokenPrice
 }
 
-/**
- * Get the sqrt price from the price
- * @param price - The price
- * @param tokenADecimal - The decimal of token A
- * @param tokenBDecimal - The decimal of token B
- * @returns The sqrt price
- * price = (sqrtPrice >> 64)^2 * 10^(tokenADecimal - tokenBDecimal)
- */
+/** Q64 sqrt price of a base token price in quote tokens, rounded down. */
 export const getSqrtPriceFromPrice = (
     price: string,
-    tokenADecimal: number,
-    tokenBDecimal: number
+    tokenBaseDecimal: number,
+    tokenQuoteDecimal: number
 ): BN => {
-    const decimalPrice = new Decimal(price)
-    const adjustedByDecimals = decimalPrice.div(
-        new Decimal(10 ** (tokenADecimal - tokenBDecimal))
+    const lamportPrice = new Decimal(price).div(
+        Decimal.pow(10, tokenBaseDecimal - tokenQuoteDecimal)
     )
-    const sqrtValue = Decimal.sqrt(adjustedByDecimals)
-    const sqrtValueQ64 = sqrtValue.mul(Decimal.pow(2, 64))
-
+    const sqrtValueQ64 = Decimal.sqrt(lamportPrice).mul(Decimal.pow(2, 64))
     return new BN(sqrtValueQ64.floor().toFixed())
 }
 
-/**
- * Create the sqrt prices from the prices
- * @param prices - The prices
- * @returns The sqrt prices
- */
+/** Q64 sqrt prices of base token prices in quote tokens. */
 export const createSqrtPrices = (
     prices: number[],
     tokenBaseDecimal: TokenDecimal,
     tokenQuoteDecimal: number
-) => {
-    return prices.map((price) =>
+): BN[] =>
+    prices.map((price) =>
         getSqrtPriceFromPrice(
             price.toString(),
             tokenBaseDecimal,
             tokenQuoteDecimal
         )
     )
-}
 
-/**
- * Get the sqrt price from the market cap
- * @param marketCap - The market cap
- * @param totalSupply - The total supply
- * @param tokenBaseDecimal - The decimal of the base token
- * @param tokenQuoteDecimal - The decimal of the quote token
- * @returns The sqrt price
- */
+/** Q64 sqrt price at which totalSupply base tokens are worth marketCap quote tokens. */
 export const getSqrtPriceFromMarketCap = (
     marketCap: number,
     totalSupply: number,
@@ -103,54 +72,40 @@ export const getSqrtPriceFromMarketCap = (
 }
 
 /**
- * Get the base token for swap
- * @param sqrtStartPrice - The start sqrt price
- * @param sqrtMigrationPrice - The migration sqrt price
- * @param curve - The curve
- * @returns The base token
+ * Base tokens sold from sqrtStartPrice to sqrtMigrationPrice, rounded up per
+ * segment like the program's get_base_token_for_swap.
  */
 export function getBaseTokenForSwap(
     sqrtStartPrice: BN,
     sqrtMigrationPrice: BN,
     curve: Array<LiquidityDistributionParameters>
 ): BN {
-    const points = liveCurve(curve)
     let totalAmount = new BN(0)
-    for (let i = 0; i < points.length; i++) {
-        const lowerSqrtPrice =
-            i === 0 ? sqrtStartPrice : points[i - 1].sqrtPrice
-        if (points[i].sqrtPrice.gt(sqrtMigrationPrice)) {
-            const deltaAmount = getDeltaAmountBaseUnsigned256(
+    let lowerSqrtPrice = sqrtStartPrice
+    for (const point of liveCurve(curve)) {
+        const upperSqrtPrice = BN.min(point.sqrtPrice, sqrtMigrationPrice)
+        totalAmount = totalAmount.add(
+            getDeltaAmountBaseUnsigned256(
                 lowerSqrtPrice,
-                sqrtMigrationPrice,
-                points[i].liquidity,
+                upperSqrtPrice,
+                point.liquidity,
                 Rounding.Up
             )
-            totalAmount = totalAmount.add(deltaAmount)
+        )
+        if (point.sqrtPrice.gt(sqrtMigrationPrice)) {
             break
-        } else {
-            const deltaAmount = getDeltaAmountBaseUnsigned256(
-                lowerSqrtPrice,
-                points[i].sqrtPrice,
-                points[i].liquidity,
-                Rounding.Up
-            )
-            totalAmount = totalAmount.add(deltaAmount)
         }
+        lowerSqrtPrice = point.sqrtPrice
     }
-    // the program sums the segments in U256 and casts the total once
     if (totalAmount.gt(U64_MAX)) {
-        throw new Error('Type cast failed')
+        throw new Error(ProgramError.MathOverflow)
     }
     return totalAmount
 }
 
 /**
- * Computes the sqrtPriceStepBps needed so that the fee schedule is fully
- * exhausted when spot price reaches a given multiple of the initial price.
- * @param priceMultiple - Target spot-price multiple (e.g. 1000 for 1000x)
- * @param numberOfPeriod - Number of fee reduction periods
- * @returns The sqrtPriceStepBps value to use on-chain
+ * The sqrtPriceStepBps that exhausts a market cap fee schedule when the spot
+ * price reaches priceMultiple times the initial price.
  */
 export function computeSqrtPriceStepBps(
     priceMultiple: number,
@@ -167,44 +122,31 @@ export function computeSqrtPriceStepBps(
     )
     if (sqrtPriceStepBps <= 0) {
         throw new Error(
-            'Computed sqrtPriceStepBps is 0 — increase priceMultiple or decrease numberOfPeriod'
+            'sqrtPriceStepBps rounds to zero for the given priceMultiple and numberOfPeriod'
         )
     }
     return sqrtPriceStepBps
 }
 
-/**
- * Get the quote token amount from sqrt price
- * @param nextSqrtPrice - The next sqrt price
- * @param config - The pool configuration
- * @returns The total quote token amount
- */
+/** Quote tokens the curve holds once it has been bought up to nextSqrtPrice. */
 export function getQuoteReserveFromNextSqrtPrice(
     nextSqrtPrice: BN,
-    config: PoolConfig
+    config: Pick<PoolConfig, 'curve' | 'sqrtStartPrice'>
 ): BN {
-    const points = liveCurve(config.curve)
     let totalAmount = new BN(0)
-
-    for (let i = 0; i < points.length; i++) {
-        const lowerSqrtPrice =
-            i === 0 ? config.sqrtStartPrice : points[i - 1].sqrtPrice
-
+    let lowerSqrtPrice = config.sqrtStartPrice
+    for (const point of liveCurve(config.curve)) {
         if (nextSqrtPrice.gt(lowerSqrtPrice)) {
-            const upperSqrtPrice = nextSqrtPrice.lt(points[i].sqrtPrice)
-                ? nextSqrtPrice
-                : points[i].sqrtPrice
-
-            const maxAmountIn = getDeltaAmountQuoteUnsigned(
-                lowerSqrtPrice,
-                upperSqrtPrice,
-                points[i].liquidity,
-                Rounding.Up
+            totalAmount = totalAmount.add(
+                getDeltaAmountQuoteUnsigned(
+                    lowerSqrtPrice,
+                    BN.min(nextSqrtPrice, point.sqrtPrice),
+                    point.liquidity,
+                    Rounding.Up
+                )
             )
-
-            totalAmount = totalAmount.add(maxAmountIn)
         }
+        lowerSqrtPrice = point.sqrtPrice
     }
-
     return totalAmount
 }

@@ -4,18 +4,12 @@ import { Connection, PublicKey } from '@solana/web3.js'
 import { convertToLamports } from './utils'
 import { getTokenDecimals } from './token'
 
-/**
- * Get the current point based on activation type
- * @param connection - The Solana connection instance
- * @param activationType - The activation type (Slot or Time)
- * @returns The current point as a BN
- */
+/** The current slot, or the block time of the current slot, depending on activationType. */
 export async function getCurrentPoint(
     connection: Connection,
     activationType: ActivationType
 ): Promise<BN> {
     const currentSlot = await connection.getSlot()
-
     if (activationType === ActivationType.Slot) {
         return new BN(currentSlot)
     }
@@ -27,19 +21,14 @@ export async function getCurrentPoint(
     return new BN(currentTime)
 }
 
-/**
- * Prepare the swap amount param
- * @param amount - The amount to swap
- * @param mintAddress - The mint address
- * @param connection - The Solana connection instance
- * @returns The amount in lamports
- */
+/** Convert a UI amount to lamports using the mint's on-chain decimals. */
 export async function prepareSwapAmountParam(
     amount: number,
     mintAddress: PublicKey,
     connection: Connection
 ): Promise<BN> {
-    const mintTokenDecimals = await getTokenDecimals(connection, mintAddress)
-
-    return convertToLamports(amount, mintTokenDecimals)
+    return convertToLamports(
+        amount,
+        await getTokenDecimals(connection, mintAddress)
+    )
 }

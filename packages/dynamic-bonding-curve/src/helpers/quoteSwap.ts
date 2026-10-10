@@ -7,85 +7,62 @@ import {
 import { getMigrationThresholdPrice } from './migration'
 import {
     SwapMode,
+    TokenType,
     type ConfigParameters,
-    type PoolConfig,
-    type QuoteTransferFees,
+    type QuotePoolConfig,
+    type QuoteVirtualPool,
     type SimulatedQuoteBaseParams,
     type SimulatedQuoteFromInputAmountParams,
     type SimulatedQuoteFromOutputAmountParams,
     type SwapQuote2Result,
-    type VirtualPool,
 } from '../types'
 
-function migrationSqrtPrice(config: ConfigParameters): BN {
-    if (!config.curve || config.curve.length === 0) {
-        throw new Error('config.curve is empty')
-    }
-
-    return getMigrationThresholdPrice(
-        config.migrationQuoteThreshold,
-        config.sqrtStartPrice,
-        config.curve
-    )
-}
-
 /**
- * `process_create_config` sets `initialized` to 1 when dynamic-fee parameters
- * are present and leaves the default (0) when they are not.
- */
-function dynamicFeeFromParameters(
-    dynamicFee: ConfigParameters['poolFees']['dynamicFee']
-) {
-    if (!dynamicFee) {
-        return { initialized: 0, binStep: 0, variableFeeControl: 0 }
-    }
-
-    return {
-        ...dynamicFee,
-        initialized: 1,
-    }
-}
-
-/**
- * Fields `process_create_config` writes that the quote math reads.
- * The quote functions are typed on the account, so this is asserted at the
- * boundary. Padding and pubkeys the math does not read are left unset.
+ * The config fields the quote math reads, as process_create_config writes
+ * them. A base transfer fee is a separate createConfig2 argument, so it is
+ * only applied when the caller passes baseTransferFeeBasisPoints or baseMint.
  */
 function poolConfigFromParameters(
     config: ConfigParameters,
-    quoteTokenFlag: number | undefined
-): PoolConfig {
+    quoteTokenFlag: number
+): QuotePoolConfig {
     return {
         poolFees: {
             baseFee: config.poolFees.baseFee,
-            dynamicFee: dynamicFeeFromParameters(config.poolFees.dynamicFee),
+            dynamicFee: config.poolFees.dynamicFee
+                ? { ...config.poolFees.dynamicFee, initialized: 1 }
+                : { initialized: 0, binStep: 0, variableFeeControl: 0 },
         },
         collectFeeMode: config.collectFeeMode,
         sqrtStartPrice: config.sqrtStartPrice,
         migrationQuoteThreshold: config.migrationQuoteThreshold,
-        migrationSqrtPrice: migrationSqrtPrice(config),
+        migrationSqrtPrice: getMigrationThresholdPrice(
+            config.migrationQuoteThreshold,
+            config.sqrtStartPrice,
+            config.curve
+        ),
         curve: config.curve,
         enableFirstSwapWithMinFee: config.enableFirstSwapWithMinFee ? 1 : 0,
         quoteTokenFlag,
-    } as PoolConfig
+        transferFeeFlag: 0,
+        transferFeeBasisPoints: 0,
+    }
 }
 
-/** Pool `initialize_pool` writes: start price, zero volatility, `has_swap` 0. */
+/** The pool initialize_pool writes: the start price, no reserve, no swap and no volatility. */
 function initialVirtualPool(
     sqrtStartPrice: BN,
     activationPoint: BN
-): VirtualPool {
+): QuoteVirtualPool {
     return {
         poolState: {
             sqrtPrice: sqrtStartPrice,
             quoteReserve: new BN(0),
             activationPoint,
             hasSwap: 0,
-            volatilityTracker: {
-                volatilityAccumulator: new BN(0),
-            },
+            volatilityTracker: { volatilityAccumulator: new BN(0) },
         },
-    } as VirtualPool
+    }
 }
 
 function quoteAtInitialization(
@@ -104,7 +81,7 @@ function quoteAtInitialization(
     const currentPoint = params.currentPoint ?? new BN(0)
     const config = poolConfigFromParameters(
         params.config,
-        params.quoteTokenFlag
+        params.quoteTokenFlag ?? TokenType.SPLToken
     )
     const virtualPool = initialVirtualPool(
         params.config.sqrtStartPrice,
@@ -114,7 +91,14 @@ function quoteAtInitialization(
     const hasReferral = params.hasReferral ?? false
     const eligibleForFirstSwapWithMinFee =
         params.eligibleForFirstSwapWithMinFee ?? false
-    const transferFees: QuoteTransferFees = params
+    const { currentEpoch, baseMint, quoteMint, baseTransferFeeBasisPoints } =
+        params
+    const transferFees = {
+        currentEpoch,
+        baseMint,
+        quoteMint,
+        baseTransferFeeBasisPoints,
+    }
 
     if (params.swapMode === SwapMode.ExactOut) {
         return swapQuoteExactOut(
@@ -130,21 +114,11 @@ function quoteAtInitialization(
         )
     }
 
-    if (params.swapMode === SwapMode.PartialFill) {
-        return swapQuotePartialFill(
-            virtualPool,
-            config,
-            params.swapBaseForQuote,
-            params.amountIn,
-            slippageBps,
-            hasReferral,
-            currentPoint,
-            eligibleForFirstSwapWithMinFee,
-            transferFees
-        )
-    }
-
-    return swapQuoteExactIn(
+    const quote =
+        params.swapMode === SwapMode.PartialFill
+            ? swapQuotePartialFill
+            : swapQuoteExactIn
+    return quote(
         virtualPool,
         config,
         params.swapBaseForQuote,
@@ -157,12 +131,18 @@ function quoteAtInitialization(
     )
 }
 
+/**
+ * Quote a buildCurve result as if its pool had just been initialized at
+ * currentPoint. A base transfer fee is only applied when
+ * baseTransferFeeBasisPoints or baseMint is passed.
+ */
 export function getQuoteFromInputAmount(
     params: SimulatedQuoteFromInputAmountParams
 ): SwapQuote2Result {
     return quoteAtInitialization(params)
 }
 
+/** Exact-out counterpart of getQuoteFromInputAmount. */
 export function getQuoteFromOutputAmount(
     params: SimulatedQuoteFromOutputAmountParams
 ): SwapQuote2Result {
