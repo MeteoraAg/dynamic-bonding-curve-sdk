@@ -26,6 +26,7 @@ import {
     getInitialLiquidityFromDeltaBase,
     getInitialLiquidityFromDeltaQuote,
     getNextSqrtPriceFromInput,
+    liveCurve,
 } from '../math/curve'
 import { mulDiv, sqrt } from '../math/utilsMath'
 import {
@@ -613,39 +614,40 @@ export const getMigrationThresholdPrice = (
     sqrtStartPrice: BN,
     curve: Array<LiquidityDistributionParameters>
 ): BN => {
+    const points = liveCurve(curve)
     let nextSqrtPrice = sqrtStartPrice
 
-    if (curve.length === 0) {
+    if (points.length === 0) {
         throw Error('Curve is empty')
     }
 
     const totalAmount = getDeltaAmountQuoteUnsigned256(
         nextSqrtPrice,
-        curve[0].sqrtPrice,
-        curve[0].liquidity,
+        points[0].sqrtPrice,
+        points[0].liquidity,
         Rounding.Up
     )
     if (totalAmount.gt(migrationThreshold)) {
         nextSqrtPrice = getNextSqrtPriceFromInput(
             nextSqrtPrice,
-            curve[0].liquidity,
+            points[0].liquidity,
             migrationThreshold,
             false
         )
     } else {
         let amountLeft = migrationThreshold.sub(totalAmount)
-        nextSqrtPrice = curve[0].sqrtPrice
-        for (let i = 1; i < curve.length; i++) {
+        nextSqrtPrice = points[0].sqrtPrice
+        for (let i = 1; i < points.length; i++) {
             const maxAmount = getDeltaAmountQuoteUnsigned256(
                 nextSqrtPrice,
-                curve[i].sqrtPrice,
-                curve[i].liquidity,
+                points[i].sqrtPrice,
+                points[i].liquidity,
                 Rounding.Up
             )
             if (maxAmount.gt(amountLeft)) {
                 nextSqrtPrice = getNextSqrtPriceFromInput(
                     nextSqrtPrice,
-                    curve[i].liquidity,
+                    points[i].liquidity,
                     amountLeft,
                     false
                 )
@@ -653,7 +655,7 @@ export const getMigrationThresholdPrice = (
                 break
             } else {
                 amountLeft = amountLeft.sub(maxAmount)
-                nextSqrtPrice = curve[i].sqrtPrice
+                nextSqrtPrice = points[i].sqrtPrice
             }
         }
         if (!amountLeft.isZero()) {
@@ -684,7 +686,8 @@ export const getCurveBreakdown = (
     finalSqrtPrice: BN
     totalAmount: BN
 } => {
-    if (curve.length === 0) {
+    const points = liveCurve(curve)
+    if (points.length === 0) {
         throw Error('Curve is empty')
     }
 
@@ -693,7 +696,7 @@ export const getCurveBreakdown = (
     let lowerSqrtPrice = sqrtStartPrice
     let finalSqrtPrice = sqrtStartPrice
 
-    for (const { sqrtPrice: upperSqrtPrice, liquidity } of curve) {
+    for (const { sqrtPrice: upperSqrtPrice, liquidity } of points) {
         if (remaining.isZero()) {
             segmentAmounts.push(new BN(0))
             continue

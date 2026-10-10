@@ -10,6 +10,7 @@ import Decimal from 'decimal.js'
 import {
     getDeltaAmountBaseUnsigned256,
     getDeltaAmountQuoteUnsigned,
+    liveCurve,
 } from '../math/curve'
 /**
  * Get the price from the sqrt start price
@@ -113,14 +114,16 @@ export function getBaseTokenForSwap(
     sqrtMigrationPrice: BN,
     curve: Array<LiquidityDistributionParameters>
 ): BN {
+    const points = liveCurve(curve)
     let totalAmount = new BN(0)
-    for (let i = 0; i < curve.length; i++) {
-        const lowerSqrtPrice = i === 0 ? sqrtStartPrice : curve[i - 1].sqrtPrice
-        if (curve[i].sqrtPrice.gt(sqrtMigrationPrice)) {
+    for (let i = 0; i < points.length; i++) {
+        const lowerSqrtPrice =
+            i === 0 ? sqrtStartPrice : points[i - 1].sqrtPrice
+        if (points[i].sqrtPrice.gt(sqrtMigrationPrice)) {
             const deltaAmount = getDeltaAmountBaseUnsigned256(
                 lowerSqrtPrice,
                 sqrtMigrationPrice,
-                curve[i].liquidity,
+                points[i].liquidity,
                 Rounding.Up
             )
             totalAmount = totalAmount.add(deltaAmount)
@@ -128,8 +131,8 @@ export function getBaseTokenForSwap(
         } else {
             const deltaAmount = getDeltaAmountBaseUnsigned256(
                 lowerSqrtPrice,
-                curve[i].sqrtPrice,
-                curve[i].liquidity,
+                points[i].sqrtPrice,
+                points[i].liquidity,
                 Rounding.Up
             )
             totalAmount = totalAmount.add(deltaAmount)
@@ -180,21 +183,22 @@ export function getQuoteReserveFromNextSqrtPrice(
     nextSqrtPrice: BN,
     config: PoolConfig
 ): BN {
+    const points = liveCurve(config.curve)
     let totalAmount = new BN(0)
 
-    for (let i = 0; i < config.curve.length; i++) {
+    for (let i = 0; i < points.length; i++) {
         const lowerSqrtPrice =
-            i === 0 ? config.sqrtStartPrice : config.curve[i - 1].sqrtPrice
+            i === 0 ? config.sqrtStartPrice : points[i - 1].sqrtPrice
 
         if (nextSqrtPrice.gt(lowerSqrtPrice)) {
-            const upperSqrtPrice = nextSqrtPrice.lt(config.curve[i].sqrtPrice)
+            const upperSqrtPrice = nextSqrtPrice.lt(points[i].sqrtPrice)
                 ? nextSqrtPrice
-                : config.curve[i].sqrtPrice
+                : points[i].sqrtPrice
 
             const maxAmountIn = getDeltaAmountQuoteUnsigned(
                 lowerSqrtPrice,
                 upperSqrtPrice,
-                config.curve[i].liquidity,
+                points[i].liquidity,
                 Rounding.Up
             )
 

@@ -389,3 +389,17 @@ export function getNextSqrtPriceFromQuoteAmountInRoundingDown(
 
     return requireU128(SafeMath.add(sqrtPrice, quotient))
 }
+
+/**
+ * The points of a stored curve up to the first zero point. PoolConfig.curve
+ * holds MAX_CURVE_POINT entries and the unused ones are zero; the program
+ * stops at the first of them.
+ */
+export function liveCurve<T extends { sqrtPrice: BN; liquidity: BN }>(
+    curve: T[]
+): T[] {
+    const end = curve.findIndex(
+        (point) => point.sqrtPrice.isZero() || point.liquidity.isZero()
+    )
+    return end === -1 ? curve : curve.slice(0, end)
+}
