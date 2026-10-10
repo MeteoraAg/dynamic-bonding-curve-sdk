@@ -29,9 +29,7 @@ import {
 import type { Program } from '@coral-xyz/anchor'
 import type { DynamicBondingCurve as DynamicBondingCurveIDL } from '../idl/dynamic-bonding-curve/idl'
 import {
-    ActivationType,
     AccountsType,
-    BaseFee,
     CollectFeeMode,
     ConfigParameters,
     CreatePoolParams,
@@ -61,10 +59,9 @@ import {
 } from '@solana/spl-token'
 import { getFeeMode } from '../math/feeMath'
 import { getEpochTransferFee } from '../math/transferFee'
-import BN from 'bn.js'
 import type { DbcClientContext } from '../client'
 import { StateService } from './state'
-import { prepareSwapAccounts, rateLimiterApplied } from '../helpers/swap'
+import { prepareSwapAccounts } from '../helpers/swap'
 
 type ClaimTradingFeeAccountParams = {
     payer: PublicKey
@@ -605,9 +602,6 @@ export class DynamicBondingCurveProgram {
         firstBuyParam: FirstBuyParams,
         baseMint: PublicKey,
         config: PublicKey,
-        baseFee: BaseFee,
-        swapBaseForQuote: boolean,
-        activationType: ActivationType,
         tokenType: TokenType,
         quoteMint: PublicKey,
         enableFirstSwapWithMinFee: boolean
@@ -621,14 +615,6 @@ export class DynamicBondingCurveProgram {
         } = firstBuyParam
 
         validateSwapAmount(buyAmount)
-
-        const rateLimited = await rateLimiterApplied({
-            connection: this.connection,
-            baseFee,
-            activationType,
-            activationPoint: new BN(0),
-            swapBaseForQuote,
-        })
 
         const quoteTokenFlag = await getTokenType(this.connection, quoteMint)
 
@@ -667,7 +653,7 @@ export class DynamicBondingCurveProgram {
             inputTokenProgram,
             outputTokenProgram,
             wrapAmount: buyAmount,
-            includeInstructionSysvar: rateLimited || enableFirstSwapWithMinFee,
+            includeInstructionSysvar: enableFirstSwapWithMinFee,
         })
 
         return this.program.methods
@@ -700,8 +686,6 @@ export class DynamicBondingCurveProgram {
         firstBuyParam: FirstBuyWithTransferHookParams,
         baseMint: PublicKey,
         config: PublicKey,
-        baseFee: BaseFee,
-        activationType: ActivationType,
         collectFeeMode: CollectFeeMode,
         quoteMint: PublicKey,
         enableFirstSwapWithMinFee: boolean
@@ -715,14 +699,6 @@ export class DynamicBondingCurveProgram {
         } = firstBuyParam
 
         validateSwapAmount(buyAmount)
-
-        const rateLimited = await rateLimiterApplied({
-            connection: this.connection,
-            baseFee,
-            activationType,
-            activationPoint: new BN(0),
-            swapBaseForQuote: false,
-        })
 
         const quoteTokenFlag = await getTokenType(this.connection, quoteMint)
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
@@ -759,7 +735,7 @@ export class DynamicBondingCurveProgram {
             inputTokenProgram,
             outputTokenProgram,
             wrapAmount: buyAmount,
-            includeInstructionSysvar: rateLimited || enableFirstSwapWithMinFee,
+            includeInstructionSysvar: enableFirstSwapWithMinFee,
         })
 
         const transferHookTransfers: TransferHookTransfer[] = [

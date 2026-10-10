@@ -212,12 +212,9 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 firstBuyParam,
                 createPoolParam.baseMint,
                 config,
-                poolConfigState.poolFees.baseFee,
-                false,
-                poolConfigState.activationType,
                 poolConfigState.tokenType,
                 poolConfigState.quoteMint,
-                true
+                Boolean(poolConfigState.enableFirstSwapWithMinFee)
             )
             createPoolWithFirstBuyTx.add(swapBuyTx)
         }
@@ -251,11 +248,9 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 firstBuyParam,
                 createPoolParam.baseMint,
                 config,
-                poolConfigState.poolFees.baseFee,
-                poolConfigState.activationType,
                 poolConfigState.collectFeeMode,
                 poolConfigState.quoteMint,
-                true
+                Boolean(poolConfigState.enableFirstSwapWithMinFee)
             )
             createPoolWithFirstBuyTx.add(swapBuyTx)
         }
@@ -297,12 +292,9 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 },
                 createPoolParam.baseMint,
                 config,
-                poolConfigState.poolFees.baseFee,
-                false,
-                poolConfigState.activationType,
                 poolConfigState.tokenType,
                 poolConfigState.quoteMint,
-                true
+                Boolean(poolConfigState.enableFirstSwapWithMinFee)
             )
             createPoolWithFirstBuysTx.add(partnerSwapBuyTx)
         }
@@ -322,12 +314,9 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 },
                 createPoolParam.baseMint,
                 config,
-                poolConfigState.poolFees.baseFee,
-                false,
-                poolConfigState.activationType,
                 poolConfigState.tokenType,
                 poolConfigState.quoteMint,
-                true
+                Boolean(poolConfigState.enableFirstSwapWithMinFee)
             )
             createPoolWithFirstBuysTx.add(creatorSwapBuyTx)
         }
@@ -376,11 +365,9 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 },
                 createPoolParam.baseMint,
                 config,
-                poolConfigState.poolFees.baseFee,
-                poolConfigState.activationType,
                 poolConfigState.collectFeeMode,
                 poolConfigState.quoteMint,
-                true
+                Boolean(poolConfigState.enableFirstSwapWithMinFee)
             )
             createPoolWithFirstBuysTx.add(partnerSwapBuyTx)
         }
@@ -404,11 +391,9 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 },
                 createPoolParam.baseMint,
                 config,
-                poolConfigState.poolFees.baseFee,
-                poolConfigState.activationType,
                 poolConfigState.collectFeeMode,
                 poolConfigState.quoteMint,
-                true
+                Boolean(poolConfigState.enableFirstSwapWithMinFee)
             )
             createPoolWithFirstBuysTx.add(creatorSwapBuyTx)
         }

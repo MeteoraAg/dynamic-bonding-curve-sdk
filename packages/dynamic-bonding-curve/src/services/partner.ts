@@ -282,12 +282,9 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 firstBuyParam,
                 preCreatePoolParam.baseMint,
                 configKey,
-                configParam.poolFees.baseFee,
-                false,
-                configParam.activationType,
                 params.tokenType,
                 quoteMintToken,
-                true
+                Boolean(configParam.enableFirstSwapWithMinFee)
             )
             createPoolWithFirstBuyTx.add(swapBuyTx)
         }
@@ -359,11 +356,9 @@ export class PartnerService extends DynamicBondingCurveProgram {
                 firstBuyParam,
                 preCreatePoolParam.baseMint,
                 configKey,
-                configParam.poolFees.baseFee,
-                configParam.activationType,
                 configParam.collectFeeMode,
                 quoteMintToken,
-                true
+                Boolean(configParam.enableFirstSwapWithMinFee)
             )
             createPoolWithFirstBuyTx.add(swapBuyTx)
         }

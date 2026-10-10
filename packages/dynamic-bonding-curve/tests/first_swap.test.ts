@@ -470,6 +470,48 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         expect(secondSwapFee.gt(expectedFirstFee.mul(new BN(10)))).toBe(true)
     })
 
+    test('omits the instructions sysvar when the config does not enable the min fee first swap', async () => {
+        const plainConfig = Keypair.generate()
+        const createConfigTx = await dbcClient.partner.createConfig({
+            config: plainConfig.publicKey,
+            feeClaimer: partner.publicKey,
+            leftoverReceiver: partner.publicKey,
+            payer: partner.publicKey,
+            quoteMint: NATIVE_MINT,
+            ...curveConfig,
+            enableFirstSwapWithMinFee: false,
+        })
+        createConfigTx.feePayer = partner.publicKey
+        await sendAndConfirmTransaction(connection, createConfigTx, [
+            partner,
+            plainConfig,
+        ])
+
+        const newBaseMint = Keypair.generate()
+        const tx = await dbcClient.creator.createPoolWithFirstBuy({
+            createPoolParam: {
+                baseMint: newBaseMint.publicKey,
+                config: plainConfig.publicKey,
+                name: 'TEST',
+                symbol: 'TEST',
+                uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
+                payer: poolCreator.publicKey,
+                poolCreator: poolCreator.publicKey,
+            },
+            firstBuyParam: {
+                buyer: poolCreator.publicKey,
+                buyAmount: new BN(1_000_000_000),
+                minimumAmountOut: new BN(0),
+                referralTokenAccount: null,
+            },
+        })
+
+        const usesSysvar = tx.instructions.some((ix) =>
+            ix.keys.some((key) => key.pubkey.equals(SYSVAR_INSTRUCTIONS_PUBKEY))
+        )
+        expect(usesSysvar).toBe(false)
+    })
+
     test('SDK createConfigAndPoolWithFirstBuy integration', async () => {
         const newConfig = Keypair.generate()
         const newBaseMint = Keypair.generate()
