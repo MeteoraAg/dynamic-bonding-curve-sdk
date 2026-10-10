@@ -7,7 +7,7 @@ describe('calculateFeeScheduler tests', () => {
         const endingFeeBps = 1000
         const numberOfPeriod = 144
         const feeSchedulerMode = BaseFeeMode.FeeSchedulerLinear
-        const totalDuration = 60
+        const totalDuration = 144 * 60
 
         const result = getFeeSchedulerParams(
             startingFeeBps,

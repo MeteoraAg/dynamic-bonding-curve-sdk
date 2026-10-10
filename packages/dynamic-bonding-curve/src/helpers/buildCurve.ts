@@ -236,8 +236,7 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
     const migratedPoolFeeResult = getMigratedPoolFeeParams(
         migrationOption,
         migrationFeeOption,
-        migratedPoolFee,
-        baseFeeParams
+        migratedPoolFee
     )
 
     const migrationBaseSupply = new Decimal(totalTokenSupply)
@@ -539,8 +538,7 @@ export function buildCurveWithTwoSegments(
     const migratedPoolFeeResult = getMigratedPoolFeeParams(
         migrationOption,
         migrationFeeOption,
-        migratedPoolFee,
-        baseFeeParams
+        migratedPoolFee
     )
 
     const migrationBaseSupply = new Decimal(totalTokenSupply)
@@ -803,8 +801,7 @@ export function buildCurveWithMidPrice(
     const migratedPoolFeeResult = getMigratedPoolFeeParams(
         migrationOption,
         migrationFeeOption,
-        migratedPoolFee,
-        baseFeeParams
+        migratedPoolFee
     )
 
     const migrationBaseSupply = new Decimal(totalTokenSupply)
@@ -1046,8 +1043,7 @@ export function buildCurveWithLiquidityWeights(
     const migratedPoolFeeResult = getMigratedPoolFeeParams(
         migrationOption,
         migrationFeeOption,
-        migratedPoolFee,
-        baseFeeParams
+        migratedPoolFee
     )
 
     // 1. finding Pmax and Pmin
@@ -1363,8 +1359,7 @@ export function buildCurveWithCustomSqrtPrices(
     const migratedPoolFeeResult = getMigratedPoolFeeParams(
         migrationOption,
         migrationFeeOption,
-        migratedPoolFee,
-        baseFeeParams
+        migratedPoolFee
     )
 
     // pMin and pMax from the provided sqrtPrices array

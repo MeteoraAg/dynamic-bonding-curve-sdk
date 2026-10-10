@@ -80,6 +80,11 @@ function exponentialReductionFactor(
         }
         reductionFactor = reductionFactor.addn(1)
     }
+    if (reductionFactor.isZero()) {
+        throw new Error(
+            'endingBaseFeeBps is too close to startingBaseFeeBps for numberOfPeriod periods of exponential decay'
+        )
+    }
     return reductionFactor
 }
 
@@ -100,26 +105,6 @@ export function getFeeSchedulerParams(
     numberOfPeriod: number,
     totalDuration: number
 ): BaseFee {
-    if (startingBaseFeeBps == endingBaseFeeBps) {
-        if (numberOfPeriod != 0 || totalDuration != 0) {
-            throw new Error(
-                'numberOfPeriod and totalDuration must both be zero'
-            )
-        }
-
-        return {
-            cliffFeeNumerator: bpsToFeeNumerator(startingBaseFeeBps),
-            firstFactor: 0,
-            secondFactor: new BN(0),
-            thirdFactor: new BN(0),
-            baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-        }
-    }
-
-    if (numberOfPeriod <= 0) {
-        throw new Error('Total periods must be greater than zero')
-    }
-
     if (startingBaseFeeBps > MAX_FEE_BPS) {
         throw new Error(
             `startingBaseFeeBps (${startingBaseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
@@ -138,7 +123,23 @@ export function getFeeSchedulerParams(
         )
     }
 
-    if (numberOfPeriod == 0 || totalDuration == 0) {
+    if (startingBaseFeeBps == endingBaseFeeBps) {
+        if (numberOfPeriod != 0 || totalDuration != 0) {
+            throw new Error(
+                'numberOfPeriod and totalDuration must both be zero'
+            )
+        }
+
+        return {
+            cliffFeeNumerator: bpsToFeeNumerator(startingBaseFeeBps),
+            firstFactor: 0,
+            secondFactor: new BN(0),
+            thirdFactor: new BN(0),
+            baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+        }
+    }
+
+    if (numberOfPeriod <= 0 || totalDuration <= 0) {
         throw new Error(
             'numberOfPeriod and totalDuration must both greater than zero'
         )
@@ -149,6 +150,9 @@ export function getFeeSchedulerParams(
     const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
 
     const periodFrequency = new BN(totalDuration).div(new BN(numberOfPeriod))
+    if (periodFrequency.isZero()) {
+        throw new Error('totalDuration must be at least numberOfPeriod')
+    }
 
     const reductionFactor =
         baseFeeMode == BaseFeeMode.FeeSchedulerLinear
@@ -489,8 +493,7 @@ export function getBaseFeeParams(baseFeeParams: BaseFeeParams): BaseFee {
 export function getMigratedPoolFeeParams(
     migrationOption: MigrationOption,
     migrationFeeOption: MigrationFeeOption,
-    migratedPoolFee?: MigratedPoolFeeConfig,
-    baseFeeParams?: BaseFeeParams
+    migratedPoolFee?: MigratedPoolFeeConfig
 ): MigratedPoolFeeResult {
     const defaultResult: MigratedPoolFeeResult = {
         migratedPoolFee: DEFAULT_MIGRATED_POOL_FEE_PARAMS,
@@ -507,74 +510,63 @@ export function getMigratedPoolFeeParams(
         )
     }
 
-    // for DAMM_V2: use custom parameters based on configuration
-    if (migrationOption === MigrationOption.MET_DAMM_V2) {
-        const baseFeeMode =
-            migratedPoolFee?.baseFeeMode ??
-            DammV2BaseFeeMode.FeeTimeSchedulerLinear
-
-        // when marketCapFeeSchedulerParams is configured, use custom values
-        if (migratedPoolFee?.marketCapFeeSchedulerParams && baseFeeParams) {
-            const schedulerParams = getMigratedPoolMarketCapFeeSchedulerParams(
-                migratedPoolFee.poolFeeBps,
-                migratedPoolFee.marketCapFeeSchedulerParams.endingBaseFeeBps,
-                baseFeeMode,
-                migratedPoolFee.marketCapFeeSchedulerParams.numberOfPeriod,
-                migratedPoolFee.marketCapFeeSchedulerParams.priceMultiple,
-                migratedPoolFee.marketCapFeeSchedulerParams
-                    .schedulerExpirationDuration
+    // fixed options use a preset DAMM v2 config, so a custom base fee mode or
+    // market cap scheduler is only valid with Customizable
+    if (migrationFeeOption !== MigrationFeeOption.Customizable) {
+        if (
+            (migratedPoolFee?.baseFeeMode !== undefined &&
+                migratedPoolFee.baseFeeMode !==
+                    DammV2BaseFeeMode.FeeTimeSchedulerLinear) ||
+            migratedPoolFee?.marketCapFeeSchedulerParams
+        ) {
+            throw new Error(
+                'migratedPoolFee.baseFeeMode and marketCapFeeSchedulerParams require MigrationFeeOption.Customizable'
             )
-
-            return {
-                migratedPoolFee: {
-                    collectFeeMode: migratedPoolFee.collectFeeMode,
-                    dynamicFee: migratedPoolFee.dynamicFee,
-                    poolFeeBps: migratedPoolFee.poolFeeBps,
-                },
-                migratedPoolBaseFeeMode: baseFeeMode,
-                migratedPoolMarketCapFeeSchedulerParams: schedulerParams,
-                migrationFeeOption: MigrationFeeOption.Customizable,
-                compoundingFeeBps: migratedPoolFee.compoundingFeeBps ?? 0,
-            }
         }
-
-        // use custom parameters if Customizable option is selected
-        if (migrationFeeOption === MigrationFeeOption.Customizable) {
-            if (migratedPoolFee?.poolFeeBps === undefined) {
-                throw new Error(
-                    'migratedPoolFee.poolFeeBps is required when migrationFeeOption is Customizable'
-                )
-            }
-            return {
-                migratedPoolFee: {
-                    collectFeeMode:
-                        migratedPoolFee?.collectFeeMode ??
-                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.collectFeeMode,
-                    dynamicFee:
-                        migratedPoolFee?.dynamicFee ??
-                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.dynamicFee,
-                    poolFeeBps:
-                        migratedPoolFee?.poolFeeBps ??
-                        DEFAULT_MIGRATED_POOL_FEE_PARAMS.poolFeeBps,
-                },
-                migratedPoolBaseFeeMode: baseFeeMode,
-                migratedPoolMarketCapFeeSchedulerParams:
-                    DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
-                migrationFeeOption: MigrationFeeOption.Customizable,
-                compoundingFeeBps: migratedPoolFee?.compoundingFeeBps ?? 0,
-            }
-        }
-
-        // for fixed fee options (0-5), use defaults but preserve baseFeeMode if provided
-        return {
-            migratedPoolFee: DEFAULT_MIGRATED_POOL_FEE_PARAMS,
-            migratedPoolBaseFeeMode: baseFeeMode,
-            migratedPoolMarketCapFeeSchedulerParams:
-                DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
-            migrationFeeOption,
-            compoundingFeeBps: 0,
-        }
+        return defaultResult
     }
 
-    return defaultResult
+    if (migratedPoolFee?.poolFeeBps === undefined) {
+        throw new Error(
+            'migratedPoolFee.poolFeeBps is required when migrationFeeOption is Customizable'
+        )
+    }
+
+    const baseFeeMode =
+        migratedPoolFee.baseFeeMode ?? DammV2BaseFeeMode.FeeTimeSchedulerLinear
+    const isMarketCapScheduler =
+        baseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerLinear ||
+        baseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerExponential
+    if (
+        isMarketCapScheduler !==
+        Boolean(migratedPoolFee.marketCapFeeSchedulerParams)
+    ) {
+        throw new Error(
+            'marketCapFeeSchedulerParams must be set exactly when baseFeeMode is a market cap scheduler'
+        )
+    }
+
+    const schedulerParams = migratedPoolFee.marketCapFeeSchedulerParams
+        ? getMigratedPoolMarketCapFeeSchedulerParams(
+              migratedPoolFee.poolFeeBps,
+              migratedPoolFee.marketCapFeeSchedulerParams.endingBaseFeeBps,
+              baseFeeMode,
+              migratedPoolFee.marketCapFeeSchedulerParams.numberOfPeriod,
+              migratedPoolFee.marketCapFeeSchedulerParams.priceMultiple,
+              migratedPoolFee.marketCapFeeSchedulerParams
+                  .schedulerExpirationDuration
+          )
+        : DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS
+
+    return {
+        migratedPoolFee: {
+            collectFeeMode: migratedPoolFee.collectFeeMode,
+            dynamicFee: migratedPoolFee.dynamicFee,
+            poolFeeBps: migratedPoolFee.poolFeeBps,
+        },
+        migratedPoolBaseFeeMode: baseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams: schedulerParams,
+        migrationFeeOption: MigrationFeeOption.Customizable,
+        compoundingFeeBps: migratedPoolFee.compoundingFeeBps ?? 0,
+    }
 }
