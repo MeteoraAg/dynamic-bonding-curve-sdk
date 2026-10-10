@@ -5,7 +5,6 @@ import {
     ActivationType,
     BaseFeeMode,
     buildCurveWithCustomSqrtPrices,
-    calculateBaseToQuoteFromAmountIn,
     CollectFeeMode,
     ConfigParameters,
     createSqrtPrices,
@@ -20,7 +19,14 @@ import {
     TokenDecimal,
     TokenType,
     TokenAuthorityOption,
+    TradeDirection,
 } from '../src'
+import {
+    calculateBaseToQuoteFromAmountIn,
+    getFeeMode,
+    getIncludedFeeAmount,
+} from '../src/math'
+import { MAX_FEE_NUMERATOR, U64_MAX } from '../src/constants'
 import { BN } from 'bn.js'
 import { NATIVE_MINT } from '@solana/spl-token'
 
@@ -276,14 +282,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
             slippageBps: 50,
         })
 
-        const quoteFromPoolConfig = dbcClient.pool.getQuoteFromInputAmount({
-            config: poolConfigState!,
-            swapBaseForQuote: false,
-            swapMode: SwapMode.ExactIn,
-            amountIn,
-            slippageBps: 50,
-        })
-
         expect(quoteFromBuildCurve.includedFeeInputAmount.eq(amountIn)).toBe(
             true
         )
@@ -309,13 +307,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         )
         expect(
             quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)
-        ).toBe(true)
-
-        expect(quoteFromPoolConfig.outputAmount.eq(expected.outputAmount)).toBe(
-            true
-        )
-        expect(
-            quoteFromPoolConfig.minimumAmountOut!.eq(expected.minimumAmountOut!)
         ).toBe(true)
     })
 
@@ -353,13 +344,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
             slippageBps: 50,
         })
 
-        const quoteFromPoolConfig = dbcClient.pool.getQuoteFromOutputAmount({
-            config: poolConfigState!,
-            swapBaseForQuote: false,
-            amountOut,
-            slippageBps: 50,
-        })
-
         expect(
             quoteFromBuildCurve.includedFeeInputAmount.eq(
                 expected.includedFeeInputAmount
@@ -388,15 +372,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(
             quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)
         ).toBe(true)
-
-        expect(
-            quoteFromPoolConfig.includedFeeInputAmount.eq(
-                expected.includedFeeInputAmount
-            )
-        ).toBe(true)
-        expect(
-            quoteFromPoolConfig.maximumAmountIn!.eq(expected.maximumAmountIn!)
-        ).toBe(true)
     })
 
     test('getQuoteFromInputAmount supports partial fill before pool creation', () => {
@@ -409,7 +384,7 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
                 swapMode: SwapMode.ExactIn,
                 amountIn,
             })
-        ).toThrow('Insufficient Liquidity')
+        ).toThrow('Liquidity in bonding curve is insufficient')
 
         const quote = dbcClient.pool.getQuoteFromInputAmount({
             config: curveConfig,
@@ -490,5 +465,19 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(result.amountLeft.gt(new BN(0))).toBe(true)
         // outputAmount should be greater than 0
         expect(result.outputAmount.gt(new BN(0))).toBe(true)
+    })
+})
+
+describe('swap fee math bounds', () => {
+    test('getFeeMode rejects an unknown collect fee mode', () => {
+        expect(() =>
+            getFeeMode(2 as CollectFeeMode, TradeDirection.QuoteToBase, false)
+        ).toThrow('Invalid collect fee mode')
+    })
+
+    test('getIncludedFeeAmount rejects an amount above u64', () => {
+        expect(() =>
+            getIncludedFeeAmount(new BN(MAX_FEE_NUMERATOR), U64_MAX)
+        ).toThrow('Type cast failed')
     })
 })

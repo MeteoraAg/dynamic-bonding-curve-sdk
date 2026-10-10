@@ -1,6 +1,5 @@
 import { expect, test, describe } from 'vitest'
 import { buildCurveWithLiquidityWeights } from '../src/helpers'
-import BN from 'bn.js'
 import {
     ActivationType,
     BuildCurveBaseParams,
@@ -13,7 +12,6 @@ import {
     TokenAuthorityOption,
 } from '../src'
 import Decimal from 'decimal.js'
-import { convertBNToDecimal } from './utils/common'
 
 describe('buildCurveWithLiquidityWeights tests', () => {
     const baseParams: BuildCurveBaseParams = {
@@ -66,15 +64,12 @@ describe('buildCurveWithLiquidityWeights tests', () => {
     }
 
     test('build curve with liquidity weights 1.2^n', () => {
-        console.log('\n testing build curve with liquidity weights 1.2^n...')
         const liquidityWeights: number[] = []
         for (let i = 0; i < 16; i++) {
             liquidityWeights[i] = new Decimal(1.2)
                 .pow(new Decimal(i))
                 .toNumber()
         }
-
-        console.log('liquidityWeights:', liquidityWeights)
 
         const curveGraphParams = {
             ...baseParams,
@@ -85,19 +80,10 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
         const config = buildCurveWithLiquidityWeights(curveGraphParams)
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold
-                .div(new BN(10 ** TokenDecimal.NINE))
-                .toString()
-        )
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
     })
 
     test('build curve with liquidity weights 0.6^n', () => {
-        console.log('\n testing build curve with liquidity weights 0.6^n...')
         const liquidityWeights: number[] = []
         for (let i = 0; i < 16; i++) {
             liquidityWeights[i] = new Decimal(0.6)
@@ -114,19 +100,10 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
         const config = buildCurveWithLiquidityWeights(curveGraphParams)
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold
-                .div(new BN(10 ** TokenDecimal.NINE))
-                .toString()
-        )
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
     })
 
     test('build curve with liquidity weights v1', () => {
-        console.log('\n testing build curve with liquidity weights v1...')
         const liquidityWeights: number[] = []
         for (let i = 0; i < 16; i++) {
             if (i < 15) {
@@ -137,8 +114,6 @@ describe('buildCurveWithLiquidityWeights tests', () => {
                 liquidityWeights[i] = 80
             }
         }
-
-        console.log('liquidityWeights:', liquidityWeights)
 
         const curveGraphParams = {
             ...baseParams,
@@ -172,26 +147,14 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
         const config = buildCurveWithLiquidityWeights(curveGraphParams)
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold
-                .div(new BN(10 ** TokenDecimal.SIX))
-                .toString()
-        )
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
     })
 
     test('build curve with liquidity weights v2', () => {
-        console.log('\n testing build curve with liquidity weights v2...')
-
         const liquidityWeights = [
             0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24,
             20.48, 40.96, 81.92, 163.84, 327.68,
         ]
-
-        console.log('liquidityWeights:', liquidityWeights)
 
         const curveGraphParams = {
             ...baseParams,
@@ -218,14 +181,6 @@ describe('buildCurveWithLiquidityWeights tests', () => {
 
         const config = buildCurveWithLiquidityWeights(curveGraphParams)
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold
-                .div(new BN(10 ** TokenDecimal.SIX))
-                .toString()
-        )
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
     })
 })

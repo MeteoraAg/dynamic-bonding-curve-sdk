@@ -7,7 +7,9 @@ import {
     TransactionInstruction,
 } from '@solana/web3.js'
 import {
+    getAccount,
     getMint,
+    getOrCreateAssociatedTokenAccount,
     getTransferHook,
     NATIVE_MINT,
     TOKEN_2022_PROGRAM_ID,
@@ -16,9 +18,9 @@ import BN from 'bn.js'
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
     bpsToFeeNumerator,
-    createDbcProgram,
     deriveDbcPoolAddress,
     deriveDbcPoolAuthority,
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID,
     DynamicBondingCurveClient,
     FEE_DENOMINATOR,
     SwapMode,
@@ -26,6 +28,7 @@ import {
     type ConfigParameters,
     type Swap2Params,
 } from '../src'
+import { createDbcProgram } from '../src/helpers/createProgram'
 import { buildTestCurveConfig, fundSol, LOCALNET_RPC_URL } from './utils/common'
 import {
     getCounterValue,
@@ -178,6 +181,90 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         expect(await dbcClient.state.getPool(pool)).not.toBeNull()
         expect(await getCounterValue(connection, baseMint.publicKey)).toBe(1)
         expect(config.publicKey).toBeDefined()
+    })
+
+    test('swap2WithTransferHook skips base referral hook accounts when the referral fee is in quote', async () => {
+        const { pool } = await createPoolAndHookAccounts()
+        const referralTokenAccount = await getOrCreateAssociatedTokenAccount(
+            connection,
+            user,
+            NATIVE_MINT,
+            Keypair.generate().publicKey
+        )
+        const params: Swap2Params = {
+            swapMode: SwapMode.ExactIn,
+            swapBaseForQuote: false,
+            amountIn: new BN(1_000_000),
+            minimumAmountOut: new BN(0),
+            owner: user.publicKey,
+            pool,
+            referralTokenAccount: null,
+            payer: user.publicKey,
+        }
+
+        const [swapTx, referralSwapTx] = await Promise.all([
+            dbcClient.pool.swap2WithTransferHook(params),
+            dbcClient.pool.swap2WithTransferHook({
+                ...params,
+                referralTokenAccount: referralTokenAccount.address,
+            }),
+        ])
+        expect(getSwapInstruction(referralSwapTx).keys.length).toBe(
+            getSwapInstruction(swapTx).keys.length
+        )
+
+        referralSwapTx.feePayer = user.publicKey
+        await sendAndConfirmTransaction(connection, referralSwapTx, [user])
+
+        const referralAccount = await getAccount(
+            connection,
+            referralTokenAccount.address
+        )
+        expect(referralAccount.amount > BigInt(0)).toBe(true)
+    })
+
+    test('rejects standard builders for transfer-hook configs and pools', async () => {
+        const { config, pool } = await createPoolAndHookAccounts()
+        const createPoolParams = {
+            baseMint: Keypair.generate().publicKey,
+            config: config.publicKey,
+            name: TOKEN_NAME,
+            symbol: TOKEN_SYMBOL,
+            uri: TOKEN_URI,
+            payer: poolCreator.publicKey,
+            poolCreator: poolCreator.publicKey,
+        }
+
+        await expect(
+            dbcClient.creator.createPool(createPoolParams)
+        ).rejects.toThrow('Config uses a transfer hook')
+        await expect(
+            dbcClient.creator.createPoolWithTransferHook({
+                ...createPoolParams,
+                transferHookProgram: Keypair.generate().publicKey,
+            })
+        ).rejects.toThrow('Transfer hook program does not match config')
+        await expect(
+            dbcClient.pool.swap2({
+                swapMode: SwapMode.ExactIn,
+                swapBaseForQuote: false,
+                amountIn: new BN(1),
+                minimumAmountOut: new BN(0),
+                owner: user.publicKey,
+                pool,
+                referralTokenAccount: null,
+                payer: user.publicKey,
+            })
+        ).rejects.toThrow('Pool uses a transfer hook')
+        await expect(
+            dbcClient.partner.claimPartnerTradingFee({
+                feeClaimer: partner.publicKey,
+                payer: partner.publicKey,
+                pool,
+                maxBaseAmount: new BN(1),
+                maxQuoteAmount: new BN(1),
+            })
+        ).rejects.toThrow('Pool uses a transfer hook')
     })
 
     test('createPoolWithFirstBuyWithTransferHook bundles pool init, extra metas, and first buy', async () => {
@@ -455,6 +542,12 @@ async function createPoolAndHookAccounts() {
 
 function derivePool(config: PublicKey, baseMint: PublicKey): PublicKey {
     return deriveDbcPoolAddress(NATIVE_MINT, baseMint, config)
+}
+
+function getSwapInstruction(transaction: Transaction): TransactionInstruction {
+    return transaction.instructions.find((instruction) =>
+        instruction.programId.equals(DYNAMIC_BONDING_CURVE_PROGRAM_ID)
+    )!
 }
 
 function insertAfterFirstInstruction(

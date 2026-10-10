@@ -204,19 +204,6 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         // verify the fee charged is close to the expected min fee
         const feeDiff = totalTradingFee.sub(expectedFee).abs()
         expect(feeDiff.lte(new BN(1))).toBe(true)
-
-        console.log('SDK createPoolWithFirstBuy test:')
-        console.log('  Amount in:', amountIn.toString())
-        console.log('  Expected min fee:', expectedFee.toString())
-        console.log('  Total fee charged:', totalTradingFee.toString())
-        console.log(
-            '  Protocol quote fee:',
-            virtualPool!.poolState.metrics.totalProtocolQuoteFee.toString()
-        )
-        console.log(
-            '  Trading quote fee:',
-            virtualPool!.poolState.metrics.totalTradingQuoteFee.toString()
-        )
     })
 
     test('should charge cliff fee for separate swap transaction using SDK swap()', async () => {
@@ -268,11 +255,6 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
                 virtualPoolAfterSwap!.poolState.metrics.totalTradingQuoteFee
             )
 
-        console.log('SDK swap() in separate transaction:')
-        console.log('  Amount in:', amountIn.toString())
-        console.log('  Expected cliff fee:', expectedFee.toString())
-        console.log('  Actual total fee:', totalTradingFee.toString())
-
         // verify the fee charged is close to the expected cliff fee (in this case, the fee should be at most the cliff fee and at least 95% of it)
         expect(totalTradingFee.lte(expectedFee)).toBe(true)
         expect(
@@ -323,11 +305,6 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
 
         const feeDiff = totalTradingFee.sub(expectedFee).abs()
         expect(feeDiff.lte(new BN(1))).toBe(true)
-
-        console.log('Bundled swap with SYSVAR (min fee):')
-        console.log('  Amount in:', amountIn.toString())
-        console.log('  Expected min fee:', expectedFee.toString())
-        console.log('  Actual total fee:', totalTradingFee.toString())
     })
 
     test('should charge cliff fee when swap bundled WITHOUT SYSVAR', async () => {
@@ -409,11 +386,6 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         // verify the fee charged is close to the expected cliff fee
         const feeDiff = totalTradingFee.sub(expectedFee).abs()
         expect(feeDiff.lte(new BN(1))).toBe(true)
-
-        console.log('Bundled swap WITHOUT SYSVAR (cliff fee):')
-        console.log('  Amount in:', amountIn.toString())
-        console.log('  Expected cliff fee:', expectedFee.toString())
-        console.log('  Actual total fee:', totalTradingFee.toString())
     })
 
     test('second swap after bundled first swap should charge cliff fee', async () => {
@@ -456,10 +428,6 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
             .mul(endFeeNumerator)
             .div(new BN(FEE_DENOMINATOR))
 
-        console.log('First swap (bundled with pool creation):')
-        console.log('  Expected min fee:', expectedFirstFee.toString())
-        console.log('  Actual fee:', firstSwapFee.toString())
-
         const secondSwapTx = await dbcClient.pool.swap({
             amountIn,
             minimumAmountOut: new BN(0),
@@ -485,10 +453,6 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         const expectedSecondFee = amountIn
             .mul(cliffFeeNumerator)
             .div(new BN(FEE_DENOMINATOR))
-
-        console.log('Second swap (separate transaction):')
-        console.log('  Expected cliff fee:', expectedSecondFee.toString())
-        console.log('  Actual fee:', secondSwapFee.toString())
 
         // verify first swap charged min fee
         const firstFeeDiff = firstSwapFee.sub(expectedFirstFee).abs()
@@ -574,10 +538,5 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         // verify the fee charged is close to the expected min fee
         const feeDiff = totalTradingFee.sub(expectedFee).abs()
         expect(feeDiff.lte(new BN(1))).toBe(true)
-
-        console.log('SDK createConfigAndPoolWithFirstBuy:')
-        console.log('  Amount in:', amountIn.toString())
-        console.log('  Expected min fee:', expectedFee.toString())
-        console.log('  Total fee charged:', totalTradingFee.toString())
     })
 })

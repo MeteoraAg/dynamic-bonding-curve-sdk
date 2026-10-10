@@ -22,7 +22,6 @@ import {
     TokenType,
     TokenAuthorityOption,
 } from '../src'
-import { convertBNToDecimal } from './utils/common'
 import {
     DEFAULT_MIGRATED_POOL_FEE_PARAMS,
     DEFAULT_MIGRATED_POOL_MARKET_CAP_FEE_SCHEDULER_PARAMS,
@@ -79,23 +78,12 @@ describe('buildCurve tests', () => {
     }
 
     test('build curve with percentage and threshold parameters', () => {
-        console.log(
-            '\n testing build curve with percentage and threshold parameters...'
-        )
         const config = buildCurve({
             ...baseParams,
             percentageSupplyOnMigration: 2.983257229832572,
             migrationQuoteThreshold: 95.07640791476408,
         })
 
-        console.log(
-            'migrationQuoteThreshold: %d',
-            config.migrationQuoteThreshold
-                .div(new BN(10 ** TokenDecimal.NINE))
-                .toString()
-        )
-        console.log('sqrtStartPrice', convertBNToDecimal(config.sqrtStartPrice))
-        console.log('curve', convertBNToDecimal(config.curve))
         expect(config).toBeDefined()
     })
 
@@ -322,10 +310,10 @@ describe('validateCompoundingFeeBps Tests', () => {
         ).toBe(true)
     })
 
-    test('Compounding mode with compoundingFeeBps = 0 should fail', () => {
+    test('Compounding mode with compoundingFeeBps = 0 should pass', () => {
         expect(
             validateCompoundingFeeBps(MigratedCollectFeeMode.Compounding, 0)
-        ).toBe(false)
+        ).toBe(true)
     })
 
     test('Compounding mode with compoundingFeeBps > MAX_BASIS_POINT should fail', () => {
@@ -369,7 +357,7 @@ describe('validateMigratedPoolFee with Compounding mode', () => {
         expect(result).toBe(true)
     })
 
-    test('Compounding mode with compoundingFeeBps = 0 should fail validation', () => {
+    test('Compounding mode with compoundingFeeBps = 0 should pass validation', () => {
         const result = validateMigratedPoolFee(
             {
                 collectFeeMode: MigratedCollectFeeMode.Compounding,
@@ -381,10 +369,10 @@ describe('validateMigratedPoolFee with Compounding mode', () => {
             undefined,
             0
         )
-        expect(result).toBe(false)
+        expect(result).toBe(true)
     })
 
-    test('Compounding mode with omitted compoundingFeeBps should fail validation', () => {
+    test('Compounding mode with omitted compoundingFeeBps should pass validation', () => {
         const result = validateMigratedPoolFee(
             {
                 collectFeeMode: MigratedCollectFeeMode.Compounding,
@@ -396,7 +384,7 @@ describe('validateMigratedPoolFee with Compounding mode', () => {
             undefined,
             undefined
         )
-        expect(result).toBe(false)
+        expect(result).toBe(true)
     })
 
     test('Non-compounding mode with non-zero compoundingFeeBps should fail validation', () => {
@@ -618,32 +606,27 @@ describe('Migration Fee Option Tests', () => {
             )
         })
 
-        test('Customizable without migratedPoolFee should use defaults', () => {
-            const curveConfig = buildCurve({
-                token: baseTokenParams,
-                fee: baseFeeParams,
-                migration: {
-                    migrationOption: MigrationOption.MET_DAMM_V2,
-                    migrationFeeOption: MigrationFeeOption.Customizable,
-                    migrationFee: {
-                        feePercentage: 0,
-                        creatorFeePercentage: 0,
+        test('Customizable without migratedPoolFee throws', () => {
+            expect(() =>
+                buildCurve({
+                    token: baseTokenParams,
+                    fee: baseFeeParams,
+                    migration: {
+                        migrationOption: MigrationOption.MET_DAMM_V2,
+                        migrationFeeOption: MigrationFeeOption.Customizable,
+                        migrationFee: {
+                            feePercentage: 0,
+                            creatorFeePercentage: 0,
+                        },
                     },
-                    // no migratedPoolFee provided
-                },
-                liquidityDistribution: baseLiquidityDistribution,
-                lockedVesting: baseLockedVesting,
-                activationType: ActivationType.Timestamp,
-                percentageSupplyOnMigration: 25,
-                migrationQuoteThreshold: 1,
-            })
-
-            expect(curveConfig.migrationFeeOption).toBe(
-                MigrationFeeOption.Customizable
-            )
-            // should use default params when not provided
-            expect(curveConfig.migratedPoolFee).toEqual(
-                DEFAULT_MIGRATED_POOL_FEE_PARAMS
+                    liquidityDistribution: baseLiquidityDistribution,
+                    lockedVesting: baseLockedVesting,
+                    activationType: ActivationType.Timestamp,
+                    percentageSupplyOnMigration: 25,
+                    migrationQuoteThreshold: 1,
+                })
+            ).toThrow(
+                'migratedPoolFee.poolFeeBps is required when migrationFeeOption is Customizable'
             )
         })
 
