@@ -2,101 +2,83 @@ import BN from 'bn.js'
 import { SafeMath } from './safeMath'
 import { mulDiv } from './utilsMath'
 import {
-    FEE_DENOMINATOR,
     HOST_FEE_PERCENT,
     MAX_FEE_NUMERATOR,
     PROTOCOL_FEE_PERCENT,
-    U64_MAX,
 } from '../constants'
 import {
     CollectFeeMode,
-    FeeMode,
     Rounding,
     TradeDirection,
-    type DynamicFeeConfig,
+    type FeeMode,
     type FeeOnAmountResult,
-    type PoolFeesConfig,
-    type VolatilityTracker,
+    type QuoteDynamicFee,
+    type QuotePoolFees,
+    type QuoteVolatilityTracker,
 } from '../types'
 import { getBaseFeeHandler } from './poolFees/baseFee'
 import { getVariableFeeNumerator } from './poolFees/dynamicFee'
+import { ProgramError } from './errors'
+import { getExcludedFeeAmount } from './feeAmount'
 
+export { getExcludedFeeAmount, getIncludedFeeAmount } from './feeAmount'
+
+// (collect fee mode, trade direction) -> [fees on input, fees on base token]
+const FEE_MODES: Partial<
+    Record<CollectFeeMode, Partial<Record<TradeDirection, [boolean, boolean]>>>
+> = {
+    [CollectFeeMode.QuoteToken]: {
+        [TradeDirection.BaseToQuote]: [false, false],
+        [TradeDirection.QuoteToBase]: [true, false],
+    },
+    [CollectFeeMode.OutputToken]: {
+        [TradeDirection.BaseToQuote]: [false, false],
+        [TradeDirection.QuoteToBase]: [false, true],
+    },
+}
+
+/** Which side of a swap the fee is taken from; the program's FeeMode::get_fee_mode. */
 export function getFeeMode(
     collectFeeMode: CollectFeeMode,
     tradeDirection: TradeDirection,
     hasReferral: boolean
 ): FeeMode {
-    // (CollectFeeMode::OutputToken, TradeDirection::BaseToQuote) => (false, false),
-    // (CollectFeeMode::OutputToken, TradeDirection::QuoteToBase) => (false, true),
-    // (CollectFeeMode::QuoteToken, TradeDirection::BaseToQuote) => (false, false),
-    // (CollectFeeMode::QuoteToken, TradeDirection::QuoteToBase) => (true, false),
-
-    let feesOnInput: boolean
-    let feesOnBaseToken: boolean
-
-    if (collectFeeMode === CollectFeeMode.OutputToken) {
-        if (tradeDirection === TradeDirection.BaseToQuote) {
-            feesOnInput = false
-            feesOnBaseToken = false
-        } else {
-            // TradeDirection.QuoteToBase
-            feesOnInput = false
-            feesOnBaseToken = true
-        }
-    } else if (collectFeeMode === CollectFeeMode.QuoteToken) {
-        if (tradeDirection === TradeDirection.BaseToQuote) {
-            feesOnInput = false
-            feesOnBaseToken = false
-        } else {
-            // TradeDirection.QuoteToBase
-            feesOnInput = true
-            feesOnBaseToken = false
-        }
-    } else {
-        throw new Error('Invalid collect fee mode')
+    const mode = FEE_MODES[collectFeeMode]?.[tradeDirection]
+    if (!mode) {
+        throw new Error(ProgramError.InvalidCollectFeeMode)
     }
-
-    return {
-        feesOnInput,
-        feesOnBaseToken,
-        hasReferral,
-    }
+    const [feesOnInput, feesOnBaseToken] = mode
+    return { feesOnInput, feesOnBaseToken, hasReferral }
 }
 
-/**
- * Get total fee numerator from included fee amount
- * @param poolFees Pool fees
- * @param volatilityTracker Volatility tracker
- * @param currentPoint Current point
- * @param activationPoint Activation point
- * @param includedFeeAmount Included fee amount
- * @param tradeDirection Trade direction
- * @returns Total fee numerator
- */
+function baseFeeHandlerOf(poolFees: QuotePoolFees) {
+    const { baseFee } = poolFees
+    return getBaseFeeHandler(
+        baseFee.cliffFeeNumerator,
+        baseFee.firstFactor,
+        baseFee.secondFactor,
+        baseFee.thirdFactor,
+        baseFee.baseFeeMode
+    )
+}
+
+/** Base plus dynamic fee numerator for an amount that includes the fee. */
 export function getTotalFeeNumeratorFromIncludedFeeAmount(
-    poolFees: PoolFeesConfig,
-    volatilityTracker: VolatilityTracker,
+    poolFees: QuotePoolFees,
+    volatilityTracker: QuoteVolatilityTracker,
     currentPoint: BN,
     activationPoint: BN,
     includedFeeAmount: BN,
     tradeDirection: TradeDirection
 ): BN {
-    const baseFeeHandler = getBaseFeeHandler(
-        poolFees.baseFee.cliffFeeNumerator,
-        poolFees.baseFee.firstFactor,
-        poolFees.baseFee.secondFactor,
-        poolFees.baseFee.thirdFactor,
-        poolFees.baseFee.baseFeeMode
+    const baseFeeNumerator = baseFeeHandlerOf(
+        poolFees
+    ).getBaseFeeNumeratorFromIncludedFeeAmount(
+        currentPoint,
+        activationPoint,
+        tradeDirection,
+        includedFeeAmount
     )
-
-    const baseFeeNumerator =
-        baseFeeHandler.getBaseFeeNumeratorFromIncludedFeeAmount(
-            currentPoint,
-            activationPoint,
-            tradeDirection,
-            includedFeeAmount
-        )
-
     return getTotalFeeNumerator(
         baseFeeNumerator,
         poolFees.dynamicFee,
@@ -104,40 +86,23 @@ export function getTotalFeeNumeratorFromIncludedFeeAmount(
     )
 }
 
-/**
- * Get total fee numerator from excluded fee amount
- * @param poolFees Pool fees
- * @param volatilityTracker Volatility tracker
- * @param currentPoint Current point
- * @param activationPoint Activation point
- * @param excludedFeeAmount Excluded fee amount
- * @param tradeDirection Trade direction
- * @returns Total fee numerator
- */
+/** Base plus dynamic fee numerator for an amount that excludes the fee. */
 export function getTotalFeeNumeratorFromExcludedFeeAmount(
-    poolFees: PoolFeesConfig,
-    volatilityTracker: VolatilityTracker,
+    poolFees: QuotePoolFees,
+    volatilityTracker: QuoteVolatilityTracker,
     currentPoint: BN,
     activationPoint: BN,
     excludedFeeAmount: BN,
     tradeDirection: TradeDirection
 ): BN {
-    const baseFeeHandler = getBaseFeeHandler(
-        poolFees.baseFee.cliffFeeNumerator,
-        poolFees.baseFee.firstFactor,
-        poolFees.baseFee.secondFactor,
-        poolFees.baseFee.thirdFactor,
-        poolFees.baseFee.baseFeeMode
+    const baseFeeNumerator = baseFeeHandlerOf(
+        poolFees
+    ).getBaseFeeNumeratorFromExcludedFeeAmount(
+        currentPoint,
+        activationPoint,
+        tradeDirection,
+        excludedFeeAmount
     )
-
-    const baseFeeNumerator =
-        baseFeeHandler.getBaseFeeNumeratorFromExcludedFeeAmount(
-            currentPoint,
-            activationPoint,
-            tradeDirection,
-            excludedFeeAmount
-        )
-
     return getTotalFeeNumerator(
         baseFeeNumerator,
         poolFees.dynamicFee,
@@ -145,147 +110,51 @@ export function getTotalFeeNumeratorFromExcludedFeeAmount(
     )
 }
 
-/**
- * Get total fee numerator from base fee numerator and volatility tracker
- * @param baseFeeNumerator Base fee numerator
- * @param dynamicFee Dynamic fee configuration
- * @param volatilityTracker Volatility tracker
- * @returns Total fee numerator
- */
+/** Base plus dynamic fee numerator, capped at MAX_FEE_NUMERATOR. */
 export function getTotalFeeNumerator(
     baseFeeNumerator: BN,
-    dynamicFee: DynamicFeeConfig,
-    volatilityTracker: VolatilityTracker
+    dynamicFee: QuoteDynamicFee,
+    volatilityTracker: QuoteVolatilityTracker
 ): BN {
-    const variableFeeNumerator = getVariableFeeNumerator(
-        dynamicFee,
-        volatilityTracker
+    return BN.min(
+        SafeMath.add(
+            getVariableFeeNumerator(dynamicFee, volatilityTracker),
+            baseFeeNumerator
+        ),
+        new BN(MAX_FEE_NUMERATOR)
     )
-    const totalFeeNumerator = SafeMath.add(
-        variableFeeNumerator,
-        baseFeeNumerator
-    )
-
-    // Cap the total fee at MAX_FEE_NUMERATOR
-    const maxFeeNumeratorBN = new BN(MAX_FEE_NUMERATOR)
-    const cappedTotalFeeNumerator = totalFeeNumerator.gt(maxFeeNumeratorBN)
-        ? new BN(MAX_FEE_NUMERATOR)
-        : totalFeeNumerator
-
-    return cappedTotalFeeNumerator
 }
 
-/**
- * Get fee on amount with trade fee numerator
- * @param tradeFeeNumerator Trade fee numerator
- * @param amount Amount
- * @param poolFees Pool fees
- * @param hasReferral Whether referral is used
- * @returns Fee on amount result
- */
+/** Take the fee out of an amount and split it; the program's get_fee_on_amount. */
 export function getFeeOnAmount(
     tradeFeeNumerator: BN,
     amount: BN,
-    poolFees: PoolFeesConfig,
     hasReferral: boolean
 ): FeeOnAmountResult {
-    const [amountAfterFee, tradingFee] = getExcludedFeeAmount(
+    const [amountAfterFee, feeAmount] = getExcludedFeeAmount(
         tradeFeeNumerator,
         amount
     )
-
-    const protocolFee = mulDiv(
-        tradingFee,
-        new BN(PROTOCOL_FEE_PERCENT),
-        new BN(100),
-        Rounding.Down
+    const [tradingFee, protocolFee, referralFee] = splitFees(
+        feeAmount,
+        hasReferral
     )
-
-    const updatedTradingFee = SafeMath.sub(tradingFee, protocolFee)
-
-    const referralFee = hasReferral
-        ? mulDiv(
-              protocolFee,
-              new BN(HOST_FEE_PERCENT),
-              new BN(100),
-              Rounding.Down
-          )
-        : new BN(0)
-
-    const updatedProtocolFee = SafeMath.sub(protocolFee, referralFee)
-
-    return {
-        amount: amountAfterFee,
-        protocolFee: updatedProtocolFee,
-        referralFee,
-        tradingFee: updatedTradingFee,
-    }
+    return { amount: amountAfterFee, tradingFee, protocolFee, referralFee }
 }
 
 /**
- * Get excluded fee amount from included fee amount
- * @param tradeFeeNumerator Trade fee numerator
- * @param includedFeeAmount Included fee amount
- * @returns [excluded fee amount, trading fee]
+ * [trading fee, protocol fee, referral fee]: the protocol takes
+ * PROTOCOL_FEE_PERCENT of the fee and the referrer HOST_FEE_PERCENT of that,
+ * both rounded down.
  */
-export function getExcludedFeeAmount(
-    tradeFeeNumerator: BN,
-    includedFeeAmount: BN
-): [BN, BN] {
-    const tradingFee = mulDiv(
-        includedFeeAmount,
-        tradeFeeNumerator,
-        new BN(FEE_DENOMINATOR),
-        Rounding.Up
-    )
-    const excludedFeeAmount = SafeMath.sub(includedFeeAmount, tradingFee)
-    return [excludedFeeAmount, tradingFee]
-}
-
-/**
- * Get included fee amount from excluded fee amount
- * @param tradeFeeNumerator Trade fee numerator
- * @param excludedFeeAmount Excluded fee amount
- * @returns [included fee amount, fee amount]
- */
-export function getIncludedFeeAmount(
-    tradeFeeNumerator: BN,
-    excludedFeeAmount: BN
-): [BN, BN] {
-    const includedFeeAmount = mulDiv(
-        excludedFeeAmount,
-        new BN(FEE_DENOMINATOR),
-        SafeMath.sub(new BN(FEE_DENOMINATOR), tradeFeeNumerator),
-        Rounding.Up
-    )
-    if (includedFeeAmount.gt(U64_MAX)) {
-        throw new Error('Type cast failed')
-    }
-    const feeAmount = SafeMath.sub(includedFeeAmount, excludedFeeAmount)
-    return [includedFeeAmount, feeAmount]
-}
-
-/**
- * Split fees into trading, protocol, and referral fees
- * @param poolFees Pool fees
- * @param feeAmount Total fee amount
- * @param hasReferral Whether referral is used
- * @returns [trading fee, protocol fee, referral fee]
- */
-export function splitFees(
-    poolFees: PoolFeesConfig,
-    feeAmount: BN,
-    hasReferral: boolean
-): [BN, BN, BN] {
+export function splitFees(feeAmount: BN, hasReferral: boolean): [BN, BN, BN] {
     const protocolFee = mulDiv(
         feeAmount,
         new BN(PROTOCOL_FEE_PERCENT),
         new BN(100),
         Rounding.Down
     )
-
     const tradingFee = SafeMath.sub(feeAmount, protocolFee)
-
     const referralFee = hasReferral
         ? mulDiv(
               protocolFee,
@@ -294,8 +163,5 @@ export function splitFees(
               Rounding.Down
           )
         : new BN(0)
-
-    const protocolFeeAfterReferral = SafeMath.sub(protocolFee, referralFee)
-
-    return [tradingFee, protocolFeeAfterReferral, referralFee]
+    return [tradingFee, SafeMath.sub(protocolFee, referralFee), referralFee]
 }

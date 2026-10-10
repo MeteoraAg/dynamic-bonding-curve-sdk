@@ -1,26 +1,10 @@
 import BN from 'bn.js'
-import { MAX_BASIS_POINT, U16_MAX } from '../../constants'
+import { MAX_BASIS_POINT, ONE_Q64, U16_MAX } from '../../constants'
 import { pow, SafeMath } from '../safeMath'
 import { BaseFeeMode } from '../../types'
+import { ProgramError } from '../errors'
 
-/**
- * Get max base fee numerator
- * @param cliffFeeNumerator Cliff fee numerator
- * @returns Max fee numerator
- */
-export function getFeeSchedulerMaxBaseFeeNumerator(cliffFeeNumerator: BN): BN {
-    return cliffFeeNumerator
-}
-
-/**
- * Get min base fee numerator
- * @param cliffFeeNumerator Cliff fee numerator
- * @param numberOfPeriod Number of periods
- * @param periodFrequency Period frequency
- * @param reductionFactor Reduction factor
- * @param feeSchedulerMode Fee scheduler mode
- * @returns Min fee numerator
- */
+/** The fee after every period has elapsed. */
 export function getFeeSchedulerMinBaseFeeNumerator(
     cliffFeeNumerator: BN,
     numberOfPeriod: number,
@@ -36,15 +20,7 @@ export function getFeeSchedulerMinBaseFeeNumerator(
     )
 }
 
-/**
- * Get base fee numerator by period
- * @param cliffFeeNumerator Cliff fee numerator
- * @param numberOfPeriod Number of periods
- * @param period Period to calculate fee for
- * @param reductionFactor Reduction factor
- * @param feeSchedulerMode Fee scheduler mode
- * @returns Fee numerator
- */
+/** The fee in a period, which stops decaying after numberOfPeriod. */
 export function getBaseFeeNumeratorByPeriod(
     cliffFeeNumerator: BN,
     numberOfPeriod: number,
@@ -52,58 +28,42 @@ export function getBaseFeeNumeratorByPeriod(
     reductionFactor: BN,
     feeSchedulerMode: BaseFeeMode
 ): BN {
-    const periodValue = BN.min(period, new BN(numberOfPeriod))
-    const periodNumber = periodValue.toNumber()
+    const periodNumber = BN.min(period, new BN(numberOfPeriod)).toNumber()
     if (periodNumber > U16_MAX) {
-        throw new Error('Math overflow')
+        throw new Error(ProgramError.MathOverflow)
     }
 
     switch (feeSchedulerMode) {
-        case BaseFeeMode.FeeSchedulerLinear: {
-            const feeNumerator = getFeeNumeratorOnLinearFeeScheduler(
+        case BaseFeeMode.FeeSchedulerLinear:
+            return getFeeNumeratorOnLinearFeeScheduler(
                 cliffFeeNumerator,
                 reductionFactor,
                 periodNumber
             )
-            return feeNumerator
-        }
-        case BaseFeeMode.FeeSchedulerExponential: {
-            const feeNumerator = getFeeNumeratorOnExponentialFeeScheduler(
+        case BaseFeeMode.FeeSchedulerExponential:
+            return getFeeNumeratorOnExponentialFeeScheduler(
                 cliffFeeNumerator,
                 reductionFactor,
                 periodNumber
             )
-            return feeNumerator
-        }
         default:
-            throw new Error('Invalid fee scheduler mode')
+            throw new Error(ProgramError.InvalidBaseFeeMode)
     }
 }
 
-/**
- * Get fee in period for linear fee scheduler
- * @param cliffFeeNumerator Cliff fee numerator
- * @param reductionFactor Reduction factor
- * @param period Period
- * @returns Fee numerator
- */
+/** fee = cliff_fee_numerator - period * reduction_factor */
 export function getFeeNumeratorOnLinearFeeScheduler(
     cliffFeeNumerator: BN,
     reductionFactor: BN,
     period: number
 ): BN {
-    const reduction = SafeMath.mul(new BN(period), reductionFactor)
-
-    return SafeMath.sub(cliffFeeNumerator, reduction)
+    return SafeMath.sub(
+        cliffFeeNumerator,
+        SafeMath.mul(new BN(period), reductionFactor)
+    )
 }
 
-/**
- * Get fee in period for exponential fee scheduler
- * @param cliffFeeNumerator Cliff fee numerator
- * @param reductionFactor Reduction factor
- * @param period Period
- * @returns Fee numerator
- */
+/** fee = cliff_fee_numerator * (1 - reduction_factor / 10_000)^period in Q64 */
 export function getFeeNumeratorOnExponentialFeeScheduler(
     cliffFeeNumerator: BN,
     reductionFactor: BN,
@@ -112,32 +72,16 @@ export function getFeeNumeratorOnExponentialFeeScheduler(
     if (period === 0) {
         return cliffFeeNumerator
     }
-
-    // make reduction_factor into Q64x64, and divided by MAX_BASIS_POINT
-    const basisPointMax = new BN(MAX_BASIS_POINT)
-    const ONE_Q64 = new BN(1).shln(64)
-    const bps = SafeMath.div(SafeMath.shl(reductionFactor, 64), basisPointMax)
-
-    // base = ONE_Q64 - bps (equivalent to 1 - reduction_factor/10_000 in Q64.64)
+    const bps = SafeMath.div(
+        SafeMath.shl(reductionFactor, 64),
+        new BN(MAX_BASIS_POINT)
+    )
     const base = SafeMath.sub(ONE_Q64, bps)
-
     const result = pow(base, new BN(period))
-
-    // final fee: cliffFeeNumerator * result >> 64
     return SafeMath.div(SafeMath.mul(cliffFeeNumerator, result), ONE_Q64)
 }
 
-/**
- * Get base fee numerator
- * @param cliffFeeNumerator Cliff fee numerator
- * @param numberOfPeriod Number of periods
- * @param periodFrequency Period frequency
- * @param reductionFactor Reduction factor
- * @param feeSchedulerMode Fee scheduler mode
- * @param currentPoint Current point (slot or timestamp)
- * @param activationPoint Activation point
- * @returns Fee numerator
- */
+/** The fee at currentPoint, with period = (currentPoint - activationPoint) / periodFrequency. */
 export function getBaseFeeNumerator(
     cliffFeeNumerator: BN,
     numberOfPeriod: number,
@@ -150,12 +94,10 @@ export function getBaseFeeNumerator(
     if (periodFrequency.isZero()) {
         return cliffFeeNumerator
     }
-
     const period = SafeMath.div(
         SafeMath.sub(currentPoint, activationPoint),
         periodFrequency
     )
-
     return getBaseFeeNumeratorByPeriod(
         cliffFeeNumerator,
         numberOfPeriod,

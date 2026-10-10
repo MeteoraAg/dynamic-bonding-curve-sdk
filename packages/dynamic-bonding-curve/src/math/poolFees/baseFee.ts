@@ -1,29 +1,16 @@
 import BN from 'bn.js'
-import {
-    TradeDirection,
-    BaseFeeMode,
-    CollectFeeMode,
-    ActivationType,
-    BaseFeeHandler,
-} from '../../types'
+import { TradeDirection, BaseFeeMode, type BaseFeeHandler } from '../../types'
 import {
     getFeeNumeratorFromIncludedAmount,
     getFeeNumeratorFromExcludedAmount,
     isRateLimiterApplied,
-    getRateLimiterMinBaseFeeNumerator,
 } from './rateLimiter'
 import {
     getBaseFeeNumerator,
     getFeeSchedulerMinBaseFeeNumerator,
 } from './feeScheduler'
-import {
-    validateFeeRateLimiter,
-    validateFeeScheduler,
-} from '../../helpers/validation'
+import { ProgramError } from '../errors'
 
-/**
- * Fee Rate Limiter implementation
- */
 export class FeeRateLimiter implements BaseFeeHandler {
     constructor(
         public cliffFeeNumerator: BN,
@@ -32,22 +19,23 @@ export class FeeRateLimiter implements BaseFeeHandler {
         public referenceAmount: BN
     ) {}
 
-    validate(
-        collectFeeMode: CollectFeeMode,
-        activationType: ActivationType
-    ): boolean {
-        return validateFeeRateLimiter(
-            this.cliffFeeNumerator,
-            new BN(this.feeIncrementBps),
-            this.maxLimiterDuration,
-            this.referenceAmount,
-            collectFeeMode,
-            activationType
-        )
+    getMinBaseFeeNumerator(): BN {
+        return this.cliffFeeNumerator
     }
 
-    getMinBaseFeeNumerator(): BN {
-        return getRateLimiterMinBaseFeeNumerator(this.cliffFeeNumerator)
+    private isApplied(
+        currentPoint: BN,
+        activationPoint: BN,
+        tradeDirection: TradeDirection
+    ): boolean {
+        return isRateLimiterApplied(
+            currentPoint,
+            activationPoint,
+            tradeDirection,
+            this.maxLimiterDuration,
+            this.referenceAmount,
+            new BN(this.feeIncrementBps)
+        )
     }
 
     getBaseFeeNumeratorFromIncludedFeeAmount(
@@ -56,25 +44,15 @@ export class FeeRateLimiter implements BaseFeeHandler {
         tradeDirection: TradeDirection,
         includedFeeAmount: BN
     ): BN {
-        if (
-            isRateLimiterApplied(
-                currentPoint,
-                activationPoint,
-                tradeDirection,
-                this.maxLimiterDuration,
-                this.referenceAmount,
-                new BN(this.feeIncrementBps)
-            )
-        ) {
-            return getFeeNumeratorFromIncludedAmount(
-                this.cliffFeeNumerator,
-                this.referenceAmount,
-                new BN(this.feeIncrementBps),
-                includedFeeAmount
-            )
-        } else {
+        if (!this.isApplied(currentPoint, activationPoint, tradeDirection)) {
             return this.cliffFeeNumerator
         }
+        return getFeeNumeratorFromIncludedAmount(
+            this.cliffFeeNumerator,
+            this.referenceAmount,
+            new BN(this.feeIncrementBps),
+            includedFeeAmount
+        )
     }
 
     getBaseFeeNumeratorFromExcludedFeeAmount(
@@ -83,31 +61,18 @@ export class FeeRateLimiter implements BaseFeeHandler {
         tradeDirection: TradeDirection,
         excludedFeeAmount: BN
     ): BN {
-        if (
-            isRateLimiterApplied(
-                currentPoint,
-                activationPoint,
-                tradeDirection,
-                this.maxLimiterDuration,
-                this.referenceAmount,
-                new BN(this.feeIncrementBps)
-            )
-        ) {
-            return getFeeNumeratorFromExcludedAmount(
-                this.cliffFeeNumerator,
-                this.referenceAmount,
-                new BN(this.feeIncrementBps),
-                excludedFeeAmount
-            )
-        } else {
+        if (!this.isApplied(currentPoint, activationPoint, tradeDirection)) {
             return this.cliffFeeNumerator
         }
+        return getFeeNumeratorFromExcludedAmount(
+            this.cliffFeeNumerator,
+            this.referenceAmount,
+            new BN(this.feeIncrementBps),
+            excludedFeeAmount
+        )
     }
 }
 
-/**
- * Fee Scheduler implementation
- */
 export class FeeScheduler implements BaseFeeHandler {
     constructor(
         public cliffFeeNumerator: BN,
@@ -116,16 +81,6 @@ export class FeeScheduler implements BaseFeeHandler {
         public reductionFactor: BN,
         public feeSchedulerMode: BaseFeeMode
     ) {}
-
-    validate(): boolean {
-        return validateFeeScheduler(
-            this.numberOfPeriod,
-            this.periodFrequency,
-            this.reductionFactor,
-            this.cliffFeeNumerator,
-            this.feeSchedulerMode
-        )
-    }
 
     getMinBaseFeeNumerator(): BN {
         return getFeeSchedulerMinBaseFeeNumerator(
@@ -136,6 +91,7 @@ export class FeeScheduler implements BaseFeeHandler {
         )
     }
 
+    // a scheduler's fee depends on the point, not on the amount
     getBaseFeeNumeratorFromIncludedFeeAmount(
         currentPoint: BN,
         activationPoint: BN
@@ -155,12 +111,7 @@ export class FeeScheduler implements BaseFeeHandler {
         currentPoint: BN,
         activationPoint: BN
     ): BN {
-        return getBaseFeeNumerator(
-            this.cliffFeeNumerator,
-            this.numberOfPeriod,
-            this.periodFrequency,
-            this.reductionFactor,
-            this.feeSchedulerMode,
+        return this.getBaseFeeNumeratorFromIncludedFeeAmount(
             currentPoint,
             activationPoint
         )
@@ -168,13 +119,9 @@ export class FeeScheduler implements BaseFeeHandler {
 }
 
 /**
- * Get base fee handler based on base fee mode
- * @param cliffFeeNumerator Cliff fee numerator
- * @param firstFactor First factor (feeScheduler: numberOfPeriod, rateLimiter: feeIncrementBps)
- * @param secondFactor Second factor (feeScheduler: periodFrequency, rateLimiter: maxLimiterDuration)
- * @param thirdFactor Third factor (feeScheduler: reductionFactor, rateLimiter: referenceAmount)
- * @param baseFeeMode Base fee mode
- * @returns Base fee handler instance
+ * The handler for a base fee config. The factors are the scheduler's
+ * numberOfPeriod, periodFrequency and reductionFactor, or the rate limiter's
+ * feeIncrementBps, maxLimiterDuration and referenceAmount.
  */
 export function getBaseFeeHandler(
     cliffFeeNumerator: BN,
@@ -185,26 +132,22 @@ export function getBaseFeeHandler(
 ): BaseFeeHandler {
     switch (baseFeeMode) {
         case BaseFeeMode.FeeSchedulerLinear:
-        case BaseFeeMode.FeeSchedulerExponential: {
-            const feeScheduler = new FeeScheduler(
+        case BaseFeeMode.FeeSchedulerExponential:
+            return new FeeScheduler(
                 cliffFeeNumerator,
                 firstFactor,
                 secondFactor,
                 thirdFactor,
                 baseFeeMode
             )
-            return feeScheduler
-        }
-        case BaseFeeMode.RateLimiter: {
-            const feeRateLimiter = new FeeRateLimiter(
+        case BaseFeeMode.RateLimiter:
+            return new FeeRateLimiter(
                 cliffFeeNumerator,
                 firstFactor,
                 secondFactor,
                 thirdFactor
             )
-            return feeRateLimiter
-        }
         default:
-            throw new Error('Invalid base fee mode')
+            throw new Error(ProgramError.InvalidBaseFeeMode)
     }
 }

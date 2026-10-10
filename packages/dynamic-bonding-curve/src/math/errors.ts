@@ -1,0 +1,42 @@
+// Error text of the program's `PoolError` variants (programs/dynamic-bonding-curve/src/error.rs)
+// that the SDK reproduces client-side.
+export const ProgramError = {
+    MathOverflow: 'Math operation overflow',
+    ExceededSlippage: 'Exceeded slippage tolerance',
+    ExceedMaxFeeBps: 'Exceeded max fee bps',
+    AmountIsZero: 'Amount is zero',
+    TypeCastFailed: 'Type cast error',
+    InvalidActivationType: 'Invalid activation type',
+    InvalidQuoteMint: 'Invalid quote mint',
+    InvalidCollectFeeMode: 'Invalid collect fee mode',
+    InvalidMigrationFeeOption: 'Invalid migration fee option',
+    InvalidInput: 'Invalid input',
+    NotEnoughLiquidity: 'Not enough liquidity',
+    PoolIsCompleted: 'Pool is completed',
+    InvalidMigrationOption: 'Invalid migration option',
+    InvalidTokenDecimals: 'Invalid token decimals',
+    InvalidTokenType: 'Invalid token type',
+    InvalidTokenSupply: 'Invalid token supply',
+    InvalidCurve: 'Invalid curve',
+    InvalidVestingParameters: 'Invalid vesting parameters',
+    InsufficientLiquidity: 'Liquidity in bonding curve is insufficient',
+    InvalidFeeScheduler: 'Invalid fee scheduler',
+    InvalidCreatorTradingFeePercentage:
+        'Invalid creator trading fee percentage',
+    InvalidBaseFeeMode: 'Invalid base fee mode',
+    InvalidFeeRateLimiter: 'Invalid fee rate limiter',
+    InvalidMigratedPoolFee: 'Invalid migrated pool fee params',
+    // the program spells this "Undertermined error"
+    UndeterminedError: 'Undetermined error',
+    AmountLeftIsNotZero: 'Amount left is not zero',
+    InvalidPoolCreationFee: 'Invalid pool creation fee',
+    InvalidFeeMarketCapScheduler: 'Invalid fee market cap scheduler',
+    DeprecatedBaseFeeMode: 'Deprecated base fee mode',
+    QuoteMintHasNonZeroTransferFee:
+        'Quote mint has a non zero transfer fee or a live transfer fee config authority',
+    DeprecatedMigrationOption: 'Deprecated migration option',
+    FeeInverseIsIncorrect: 'Transfer fee inverse calculation is incorrect',
+    InvalidTransferFeeParameters: 'Invalid transfer fee parameters',
+    ExceededInputAmount: 'Required input amount exceeds the provided amount in',
+    InvalidFeeClaimer: 'Invalid fee claimer',
+} as const

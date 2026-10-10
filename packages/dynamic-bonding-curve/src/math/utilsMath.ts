@@ -1,98 +1,35 @@
 import BN from 'bn.js'
-import { SafeMath } from './safeMath'
 import { Rounding } from '../types'
 import { MAX_BASIS_POINT } from '../constants'
+import { ProgramError } from './errors'
 
-/**
- * Multiply and divide with rounding using BN
- * @param x First number
- * @param y Second number
- * @param denominator Denominator
- * @param rounding Rounding direction
- * @returns (x * y) / denominator
- * @throws If division by zero or overflow occurs
- */
+/** (x * y) / denominator with the given rounding; the program's mul_div. */
 export function mulDiv(x: BN, y: BN, denominator: BN, rounding: Rounding): BN {
     if (denominator.isZero()) {
-        throw new Error('MulDiv: division by zero')
+        throw new Error(ProgramError.MathOverflow)
     }
-
-    if (denominator.eq(new BN(1)) || x.isZero() || y.isZero()) {
-        return x.mul(y)
-    }
-
     const prod = x.mul(y)
-
     if (rounding === Rounding.Up) {
-        // Calculate ceiling division: (prod + denominator - 1) / denominator
-        const numerator = prod.add(denominator.sub(new BN(1)))
-        return numerator.div(denominator)
-    } else {
-        return prod.div(denominator)
+        return prod.add(denominator.subn(1)).div(denominator)
     }
+    return prod.div(denominator)
 }
 
-/**
- * Convert basis points to a fee numerator.
- * @param bps - Basis points
- * @param feeDenominator - Fee denominator
- * @returns Fee numerator
- * @throws If the calculation overflows
- */
+/** bps * feeDenominator / 10_000, rounded down; the program's to_numerator. */
 export function toNumerator(bps: BN, feeDenominator: BN): BN {
-    try {
-        const numerator = mulDiv(
-            bps,
-            feeDenominator,
-            new BN(MAX_BASIS_POINT),
-            Rounding.Down
-        )
-        return numerator
-    } catch (error) {
-        throw new Error(
-            `Type cast failed or calculation overflow in toNumerator ${error}`
-        )
-    }
+    return mulDiv(bps, feeDenominator, new BN(MAX_BASIS_POINT), Rounding.Down)
 }
 
-/**
- * Multiply and shift right with BN
- * @param x First number
- * @param y Second number
- * @param offset Number of bits to shift
- * @returns (x * y) >> offset
- */
-export function mulShr(x: BN, y: BN, offset: number): BN {
-    if (offset === 0 || x.isZero() || y.isZero()) {
-        return x.mul(y)
-    }
-
-    const prod = SafeMath.mul(x, y)
-
-    return SafeMath.shr(prod, offset)
-}
-
-/**
- * Calculate square root of a BN number using Newton's method
- * @param value - The value to calculate square root for
- * @returns Square root of the value
- */
+/** Integer square root by Newton's method, rounded down; the program's sqrt_u256. */
 export function sqrt(value: BN): BN {
-    if (value.isZero()) {
-        return new BN(0)
+    if (value.lten(1)) {
+        return value
     }
-
-    if (value.eq(new BN(1))) {
-        return new BN(1)
-    }
-
     let x = value
-    let y = value.add(new BN(1)).div(new BN(2))
-
+    let y = value.addn(1).divn(2)
     while (y.lt(x)) {
         x = y
-        y = x.add(value.div(x)).div(new BN(2))
+        y = x.add(value.div(x)).divn(2)
     }
-
     return x
 }

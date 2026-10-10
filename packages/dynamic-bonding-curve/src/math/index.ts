@@ -1,6 +1,7 @@
-// Ports of the program's curve, fee, and swap math.
-// Published as `@meteora-ag/dynamic-bonding-curve-sdk/math`. Tracks the program version.
+// Ports of the program's curve, fee, and swap math (dynamic-bonding-curve 0.2.2),
+// published as `@meteora-ag/dynamic-bonding-curve-sdk/math`.
 export * from './curve'
+export * from './errors'
 export * from './feeMath'
 export * from './safeMath'
 export * from './utilsMath'
@@ -15,4 +16,5 @@ export {
     getSwapResultFromExactInput,
     getSwapResultFromExactOutput,
     getSwapResultFromPartialInput,
+    type SwapAmountFromOutput,
 } from './swapQuote'

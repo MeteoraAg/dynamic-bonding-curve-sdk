@@ -7,7 +7,12 @@ import {
 } from '@solana/spl-token'
 import BN from 'bn.js'
 import { U64_MAX } from '../constants'
-import { type PoolConfig, type QuoteTransferFees, TokenType } from '../types'
+import {
+    type QuotePoolConfig,
+    type QuoteTransferFees,
+    TokenType,
+} from '../types'
+import { ProgramError } from './errors'
 
 export type EpochTransferFee = {
     transferFeeBasisPoints: number
@@ -45,6 +50,7 @@ export function isZeroTransferFee(
         : maximumFee.isZero()
 }
 
+/** A DBC base mint's fee has no cap, so the config only stores the basis points. */
 export function getBaseTransferFee(
     transferFeeBasisPoints: number
 ): EpochTransferFee | null {
@@ -59,9 +65,9 @@ export function getBaseTransferFee(
 
 /** Flag 1 is a TransferFeeConfig, including at 0 basis points. */
 function getConfigBaseTransferFee(
-    config: Pick<PoolConfig, 'transferFeeFlag' | 'transferFeeBasisPoints'>
+    config: Pick<QuotePoolConfig, 'transferFeeFlag' | 'transferFeeBasisPoints'>
 ): EpochTransferFee | null {
-    if (Number(config.transferFeeFlag) !== 1) {
+    if (config.transferFeeFlag !== 1) {
         return null
     }
     return {
@@ -70,6 +76,7 @@ function getConfigBaseTransferFee(
     }
 }
 
+/** The mint's transfer fee in currentEpoch, or null when the mint has no TransferFeeConfig. */
 export function getEpochTransferFee(
     mint: Mint,
     currentEpoch: number
@@ -85,8 +92,19 @@ export function getEpochTransferFee(
     }
 }
 
+/**
+ * The transfer fees on the input and output side of a swap. The base fee
+ * comes from baseMint, then baseTransferFeeBasisPoints, then the config; the
+ * quote fee has to come from the quote mint account.
+ */
 export function resolveSwapTransferFees(
-    config: PoolConfig,
+    config: Pick<
+        QuotePoolConfig,
+        | 'quoteTokenFlag'
+        | 'quoteMint'
+        | 'transferFeeFlag'
+        | 'transferFeeBasisPoints'
+    >,
     swapBaseForQuote: boolean,
     transferFees?: QuoteTransferFees
 ): { input: EpochTransferFee | null; output: EpochTransferFee | null } {
@@ -120,19 +138,18 @@ export function resolveSwapTransferFees(
             transferFees.quoteMint,
             transferFees.currentEpoch
         )
-    } else if (Number(config.quoteTokenFlag) === TokenType.Token2022) {
-        // the program applies the quote mint's current transfer fee, which only the mint account holds
+    } else if (config.quoteTokenFlag === TokenType.Token2022) {
         throw new Error(
             'quoteMint and currentEpoch are required for a Token-2022 quote mint, use getSwapQuoteTransferFees'
         )
     }
 
-    if (swapBaseForQuote) {
-        return { input: base, output: quote }
-    }
-    return { input: quote, output: base }
+    return swapBaseForQuote
+        ? { input: base, output: quote }
+        : { input: quote, output: base }
 }
 
+/** The amount received after the transfer fee and the fee; spl-token-2022's calculate_fee. */
 export function calculateTransferFeeExcludedAmount(
     transferFee: EpochTransferFee | null,
     includedAmount: BN
@@ -157,6 +174,7 @@ export function calculateTransferFeeExcludedAmount(
     }
 }
 
+// spl-token-2022's calculate_pre_fee_amount
 function calculatePreFeeAmount(
     transferFee: EpochTransferFee,
     excludedAmount: BN
@@ -164,28 +182,29 @@ function calculatePreFeeAmount(
     if (excludedAmount.isZero() || isZeroTransferFee(transferFee)) {
         return excludedAmount
     }
-
     if (transferFee.transferFeeBasisPoints === MAX_FEE_BASIS_POINTS) {
         return excludedAmount.add(transferFee.maximumFee)
     }
 
     const oneInBasisPoints = new BN(MAX_FEE_BASIS_POINTS)
-    const denominator = oneInBasisPoints.sub(
-        new BN(transferFee.transferFeeBasisPoints)
+    const denominator = oneInBasisPoints.subn(
+        transferFee.transferFeeBasisPoints
     )
     const rawPreFeeAmount = excludedAmount
         .mul(oneInBasisPoints)
         .add(denominator)
-        .sub(new BN(1))
+        .subn(1)
         .div(denominator)
-
     if (rawPreFeeAmount.sub(excludedAmount).gte(transferFee.maximumFee)) {
         return excludedAmount.add(transferFee.maximumFee)
     }
-
     return rawPreFeeAmount
 }
 
+/**
+ * The amount to send so that excludedAmount arrives after the transfer fee,
+ * and the fee; the program's calculate_transfer_fee_included_amount.
+ */
 export function calculateTransferFeeIncludedAmount(
     transferFee: EpochTransferFee | null,
     excludedAmount: BN
@@ -199,7 +218,7 @@ export function calculateTransferFeeIncludedAmount(
 
     const preFeeAmount = calculatePreFeeAmount(transferFee, excludedAmount)
     if (preFeeAmount.gt(U64_MAX)) {
-        throw new Error('Math overflow')
+        throw new Error(ProgramError.MathOverflow)
     }
     const fee = calculateTransferFeeExcludedAmount(
         transferFee,
@@ -211,7 +230,7 @@ export function calculateTransferFeeIncludedAmount(
         includedAmount
     ).transferFee
     if (!fee.eq(verification)) {
-        throw new Error('Fee inverse is incorrect')
+        throw new Error(ProgramError.FeeInverseIsIncorrect)
     }
 
     return { amount: includedAmount, transferFee: fee }
