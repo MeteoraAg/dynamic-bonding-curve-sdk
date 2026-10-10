@@ -1,8 +1,22 @@
 import BN from 'bn.js'
 import { SafeMath } from './safeMath'
 import { mulDiv } from './utilsMath'
-import { RESOLUTION, U128_MAX } from '../constants'
+import { RESOLUTION, U128_MAX, U64_MAX } from '../constants'
 import { Rounding } from '../types'
+
+function requireU64(value: BN): BN {
+    if (value.gt(U64_MAX)) {
+        throw new Error('Math overflow')
+    }
+    return value
+}
+
+function requireU128(value: BN): BN {
+    if (value.gt(U128_MAX)) {
+        throw new Error('Math overflow')
+    }
+    return value
+}
 
 /**
  * Gets the initial liquidity from delta quote
@@ -20,7 +34,11 @@ export function getInitialLiquidityFromDeltaQuote(
     const priceDelta = SafeMath.sub(sqrtPrice, sqrtMinPrice)
     const quoteAmountShifted = SafeMath.shl(quoteAmount, 128)
 
-    return SafeMath.div(quoteAmountShifted, priceDelta) // round down
+    const liquidity = SafeMath.div(quoteAmountShifted, priceDelta) // round down
+    if (liquidity.gt(U128_MAX)) {
+        throw new Error('Liquidity from delta quote exceeds u128')
+    }
+    return liquidity
 }
 
 /**
@@ -61,14 +79,14 @@ export function getDeltaAmountBaseUnsigned(
     liquidity: BN,
     round: Rounding
 ): BN {
-    const result = getDeltaAmountBaseUnsigned256(
-        lowerSqrtPrice,
-        upperSqrtPrice,
-        liquidity,
-        round
+    return requireU64(
+        getDeltaAmountBaseUnsigned256(
+            lowerSqrtPrice,
+            upperSqrtPrice,
+            liquidity,
+            round
+        )
     )
-
-    return result
 }
 
 export function getDeltaAmountBaseUnsigned256(
@@ -124,14 +142,14 @@ export function getDeltaAmountQuoteUnsigned(
     liquidity: BN,
     round: Rounding
 ): BN {
-    const result = getDeltaAmountQuoteUnsigned256(
-        lowerSqrtPrice,
-        upperSqrtPrice,
-        liquidity,
-        round
+    return requireU64(
+        getDeltaAmountQuoteUnsigned256(
+            lowerSqrtPrice,
+            upperSqrtPrice,
+            liquidity,
+            round
+        )
     )
-
-    return result
 }
 
 export function getDeltaAmountQuoteUnsigned256(
@@ -190,6 +208,9 @@ export function getNextSqrtPriceFromInput(
     amountIn: BN,
     baseForQuote: boolean
 ): BN {
+    requireU128(sqrtPrice)
+    requireU128(liquidity)
+    requireU64(amountIn)
     if (sqrtPrice.isZero()) {
         throw new Error('sqrt_price must be greater than 0')
     }
@@ -227,6 +248,9 @@ export function getNextSqrtPriceFromOutput(
     amountOut: BN,
     baseForQuote: boolean
 ): BN {
+    requireU128(sqrtPrice)
+    requireU128(liquidity)
+    requireU64(amountOut)
     if (sqrtPrice.isZero()) {
         throw new Error('sqrt_price must be greater than 0')
     }
@@ -271,9 +295,7 @@ export function getNextSqrtPriceFromQuoteAmountOutRoundingDown(
     const quotient = SafeMath.div(numerator, liquidity)
 
     // √P - quotient
-    const result = SafeMath.sub(sqrtPrice, quotient)
-
-    return result
+    return requireU128(SafeMath.sub(sqrtPrice, quotient))
 }
 
 /**
@@ -305,8 +327,7 @@ export function getNextSqrtPriceFromBaseAmountOutRoundingUp(
         )
     }
 
-    // √P * L / (L - Δx * √P) with rounding up
-    return mulDiv(liquidity, sqrtPrice, denominator, Rounding.Up)
+    return requireU128(mulDiv(liquidity, sqrtPrice, denominator, Rounding.Up))
 }
 
 /**
@@ -319,7 +340,6 @@ export function getNextSqrtPriceFromBaseAmountOutRoundingUp(
  *    change and not guarantee exact output.
  *
  * Formula: √P' = √P * L / (L + Δx * √P)
- * If Δx * √P overflows, use alternate form √P' = L / (L/√P + Δx)
  *
  * @param sqrtPrice Current sqrt price
  * @param liquidity Liquidity
@@ -335,20 +355,9 @@ export function getNextSqrtPriceFromBaseAmountInRoundingUp(
         return sqrtPrice
     }
 
-    // Check for potential overflow in Δx * √P
     const product = SafeMath.mul(amount, sqrtPrice)
-
-    // Check if product would overflow - if so, use alternate form
-    if (product.gt(U128_MAX)) {
-        // Alternate form: √P' = L / (L/√P + Δx)
-        const quotient = SafeMath.div(liquidity, sqrtPrice)
-        const denominator = SafeMath.add(quotient, amount)
-        return SafeMath.div(liquidity, denominator)
-    }
-
-    // Standard form: √P' = √P * L / (L + Δx * √P)
     const denominator = SafeMath.add(liquidity, product)
-    return mulDiv(liquidity, sqrtPrice, denominator, Rounding.Up)
+    return requireU128(mulDiv(liquidity, sqrtPrice, denominator, Rounding.Up))
 }
 
 /**
@@ -378,6 +387,5 @@ export function getNextSqrtPriceFromQuoteAmountInRoundingDown(
         liquidity
     )
 
-    // √P' = √P + Δy / L
-    return SafeMath.add(sqrtPrice, quotient)
+    return requireU128(SafeMath.add(sqrtPrice, quotient))
 }

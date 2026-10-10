@@ -2,11 +2,11 @@ import BN from 'bn.js'
 import { SafeMath } from './safeMath'
 import { mulDiv } from './utilsMath'
 import {
-    MAX_BASIS_POINT,
     FEE_DENOMINATOR,
     HOST_FEE_PERCENT,
     MAX_FEE_NUMERATOR,
     PROTOCOL_FEE_PERCENT,
+    U64_MAX,
 } from '../constants'
 import {
     CollectFeeMode,
@@ -21,36 +21,6 @@ import {
 import { getBaseFeeHandler } from './poolFees/baseFee'
 import { getVariableFeeNumerator } from './poolFees/dynamicFee'
 
-/**
- * Convert basis points to fee numerator
- * @param bps - Basis points
- * @param feeDenominator - Fee denominator
- * @returns Fee numerator
- * @throws Error if calculation fails due to overflow or type conversion
- */
-export function toNumerator(bps: BN, feeDenominator: BN): BN {
-    try {
-        const numerator = mulDiv(
-            bps,
-            feeDenominator,
-            new BN(MAX_BASIS_POINT),
-            Rounding.Down
-        )
-        return numerator
-    } catch (error) {
-        throw new Error(
-            `Type cast failed or calculation overflow in toNumerator ${error}`
-        )
-    }
-}
-
-/**
- * Get fee mode
- * @param collectFeeMode Collect fee mode
- * @param tradeDirection Trade direction
- * @param hasReferral Whether referral is used
- * @returns Fee mode
- */
 export function getFeeMode(
     collectFeeMode: CollectFeeMode,
     tradeDirection: TradeDirection,
@@ -73,8 +43,7 @@ export function getFeeMode(
             feesOnInput = false
             feesOnBaseToken = true
         }
-    } else {
-        // CollectFeeMode.QuoteToken
+    } else if (collectFeeMode === CollectFeeMode.QuoteToken) {
         if (tradeDirection === TradeDirection.BaseToQuote) {
             feesOnInput = false
             feesOnBaseToken = false
@@ -83,6 +52,8 @@ export function getFeeMode(
             feesOnInput = true
             feesOnBaseToken = false
         }
+    } else {
+        throw new Error('Invalid collect fee mode')
     }
 
     return {
@@ -230,7 +201,6 @@ export function getFeeOnAmount(
         Rounding.Down
     )
 
-    // update trading fee
     const updatedTradingFee = SafeMath.sub(tradingFee, protocolFee)
 
     const referralFee = hasReferral
@@ -268,7 +238,6 @@ export function getExcludedFeeAmount(
         new BN(FEE_DENOMINATOR),
         Rounding.Up
     )
-    // update amount
     const excludedFeeAmount = SafeMath.sub(includedFeeAmount, tradingFee)
     return [excludedFeeAmount, tradingFee]
 }
@@ -289,6 +258,9 @@ export function getIncludedFeeAmount(
         SafeMath.sub(new BN(FEE_DENOMINATOR), tradeFeeNumerator),
         Rounding.Up
     )
+    if (includedFeeAmount.gt(U64_MAX)) {
+        throw new Error('Type cast failed')
+    }
     const feeAmount = SafeMath.sub(includedFeeAmount, excludedFeeAmount)
     return [includedFeeAmount, feeAmount]
 }
@@ -312,7 +284,6 @@ export function splitFees(
         Rounding.Down
     )
 
-    // update trading fee
     const tradingFee = SafeMath.sub(feeAmount, protocolFee)
 
     const referralFee = hasReferral

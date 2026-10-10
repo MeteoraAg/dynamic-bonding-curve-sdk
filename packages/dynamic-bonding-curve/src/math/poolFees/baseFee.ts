@@ -16,7 +16,10 @@ import {
     getBaseFeeNumerator,
     getFeeSchedulerMinBaseFeeNumerator,
 } from './feeScheduler'
-import { validateFeeRateLimiter, validateFeeScheduler } from '../../helpers'
+import {
+    validateFeeRateLimiter,
+    validateFeeScheduler,
+} from '../../helpers/validation'
 
 /**
  * Fee Rate Limiter implementation
