@@ -56,6 +56,31 @@ describe('state query endpoints', { timeout: 90000 }, () => {
         })
     })
 
+    test('getPoolConfigsByOwner filters on the fee claimer, not the leftover receiver', async () => {
+        const config = Keypair.generate()
+        const leftoverReceiver = Keypair.generate()
+        const createConfigTx = await dbcClient.partner.createConfig({
+            config: config.publicKey,
+            feeClaimer: partner.publicKey,
+            leftoverReceiver: leftoverReceiver.publicKey,
+            payer: partner.publicKey,
+            quoteMint: NATIVE_MINT,
+            ...buildTestCurveConfig(),
+        })
+        createConfigTx.feePayer = partner.publicKey
+        await sendAndConfirmTransaction(connection, createConfigTx, [
+            partner,
+            config,
+        ])
+
+        const [byFeeClaimer, byLeftoverReceiver] = await Promise.all([
+            dbcClient.state.getPoolConfigsByOwner(partner.publicKey),
+            dbcClient.state.getPoolConfigsByOwner(leftoverReceiver.publicKey),
+        ])
+        expectAccountListToContain(byFeeClaimer, config.publicKey)
+        expect(byLeftoverReceiver).toHaveLength(0)
+    })
+
     test('cover every state endpoint for a transfer-hook pool', async () => {
         const config = Keypair.generate()
         const baseMint = Keypair.generate()

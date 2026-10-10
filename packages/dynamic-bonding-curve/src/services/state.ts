@@ -161,7 +161,8 @@ export class StateService {
     async getPoolConfigsByOwner(
         owner: PublicKey | string
     ): Promise<ProgramAccount<PoolConfig>[]> {
-        const filters = createProgramAccountFilter(owner, 72)
+        // PoolConfig: quote_mint at 8, fee_claimer at 40, leftover_receiver at 72
+        const filters = createProgramAccountFilter(owner, 40)
         return this.fetchPoolConfigs(filters)
     }
 
