@@ -688,17 +688,17 @@ export const getCurveBreakdown = (
     }
 
     const segmentAmounts: BN[] = []
-    let totalAllocated = new BN(0)
-    let currentSqrtPrice = sqrtStartPrice
+    let remaining = migrationQuoteThreshold
+    let lowerSqrtPrice = sqrtStartPrice
     let finalSqrtPrice = sqrtStartPrice
 
-    for (let i = 0; i < curve.length; i++) {
-        const lowerSqrtPrice = currentSqrtPrice
-        const upperSqrtPrice = curve[i].sqrtPrice
-        const liquidity = curve[i].liquidity
+    for (const { sqrtPrice: upperSqrtPrice, liquidity } of curve) {
+        if (remaining.isZero()) {
+            segmentAmounts.push(new BN(0))
+            continue
+        }
 
-        // calculate max quote amount available in this segment
-        // formula: Δb = L * (√P_upper - √P_lower)
+        // the quote this segment can take: Δb = L * (√P_upper - √P_lower)
         const maxSegmentAmount = getDeltaAmountQuoteUnsigned(
             lowerSqrtPrice,
             upperSqrtPrice,
@@ -706,48 +706,33 @@ export const getCurveBreakdown = (
             Rounding.Up
         )
 
-        if (maxSegmentAmount.gte(migrationQuoteThreshold)) {
-            // this segment contains the migration point
-            segmentAmounts.push(migrationQuoteThreshold)
-            totalAllocated = totalAllocated.add(migrationQuoteThreshold)
-
-            // calculate the exact sqrt price where migration threshold is reached
+        if (maxSegmentAmount.gt(remaining)) {
+            segmentAmounts.push(remaining)
             finalSqrtPrice = getNextSqrtPriceFromInput(
                 lowerSqrtPrice,
                 liquidity,
-                migrationQuoteThreshold,
+                remaining,
                 false
             )
-
-            // fill remaining segments with zero
-            for (let j = i + 1; j < curve.length; j++) {
-                segmentAmounts.push(new BN(0))
-            }
-            break
+            remaining = new BN(0)
         } else {
-            // this segment is fully consumed
             segmentAmounts.push(maxSegmentAmount)
-            totalAllocated = totalAllocated.add(maxSegmentAmount)
-            currentSqrtPrice = upperSqrtPrice
             finalSqrtPrice = upperSqrtPrice
-
-            // check if we've processed all segments but haven't reached threshold
-            if (
-                i === curve.length - 1 &&
-                totalAllocated.lt(migrationQuoteThreshold)
-            ) {
-                const shortfall = migrationQuoteThreshold.sub(totalAllocated)
-                throw Error(
-                    `Not enough liquidity in curve. Total allocated: ${totalAllocated.toString()}, Required: ${migrationQuoteThreshold.toString()}, Shortfall: ${shortfall.toString()}`
-                )
-            }
+            remaining = remaining.sub(maxSegmentAmount)
+            lowerSqrtPrice = upperSqrtPrice
         }
+    }
+
+    if (!remaining.isZero()) {
+        throw Error(
+            `Not enough liquidity: the curve holds ${migrationQuoteThreshold.sub(remaining).toString()} quote, the threshold is ${migrationQuoteThreshold.toString()}`
+        )
     }
 
     return {
         segmentAmounts,
         finalSqrtPrice,
-        totalAmount: totalAllocated,
+        totalAmount: migrationQuoteThreshold,
     }
 }
 
