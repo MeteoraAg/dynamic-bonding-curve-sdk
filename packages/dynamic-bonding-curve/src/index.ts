@@ -5,6 +5,7 @@ export { MigrationService } from './services/migration'
 export { PartnerService } from './services/partner'
 export { PoolService } from './services/pool'
 export { StateService } from './services/state'
+export type { PoolFeeSummary } from './services/state'
 
 export * from './types'
 export * from './constants'
@@ -36,7 +37,9 @@ export {
     getMigrationThresholdPrice,
     getPercentageSupplyOnMigration,
     getTransferFeeMigrationPositionSplit,
+    type TransferFeeMigrationPositionSplit,
     getProtocolMigrationFee,
+    getSurplusBreakdown,
     getSwapAmountWithBuffer,
     getTokenomics,
     getTotalSupplyFromCurve,

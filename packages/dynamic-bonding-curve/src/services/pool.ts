@@ -1,4 +1,4 @@
-import { Transaction } from '@solana/web3.js'
+import { PublicKey, Transaction } from '@solana/web3.js'
 import {
     DynamicBondingCurveProgram,
     type TransferHookTransfer,
@@ -6,20 +6,20 @@ import {
 import {
     AccountsType,
     SwapMode,
-    SwapQuote2Params,
-    SwapQuoteParams,
-    Swap2Params,
-    type SwapParams,
-    SwapQuoteResult,
-    SwapQuote2Result,
     TradeDirection,
     type SimulatedQuoteFromInputAmountParams,
     type SimulatedQuoteFromOutputAmountParams,
+    type Swap2Params,
+    type SwapParams,
+    type SwapQuote2Params,
+    type SwapQuote2Result,
+    type SwapQuoteParams,
+    type SwapQuoteResult,
 } from '../types'
-import { validateSwapAmount } from '../helpers'
+import { validateSwapAmount } from '../helpers/validation'
 import {
-    getQuoteFromInputAmount as quoteFromInputAmount,
-    getQuoteFromOutputAmount as quoteFromOutputAmount,
+    getQuoteFromInputAmount,
+    getQuoteFromOutputAmount,
 } from '../helpers/quoteSwap'
 import { getFeeMode } from '../math/feeMath'
 import {
@@ -33,31 +33,32 @@ import BN from 'bn.js'
 
 export class PoolService extends DynamicBondingCurveProgram {
     /**
-     * Build an exact-in swap transaction for an existing pool.
-     *
-     * The transaction prepares token accounts, wraps SOL when SOL is the input mint,
-     * and unwraps SOL after the swap when either side of the trade is SOL.
+     * Pool state, token accounts and the instruction accounts shared by the
+     * swap builders. Wraps SOL on the input side and unwraps it after the swap
+     * when either side is SOL.
      */
-    async swap(params: SwapParams): Promise<Transaction> {
-        const {
-            amountIn,
-            minimumAmountOut,
-            swapBaseForQuote,
-            owner,
-            payer,
-            pool,
-            referralTokenAccount,
-        } = params
+    private async prepareSwap(params: {
+        pool: PublicKey
+        owner: PublicKey
+        payer?: PublicKey
+        referralTokenAccount: PublicKey | null
+        swapBaseForQuote: boolean
+        amountIn: BN
+        wrapAmount: BN
+        transferHook: boolean
+    }) {
+        const { pool, owner, swapBaseForQuote, referralTokenAccount } = params
+        validateSwapAmount(params.amountIn)
 
         const { virtualPool, poolConfigState, isTransferHookPool } =
             await this.getPoolWithConfig(pool)
-        if (isTransferHookPool) {
+        if (isTransferHookPool !== params.transferHook) {
             throw new Error(
-                'Pool uses a transfer hook, use swap2WithTransferHook'
+                isTransferHookPool
+                    ? 'Pool uses a transfer hook, use swap2WithTransferHook'
+                    : 'Pool does not use a transfer hook, use swap2'
             )
         }
-
-        validateSwapAmount(amountIn)
 
         const rateLimited = await rateLimiterApplied({
             connection: this.connection,
@@ -66,24 +67,16 @@ export class PoolService extends DynamicBondingCurveProgram {
             activationPoint: virtualPool.poolState.activationPoint,
             swapBaseForQuote,
         })
-
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
             this.prepareSwapParams(
                 swapBaseForQuote,
                 virtualPool.poolState,
                 poolConfigState
             )
-
-        const {
-            inputTokenAccount,
-            outputTokenAccount,
-            preInstructions,
-            postInstructions,
-            remainingAccounts,
-        } = await prepareSwapAccounts({
+        const swapAccounts = await prepareSwapAccounts({
             connection: this.connection,
             commitment: this.commitment,
-            payer: payer ? payer : owner,
+            payer: params.payer ?? owner,
             inputOwner: owner,
             outputOwner: owner,
             unwrapAuthority: owner,
@@ -91,18 +84,17 @@ export class PoolService extends DynamicBondingCurveProgram {
             outputMint,
             inputTokenProgram,
             outputTokenProgram,
-            wrapAmount: amountIn,
+            wrapAmount: params.wrapAmount,
             includeInstructionSysvar:
                 rateLimited ||
                 Boolean(poolConfigState.enableFirstSwapWithMinFee),
         })
 
-        return this.program.methods
-            .swap({
-                amountIn,
-                minimumAmountOut,
-            })
-            .accountsPartial({
+        return {
+            virtualPool,
+            poolConfigState,
+            ...swapAccounts,
+            accounts: {
                 baseMint: virtualPool.poolState.baseMint,
                 quoteMint: poolConfigState.quoteMint,
                 pool,
@@ -111,8 +103,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                 config: virtualPool.poolState.config,
                 poolAuthority: this.poolAuthority,
                 referralTokenAccount,
-                inputTokenAccount,
-                outputTokenAccount,
+                inputTokenAccount: swapAccounts.inputTokenAccount,
+                outputTokenAccount: swapAccounts.outputTokenAccount,
                 payer: owner,
                 tokenBaseProgram: swapBaseForQuote
                     ? inputTokenProgram
@@ -120,117 +112,47 @@ export class PoolService extends DynamicBondingCurveProgram {
                 tokenQuoteProgram: swapBaseForQuote
                     ? outputTokenProgram
                     : inputTokenProgram,
-            })
-            .remainingAccounts(remainingAccounts)
-            .preInstructions(preInstructions)
-            .postInstructions(postInstructions)
-            .transaction()
+            },
+        }
     }
 
-    /**
-     * Build a swap transaction using `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut`.
-     *
-     * Exact-out swaps use `amountOut` and `maximumAmountIn`;
-     * Exact-in and Partial-fill swaps use `amountIn` and `minimumAmountOut`.
-     */
-    async swap2(params: Swap2Params): Promise<Transaction> {
-        const {
-            pool,
-            swapBaseForQuote,
-            swapMode,
-            owner,
-            payer,
-            referralTokenAccount,
-        } = params
-
-        let amount0: BN
-        let amount1: BN
-
-        if (swapMode === SwapMode.ExactOut) {
-            amount0 = params.amountOut
-            amount1 = params.maximumAmountIn
-        } else {
-            amount0 = params.amountIn
-            amount1 = params.minimumAmountOut
+    private swap2Amounts(params: Swap2Params): {
+        amount0: BN
+        amount1: BN
+        wrapAmount: BN
+    } {
+        if (params.swapMode === SwapMode.ExactOut) {
+            return {
+                amount0: params.amountOut,
+                amount1: params.maximumAmountIn,
+                wrapAmount: params.maximumAmountIn,
+            }
         }
-
-        validateSwapAmount(amount0)
-
-        const { virtualPool, poolConfigState, isTransferHookPool } =
-            await this.getPoolWithConfig(pool)
-        if (isTransferHookPool) {
-            throw new Error(
-                'Pool uses a transfer hook, use swap2WithTransferHook'
-            )
+        return {
+            amount0: params.amountIn,
+            amount1: params.minimumAmountOut,
+            wrapAmount: params.amountIn,
         }
+    }
 
-        const rateLimited = await rateLimiterApplied({
-            connection: this.connection,
-            baseFee: poolConfigState.poolFees.baseFee,
-            activationType: poolConfigState.activationType,
-            activationPoint: virtualPool.poolState.activationPoint,
-            swapBaseForQuote,
-        })
-
-        const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
-            this.prepareSwapParams(
-                swapBaseForQuote,
-                virtualPool.poolState,
-                poolConfigState
-            )
-
-        const wrapAmount =
-            swapMode === SwapMode.ExactIn || swapMode === SwapMode.PartialFill
-                ? amount0
-                : amount1
+    /** Build an exact-in swap transaction for an existing pool. */
+    async swap(params: SwapParams): Promise<Transaction> {
+        const { amountIn, minimumAmountOut } = params
         const {
-            inputTokenAccount,
-            outputTokenAccount,
+            accounts,
             preInstructions,
             postInstructions,
             remainingAccounts,
-        } = await prepareSwapAccounts({
-            connection: this.connection,
-            commitment: this.commitment,
-            payer: payer ? payer : owner,
-            inputOwner: owner,
-            outputOwner: owner,
-            unwrapAuthority: owner,
-            inputMint,
-            outputMint,
-            inputTokenProgram,
-            outputTokenProgram,
-            wrapAmount,
-            includeInstructionSysvar:
-                rateLimited ||
-                Boolean(poolConfigState.enableFirstSwapWithMinFee),
+        } = await this.prepareSwap({
+            ...params,
+            amountIn,
+            wrapAmount: amountIn,
+            transferHook: false,
         })
 
         return this.program.methods
-            .swap2({
-                amount0,
-                amount1,
-                swapMode: swapMode,
-            })
-            .accountsPartial({
-                baseMint: virtualPool.poolState.baseMint,
-                quoteMint: poolConfigState.quoteMint,
-                pool,
-                baseVault: virtualPool.poolState.baseVault,
-                quoteVault: virtualPool.poolState.quoteVault,
-                config: virtualPool.poolState.config,
-                poolAuthority: this.poolAuthority,
-                referralTokenAccount: referralTokenAccount,
-                inputTokenAccount,
-                outputTokenAccount,
-                payer: owner,
-                tokenBaseProgram: swapBaseForQuote
-                    ? inputTokenProgram
-                    : outputTokenProgram,
-                tokenQuoteProgram: swapBaseForQuote
-                    ? outputTokenProgram
-                    : inputTokenProgram,
-            })
+            .swap({ amountIn, minimumAmountOut })
+            .accountsPartial(accounts)
             .remainingAccounts(remainingAccounts)
             .preInstructions(preInstructions)
             .postInstructions(postInstructions)
@@ -238,77 +160,49 @@ export class PoolService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Build a swap2 transaction for transfer-hook pools.
+     * Build a swap transaction in SwapMode.ExactIn, SwapMode.PartialFill or
+     * SwapMode.ExactOut. Exact-out takes amountOut and maximumAmountIn; the
+     * other modes take amountIn and minimumAmountOut.
      */
-    async swap2WithTransferHook(params: Swap2Params): Promise<Transaction> {
+    async swap2(params: Swap2Params): Promise<Transaction> {
+        const { amount0, amount1, wrapAmount } = this.swap2Amounts(params)
         const {
-            pool,
-            swapBaseForQuote,
-            swapMode,
-            owner,
-            payer,
-            referralTokenAccount,
-        } = params
-
-        let amount0: BN
-        let amount1: BN
-
-        if (swapMode === SwapMode.ExactOut) {
-            amount0 = params.amountOut
-            amount1 = params.maximumAmountIn
-        } else {
-            amount0 = params.amountIn
-            amount1 = params.minimumAmountOut
-        }
-
-        validateSwapAmount(amount0)
-
-        const { virtualPool, poolConfigState, isTransferHookPool } =
-            await this.getPoolWithConfig(pool)
-        if (!isTransferHookPool) {
-            throw new Error('Pool does not use a transfer hook, use swap2')
-        }
-
-        const rateLimited = await rateLimiterApplied({
-            connection: this.connection,
-            baseFee: poolConfigState.poolFees.baseFee,
-            activationType: poolConfigState.activationType,
-            activationPoint: virtualPool.poolState.activationPoint,
-            swapBaseForQuote,
-        })
-
-        const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
-            this.prepareSwapParams(
-                swapBaseForQuote,
-                virtualPool.poolState,
-                poolConfigState
-            )
-
-        const wrapAmount =
-            swapMode === SwapMode.ExactIn || swapMode === SwapMode.PartialFill
-                ? amount0
-                : amount1
-        const {
-            inputTokenAccount,
-            outputTokenAccount,
+            accounts,
             preInstructions,
             postInstructions,
             remainingAccounts,
-        } = await prepareSwapAccounts({
-            connection: this.connection,
-            commitment: this.commitment,
-            payer: payer ? payer : owner,
-            inputOwner: owner,
-            outputOwner: owner,
-            unwrapAuthority: owner,
-            inputMint,
-            outputMint,
-            inputTokenProgram,
-            outputTokenProgram,
+        } = await this.prepareSwap({
+            ...params,
+            amountIn: amount0,
             wrapAmount,
-            includeInstructionSysvar:
-                rateLimited ||
-                Boolean(poolConfigState.enableFirstSwapWithMinFee),
+            transferHook: false,
+        })
+
+        return this.program.methods
+            .swap2({ amount0, amount1, swapMode: params.swapMode })
+            .accountsPartial(accounts)
+            .remainingAccounts(remainingAccounts)
+            .preInstructions(preInstructions)
+            .postInstructions(postInstructions)
+            .transaction()
+    }
+
+    /** swap2 for a pool whose base mint has a transfer hook. */
+    async swap2WithTransferHook(params: Swap2Params): Promise<Transaction> {
+        const { swapBaseForQuote, owner, referralTokenAccount } = params
+        const { amount0, amount1, wrapAmount } = this.swap2Amounts(params)
+        const {
+            virtualPool,
+            poolConfigState,
+            accounts,
+            preInstructions,
+            postInstructions,
+            remainingAccounts,
+        } = await this.prepareSwap({
+            ...params,
+            amountIn: amount0,
+            wrapAmount,
+            transferHook: true,
         })
 
         const baseVault = virtualPool.poolState.baseVault
@@ -316,14 +210,14 @@ export class PoolService extends DynamicBondingCurveProgram {
             swapBaseForQuote
                 ? {
                       accountsType: AccountsType.TransferHookBase,
-                      source: inputTokenAccount,
+                      source: accounts.inputTokenAccount,
                       destination: baseVault,
                       authority: owner,
                   }
                 : {
                       accountsType: AccountsType.TransferHookBase,
                       source: baseVault,
-                      destination: outputTokenAccount,
+                      destination: accounts.outputTokenAccount,
                       authority: this.poolAuthority,
                   },
         ]
@@ -344,81 +238,43 @@ export class PoolService extends DynamicBondingCurveProgram {
                 authority: this.poolAuthority,
             })
         }
-        const {
-            info: transferHookAccountsInfo,
-            accounts: transferHookAccounts,
-        } = await this.getRemainingAccountsForTransferHook(
-            virtualPool.poolState.baseMint,
-            transferHookTransfers
-        )
-
-        remainingAccounts.push(...transferHookAccounts)
+        const transferHookAccounts =
+            await this.getRemainingAccountsForTransferHook(
+                virtualPool.poolState.baseMint,
+                transferHookTransfers
+            )
+        remainingAccounts.push(...transferHookAccounts.accounts)
 
         return this.program.methods
             .swap2WithTransferHook(
-                {
-                    amount0,
-                    amount1,
-                    swapMode,
-                },
-                transferHookAccountsInfo
+                { amount0, amount1, swapMode: params.swapMode },
+                transferHookAccounts.info
             )
-            .accountsPartial({
-                baseMint: virtualPool.poolState.baseMint,
-                quoteMint: poolConfigState.quoteMint,
-                pool,
-                baseVault: virtualPool.poolState.baseVault,
-                quoteVault: virtualPool.poolState.quoteVault,
-                config: virtualPool.poolState.config,
-                poolAuthority: this.poolAuthority,
-                referralTokenAccount,
-                inputTokenAccount,
-                outputTokenAccount,
-                payer: owner,
-                tokenBaseProgram: swapBaseForQuote
-                    ? inputTokenProgram
-                    : outputTokenProgram,
-                tokenQuoteProgram: swapBaseForQuote
-                    ? outputTokenProgram
-                    : inputTokenProgram,
-            })
+            .accountsPartial(accounts)
             .remainingAccounts(remainingAccounts)
             .preInstructions(preInstructions)
             .postInstructions(postInstructions)
             .transaction()
     }
 
-    /**
-     * Quote an exact-in swap for the original swap instruction.
-     */
+    /** Quote an exact-in swap for the original swap instruction. */
     swapQuote(params: SwapQuoteParams): SwapQuoteResult {
-        const {
-            virtualPool,
-            config,
-            swapBaseForQuote,
-            amountIn,
-            slippageBps,
-            hasReferral,
-            currentPoint,
-            eligibleForFirstSwapWithMinFee,
-        } = params
-
         return swapQuote(
-            virtualPool,
-            config,
-            swapBaseForQuote,
-            amountIn,
-            slippageBps,
-            hasReferral,
-            currentPoint,
-            eligibleForFirstSwapWithMinFee,
+            params.virtualPool,
+            params.config,
+            params.swapBaseForQuote,
+            params.amountIn,
+            params.slippageBps,
+            params.hasReferral,
+            params.currentPoint,
+            params.eligibleForFirstSwapWithMinFee,
             params
         )
     }
 
     /**
-     * Quote an existing pool with `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut`.
-     * `currentPoint` is the chain point. It is not taken from `activationPoint`.
+     * Quote an existing pool in SwapMode.ExactIn, SwapMode.PartialFill or
+     * SwapMode.ExactOut. currentPoint is the current chain slot or time.
      */
     swapQuote2(params: SwapQuote2Params): SwapQuote2Result {
         const {
@@ -428,9 +284,8 @@ export class PoolService extends DynamicBondingCurveProgram {
             hasReferral,
             eligibleForFirstSwapWithMinFee,
             currentPoint,
-            slippageBps,
         } = params
-        const slippage = slippageBps ?? 0
+        const slippageBps = params.slippageBps ?? 0
 
         if (params.swapMode === SwapMode.ExactOut) {
             return swapQuoteExactOut(
@@ -438,7 +293,7 @@ export class PoolService extends DynamicBondingCurveProgram {
                 config,
                 swapBaseForQuote,
                 params.amountOut,
-                slippage,
+                slippageBps,
                 hasReferral,
                 currentPoint,
                 eligibleForFirstSwapWithMinFee,
@@ -446,26 +301,16 @@ export class PoolService extends DynamicBondingCurveProgram {
             )
         }
 
-        if (params.swapMode === SwapMode.PartialFill) {
-            return swapQuotePartialFill(
-                virtualPool,
-                config,
-                swapBaseForQuote,
-                params.amountIn,
-                slippage,
-                hasReferral,
-                currentPoint,
-                eligibleForFirstSwapWithMinFee,
-                params
-            )
-        }
-
-        return swapQuoteExactIn(
+        const quote =
+            params.swapMode === SwapMode.PartialFill
+                ? swapQuotePartialFill
+                : swapQuoteExactIn
+        return quote(
             virtualPool,
             config,
             swapBaseForQuote,
             params.amountIn,
-            slippage,
+            slippageBps,
             hasReferral,
             currentPoint,
             eligibleForFirstSwapWithMinFee,
@@ -473,22 +318,17 @@ export class PoolService extends DynamicBondingCurveProgram {
         )
     }
 
-    /**
-     * Quote a `ConfigParameters` curve before a pool exists.
-     * The quote is the pool `initialize_pool` would write at `currentPoint`.
-     */
+    /** Quote a buildCurve result as its pool would be right after initialize_pool at currentPoint. */
     getQuoteFromInputAmount(
         params: SimulatedQuoteFromInputAmountParams
     ): SwapQuote2Result {
-        return quoteFromInputAmount(params)
+        return getQuoteFromInputAmount(params)
     }
 
-    /**
-     * Quote an exact-out swap on a `ConfigParameters` curve before a pool exists.
-     */
+    /** Exact-out counterpart of getQuoteFromInputAmount. */
     getQuoteFromOutputAmount(
         params: SimulatedQuoteFromOutputAmountParams
     ): SwapQuote2Result {
-        return quoteFromOutputAmount(params)
+        return getQuoteFromOutputAmount(params)
     }
 }

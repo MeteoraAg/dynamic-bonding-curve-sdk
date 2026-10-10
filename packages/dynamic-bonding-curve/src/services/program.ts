@@ -11,7 +11,7 @@ import {
     deriveDbcPoolAuthority,
     deriveDbcTokenVaultAddress,
     deriveMintMetadata,
-    getOrCreateATAInstruction,
+    getOrCreateATAs,
     getTokenProgram,
     getTokenType,
     getTokenBadgeRemainingAccounts,
@@ -24,7 +24,6 @@ import {
     validateSwapAmount,
     validateTransferHookProgram,
     validateTransferHookProgramExecutable,
-    findAssociatedTokenAddress,
 } from '../helpers'
 import type { Program } from '@coral-xyz/anchor'
 import type { DynamicBondingCurve as DynamicBondingCurveIDL } from '../idl/dynamic-bonding-curve/idl'
@@ -48,10 +47,8 @@ import {
 } from '../types'
 import { METAPLEX_PROGRAM_ID } from '../constants'
 import {
-    createAssociatedTokenAccountIdempotentInstruction,
     createTransferCheckedWithTransferHookInstruction,
     getTransferHook,
-    NATIVE_MINT,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     unpackMint,
@@ -63,18 +60,23 @@ import type { DbcClientContext } from '../client'
 import { StateService } from './state'
 import { prepareSwapAccounts } from '../helpers/swap'
 
-type ClaimTradingFeeAccountParams = {
-    payer: PublicKey
-    feeReceiver: PublicKey
+// a transfer_checked instruction's keys are source, mint, destination,
+// authority, then the transfer hook's extra accounts
+const TRANSFER_CHECKED_FIXED_ACCOUNTS = 4
+
+const WITHDRAW_MIGRATION_FEE_FLAG = { partner: 0, creator: 1 } as const
+
+type ClaimTradingFeeAccounts = {
+    poolAuthority: PublicKey
     pool: PublicKey
-    virtualPool: VirtualPool
-    poolConfigState: PoolConfig
+    tokenAAccount: PublicKey
+    tokenBAccount: PublicKey
+    baseVault: PublicKey
+    quoteVault: PublicKey
+    baseMint: PublicKey
+    quoteMint: PublicKey
     tokenBaseProgram: PublicKey
     tokenQuoteProgram: PublicKey
-}
-
-type ClaimTradingFeeSolAccountParams = ClaimTradingFeeAccountParams & {
-    tempWSolAcc: PublicKey
 }
 
 type AccountsTypeValue = (typeof AccountsType)[keyof typeof AccountsType]
@@ -106,19 +108,19 @@ export class DynamicBondingCurveProgram {
         poolConfigState: PoolConfig
         isTransferHookPool: boolean
     }> {
-        const [virtualPool, isTransferHookPool] = await Promise.all([
-            this.state.getPool(pool),
-            this.state.isTransferHookPool(pool),
-        ])
-        if (!virtualPool) {
+        const found = await this.state.getPoolWithKind(pool)
+        if (!found) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
+        const { virtualPool, isTransferHookPool } = found
 
         const poolConfigState = await this.state.getPoolConfig(
             virtualPool.poolState.config
         )
         if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
+            throw new Error(
+                `Pool config not found: ${virtualPool.poolState.config.toBase58()}`
+            )
         }
 
         return { virtualPool, poolConfigState, isTransferHookPool }
@@ -126,31 +128,23 @@ export class DynamicBondingCurveProgram {
 
     protected prepareSwapParams(
         swapBaseForQuote: boolean,
-        virtualPoolState: {
-            baseMint: PublicKey
-            poolType: TokenType
-        },
-        poolConfigState: {
-            quoteMint: PublicKey
-            quoteTokenFlag: TokenType
-        }
+        virtualPoolState: { baseMint: PublicKey; poolType: TokenType },
+        poolConfigState: { quoteMint: PublicKey; quoteTokenFlag: TokenType }
     ): PrepareSwapParams {
-        if (swapBaseForQuote) {
-            return {
-                inputMint: new PublicKey(virtualPoolState.baseMint),
-                outputMint: new PublicKey(poolConfigState.quoteMint),
-                inputTokenProgram: getTokenProgram(virtualPoolState.poolType),
-                outputTokenProgram: getTokenProgram(
-                    poolConfigState.quoteTokenFlag
-                ),
-            }
+        const base = {
+            mint: virtualPoolState.baseMint,
+            program: getTokenProgram(virtualPoolState.poolType),
         }
-
+        const quote = {
+            mint: poolConfigState.quoteMint,
+            program: getTokenProgram(poolConfigState.quoteTokenFlag),
+        }
+        const [input, output] = swapBaseForQuote ? [base, quote] : [quote, base]
         return {
-            inputMint: new PublicKey(poolConfigState.quoteMint),
-            outputMint: new PublicKey(virtualPoolState.baseMint),
-            inputTokenProgram: getTokenProgram(poolConfigState.quoteTokenFlag),
-            outputTokenProgram: getTokenProgram(virtualPoolState.poolType),
+            inputMint: input.mint,
+            outputMint: output.mint,
+            inputTokenProgram: input.program,
+            outputTokenProgram: output.program,
         }
     }
 
@@ -173,6 +167,11 @@ export class DynamicBondingCurveProgram {
         }
     }
 
+    /**
+     * The token badge a config or pool instruction needs for its quote mint:
+     * none for a permissionless mint, otherwise the mint's initialized badge.
+     * Mirrors the program's get_mint_score.
+     */
     protected async resolveQuoteMintTokenBadge(
         quoteMint: Mint,
         currentEpoch: number,
@@ -188,7 +187,7 @@ export class DynamicBondingCurveProgram {
             hasTransferFeeOrConfigAuthority(quoteMint, currentEpoch)
         ) {
             throw new Error(
-                `Invalid quote mint ${quoteMint.address.toBase58()}`
+                `Quote mint ${quoteMint.address.toBase58()} has a non-zero transfer fee or a live transfer fee config authority`
             )
         }
 
@@ -235,8 +234,7 @@ export class DynamicBondingCurveProgram {
         const resolvedTokenBadge = await this.resolveQuoteMintTokenBadge(
             mint,
             currentEpoch,
-            tokenBadge,
-            false
+            tokenBadge
         )
 
         return this.program.methods
@@ -331,8 +329,7 @@ export class DynamicBondingCurveProgram {
         const resolvedTokenBadge = await this.resolveQuoteMintTokenBadge(
             mint,
             currentEpoch,
-            tokenBadge,
-            false
+            tokenBadge
         )
 
         return this.program.methods
@@ -352,43 +349,20 @@ export class DynamicBondingCurveProgram {
     }
 
     protected async initializeSplPool(
-        params: InitializePoolBaseParams & { tokenQuoteProgram: PublicKey }
+        params: InitializePoolBaseParams & {
+            mintMetadata: PublicKey
+            tokenQuoteProgram: PublicKey
+        }
     ): Promise<Transaction> {
-        const {
-            name,
-            symbol,
-            uri,
-            pool,
-            config,
-            payer,
-            poolCreator,
-            mintMetadata,
-            baseMint,
-            baseVault,
-            quoteVault,
-            quoteMint,
-            tokenBadge,
-            tokenQuoteProgram,
-        } = params
+        const { name, symbol, uri, poolCreator, tokenBadge, ...accounts } =
+            params
 
         return this.program.methods
-            .initializeVirtualPoolWithSplToken({
-                name,
-                symbol,
-                uri,
-            })
+            .initializeVirtualPoolWithSplToken({ name, symbol, uri })
             .accountsPartial({
-                pool,
-                config,
-                payer,
+                ...accounts,
                 creator: poolCreator,
-                mintMetadata,
-                baseMint,
                 poolAuthority: this.poolAuthority,
-                baseVault,
-                quoteVault,
-                quoteMint,
-                tokenQuoteProgram,
                 metadataProgram: METAPLEX_PROGRAM_ID,
                 tokenProgram: TOKEN_PROGRAM_ID,
             })
@@ -399,39 +373,15 @@ export class DynamicBondingCurveProgram {
     protected async initializeToken2022Pool(
         params: InitializePoolBaseParams & { tokenQuoteProgram: PublicKey }
     ): Promise<Transaction> {
-        const {
-            name,
-            symbol,
-            uri,
-            pool,
-            config,
-            payer,
-            poolCreator,
-            baseMint,
-            baseVault,
-            quoteVault,
-            quoteMint,
-            tokenBadge,
-            tokenQuoteProgram,
-        } = params
+        const { name, symbol, uri, poolCreator, tokenBadge, ...accounts } =
+            params
 
         return this.program.methods
-            .initializeVirtualPoolWithToken2022({
-                name,
-                symbol,
-                uri,
-            })
+            .initializeVirtualPoolWithToken2022({ name, symbol, uri })
             .accountsPartial({
-                pool,
-                config,
-                payer,
+                ...accounts,
                 creator: poolCreator,
-                baseMint,
                 poolAuthority: this.poolAuthority,
-                baseVault,
-                quoteVault,
-                quoteMint,
-                tokenQuoteProgram,
                 tokenProgram: TOKEN_2022_PROGRAM_ID,
             })
             .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
@@ -444,22 +394,8 @@ export class DynamicBondingCurveProgram {
             tokenQuoteProgram: PublicKey
         }
     ): Promise<Transaction> {
-        const {
-            name,
-            symbol,
-            uri,
-            pool,
-            config,
-            payer,
-            poolCreator,
-            baseMint,
-            baseVault,
-            quoteVault,
-            quoteMint,
-            transferHookProgram,
-            tokenQuoteProgram,
-            tokenBadge,
-        } = params
+        const { name, symbol, uri, poolCreator, tokenBadge, ...accounts } =
+            params
 
         return this.program.methods
             .initializeVirtualPoolWithToken2022TransferHook({
@@ -468,17 +404,9 @@ export class DynamicBondingCurveProgram {
                 uri,
             })
             .accountsPartial({
-                pool,
-                config,
-                payer,
+                ...accounts,
                 creator: poolCreator,
-                baseMint,
                 poolAuthority: this.poolAuthority,
-                baseVault,
-                quoteVault,
-                quoteMint,
-                transferHookProgram,
-                tokenQuoteProgram,
                 tokenProgram: TOKEN_2022_PROGRAM_ID,
             })
             .remainingAccounts(getTokenBadgeRemainingAccounts(tokenBadge))
@@ -503,16 +431,13 @@ export class DynamicBondingCurveProgram {
         } = createPoolParam
 
         const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
-        const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
-        const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
-
         const {
             mint,
             tokenProgram: tokenQuoteProgram,
             currentEpoch,
         } = await this.getQuoteMintState(quoteMint)
 
-        const baseParams: InitializePoolBaseParams = {
+        const baseParams = {
             name,
             symbol,
             uri,
@@ -521,9 +446,10 @@ export class DynamicBondingCurveProgram {
             payer,
             poolCreator,
             baseMint,
-            baseVault,
-            quoteVault,
+            baseVault: deriveDbcTokenVaultAddress(pool, baseMint),
+            quoteVault: deriveDbcTokenVaultAddress(pool, quoteMint),
             quoteMint,
+            tokenQuoteProgram,
             tokenBadge: await this.resolveQuoteMintTokenBadge(
                 mint,
                 currentEpoch,
@@ -532,19 +458,12 @@ export class DynamicBondingCurveProgram {
             ),
         }
 
-        if (tokenType === TokenType.SPLToken) {
-            const mintMetadata = deriveMintMetadata(baseMint)
-            return this.initializeSplPool({
-                ...baseParams,
-                mintMetadata,
-                tokenQuoteProgram,
-            })
-        }
-
-        return this.initializeToken2022Pool({
-            ...baseParams,
-            tokenQuoteProgram,
-        })
+        return tokenType === TokenType.SPLToken
+            ? this.initializeSplPool({
+                  ...baseParams,
+                  mintMetadata: deriveMintMetadata(baseMint),
+              })
+            : this.initializeToken2022Pool(baseParams)
     }
 
     protected async buildCreatePoolWithTransferHookTx(
@@ -571,8 +490,6 @@ export class DynamicBondingCurveProgram {
         }
 
         const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
-        const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
-        const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
         const { mint, currentEpoch } = await this.getQuoteMintState(quoteMint)
 
         return this.initializeToken2022PoolWithTransferHook({
@@ -584,8 +501,8 @@ export class DynamicBondingCurveProgram {
             payer,
             poolCreator,
             baseMint,
-            baseVault,
-            quoteVault,
+            baseVault: deriveDbcTokenVaultAddress(pool, baseMint),
+            quoteVault: deriveDbcTokenVaultAddress(pool, quoteMint),
             quoteMint,
             transferHookProgram,
             tokenQuoteProgram,
@@ -598,6 +515,66 @@ export class DynamicBondingCurveProgram {
         })
     }
 
+    /** Accounts and SOL handling shared by the first-buy swap builders. */
+    private async prepareFirstBuy(
+        firstBuyParam: FirstBuyParams,
+        baseMint: PublicKey,
+        config: PublicKey,
+        tokenType: TokenType,
+        quoteMint: PublicKey,
+        enableFirstSwapWithMinFee: boolean
+    ) {
+        const { buyer, receiver, buyAmount } = firstBuyParam
+        validateSwapAmount(buyAmount)
+
+        const quoteTokenFlag = await getTokenType(
+            this.connection,
+            quoteMint,
+            this.commitment
+        )
+        const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
+            this.prepareSwapParams(
+                false,
+                { baseMint, poolType: tokenType },
+                { quoteMint, quoteTokenFlag }
+            )
+        const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
+        const swapAccounts = await prepareSwapAccounts({
+            connection: this.connection,
+            commitment: this.commitment,
+            payer: buyer,
+            inputOwner: buyer,
+            outputOwner: receiver ?? buyer,
+            unwrapAuthority: buyer,
+            inputMint,
+            outputMint,
+            inputTokenProgram,
+            outputTokenProgram,
+            wrapAmount: buyAmount,
+            // a pool created in this transaction has no rate limiter window to check
+            includeInstructionSysvar: enableFirstSwapWithMinFee,
+        })
+
+        return {
+            ...swapAccounts,
+            accounts: {
+                baseMint,
+                quoteMint,
+                pool,
+                baseVault: deriveDbcTokenVaultAddress(pool, baseMint),
+                quoteVault: deriveDbcTokenVaultAddress(pool, quoteMint),
+                config,
+                poolAuthority: this.poolAuthority,
+                referralTokenAccount: firstBuyParam.referralTokenAccount,
+                inputTokenAccount: swapAccounts.inputTokenAccount,
+                outputTokenAccount: swapAccounts.outputTokenAccount,
+                payer: buyer,
+                tokenBaseProgram: outputTokenProgram,
+                tokenQuoteProgram: inputTokenProgram,
+            },
+        }
+    }
+
     protected async buildSwapBuyTx(
         firstBuyParam: FirstBuyParams,
         baseMint: PublicKey,
@@ -607,75 +584,25 @@ export class DynamicBondingCurveProgram {
         enableFirstSwapWithMinFee: boolean
     ): Promise<Transaction> {
         const {
-            buyer,
-            receiver,
-            buyAmount,
-            minimumAmountOut,
-            referralTokenAccount,
-        } = firstBuyParam
-
-        validateSwapAmount(buyAmount)
-
-        const quoteTokenFlag = await getTokenType(this.connection, quoteMint)
-
-        const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
-            this.prepareSwapParams(
-                false,
-                {
-                    baseMint,
-                    poolType: tokenType,
-                },
-                {
-                    quoteMint,
-                    quoteTokenFlag,
-                }
-            )
-
-        const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
-        const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
-        const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
-
-        const {
-            inputTokenAccount,
-            outputTokenAccount,
+            accounts,
             preInstructions,
             postInstructions,
             remainingAccounts,
-        } = await prepareSwapAccounts({
-            connection: this.connection,
-            commitment: this.commitment,
-            payer: buyer,
-            inputOwner: buyer,
-            outputOwner: receiver ? receiver : buyer,
-            unwrapAuthority: buyer,
-            inputMint,
-            outputMint,
-            inputTokenProgram,
-            outputTokenProgram,
-            wrapAmount: buyAmount,
-            includeInstructionSysvar: enableFirstSwapWithMinFee,
-        })
+        } = await this.prepareFirstBuy(
+            firstBuyParam,
+            baseMint,
+            config,
+            tokenType,
+            quoteMint,
+            enableFirstSwapWithMinFee
+        )
 
         return this.program.methods
             .swap({
-                amountIn: buyAmount,
-                minimumAmountOut,
+                amountIn: firstBuyParam.buyAmount,
+                minimumAmountOut: firstBuyParam.minimumAmountOut,
             })
-            .accountsPartial({
-                baseMint,
-                quoteMint,
-                pool,
-                baseVault,
-                quoteVault,
-                config,
-                poolAuthority: this.poolAuthority,
-                referralTokenAccount,
-                inputTokenAccount,
-                outputTokenAccount,
-                payer: buyer,
-                tokenBaseProgram: outputTokenProgram,
-                tokenQuoteProgram: inputTokenProgram,
-            })
+            .accountsPartial(accounts)
             .remainingAccounts(remainingAccounts)
             .preInstructions(preInstructions)
             .postInstructions(postInstructions)
@@ -691,58 +618,25 @@ export class DynamicBondingCurveProgram {
         enableFirstSwapWithMinFee: boolean
     ): Promise<Transaction> {
         const {
-            buyer,
-            receiver,
-            buyAmount,
-            minimumAmountOut,
-            referralTokenAccount,
-        } = firstBuyParam
-
-        validateSwapAmount(buyAmount)
-
-        const quoteTokenFlag = await getTokenType(this.connection, quoteMint)
-        const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
-            this.prepareSwapParams(
-                false,
-                {
-                    baseMint,
-                    poolType: TokenType.Token2022,
-                },
-                {
-                    quoteMint,
-                    quoteTokenFlag,
-                }
-            )
-
-        const pool = deriveDbcPoolAddress(quoteMint, baseMint, config)
-        const baseVault = deriveDbcTokenVaultAddress(pool, baseMint)
-        const quoteVault = deriveDbcTokenVaultAddress(pool, quoteMint)
-        const {
-            inputTokenAccount,
-            outputTokenAccount,
+            accounts,
             preInstructions,
             postInstructions,
             remainingAccounts,
-        } = await prepareSwapAccounts({
-            connection: this.connection,
-            commitment: this.commitment,
-            payer: buyer,
-            inputOwner: buyer,
-            outputOwner: receiver ? receiver : buyer,
-            unwrapAuthority: buyer,
-            inputMint,
-            outputMint,
-            inputTokenProgram,
-            outputTokenProgram,
-            wrapAmount: buyAmount,
-            includeInstructionSysvar: enableFirstSwapWithMinFee,
-        })
+        } = await this.prepareFirstBuy(
+            firstBuyParam,
+            baseMint,
+            config,
+            TokenType.Token2022,
+            quoteMint,
+            enableFirstSwapWithMinFee
+        )
+        const { referralTokenAccount } = firstBuyParam
 
         const transferHookTransfers: TransferHookTransfer[] = [
             {
                 accountsType: AccountsType.TransferHookBase,
-                source: baseVault,
-                destination: outputTokenAccount,
+                source: accounts.baseVault,
+                destination: accounts.outputTokenAccount,
                 authority: this.poolAuthority,
             },
         ]
@@ -753,232 +647,108 @@ export class DynamicBondingCurveProgram {
         ) {
             transferHookTransfers.push({
                 accountsType: AccountsType.TransferHookBaseReferral,
-                source: baseVault,
+                source: accounts.baseVault,
                 destination: referralTokenAccount,
                 authority: this.poolAuthority,
             })
         }
-        let transferHookAccountsResult: {
-            info: TransferHookAccountsInfo
-            accounts: AccountMeta[]
-        }
-        if (
+
+        // the base mint does not exist before the pool is created, so a
+        // bundled first buy needs the hook accounts from the caller
+        const transferHookAccountsResult =
             firstBuyParam.transferHookAccountsInfo &&
             firstBuyParam.transferHookAccounts
-        ) {
-            transferHookAccountsResult = {
-                info: firstBuyParam.transferHookAccountsInfo,
-                accounts: firstBuyParam.transferHookAccounts,
-            }
-        } else {
-            try {
-                transferHookAccountsResult =
-                    await this.getRemainingAccountsForTransferHook(
-                        baseMint,
-                        transferHookTransfers
-                    )
-            } catch {
-                throw new Error(
-                    `Unable to resolve transfer-hook remaining accounts for ${baseMint.toString()}. ` +
-                        `When bundling pool initialization with the first buy, pass transferHookAccountsInfo and transferHookAccounts on the first-buy params.`
-                )
-            }
-        }
-
+                ? {
+                      info: firstBuyParam.transferHookAccountsInfo,
+                      accounts: firstBuyParam.transferHookAccounts,
+                  }
+                : await this.getRemainingAccountsForTransferHook(
+                      baseMint,
+                      transferHookTransfers
+                  )
         remainingAccounts.push(...transferHookAccountsResult.accounts)
 
         return this.program.methods
             .swap2WithTransferHook(
                 {
-                    amount0: buyAmount,
-                    amount1: minimumAmountOut,
+                    amount0: firstBuyParam.buyAmount,
+                    amount1: firstBuyParam.minimumAmountOut,
                     swapMode: SwapMode.ExactIn,
                 },
                 transferHookAccountsResult.info
             )
-            .accountsPartial({
-                baseMint,
-                quoteMint,
-                pool,
-                baseVault,
-                quoteVault,
-                config,
-                poolAuthority: this.poolAuthority,
-                referralTokenAccount,
-                inputTokenAccount,
-                outputTokenAccount,
-                payer: buyer,
-                tokenBaseProgram: outputTokenProgram,
-                tokenQuoteProgram: inputTokenProgram,
-            })
+            .accountsPartial(accounts)
             .remainingAccounts(remainingAccounts)
             .preInstructions(preInstructions)
             .postInstructions(postInstructions)
             .transaction()
     }
 
-    protected async buildClaimTradingFeeAccountsForSol(
-        params: ClaimTradingFeeSolAccountParams
-    ): Promise<{
-        accounts: {
-            poolAuthority: PublicKey
-            pool: PublicKey
-            tokenAAccount: PublicKey
-            tokenBAccount: PublicKey
-            baseVault: PublicKey
-            quoteVault: PublicKey
-            baseMint: PublicKey
-            quoteMint: PublicKey
-            tokenBaseProgram: PublicKey
-            tokenQuoteProgram: PublicKey
-        }
+    /**
+     * Token accounts for a trading fee claim. With a native SOL quote the
+     * wrapped SOL goes to the claimer's ATA, which is then closed to feeReceiver.
+     */
+    protected async resolveTradingFeeAccounts(params: {
+        payer: PublicKey
+        feeReceiver: PublicKey
+        claimer: PublicKey
+        pool: PublicKey
+        virtualPool: VirtualPool
+        poolConfigState: PoolConfig
+    }): Promise<{
+        accounts: ClaimTradingFeeAccounts
         preInstructions: TransactionInstruction[]
         postInstructions: TransactionInstruction[]
     }> {
-        const {
-            payer,
-            feeReceiver,
-            tempWSolAcc,
-            pool,
-            virtualPool,
-            poolConfigState,
-            tokenBaseProgram,
-            tokenQuoteProgram,
-        } = params
-
-        const preInstructions: TransactionInstruction[] = []
-        const postInstructions: TransactionInstruction[] = []
-
-        const tokenBaseAccount = findAssociatedTokenAddress(
-            feeReceiver,
-            virtualPool.poolState.baseMint,
-            tokenBaseProgram
-        )
-
-        const tokenQuoteAccount = findAssociatedTokenAddress(
-            tempWSolAcc,
-            poolConfigState.quoteMint,
-            tokenQuoteProgram
-        )
-
-        preInstructions.push(
-            createAssociatedTokenAccountIdempotentInstruction(
-                payer,
-                tokenBaseAccount,
-                feeReceiver,
-                virtualPool.poolState.baseMint,
-                tokenBaseProgram
-            ),
-            createAssociatedTokenAccountIdempotentInstruction(
-                payer,
-                tokenQuoteAccount,
-                tempWSolAcc,
-                poolConfigState.quoteMint,
-                tokenQuoteProgram
-            )
-        )
-
-        const unwrapSolIx = unwrapSOLInstruction(tempWSolAcc, feeReceiver)
-        unwrapSolIx && postInstructions.push(unwrapSolIx)
-
-        const accounts = {
-            poolAuthority: this.poolAuthority,
-            pool,
-            tokenAAccount: tokenBaseAccount,
-            tokenBAccount: tokenQuoteAccount,
-            baseVault: virtualPool.poolState.baseVault,
-            quoteVault: virtualPool.poolState.quoteVault,
-            baseMint: virtualPool.poolState.baseMint,
-            quoteMint: poolConfigState.quoteMint,
-            tokenBaseProgram,
-            tokenQuoteProgram,
-        }
-
-        return { accounts, preInstructions, postInstructions }
-    }
-
-    protected async buildClaimTradingFeeAccountsForNonSol(
-        params: ClaimTradingFeeAccountParams
-    ): Promise<{
-        accounts: {
-            poolAuthority: PublicKey
-            pool: PublicKey
-            tokenAAccount: PublicKey
-            tokenBAccount: PublicKey
-            baseVault: PublicKey
-            quoteVault: PublicKey
-            baseMint: PublicKey
-            quoteMint: PublicKey
-            tokenBaseProgram: PublicKey
-            tokenQuoteProgram: PublicKey
-        }
-        preInstructions: TransactionInstruction[]
-    }> {
-        const {
-            payer,
-            feeReceiver,
-            pool,
-            virtualPool,
-            poolConfigState,
-            tokenBaseProgram,
-            tokenQuoteProgram,
-        } = params
+        const { payer, feeReceiver, claimer, pool, virtualPool } = params
+        const { poolState } = virtualPool
+        const { quoteMint, tokenType, quoteTokenFlag } = params.poolConfigState
+        const tokenBaseProgram = getTokenProgram(tokenType)
+        const tokenQuoteProgram = getTokenProgram(quoteTokenFlag)
+        const quoteIsSol = isNativeSol(quoteMint)
 
         const {
-            ataTokenA: tokenBaseAccount,
-            ataTokenB: tokenQuoteAccount,
+            addresses: [tokenAAccount, tokenBAccount],
             instructions: preInstructions,
-        } = await this.prepareTokenAccounts(
-            feeReceiver,
+        } = await getOrCreateATAs(
+            this.connection,
             payer,
-            virtualPool.poolState.baseMint,
-            poolConfigState.quoteMint,
-            tokenBaseProgram,
-            tokenQuoteProgram
+            [
+                {
+                    mint: poolState.baseMint,
+                    owner: feeReceiver,
+                    tokenProgram: tokenBaseProgram,
+                },
+                {
+                    mint: quoteMint,
+                    owner: quoteIsSol ? claimer : feeReceiver,
+                    tokenProgram: tokenQuoteProgram,
+                },
+            ],
+            this.commitment
         )
 
-        const accounts = {
-            poolAuthority: this.poolAuthority,
-            pool,
-            tokenAAccount: tokenBaseAccount,
-            tokenBAccount: tokenQuoteAccount,
-            baseVault: virtualPool.poolState.baseVault,
-            quoteVault: virtualPool.poolState.quoteVault,
-            baseMint: virtualPool.poolState.baseMint,
-            quoteMint: poolConfigState.quoteMint,
-            tokenBaseProgram,
-            tokenQuoteProgram,
+        return {
+            accounts: {
+                poolAuthority: this.poolAuthority,
+                pool,
+                tokenAAccount,
+                tokenBAccount,
+                baseVault: poolState.baseVault,
+                quoteVault: poolState.quoteVault,
+                baseMint: poolState.baseMint,
+                quoteMint,
+                tokenBaseProgram,
+                tokenQuoteProgram,
+            },
+            preInstructions,
+            postInstructions: quoteIsSol
+                ? [unwrapSOLInstruction(claimer, feeReceiver)]
+                : [],
         }
-
-        return { accounts, preInstructions }
     }
 
-    protected async resolveTradingFeeAccounts(
-        params: ClaimTradingFeeSolAccountParams
-    ): Promise<{
-        accounts: {
-            poolAuthority: PublicKey
-            pool: PublicKey
-            tokenAAccount: PublicKey
-            tokenBAccount: PublicKey
-            baseVault: PublicKey
-            quoteVault: PublicKey
-            baseMint: PublicKey
-            quoteMint: PublicKey
-            tokenBaseProgram: PublicKey
-            tokenQuoteProgram: PublicKey
-        }
-        preInstructions: TransactionInstruction[]
-        postInstructions: TransactionInstruction[]
-    }> {
-        if (isNativeSol(params.poolConfigState.quoteMint)) {
-            return this.buildClaimTradingFeeAccountsForSol(params)
-        }
-
-        const result = await this.buildClaimTradingFeeAccountsForNonSol(params)
-        return { ...result, postInstructions: [] }
-    }
-
+    /** The extra accounts a Token-2022 transfer hook needs for each transfer, in the program's slice format. */
     protected async getRemainingAccountsForTransferHook(
         mint: PublicKey,
         transfers: TransferHookTransfer[]
@@ -986,27 +756,21 @@ export class DynamicBondingCurveProgram {
         info: TransferHookAccountsInfo
         accounts: AccountMeta[]
     }> {
-        const emptyAccounts: {
-            info: TransferHookAccountsInfo
-            accounts: AccountMeta[]
-        } = { info: { slices: [] }, accounts: [] }
         const mintInfo = await this.connection.getAccountInfo(
             mint,
             this.commitment
         )
-
         if (!mintInfo) {
             throw new Error(`Invalid mint: ${mint.toString()}`)
         }
-
         if (mintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
-            return emptyAccounts
+            return { info: { slices: [] }, accounts: [] }
         }
 
         const mintState = unpackMint(mint, mintInfo, TOKEN_2022_PROGRAM_ID)
         const transferHook = getTransferHook(mintState)
         if (!transferHook || transferHook.programId.equals(PublicKey.default)) {
-            return emptyAccounts
+            return { info: { slices: [] }, accounts: [] }
         }
 
         const slices: TransferHookAccountsInfo['slices'] = []
@@ -1025,7 +789,9 @@ export class DynamicBondingCurveProgram {
                     this.commitment,
                     TOKEN_2022_PROGRAM_ID
                 )
-            const transferHookAccounts = transferWithHookIx.keys.slice(4)
+            const transferHookAccounts = transferWithHookIx.keys.slice(
+                TRANSFER_CHECKED_FIXED_ACCOUNTS
+            )
             slices.push({
                 accountsType: transfer.accountsType,
                 length: transferHookAccounts.length,
@@ -1037,39 +803,37 @@ export class DynamicBondingCurveProgram {
     }
 
     protected async buildWithdrawMigrationFeeTx(
-        role: 'partner' | 'creator',
+        role: keyof typeof WITHDRAW_MIGRATION_FEE_FLAG,
         pool: PublicKey,
         sender: PublicKey
     ): Promise<Transaction> {
         const { virtualPool, poolConfigState } =
             await this.getPoolWithConfig(pool)
-
         const tokenQuoteProgram = getTokenProgram(
             poolConfigState.quoteTokenFlag
         )
-        const preInstructions: TransactionInstruction[] = []
-        const postInstructions: TransactionInstruction[] = []
 
-        const { ataPubkey: tokenQuoteAccount, ix: createTokenQuoteAccountIx } =
-            await getOrCreateATAInstruction(
-                this.connection,
-                poolConfigState.quoteMint,
-                sender,
-                sender,
-                true,
-                tokenQuoteProgram,
-                this.commitment
-            )
-        createTokenQuoteAccountIx &&
-            preInstructions.push(createTokenQuoteAccountIx)
-
-        if (poolConfigState.quoteMint.equals(NATIVE_MINT)) {
-            const unwrapSolIx = unwrapSOLInstruction(sender, sender)
-            unwrapSolIx && postInstructions.push(unwrapSolIx)
-        }
+        const {
+            addresses: [tokenQuoteAccount],
+            instructions: preInstructions,
+        } = await getOrCreateATAs(
+            this.connection,
+            sender,
+            [
+                {
+                    mint: poolConfigState.quoteMint,
+                    owner: sender,
+                    tokenProgram: tokenQuoteProgram,
+                },
+            ],
+            this.commitment
+        )
+        const postInstructions = isNativeSol(poolConfigState.quoteMint)
+            ? [unwrapSOLInstruction(sender, sender)]
+            : []
 
         return this.program.methods
-            .withdrawMigrationFee(role === 'partner' ? 0 : 1)
+            .withdrawMigrationFee(WITHDRAW_MIGRATION_FEE_FLAG[role])
             .accountsPartial({
                 poolAuthority: this.poolAuthority,
                 config: virtualPool.poolState.config,
@@ -1085,52 +849,41 @@ export class DynamicBondingCurveProgram {
             .transaction()
     }
 
-    protected async prepareTokenAccounts(
+    /** The owner's quote token account for a surplus withdrawal, with SOL unwrapped afterwards. */
+    protected async buildWithdrawSurplusAccounts(
         owner: PublicKey,
-        payer: PublicKey,
-        tokenAMint: PublicKey,
-        tokenBMint: PublicKey,
-        tokenAProgram: PublicKey,
-        tokenBProgram: PublicKey
+        poolConfigState: PoolConfig
     ): Promise<{
-        ataTokenA: PublicKey
-        ataTokenB: PublicKey
-        instructions: TransactionInstruction[]
+        tokenQuoteAccount: PublicKey
+        tokenQuoteProgram: PublicKey
+        preInstructions: TransactionInstruction[]
+        postInstructions: TransactionInstruction[]
     }> {
-        const instructions: TransactionInstruction[] = []
-        const [
-            { ataPubkey: ataTokenA, ix: createAtaTokenAIx },
-            { ataPubkey: ataTokenB, ix: createAtaTokenBIx },
-        ] = await Promise.all([
-            getOrCreateATAInstruction(
-                this.connection,
-                tokenAMint,
-                owner,
-                payer,
-                true,
-                tokenAProgram,
-                this.commitment
-            ),
-            getOrCreateATAInstruction(
-                this.connection,
-                tokenBMint,
-                owner,
-                payer,
-                true,
-                tokenBProgram,
-                this.commitment
-            ),
-        ])
-        createAtaTokenAIx && instructions.push(createAtaTokenAIx)
-        createAtaTokenBIx && instructions.push(createAtaTokenBIx)
-
-        return { ataTokenA, ataTokenB, instructions }
-    }
-
-    /**
-     * Return the underlying Anchor program client.
-     */
-    getProgram(): Program<DynamicBondingCurveIDL> {
-        return this.program
+        const tokenQuoteProgram = getTokenProgram(
+            poolConfigState.quoteTokenFlag
+        )
+        const {
+            addresses: [tokenQuoteAccount],
+            instructions: preInstructions,
+        } = await getOrCreateATAs(
+            this.connection,
+            owner,
+            [
+                {
+                    mint: poolConfigState.quoteMint,
+                    owner,
+                    tokenProgram: tokenQuoteProgram,
+                },
+            ],
+            this.commitment
+        )
+        return {
+            tokenQuoteAccount,
+            tokenQuoteProgram,
+            preInstructions,
+            postInstructions: isNativeSol(poolConfigState.quoteMint)
+                ? [unwrapSOLInstruction(owner, owner)]
+                : [],
+        }
     }
 }
