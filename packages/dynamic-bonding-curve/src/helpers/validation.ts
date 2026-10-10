@@ -780,27 +780,6 @@ export function validateMigratedPoolFee(
         return false
     }
 
-    if (
-        migrationOption === undefined ||
-        migrationOption === MigrationOption.MET_DAMM_V2
-    ) {
-        try {
-            validateMigratedPoolBaseFeeMode(
-                migratedPoolBaseFeeMode,
-                migratedPoolMarketCapFeeSchedulerParams ?? {
-                    numberOfPeriod: 0,
-                    sqrtPriceStepBps: 0,
-                    schedulerExpirationDuration: 0,
-                    reductionFactor: new BN(0),
-                },
-                migrationOption,
-                migratedPoolFee.poolFeeBps
-            )
-        } catch {
-            return false
-        }
-    }
-
     return true
 }
 
@@ -1123,6 +1102,23 @@ export function validateConfigParameters(
         }
     }
 
+    // the curve shape first, before any curve math runs on it
+    if (!validateCurve(configParam.curve, configParam.sqrtStartPrice)) {
+        throw new Error('Invalid curve')
+    }
+
+    if (configParam.migrationQuoteThreshold.lte(new BN(0))) {
+        throw new Error('Migration quote threshold must be greater than 0')
+    }
+
+    // price validation
+    if (
+        new BN(configParam.sqrtStartPrice).lt(new BN(MIN_SQRT_PRICE)) ||
+        new BN(configParam.sqrtStartPrice).gte(new BN(MAX_SQRT_PRICE))
+    ) {
+        throw new Error('Invalid sqrt start price')
+    }
+
     const sqrtMigrationPrice = getMigrationThresholdPrice(
         configParam.migrationQuoteThreshold,
         configParam.sqrtStartPrice,
@@ -1190,18 +1186,6 @@ export function validateConfigParameters(
         )
     }
 
-    if (configParam.migrationQuoteThreshold.lte(new BN(0))) {
-        throw new Error('Migration quote threshold must be greater than 0')
-    }
-
-    // price validation
-    if (
-        new BN(configParam.sqrtStartPrice).lt(new BN(MIN_SQRT_PRICE)) ||
-        new BN(configParam.sqrtStartPrice).gte(new BN(MAX_SQRT_PRICE))
-    ) {
-        throw new Error('Invalid sqrt start price')
-    }
-
     // migrated pool fee validation
     if (configParam.migratedPoolFee) {
         if (
@@ -1232,10 +1216,6 @@ export function validateConfigParameters(
             configParam.migratedPoolMarketCapFeeSchedulerParams,
             configParam.migratedPoolFee
         )
-    }
-
-    if (!validateCurve(configParam.curve, configParam.sqrtStartPrice)) {
-        throw new Error('Invalid curve')
     }
 
     // locked vesting validation
@@ -1307,7 +1287,7 @@ export function validateConfigParameters(
             TokenAuthorityOption.PartnerUpdateAuthority ||
             configParam.tokenUpdateAuthority ===
                 TokenAuthorityOption.PartnerUpdateAndMintAuthority) &&
-        (!feeClaimer || feeClaimer.equals(PublicKey.default))
+        feeClaimer?.equals(PublicKey.default)
     ) {
         throw new Error('Invalid fee claimer')
     }
