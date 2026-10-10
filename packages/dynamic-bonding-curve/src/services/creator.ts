@@ -633,6 +633,9 @@ export class CreatorService extends DynamicBondingCurveProgram {
         params: TransferPoolCreatorParams
     ): Promise<Transaction> {
         const { pool, creator, newCreator } = params
+        if (newCreator.equals(creator)) {
+            throw new Error('newCreator must differ from creator')
+        }
 
         const virtualPool = await this.state.getPool(pool)
         if (!virtualPool) {

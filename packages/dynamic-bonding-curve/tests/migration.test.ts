@@ -203,6 +203,16 @@ describe(
             expect(tx.instructions.length).toBeGreaterThan(0)
         })
 
+        test('transferPoolCreator rejects the current creator as the new creator', async () => {
+            await expect(
+                dbcClient.creator.transferPoolCreator({
+                    pool,
+                    creator: poolCreator.publicKey,
+                    newCreator: poolCreator.publicKey,
+                })
+            ).rejects.toThrow('newCreator must differ from creator')
+        })
+
         test('transferPoolCreator builds a transaction', async () => {
             const newCreator = Keypair.generate()
             const tx = await dbcClient.creator.transferPoolCreator({
