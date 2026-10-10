@@ -3,7 +3,6 @@ import {
     Connection,
     PublicKey,
     SystemProgram,
-    Transaction,
     TransactionInstruction,
 } from '@solana/web3.js'
 
@@ -11,16 +10,23 @@ import {
     ASSOCIATED_TOKEN_PROGRAM_ID,
     createAssociatedTokenAccountIdempotentInstruction,
     createCloseAccountInstruction,
+    ExtensionType,
     getAccount,
     getAssociatedTokenAddressSync,
+    getExtensionTypes,
     getMint,
+    getTransferFeeConfig,
+    unpackMint,
     NATIVE_MINT,
+    NATIVE_MINT_2022,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     TokenAccountNotFoundError,
     TokenInvalidAccountOwnerError,
+    type Mint,
 } from '@solana/spl-token'
-import { TokenType } from '../types'
+import { isZeroTransferFee } from '../math/transferFee'
+import { type PoolConfig, type QuoteTransferFees, TokenType } from '../types'
 
 /**
  * Return an ATA address and an idempotent create instruction when the account is missing.
@@ -58,11 +64,8 @@ export const getOrCreateATAInstruction = async (
             )
 
             return { ataPubkey: toAccount, ix }
-        } else {
-            /* handle error */
-            console.error('Error::getOrCreateATAInstruction', e)
-            throw e
         }
+        throw e
     }
 }
 
@@ -150,7 +153,11 @@ export async function getTokenDecimals(
             ? mintAddress
             : new PublicKey(mintAddress)
 
-    const tokenProgram = (await connection.getAccountInfo(mintPubkey)).owner
+    const mintAccount = await connection.getAccountInfo(mintPubkey)
+    if (!mintAccount) {
+        throw new Error(`Mint account ${mintPubkey.toBase58()} not found`)
+    }
+    const tokenProgram = mintAccount.owner
 
     const mintInfo = await getMint(
         connection,
@@ -170,16 +177,13 @@ export function getTokenProgram(tokenType: TokenType): PublicKey {
         : TOKEN_2022_PROGRAM_ID
 }
 
-/**
- * Return the token type from the mint account owner, or `null` if the mint is missing.
- */
 export async function getTokenType(
     connection: Connection,
     tokenMint: PublicKey
-): Promise<TokenType | null> {
+): Promise<TokenType> {
     const accountInfo = await connection.getAccountInfo(tokenMint)
     if (!accountInfo) {
-        return null
+        throw new Error(`Mint account ${tokenMint.toBase58()} not found`)
     }
 
     return accountInfo.owner.equals(TOKEN_PROGRAM_ID)
@@ -188,63 +192,117 @@ export async function getTokenType(
 }
 
 /**
- * Build a setup transaction for a token account, including SOL wrapping when needed.
+ * Return whether a mint has a non-zero transfer fee, active or scheduled, or a transfer fee config authority.
  */
-export async function prepareTokenAccountTx(
-    connection: Connection,
-    owner: PublicKey,
-    payer: PublicKey,
-    tokenMint: PublicKey,
-    amount: bigint,
-    tokenProgram: PublicKey,
-    commitment: Commitment = 'confirmed'
-): Promise<{
-    tokenAccount: PublicKey
-    transaction: Transaction
-}> {
-    const instructions: TransactionInstruction[] = []
-    const { ataPubkey: tokenAccount, ix: createAtaIx } =
-        await getOrCreateATAInstruction(
-            connection,
-            tokenMint,
-            owner,
-            payer,
-            true,
-            tokenProgram,
-            commitment
+export function hasTransferFeeOrConfigAuthority(
+    mint: Mint,
+    currentEpoch: number
+): boolean {
+    const transferFeeConfig = getTransferFeeConfig(mint)
+    if (!transferFeeConfig) {
+        return false
+    }
+    if (
+        !transferFeeConfig.transferFeeConfigAuthority.equals(PublicKey.default)
+    ) {
+        return true
+    }
+
+    const { olderTransferFee, newerTransferFee } = transferFeeConfig
+    if (BigInt(currentEpoch) < newerTransferFee.epoch) {
+        return (
+            !isZeroTransferFee(olderTransferFee) ||
+            !isZeroTransferFee(newerTransferFee)
         )
-
-    createAtaIx && instructions.push(createAtaIx)
-
-    if (tokenMint.equals(NATIVE_MINT)) {
-        const wrapIx = wrapSOLInstruction(owner, tokenAccount, amount)
-        instructions.push(...wrapIx)
     }
-
-    const transaction = new Transaction()
-    if (instructions.length > 0) {
-        transaction.add(...instructions)
-    }
-
-    return { tokenAccount, transaction }
+    return !isZeroTransferFee(newerTransferFee)
 }
 
 /**
- * Build a cleanup transaction for wrapped SOL accounts.
+ * Return whether a quote mint is supported without a token badge.
+ * SPL Token mints are supported. Token-2022 mints are supported when their only
+ * extensions are metadata and a zero transfer fee with no config authority.
  */
-export async function cleanUpTokenAccountTx(
-    owner: PublicKey,
-    receiver: PublicKey,
-    tokenMint: PublicKey
-): Promise<{
-    transaction: Transaction
-}> {
-    if (tokenMint.equals(NATIVE_MINT)) {
-        const unwrapIx = unwrapSOLInstruction(owner, receiver)
-        if (unwrapIx) {
-            return { transaction: new Transaction().add(unwrapIx) }
-        }
+export function isSupportedQuoteMint(
+    mint: Mint,
+    currentEpoch: number
+): boolean {
+    if (mint.address.equals(NATIVE_MINT_2022)) {
+        throw new Error('Token-2022 native mint is not supported as quote mint')
     }
 
-    return null
+    const supportedExtensions = [
+        ExtensionType.MetadataPointer,
+        ExtensionType.TokenMetadata,
+        ExtensionType.TransferFeeConfig,
+    ]
+    return (
+        getExtensionTypes(mint.tlvData).every((extension) =>
+            supportedExtensions.includes(extension)
+        ) && !hasTransferFeeOrConfigAuthority(mint, currentEpoch)
+    )
+}
+
+async function fetchMint(
+    connection: Connection,
+    mint: PublicKey,
+    commitment: Commitment,
+    tokenProgram?: PublicKey
+): Promise<Mint> {
+    if (tokenProgram) {
+        return getMint(connection, mint, commitment, tokenProgram)
+    }
+
+    const accountInfo = await connection.getAccountInfo(mint, commitment)
+    if (!accountInfo) {
+        throw new Error(`Mint account ${mint.toBase58()} not found`)
+    }
+    return unpackMint(mint, accountInfo, accountInfo.owner)
+}
+
+/**
+ * Fetch the quote mint, optional base mint, and current epoch for an existing-pool swap quote.
+ * Returns an empty object when the quote mint is SPL Token and `baseMint` is omitted.
+ */
+export async function getSwapQuoteTransferFees(
+    connection: Connection,
+    config: Pick<PoolConfig, 'quoteMint' | 'quoteTokenFlag'>,
+    commitmentOrOptions:
+        | Commitment
+        | {
+              commitment?: Commitment
+              baseMint?: PublicKey
+          } = 'confirmed'
+): Promise<QuoteTransferFees> {
+    const options =
+        typeof commitmentOrOptions === 'string'
+            ? { commitment: commitmentOrOptions }
+            : commitmentOrOptions
+    const commitment = options.commitment ?? 'confirmed'
+    const quoteIsToken2022 =
+        Number(config.quoteTokenFlag) === TokenType.Token2022
+    if (!quoteIsToken2022 && !options.baseMint) {
+        return {}
+    }
+
+    const [epochInfo, quoteMint, baseMint] = await Promise.all([
+        connection.getEpochInfo(commitment),
+        quoteIsToken2022
+            ? fetchMint(
+                  connection,
+                  config.quoteMint,
+                  commitment,
+                  TOKEN_2022_PROGRAM_ID
+              )
+            : Promise.resolve(undefined),
+        options.baseMint
+            ? fetchMint(connection, options.baseMint, commitment)
+            : Promise.resolve(undefined),
+    ])
+
+    return {
+        ...(quoteMint ? { quoteMint } : {}),
+        ...(baseMint ? { baseMint } : {}),
+        currentEpoch: epochInfo.epoch,
+    }
 }
