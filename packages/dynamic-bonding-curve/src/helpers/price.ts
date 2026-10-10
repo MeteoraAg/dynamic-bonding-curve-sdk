@@ -4,11 +4,11 @@ import {
     type LiquidityDistributionParameters,
     type PoolConfig,
 } from '../types'
-import { MAX_BASIS_POINT } from '../constants'
+import { MAX_BASIS_POINT, U64_MAX } from '../constants'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
 import {
-    getDeltaAmountBaseUnsigned,
+    getDeltaAmountBaseUnsigned256,
     getDeltaAmountQuoteUnsigned,
 } from '../math/curve'
 /**
@@ -117,7 +117,7 @@ export function getBaseTokenForSwap(
     for (let i = 0; i < curve.length; i++) {
         const lowerSqrtPrice = i === 0 ? sqrtStartPrice : curve[i - 1].sqrtPrice
         if (curve[i].sqrtPrice.gt(sqrtMigrationPrice)) {
-            const deltaAmount = getDeltaAmountBaseUnsigned(
+            const deltaAmount = getDeltaAmountBaseUnsigned256(
                 lowerSqrtPrice,
                 sqrtMigrationPrice,
                 curve[i].liquidity,
@@ -126,7 +126,7 @@ export function getBaseTokenForSwap(
             totalAmount = totalAmount.add(deltaAmount)
             break
         } else {
-            const deltaAmount = getDeltaAmountBaseUnsigned(
+            const deltaAmount = getDeltaAmountBaseUnsigned256(
                 lowerSqrtPrice,
                 curve[i].sqrtPrice,
                 curve[i].liquidity,
@@ -134,6 +134,10 @@ export function getBaseTokenForSwap(
             )
             totalAmount = totalAmount.add(deltaAmount)
         }
+    }
+    // the program sums the segments in U256 and casts the total once
+    if (totalAmount.gt(U64_MAX)) {
+        throw new Error('Type cast failed')
     }
     return totalAmount
 }

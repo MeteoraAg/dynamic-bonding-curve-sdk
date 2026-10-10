@@ -22,6 +22,7 @@ import Decimal from 'decimal.js'
 import {
     getDeltaAmountBaseUnsigned,
     getDeltaAmountQuoteUnsigned,
+    getDeltaAmountQuoteUnsigned256,
     getInitialLiquidityFromDeltaBase,
     getInitialLiquidityFromDeltaQuote,
     getNextSqrtPriceFromInput,
@@ -618,7 +619,7 @@ export const getMigrationThresholdPrice = (
         throw Error('Curve is empty')
     }
 
-    const totalAmount = getDeltaAmountQuoteUnsigned(
+    const totalAmount = getDeltaAmountQuoteUnsigned256(
         nextSqrtPrice,
         curve[0].sqrtPrice,
         curve[0].liquidity,
@@ -635,7 +636,7 @@ export const getMigrationThresholdPrice = (
         let amountLeft = migrationThreshold.sub(totalAmount)
         nextSqrtPrice = curve[0].sqrtPrice
         for (let i = 1; i < curve.length; i++) {
-            const maxAmount = getDeltaAmountQuoteUnsigned(
+            const maxAmount = getDeltaAmountQuoteUnsigned256(
                 nextSqrtPrice,
                 curve[i].sqrtPrice,
                 curve[i].liquidity,
