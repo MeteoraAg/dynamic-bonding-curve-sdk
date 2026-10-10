@@ -55,6 +55,11 @@ export function getLockedVestingParams(
     }
 
     if (totalLockedVestingAmount == cliffUnlockAmount) {
+        if (totalLockedVestingAmount < 1) {
+            throw new Error(
+                'totalLockedVestingAmount must be at least 1 token when it is all unlocked at the cliff'
+            )
+        }
         return {
             amountPerPeriod: convertToLamports(1, tokenBaseDecimal),
             cliffDurationFromMigrationTime: new BN(
@@ -99,6 +104,11 @@ export function getLockedVestingParams(
     const periodFrequency = new BN(
         Math.floor(totalVestingDuration / numberOfVestingPeriod)
     )
+    if (periodFrequency.isZero()) {
+        throw new Error(
+            'totalVestingDuration must be at least numberOfVestingPeriod seconds'
+        )
+    }
 
     return {
         amountPerPeriod: convertToLamports(
