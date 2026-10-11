@@ -1,4 +1,7 @@
+import type { Program } from '@coral-xyz/anchor'
 import { Commitment, Connection } from '@solana/web3.js'
+import { createDbcProgram } from './helpers/createProgram'
+import type { DynamicBondingCurve as DynamicBondingCurveIDL } from './idl/dynamic-bonding-curve/idl'
 import {
     CreatorService,
     MigrationService,
@@ -7,32 +10,35 @@ import {
     StateService,
 } from './services'
 
-export class DynamicBondingCurveClient {
-    public pool: PoolService
-    public partner: PartnerService
-    public creator: CreatorService
-    public migration: MigrationService
-    public state: StateService
-    public commitment: Commitment
-    public connection: Connection
+export interface DbcProvider {
+    readonly connection: Connection
+    readonly commitment: Commitment
+    readonly program: Program<DynamicBondingCurveIDL>
+}
 
-    constructor(connection: Connection, commitment: Commitment) {
-        this.state = new StateService(connection, commitment)
-        this.pool = new PoolService(connection, commitment)
-        this.partner = new PartnerService(connection, commitment)
-        this.creator = new CreatorService(connection, commitment)
-        this.migration = new MigrationService(connection, commitment)
-        this.commitment = commitment
+export interface DbcClientContext extends DbcProvider {
+    readonly state: StateService
+}
+
+/** One Anchor program shared by the pool, partner, creator, migration and state services. */
+export class DynamicBondingCurveClient implements DbcClientContext {
+    readonly program: Program<DynamicBondingCurveIDL>
+    readonly pool: PoolService
+    readonly partner: PartnerService
+    readonly creator: CreatorService
+    readonly migration: MigrationService
+    readonly state: StateService
+    readonly commitment: Commitment
+    readonly connection: Connection
+
+    constructor(connection: Connection, commitment: Commitment = 'confirmed') {
         this.connection = connection
-    }
-
-    /**
-     * Create a client with all DBC services.
-     */
-    static create(
-        connection: Connection,
-        commitment: Commitment = 'confirmed'
-    ): DynamicBondingCurveClient {
-        return new DynamicBondingCurveClient(connection, commitment)
+        this.commitment = commitment
+        this.program = createDbcProgram(connection, commitment)
+        this.state = new StateService(this)
+        this.pool = new PoolService(this)
+        this.partner = new PartnerService(this)
+        this.creator = new CreatorService(this)
+        this.migration = new MigrationService(this)
     }
 }

@@ -1,155 +1,100 @@
+import { PublicKey, Transaction } from '@solana/web3.js'
 import {
-    TransactionInstruction,
-    Transaction,
-    SYSVAR_INSTRUCTIONS_PUBKEY,
-    AccountMeta,
-} from '@solana/web3.js'
-import { DynamicBondingCurveProgram } from './program'
+    DynamicBondingCurveProgram,
+    type TransferHookTransfer,
+} from './program'
 import {
     AccountsType,
     SwapMode,
-    SwapQuote2Params,
-    SwapQuoteParams,
-    Swap2Params,
-    type SwapParams,
-    SwapQuoteResult,
-    SwapQuote2Result,
     TradeDirection,
-    BaseFeeMode,
-    type PoolConfig,
-    type VirtualPool,
-    type SwapQuoteConfig,
     type SimulatedQuoteFromInputAmountParams,
     type SimulatedQuoteFromOutputAmountParams,
+    type Swap2Params,
+    type SwapParams,
+    type SwapQuote2Params,
+    type SwapQuote2Result,
+    type SwapQuoteParams,
+    type SwapQuoteResult,
 } from '../types'
+import { validateSwapAmount } from '../helpers/validation'
 import {
-    unwrapSOLInstruction,
-    wrapSOLInstruction,
-    validateSwapAmount,
-    getCurrentPoint,
-    getMigrationThresholdPrice,
-} from '../helpers'
-import { NATIVE_MINT } from '@solana/spl-token'
+    getQuoteFromInputAmount,
+    getQuoteFromOutputAmount,
+} from '../helpers/quoteSwap'
+import { getFeeMode } from '../math/feeMath'
 import {
+    swapQuote,
     swapQuoteExactIn,
     swapQuoteExactOut,
     swapQuotePartialFill,
-    swapQuote,
-    isRateLimiterApplied,
-} from '../math'
+} from '../math/swapQuote'
+import { prepareSwapAccounts, rateLimiterApplied } from '../helpers/swap'
 import BN from 'bn.js'
 
 export class PoolService extends DynamicBondingCurveProgram {
     /**
-     * Build an exact-in swap transaction for an existing pool.
-     *
-     * The transaction prepares token accounts, wraps SOL when SOL is the input mint,
-     * and unwraps SOL after the swap when either side of the trade is SOL.
+     * Pool state, token accounts and the instruction accounts shared by the
+     * swap builders. Wraps SOL on the input side and unwraps it after the swap
+     * when either side is SOL.
      */
-    async swap(params: SwapParams): Promise<Transaction> {
-        const {
-            amountIn,
-            minimumAmountOut,
-            swapBaseForQuote,
-            owner,
-            payer,
-            pool,
-            referralTokenAccount,
-        } = params
+    private async prepareSwap(params: {
+        pool: PublicKey
+        owner: PublicKey
+        payer?: PublicKey
+        referralTokenAccount: PublicKey | null
+        swapBaseForQuote: boolean
+        amountIn: BN
+        wrapAmount: BN
+        transferHook: boolean
+    }) {
+        const { pool, owner, swapBaseForQuote, referralTokenAccount } = params
+        validateSwapAmount(params.amountIn)
 
-        const { virtualPool, poolConfigState } =
+        const { virtualPool, poolConfigState, isTransferHookPool } =
             await this.getPoolWithConfig(pool)
-
-        // error checks
-        validateSwapAmount(amountIn)
-
-        // check if rate limiter is applied if:
-        // 1. rate limiter mode
-        // 2. swap direction is QuoteToBase
-        // 3. current point is greater than activation point
-        // 4. current point is less than activation point + maxLimiterDuration
-        let rateLimiterApplied = false
-        if (
-            poolConfigState.poolFees.baseFee.baseFeeMode ===
-            BaseFeeMode.RateLimiter
-        ) {
-            const currentPoint = await getCurrentPoint(
-                this.connection,
-                poolConfigState.activationType
-            )
-
-            rateLimiterApplied = isRateLimiterApplied(
-                currentPoint,
-                virtualPool.poolState.activationPoint,
-                swapBaseForQuote
-                    ? TradeDirection.BaseToQuote
-                    : TradeDirection.QuoteToBase,
-                poolConfigState.poolFees.baseFee.secondFactor,
-                poolConfigState.poolFees.baseFee.thirdFactor,
-                new BN(poolConfigState.poolFees.baseFee.firstFactor)
+        if (isTransferHookPool !== params.transferHook) {
+            throw new Error(
+                isTransferHookPool
+                    ? 'Pool uses a transfer hook, use swap2WithTransferHook'
+                    : 'Pool does not use a transfer hook, use swap2'
             )
         }
 
+        const rateLimited = await rateLimiterApplied({
+            connection: this.connection,
+            baseFee: poolConfigState.poolFees.baseFee,
+            activationType: poolConfigState.activationType,
+            activationPoint: virtualPool.poolState.activationPoint,
+            swapBaseForQuote,
+        })
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
             this.prepareSwapParams(
                 swapBaseForQuote,
                 virtualPool.poolState,
                 poolConfigState
             )
-
-        // add preInstructions for ATA creation and SOL wrapping
-        const {
-            ataTokenA: inputTokenAccount,
-            ataTokenB: outputTokenAccount,
-            instructions: preInstructions,
-        } = await this.prepareTokenAccounts(
-            owner,
-            payer ? payer : owner,
+        const swapAccounts = await prepareSwapAccounts({
+            connection: this.connection,
+            commitment: this.commitment,
+            payer: params.payer ?? owner,
+            inputOwner: owner,
+            outputOwner: owner,
+            unwrapAuthority: owner,
             inputMint,
             outputMint,
             inputTokenProgram,
-            outputTokenProgram
-        )
+            outputTokenProgram,
+            wrapAmount: params.wrapAmount,
+            includeInstructionSysvar:
+                rateLimited ||
+                Boolean(poolConfigState.enableFirstSwapWithMinFee),
+        })
 
-        // add SOL wrapping instructions if needed
-        if (inputMint.equals(NATIVE_MINT)) {
-            preInstructions.push(
-                ...wrapSOLInstruction(
-                    owner,
-                    inputTokenAccount,
-                    BigInt(amountIn.toString())
-                )
-            )
-        }
-
-        // add postInstructions for SOL unwrapping
-        const postInstructions: TransactionInstruction[] = []
-        if (
-            [inputMint.toBase58(), outputMint.toBase58()].includes(
-                NATIVE_MINT.toBase58()
-            )
-        ) {
-            const unwrapIx = unwrapSOLInstruction(owner, owner)
-            unwrapIx && postInstructions.push(unwrapIx)
-        }
-
-        const remainingAccounts: AccountMeta[] = []
-
-        // add remaining accounts if rate limiter is applied or enableFirstSwapWithMinFee is true
-        if (rateLimiterApplied || poolConfigState.enableFirstSwapWithMinFee) {
-            remainingAccounts.push({
-                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-                isSigner: false,
-                isWritable: false,
-            })
-        }
-
-        return this.program.methods
-            .swap({
-                amountIn,
-                minimumAmountOut,
-            })
-            .accountsPartial({
+        return {
+            virtualPool,
+            poolConfigState,
+            ...swapAccounts,
+            accounts: {
                 baseMint: virtualPool.poolState.baseMint,
                 quoteMint: poolConfigState.quoteMint,
                 pool,
@@ -158,8 +103,8 @@ export class PoolService extends DynamicBondingCurveProgram {
                 config: virtualPool.poolState.config,
                 poolAuthority: this.poolAuthority,
                 referralTokenAccount,
-                inputTokenAccount,
-                outputTokenAccount,
+                inputTokenAccount: swapAccounts.inputTokenAccount,
+                outputTokenAccount: swapAccounts.outputTokenAccount,
                 payer: owner,
                 tokenBaseProgram: swapBaseForQuote
                     ? inputTokenProgram
@@ -167,157 +112,47 @@ export class PoolService extends DynamicBondingCurveProgram {
                 tokenQuoteProgram: swapBaseForQuote
                     ? outputTokenProgram
                     : inputTokenProgram,
-            })
-            .remainingAccounts(remainingAccounts)
-            .preInstructions(preInstructions)
-            .postInstructions(postInstructions)
-            .transaction()
+            },
+        }
     }
 
-    /**
-     * Build a swap transaction using `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut`.
-     *
-     * Exact-out swaps use `amountOut` and `maximumAmountIn`;
-     * Exact-in and Partial-fill swaps use `amountIn` and `minimumAmountOut`.
-     */
-    async swap2(params: Swap2Params): Promise<Transaction> {
+    private swap2Amounts(params: Swap2Params): {
+        amount0: BN
+        amount1: BN
+        wrapAmount: BN
+    } {
+        if (params.swapMode === SwapMode.ExactOut) {
+            return {
+                amount0: params.amountOut,
+                amount1: params.maximumAmountIn,
+                wrapAmount: params.maximumAmountIn,
+            }
+        }
+        return {
+            amount0: params.amountIn,
+            amount1: params.minimumAmountOut,
+            wrapAmount: params.amountIn,
+        }
+    }
+
+    /** Build an exact-in swap transaction for an existing pool. */
+    async swap(params: SwapParams): Promise<Transaction> {
+        const { amountIn, minimumAmountOut } = params
         const {
-            pool,
-            swapBaseForQuote,
-            swapMode,
-            owner,
-            payer,
-            referralTokenAccount,
-        } = params
-
-        let amount0: BN
-        let amount1: BN
-
-        if (swapMode === SwapMode.ExactOut) {
-            amount0 = params.amountOut
-            amount1 = params.maximumAmountIn
-        } else {
-            amount0 = params.amountIn
-            amount1 = params.minimumAmountOut
-        }
-
-        // error checks
-        validateSwapAmount(amount0)
-
-        const { virtualPool, poolConfigState } =
-            await this.getPoolWithConfig(pool)
-
-        // check if rate limiter is applied if:
-        // 1. rate limiter mode
-        // 2. swap direction is QuoteToBase
-        // 3. current point is greater than activation point
-        // 4. current point is less than activation point + maxLimiterDuration
-        let rateLimiterApplied = false
-        if (
-            poolConfigState.poolFees.baseFee.baseFeeMode ===
-            BaseFeeMode.RateLimiter
-        ) {
-            const currentPoint = await getCurrentPoint(
-                this.connection,
-                poolConfigState.activationType
-            )
-
-            rateLimiterApplied = isRateLimiterApplied(
-                currentPoint,
-                virtualPool.poolState.activationPoint,
-                swapBaseForQuote
-                    ? TradeDirection.BaseToQuote
-                    : TradeDirection.QuoteToBase,
-                poolConfigState.poolFees.baseFee.secondFactor,
-                poolConfigState.poolFees.baseFee.thirdFactor,
-                new BN(poolConfigState.poolFees.baseFee.firstFactor)
-            )
-        }
-
-        const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
-            this.prepareSwapParams(
-                swapBaseForQuote,
-                virtualPool.poolState,
-                poolConfigState
-            )
-
-        // add preInstructions for ATA creation and SOL wrapping
-        const {
-            ataTokenA: inputTokenAccount,
-            ataTokenB: outputTokenAccount,
-            instructions: preInstructions,
-        } = await this.prepareTokenAccounts(
-            owner,
-            payer ? payer : owner,
-            inputMint,
-            outputMint,
-            inputTokenProgram,
-            outputTokenProgram
-        )
-
-        // add SOL wrapping instructions if needed
-        if (inputMint.equals(NATIVE_MINT)) {
-            const amount =
-                swapMode === SwapMode.ExactIn ||
-                swapMode === SwapMode.PartialFill
-                    ? amount0
-                    : amount1
-            preInstructions.push(
-                ...wrapSOLInstruction(
-                    owner,
-                    inputTokenAccount,
-                    BigInt(amount.toString())
-                )
-            )
-        }
-
-        // add postInstructions for SOL unwrapping
-        const postInstructions: TransactionInstruction[] = []
-        if (
-            [inputMint.toBase58(), outputMint.toBase58()].includes(
-                NATIVE_MINT.toBase58()
-            )
-        ) {
-            const unwrapIx = unwrapSOLInstruction(owner, owner)
-            unwrapIx && postInstructions.push(unwrapIx)
-        }
-
-        const remainingAccounts: AccountMeta[] = []
-
-        // add remaining accounts if rate limiter is applied
-        if (rateLimiterApplied || poolConfigState.enableFirstSwapWithMinFee) {
-            remainingAccounts.push({
-                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-                isSigner: false,
-                isWritable: false,
-            })
-        }
+            accounts,
+            preInstructions,
+            postInstructions,
+            remainingAccounts,
+        } = await this.prepareSwap({
+            ...params,
+            amountIn,
+            wrapAmount: amountIn,
+            transferHook: false,
+        })
 
         return this.program.methods
-            .swap2({
-                amount0,
-                amount1,
-                swapMode: swapMode,
-            })
-            .accountsPartial({
-                baseMint: virtualPool.poolState.baseMint,
-                quoteMint: poolConfigState.quoteMint,
-                pool,
-                baseVault: virtualPool.poolState.baseVault,
-                quoteVault: virtualPool.poolState.quoteVault,
-                config: virtualPool.poolState.config,
-                poolAuthority: this.poolAuthority,
-                referralTokenAccount: referralTokenAccount,
-                inputTokenAccount,
-                outputTokenAccount,
-                payer: owner,
-                tokenBaseProgram: swapBaseForQuote
-                    ? inputTokenProgram
-                    : outputTokenProgram,
-                tokenQuoteProgram: swapBaseForQuote
-                    ? outputTokenProgram
-                    : inputTokenProgram,
-            })
+            .swap({ amountIn, minimumAmountOut })
+            .accountsPartial(accounts)
             .remainingAccounts(remainingAccounts)
             .preInstructions(preInstructions)
             .postInstructions(postInstructions)
@@ -325,395 +160,175 @@ export class PoolService extends DynamicBondingCurveProgram {
     }
 
     /**
-     * Build a swap2 transaction for transfer-hook pools.
+     * Build a swap transaction in SwapMode.ExactIn, SwapMode.PartialFill or
+     * SwapMode.ExactOut. Exact-out takes amountOut and maximumAmountIn; the
+     * other modes take amountIn and minimumAmountOut.
      */
-    async swap2WithTransferHook(params: Swap2Params): Promise<Transaction> {
+    async swap2(params: Swap2Params): Promise<Transaction> {
+        const { amount0, amount1, wrapAmount } = this.swap2Amounts(params)
         const {
-            pool,
-            swapBaseForQuote,
-            swapMode,
-            owner,
-            payer,
-            referralTokenAccount,
-        } = params
+            accounts,
+            preInstructions,
+            postInstructions,
+            remainingAccounts,
+        } = await this.prepareSwap({
+            ...params,
+            amountIn: amount0,
+            wrapAmount,
+            transferHook: false,
+        })
 
-        let amount0: BN
-        let amount1: BN
+        return this.program.methods
+            .swap2({ amount0, amount1, swapMode: params.swapMode })
+            .accountsPartial(accounts)
+            .remainingAccounts(remainingAccounts)
+            .preInstructions(preInstructions)
+            .postInstructions(postInstructions)
+            .transaction()
+    }
 
-        if (swapMode === SwapMode.ExactOut) {
-            amount0 = params.amountOut
-            amount1 = params.maximumAmountIn
-        } else {
-            amount0 = params.amountIn
-            amount1 = params.minimumAmountOut
-        }
+    /** swap2 for a pool whose base mint has a transfer hook. */
+    async swap2WithTransferHook(params: Swap2Params): Promise<Transaction> {
+        const { swapBaseForQuote, owner, referralTokenAccount } = params
+        const { amount0, amount1, wrapAmount } = this.swap2Amounts(params)
+        const {
+            virtualPool,
+            poolConfigState,
+            accounts,
+            preInstructions,
+            postInstructions,
+            remainingAccounts,
+        } = await this.prepareSwap({
+            ...params,
+            amountIn: amount0,
+            wrapAmount,
+            transferHook: true,
+        })
 
-        validateSwapAmount(amount0)
-
-        const { virtualPool, poolConfigState } =
-            await this.getPoolWithConfig(pool)
-
-        let rateLimiterApplied = false
+        const baseVault = virtualPool.poolState.baseVault
+        const transferHookTransfers: TransferHookTransfer[] = [
+            swapBaseForQuote
+                ? {
+                      accountsType: AccountsType.TransferHookBase,
+                      source: accounts.inputTokenAccount,
+                      destination: baseVault,
+                      authority: owner,
+                  }
+                : {
+                      accountsType: AccountsType.TransferHookBase,
+                      source: baseVault,
+                      destination: accounts.outputTokenAccount,
+                      authority: this.poolAuthority,
+                  },
+        ]
         if (
-            poolConfigState.poolFees.baseFee.baseFeeMode ===
-            BaseFeeMode.RateLimiter
-        ) {
-            const currentPoint = await getCurrentPoint(
-                this.connection,
-                poolConfigState.activationType
-            )
-
-            rateLimiterApplied = isRateLimiterApplied(
-                currentPoint,
-                virtualPool.poolState.activationPoint,
+            referralTokenAccount != null &&
+            getFeeMode(
+                poolConfigState.collectFeeMode,
                 swapBaseForQuote
                     ? TradeDirection.BaseToQuote
                     : TradeDirection.QuoteToBase,
-                poolConfigState.poolFees.baseFee.secondFactor,
-                poolConfigState.poolFees.baseFee.thirdFactor,
-                new BN(poolConfigState.poolFees.baseFee.firstFactor)
-            )
-        }
-
-        const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
-            this.prepareSwapParams(
-                swapBaseForQuote,
-                virtualPool.poolState,
-                poolConfigState
-            )
-
-        const {
-            ataTokenA: inputTokenAccount,
-            ataTokenB: outputTokenAccount,
-            instructions: preInstructions,
-        } = await this.prepareTokenAccounts(
-            owner,
-            payer ? payer : owner,
-            inputMint,
-            outputMint,
-            inputTokenProgram,
-            outputTokenProgram
-        )
-
-        if (inputMint.equals(NATIVE_MINT)) {
-            const amount =
-                swapMode === SwapMode.ExactIn ||
-                swapMode === SwapMode.PartialFill
-                    ? amount0
-                    : amount1
-            preInstructions.push(
-                ...wrapSOLInstruction(
-                    owner,
-                    inputTokenAccount,
-                    BigInt(amount.toString())
-                )
-            )
-        }
-
-        const postInstructions: TransactionInstruction[] = []
-        if (
-            [inputMint.toBase58(), outputMint.toBase58()].includes(
-                NATIVE_MINT.toBase58()
-            )
+                true
+            ).feesOnBaseToken
         ) {
-            const unwrapIx = unwrapSOLInstruction(owner, owner)
-            unwrapIx && postInstructions.push(unwrapIx)
-        }
-
-        const remainingAccounts: AccountMeta[] = []
-        if (rateLimiterApplied || poolConfigState.enableFirstSwapWithMinFee) {
-            remainingAccounts.push({
-                pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-                isSigner: false,
-                isWritable: false,
+            transferHookTransfers.push({
+                accountsType: AccountsType.TransferHookBaseReferral,
+                source: baseVault,
+                destination: referralTokenAccount,
+                authority: this.poolAuthority,
             })
         }
-
-        const transferHookAccountTypes =
-            referralTokenAccount != null
-                ? [
-                      AccountsType.TransferHookBase,
-                      AccountsType.TransferHookBaseReferral,
-                  ]
-                : [AccountsType.TransferHookBase]
-        const {
-            info: transferHookAccountsInfo,
-            accounts: transferHookAccounts,
-        } = await this.getRemainingAccountsForTransferHook(
-            virtualPool.poolState.baseMint,
-            transferHookAccountTypes
-        )
-
-        remainingAccounts.push(...transferHookAccounts)
+        const transferHookAccounts =
+            await this.getRemainingAccountsForTransferHook(
+                virtualPool.poolState.baseMint,
+                transferHookTransfers
+            )
+        remainingAccounts.push(...transferHookAccounts.accounts)
 
         return this.program.methods
             .swap2WithTransferHook(
-                {
-                    amount0,
-                    amount1,
-                    swapMode,
-                },
-                transferHookAccountsInfo
+                { amount0, amount1, swapMode: params.swapMode },
+                transferHookAccounts.info
             )
-            .accountsPartial({
-                baseMint: virtualPool.poolState.baseMint,
-                quoteMint: poolConfigState.quoteMint,
-                pool,
-                baseVault: virtualPool.poolState.baseVault,
-                quoteVault: virtualPool.poolState.quoteVault,
-                config: virtualPool.poolState.config,
-                poolAuthority: this.poolAuthority,
-                referralTokenAccount,
-                inputTokenAccount,
-                outputTokenAccount,
-                payer: owner,
-                tokenBaseProgram: swapBaseForQuote
-                    ? inputTokenProgram
-                    : outputTokenProgram,
-                tokenQuoteProgram: swapBaseForQuote
-                    ? outputTokenProgram
-                    : inputTokenProgram,
-            })
+            .accountsPartial(accounts)
             .remainingAccounts(remainingAccounts)
             .preInstructions(preInstructions)
             .postInstructions(postInstructions)
             .transaction()
     }
 
-    /**
-     * Quote an exact-in swap for the original swap instruction.
-     */
+    /** Quote an exact-in swap for the original swap instruction. */
     swapQuote(params: SwapQuoteParams): SwapQuoteResult {
-        const {
-            virtualPool,
-            config,
-            swapBaseForQuote,
-            amountIn,
-            slippageBps,
-            hasReferral,
-            currentPoint,
-            eligibleForFirstSwapWithMinFee,
-        } = params
-
         return swapQuote(
-            virtualPool,
-            config,
-            swapBaseForQuote,
-            amountIn,
-            slippageBps,
-            hasReferral,
-            currentPoint,
-            eligibleForFirstSwapWithMinFee
+            params.virtualPool,
+            params.config,
+            params.swapBaseForQuote,
+            params.amountIn,
+            params.slippageBps,
+            params.hasReferral,
+            params.currentPoint,
+            params.eligibleForFirstSwapWithMinFee,
+            params
         )
     }
 
     /**
-     * Quote a swap using `SwapMode.ExactIn`, `SwapMode.PartialFill`, or `SwapMode.ExactOut`.
+     * Quote an existing pool in SwapMode.ExactIn, SwapMode.PartialFill or
+     * SwapMode.ExactOut. currentPoint is the current chain slot or time.
      */
     swapQuote2(params: SwapQuote2Params): SwapQuote2Result {
         const {
             virtualPool,
             config,
             swapBaseForQuote,
-            swapMode,
             hasReferral,
             eligibleForFirstSwapWithMinFee,
             currentPoint,
-            slippageBps,
         } = params
+        const slippageBps = params.slippageBps ?? 0
 
-        switch (swapMode) {
-            case SwapMode.ExactIn:
-                if ('amountIn' in params) {
-                    return swapQuoteExactIn(
-                        virtualPool,
-                        config,
-                        swapBaseForQuote,
-                        params.amountIn,
-                        slippageBps,
-                        hasReferral,
-                        currentPoint,
-                        eligibleForFirstSwapWithMinFee
-                    )
-                }
-                throw new Error('amountIn is required for ExactIn swap mode')
-
-            case SwapMode.ExactOut:
-                if ('amountOut' in params) {
-                    return swapQuoteExactOut(
-                        virtualPool,
-                        config,
-                        swapBaseForQuote,
-                        params.amountOut,
-                        slippageBps,
-                        hasReferral,
-                        currentPoint,
-                        eligibleForFirstSwapWithMinFee
-                    )
-                }
-                throw new Error('outAmount is required for ExactOut swap mode')
-
-            case SwapMode.PartialFill:
-                if ('amountIn' in params) {
-                    return swapQuotePartialFill(
-                        virtualPool,
-                        config,
-                        swapBaseForQuote,
-                        params.amountIn,
-                        slippageBps,
-                        hasReferral,
-                        currentPoint,
-                        eligibleForFirstSwapWithMinFee
-                    )
-                }
-                throw new Error(
-                    'amountIn is required for PartialFill swap mode'
-                )
-
-            default:
-                throw new Error(`Unsupported swap mode: ${swapMode}`)
-        }
-    }
-
-    /**
-     * Reconcile the only two fields that differ between an on-chain `PoolConfig`
-     * and a `buildCurve` output (`ConfigParameters`) so the quote math can
-     * consume either directly:
-     * - `migrationSqrtPrice`: used when present, otherwise derived from the
-     *   curve and migration quote threshold (it is the swap stop price).
-     * - `dynamicFee`: a null/undefined object becomes a disabled one, and a
-     *   present object is treated as enabled unless `initialized` says otherwise.
-     *
-     * Everything else is already in the right shape and passed through.
-     */
-    private normalizeQuoteConfig(config: SwapQuoteConfig): PoolConfig {
-        if (!config.curve || config.curve.length === 0) {
-            throw new Error('config.curve is empty')
-        }
-
-        const migrationSqrtPrice =
-            config.migrationSqrtPrice ??
-            getMigrationThresholdPrice(
-                config.migrationQuoteThreshold,
-                config.sqrtStartPrice,
-                config.curve
-            )
-
-        const dynamicFee = config.poolFees.dynamicFee
-
-        return {
-            ...config,
-            migrationSqrtPrice,
-            poolFees: {
-                ...config.poolFees,
-                dynamicFee: dynamicFee
-                    ? {
-                          ...dynamicFee,
-                          initialized: dynamicFee.initialized ?? 1,
-                      }
-                    : { initialized: 0, binStep: 0, variableFeeControl: 0 },
-            },
-        } as unknown as PoolConfig
-    }
-
-    /**
-     * creates a virtual pool state at launch with zeroed reserves and volatility, start price set.
-     */
-    private buildSimulatedVirtualPool(sqrtStartPrice: BN): VirtualPool {
-        return {
-            poolState: {
-                sqrtPrice: new BN(sqrtStartPrice),
-                baseReserve: new BN(0),
-                quoteReserve: new BN(0),
-                activationPoint: new BN(0),
-                volatilityTracker: {
-                    lastUpdateTimestamp: new BN(0),
-                    sqrtPriceReference: new BN(0),
-                    volatilityAccumulator: new BN(0),
-                    volatilityReference: new BN(0),
-                    padding: [],
-                },
-            },
-        } as unknown as VirtualPool
-    }
-
-    /**
-     * quotes a swap from an input amount before any pool exists.
-     */
-    getQuoteFromInputAmount(
-        params: SimulatedQuoteFromInputAmountParams
-    ): SwapQuote2Result {
-        const {
-            config,
-            swapBaseForQuote,
-            amountIn,
-            swapMode = SwapMode.ExactIn,
-            slippageBps = 0,
-            hasReferral = false,
-            eligibleForFirstSwapWithMinFee = false,
-            currentPoint = new BN(0),
-        } = params
-
-        const poolConfig = this.normalizeQuoteConfig(config)
-        const virtualPool = this.buildSimulatedVirtualPool(
-            poolConfig.sqrtStartPrice
-        )
-
-        if (swapMode === SwapMode.PartialFill) {
-            return swapQuotePartialFill(
+        if (params.swapMode === SwapMode.ExactOut) {
+            return swapQuoteExactOut(
                 virtualPool,
-                poolConfig,
+                config,
                 swapBaseForQuote,
-                amountIn,
+                params.amountOut,
                 slippageBps,
                 hasReferral,
                 currentPoint,
-                eligibleForFirstSwapWithMinFee
+                eligibleForFirstSwapWithMinFee,
+                params
             )
         }
 
-        return swapQuoteExactIn(
+        const quote =
+            params.swapMode === SwapMode.PartialFill
+                ? swapQuotePartialFill
+                : swapQuoteExactIn
+        return quote(
             virtualPool,
-            poolConfig,
+            config,
             swapBaseForQuote,
-            amountIn,
+            params.amountIn,
             slippageBps,
             hasReferral,
             currentPoint,
-            eligibleForFirstSwapWithMinFee
+            eligibleForFirstSwapWithMinFee,
+            params
         )
     }
 
-    /**
-     * quotes a swap from an exact output amount (`SwapMode.ExactOut`)
-     */
+    /** Quote a buildCurve result as its pool would be right after initialize_pool at currentPoint. */
+    getQuoteFromInputAmount(
+        params: SimulatedQuoteFromInputAmountParams
+    ): SwapQuote2Result {
+        return getQuoteFromInputAmount(params)
+    }
+
+    /** Exact-out counterpart of getQuoteFromInputAmount. */
     getQuoteFromOutputAmount(
         params: SimulatedQuoteFromOutputAmountParams
     ): SwapQuote2Result {
-        const {
-            config,
-            swapBaseForQuote,
-            amountOut,
-            slippageBps = 0,
-            hasReferral = false,
-            eligibleForFirstSwapWithMinFee = false,
-            currentPoint = new BN(0),
-        } = params
-
-        const poolConfig = this.normalizeQuoteConfig(config)
-        const virtualPool = this.buildSimulatedVirtualPool(
-            poolConfig.sqrtStartPrice
-        )
-
-        return swapQuoteExactOut(
-            virtualPool,
-            poolConfig,
-            swapBaseForQuote,
-            amountOut,
-            slippageBps,
-            hasReferral,
-            currentPoint,
-            eligibleForFirstSwapWithMinFee
-        )
+        return getQuoteFromOutputAmount(params)
     }
 }
