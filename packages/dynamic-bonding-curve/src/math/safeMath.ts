@@ -1,130 +1,97 @@
 import BN from 'bn.js'
-import { RESOLUTION } from '../constants'
+import { RESOLUTION, U128_MAX } from '../constants'
+import { ProgramError } from './errors'
 
 /**
- * Safe math operations for BN
+ * The program's safe_math on BN. BN is arbitrary precision, so only
+ * subtraction and division can fail here; the u64 and u128 bounds are
+ * checked by the callers.
  */
 export class SafeMath {
-    /**
-     * Safe addition
-     * @param a First number
-     * @param b Second number
-     * @returns Sum of a and b
-     */
     static add(a: BN, b: BN): BN {
         return a.add(b)
     }
 
-    /**
-     * Safe subtraction
-     * @param a First number
-     * @param b Second number
-     * @returns Difference of a and b
-     * @throws Error if b > a
-     */
     static sub(a: BN, b: BN): BN {
         if (b.gt(a)) {
-            throw new Error('SafeMath: subtraction overflow')
+            throw new Error(ProgramError.MathOverflow)
         }
         return a.sub(b)
     }
 
-    /**
-     * Safe multiplication
-     * @param a First number
-     * @param b Second number
-     * @returns Product of a and b
-     */
     static mul(a: BN, b: BN): BN {
         return a.mul(b)
     }
 
-    /**
-     * Safe division
-     * @param a First number
-     * @param b Second number
-     * @returns Quotient of a and b
-     * @throws Error if b is zero
-     */
     static div(a: BN, b: BN): BN {
         if (b.isZero()) {
-            throw new Error('SafeMath: division by zero')
+            throw new Error(ProgramError.MathOverflow)
         }
         return a.div(b)
     }
 
-    /**
-     * Safe modulo
-     * @param a First number
-     * @param b Second number
-     * @returns Remainder of a divided by b
-     * @throws Error if b is zero
-     */
-    static mod(a: BN, b: BN): BN {
-        if (b.isZero()) {
-            throw new Error('SafeMath: modulo by zero')
-        }
-        return a.mod(b)
-    }
-
-    /**
-     * Safe left shift
-     * @param a Number to shift
-     * @param b Number of bits to shift
-     * @returns a << b
-     */
     static shl(a: BN, b: number): BN {
         return a.shln(b)
     }
 
-    /**
-     * Safe right shift
-     * @param a Number to shift
-     * @param b Number of bits to shift
-     * @returns a >> b
-     */
     static shr(a: BN, b: number): BN {
         return a.shrn(b)
     }
 }
 
+const MAX_EXPONENTIAL = 0x80000
+const I32_MIN = new BN('-2147483648')
+
+function mulQ64(left: BN, right: BN): BN {
+    const product = left.mul(right)
+    if (product.gt(U128_MAX)) {
+        throw new Error(ProgramError.MathOverflow)
+    }
+    return product.shrn(RESOLUTION)
+}
+
 /**
- * Safe power function for BN with scaling
- * @param base Base number (scaled by RESOLUTION)
- * @param exponent Exponent (can be negative)
- * @param scaling Whether to apply RESOLUTION scaling to the result
- * @returns base^exponent
+ * Q64 power, matching the program. A base at or above 1 is inverted through
+ * u128::MAX so each multiplication stays inside u128.
  */
 export function pow(base: BN, exponent: BN, scaling: boolean = true): BN {
-    const ONE = new BN(1).shln(RESOLUTION)
+    const one = new BN(1).shln(RESOLUTION)
 
-    // special cases
-    if (exponent.isZero()) return ONE
-    if (base.isZero()) return new BN(0)
-    if (base.eq(ONE)) return ONE
+    if (exponent.eq(I32_MIN) || base.isNeg() || base.gt(U128_MAX)) {
+        throw new Error(ProgramError.MathOverflow)
+    }
+    if (exponent.isZero()) {
+        return one
+    }
 
-    // handle negative exponent
-    const isNegative = exponent.isNeg()
-    const absExponent = isNegative ? exponent.neg() : exponent
+    let invert = exponent.isNeg()
+    const exp = invert ? exponent.neg() : exponent
+    if (exp.gte(new BN(MAX_EXPONENTIAL))) {
+        throw new Error(ProgramError.MathOverflow)
+    }
 
-    // binary exponentiation
-    let result = ONE
-    let currentBase = base
-    let exp = absExponent
+    let squaredBase = base
+    let result = one
+    if (squaredBase.gte(result)) {
+        squaredBase = U128_MAX.div(squaredBase)
+        invert = !invert
+    }
 
-    while (!exp.isZero()) {
-        if (exp.and(new BN(1)).eq(new BN(1))) {
-            result = SafeMath.div(SafeMath.mul(result, currentBase), ONE)
+    let remaining = exp
+    while (!remaining.isZero()) {
+        if (remaining.isOdd()) {
+            result = mulQ64(result, squaredBase)
         }
-        currentBase = SafeMath.div(SafeMath.mul(currentBase, currentBase), ONE)
-        exp = exp.shrn(1)
+        squaredBase = mulQ64(squaredBase, squaredBase)
+        remaining = remaining.shrn(1)
     }
 
-    // handle negative exponent
-    if (isNegative) {
-        result = SafeMath.div(ONE.mul(ONE), result)
+    if (result.isZero()) {
+        throw new Error(ProgramError.MathOverflow)
+    }
+    if (invert) {
+        result = U128_MAX.div(result)
     }
 
-    // apply scaling if needed
-    return scaling ? result : SafeMath.div(result, ONE)
+    return scaling ? result : result.shrn(RESOLUTION)
 }
