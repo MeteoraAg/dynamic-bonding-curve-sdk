@@ -1,55 +1,24 @@
-import type {
-    Accounts,
-    BN,
-    IdlAccounts,
-    IdlTypes,
-    Program,
-} from '@coral-xyz/anchor'
+import type { Accounts, BN, IdlAccounts, IdlTypes } from '@coral-xyz/anchor'
 import type { DynamicBondingCurve } from './idl/dynamic-bonding-curve/idl'
+import type { Mint } from '@solana/spl-token'
 import type {
     AccountMeta,
     Keypair,
     PublicKey,
     Transaction,
 } from '@solana/web3.js'
-import { DynamicBondingCurve as DynamicBondingCurveIDL } from './idl/dynamic-bonding-curve/idl'
-
-export type DynamicCurveProgram = Program<DynamicBondingCurveIDL>
 
 type DbcInstruction<
     TName extends DynamicBondingCurve['instructions'][number]['name'],
 > = Extract<DynamicBondingCurve['instructions'][number], { name: TName }>
 
-/////////////////
-// IX ACCOUNTS //
-/////////////////
-
-export type CreateConfigAccounts = Accounts<
-    DbcInstruction<'createConfig'>
->['createConfig']
-
 export type CreateDammV1MigrationMetadataAccounts = Accounts<
     DbcInstruction<'migrationMeteoraDammCreateMetadata'>
 >['migrationMeteoraDammCreateMetadata']
 
-export type InitializeSplPoolAccounts = Accounts<
-    DbcInstruction<'initializeVirtualPoolWithSplToken'>
->['initializeVirtualPoolWithSplToken']
-
-export type InitializeToken2022PoolAccounts = Accounts<
-    DbcInstruction<'initializeVirtualPoolWithToken2022'>
->['initializeVirtualPoolWithToken2022']
-
-///////////////
-// IDL Types //
-///////////////
-
 export type ConfigParameters = IdlTypes<DynamicBondingCurve>['configParameters']
 export type LockedVestingParameters =
     IdlTypes<DynamicBondingCurve>['lockedVestingParams']
-
-export type InitializePoolParameters =
-    IdlTypes<DynamicBondingCurve>['initializePoolParameters']
 
 export type PoolFeeParameters =
     IdlTypes<DynamicBondingCurve>['poolFeeParameters']
@@ -84,17 +53,14 @@ export type SwapResult = IdlTypes<DynamicBondingCurve>['swapResult']
 
 export type SwapResult2 = IdlTypes<DynamicBondingCurve>['swapResult2']
 
+export type TransferFeeParameters =
+    IdlTypes<DynamicBondingCurve>['transferFeeParameters']
+
 export type TransferHookAccountsInfo =
     IdlTypes<DynamicBondingCurve>['transferHookAccountsInfo']
 
 export type VolatilityTracker =
     IdlTypes<DynamicBondingCurve>['volatilityTracker']
-
-export type LockEscrow = IdlTypes<DynamicBondingCurve>['lockEscrow']
-
-//////////////////
-// IDL ACCOUNTS //
-//////////////////
 
 export type PoolConfig = IdlAccounts<DynamicBondingCurve>['poolConfig']
 
@@ -102,6 +68,46 @@ export type ConfigWithTransferHook =
     IdlAccounts<DynamicBondingCurve>['configWithTransferHook']
 
 export type VirtualPool = IdlAccounts<DynamicBondingCurve>['virtualPool']
+
+// The fields the quote math reads. A PoolConfig and a VirtualPool satisfy
+// them, and so does a buildCurve result before the accounts exist.
+export type QuoteDynamicFee = Pick<
+    DynamicFeeConfig,
+    'initialized' | 'binStep' | 'variableFeeControl'
+>
+export type QuotePoolFees = {
+    baseFee: Pick<
+        BaseFeeConfig,
+        | 'cliffFeeNumerator'
+        | 'firstFactor'
+        | 'secondFactor'
+        | 'thirdFactor'
+        | 'baseFeeMode'
+    >
+    dynamicFee: QuoteDynamicFee
+}
+export type QuoteVolatilityTracker = Pick<
+    VolatilityTracker,
+    'volatilityAccumulator'
+>
+export type QuotePoolConfig = Pick<
+    PoolConfig,
+    | 'collectFeeMode'
+    | 'sqrtStartPrice'
+    | 'migrationQuoteThreshold'
+    | 'migrationSqrtPrice'
+    | 'curve'
+    | 'enableFirstSwapWithMinFee'
+    | 'quoteTokenFlag'
+    | 'transferFeeFlag'
+    | 'transferFeeBasisPoints'
+> & { poolFees: QuotePoolFees; quoteMint?: PublicKey }
+export type QuoteVirtualPool = {
+    poolState: Pick<
+        VirtualPool['poolState'],
+        'sqrtPrice' | 'quoteReserve' | 'activationPoint' | 'hasSwap'
+    > & { volatilityTracker: QuoteVolatilityTracker }
+}
 
 export type TransferHookPool =
     IdlAccounts<DynamicBondingCurve>['transferHookPool']
@@ -116,10 +122,6 @@ export type VirtualPoolMetadata =
     IdlAccounts<DynamicBondingCurve>['virtualPoolMetadata']
 
 export type TokenBadge = IdlAccounts<DynamicBondingCurve>['tokenBadge']
-
-///////////
-// ENUMS //
-///////////
 
 export enum ActivationType {
     Slot = 0,
@@ -222,6 +224,18 @@ export enum SwapMode {
     ExactOut = 2,
 }
 
+export enum TransferFeeWithheldAuthority {
+    Partner = 0,
+    Creator = 1,
+}
+
+export enum MigratedTransferFeeAuthorityOption {
+    Immutable = 0,
+    RevokeZeroFee = 1,
+    Creator = 2,
+    Partner = 3,
+}
+
 export const AccountsType = {
     TransferHookBase: {
         transferHookBase: {},
@@ -231,22 +245,22 @@ export const AccountsType = {
     },
 } as const
 
-///////////
-// TYPES //
-///////////
+export type CreateConfigParams = ConfigParameters & {
+    config: PublicKey
+    feeClaimer: PublicKey
+    leftoverReceiver: PublicKey
+    quoteMint: PublicKey
+    payer: PublicKey
+    /**
+     * The DBC token badge of the quote mint, required when the mint is not
+     * permissionless-supported (a Token-2022 mint with other extensions).
+     */
+    tokenBadge?: PublicKey
+}
 
-export type CreateConfigParams = Omit<
-    CreateConfigAccounts,
-    'program' | 'eventAuthority' | 'systemProgram'
-> &
-    ConfigParameters & {
-        /**
-         * Optional DBC token badge for the quote mint.
-         * Required as remaining account index 0 when the quote mint is not
-         * permissionless-supported (for example Token-2022 mints with extra extensions).
-         */
-        tokenBadge?: PublicKey
-    }
+export type CreateConfig2Params = CreateConfigParams & {
+    transferFeeParameters?: TransferFeeParameters | null
+}
 
 export type CreateConfigWithTransferHookParams = CreateConfigParams & {
     transferHookProgram: PublicKey
@@ -415,7 +429,6 @@ export type InitializePoolBaseParams = {
     baseVault: PublicKey
     quoteVault: PublicKey
     quoteMint: PublicKey
-    mintMetadata?: PublicKey
     tokenBadge?: PublicKey
 }
 
@@ -436,6 +449,7 @@ export type CreatePoolWithTransferHookParams = CreatePoolParams & {
 
 export type CreateConfigAndPoolParams = CreateConfigParams & {
     preCreatePoolParam: CreatePoolBaseParams
+    transferFeeParameters?: TransferFeeParameters | null
 }
 
 export type CreateConfigAndPoolWithFirstBuyParams =
@@ -528,6 +542,7 @@ export type SwapParams = {
     minimumAmountOut: BN
     swapBaseForQuote: boolean
     referralTokenAccount: PublicKey | null
+    /** Pays for token account creation; owner signs the swap itself. */
     payer?: PublicKey
 }
 
@@ -536,6 +551,7 @@ export type Swap2Params = {
     pool: PublicKey
     swapBaseForQuote: boolean
     referralTokenAccount: PublicKey | null
+    /** Pays for token account creation; owner signs the swap itself. */
     payer?: PublicKey
 } & (
     | {
@@ -564,6 +580,13 @@ export type SwapQuoteParams = {
     hasReferral: boolean
     eligibleForFirstSwapWithMinFee: boolean // only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
     currentPoint: BN
+} & QuoteTransferFees
+
+export type QuoteTransferFees = {
+    currentEpoch?: number
+    baseMint?: Mint
+    quoteMint?: Mint
+    baseTransferFeeBasisPoints?: number
 }
 
 export type SwapQuote2Params = {
@@ -587,38 +610,18 @@ export type SwapQuote2Params = {
           swapMode: SwapMode.ExactOut
           amountOut: BN
       }
-)
-
-export interface SwapQuoteConfig {
-    poolFees: {
-        baseFee: {
-            cliffFeeNumerator: BN
-            firstFactor: number
-            secondFactor: BN
-            thirdFactor: BN
-            baseFeeMode: number
-        }
-        dynamicFee?: {
-            initialized?: number
-            binStep: number
-            variableFeeControl: number
-        } | null
-    }
-    collectFeeMode: number
-    sqrtStartPrice: BN
-    migrationQuoteThreshold: BN
-    curve: Array<{ sqrtPrice: BN; liquidity: BN }>
-    migrationSqrtPrice?: BN
-}
+) &
+    QuoteTransferFees
 
 export type SimulatedQuoteBaseParams = {
-    config: SwapQuoteConfig
+    config: ConfigParameters
     swapBaseForQuote: boolean
     slippageBps?: number
     hasReferral?: boolean
     currentPoint?: BN
     eligibleForFirstSwapWithMinFee?: boolean
-}
+    quoteTokenFlag?: number
+} & QuoteTransferFees
 
 export type SimulatedQuoteFromInputAmountParams = SimulatedQuoteBaseParams & {
     amountIn: BN
@@ -662,7 +665,6 @@ export type ClaimPartnerTradingFeeParams = {
     maxBaseAmount: BN
     maxQuoteAmount: BN
     receiver?: PublicKey
-    tempWSolAcc?: PublicKey
 }
 
 export type ClaimPartnerTradingFeeToReceiverParams = {
@@ -681,7 +683,6 @@ export type ClaimCreatorTradingFeeParams = {
     maxBaseAmount: BN
     maxQuoteAmount: BN
     receiver?: PublicKey
-    tempWSolAcc?: PublicKey
 }
 
 export type ClaimCreatorTradingFeeToReceiverParams = {
@@ -692,22 +693,6 @@ export type ClaimCreatorTradingFeeToReceiverParams = {
     maxQuoteAmount: BN
     receiver: PublicKey
 }
-
-export type ClaimCreatorTradingFeeWithQuoteMintNotSolParams = {
-    creator: PublicKey
-    payer: PublicKey
-    feeReceiver: PublicKey
-    pool: PublicKey
-    virtualPool: VirtualPool
-    poolConfigState: PoolConfig
-    tokenBaseProgram: PublicKey
-    tokenQuoteProgram: PublicKey
-}
-
-export type ClaimCreatorTradingFeeWithQuoteMintSolParams =
-    ClaimCreatorTradingFeeWithQuoteMintNotSolParams & {
-        tempWSolAcc: PublicKey
-    }
 
 export type PartnerWithdrawSurplusParams = {
     feeClaimer: PublicKey
@@ -769,15 +754,7 @@ export type MigratedPoolFeeResult = {
     compoundingFeeBps: number
 }
 
-////////////////
-// INTERFACES //
-////////////////
-
 export interface BaseFeeHandler {
-    validate(
-        collectFeeMode: CollectFeeMode,
-        activationType: ActivationType
-    ): boolean
     getMinBaseFeeNumerator(): BN
     getBaseFeeNumeratorFromIncludedFeeAmount(
         currentPoint: BN,
@@ -793,13 +770,6 @@ export interface BaseFeeHandler {
     ): BN
 }
 
-export interface FeeResult {
-    amount: BN
-    protocolFee: BN
-    tradingFee: BN
-    referralFee: BN
-}
-
 export interface FeeMode {
     feesOnInput: boolean
     feesOnBaseToken: boolean
@@ -808,11 +778,15 @@ export interface FeeMode {
 
 export interface SwapQuoteResult extends SwapResult {
     minimumAmountOut: BN
+    includedTransferFeeAmountIn: BN
+    excludedTransferFeeAmountOut: BN
 }
 
 export interface SwapQuote2Result extends SwapResult2 {
     minimumAmountOut?: BN
     maximumAmountIn?: BN
+    includedTransferFeeAmountIn: BN
+    excludedTransferFeeAmountOut: BN
 }
 
 export interface FeeOnAmountResult {
