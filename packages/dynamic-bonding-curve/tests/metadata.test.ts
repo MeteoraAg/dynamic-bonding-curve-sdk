@@ -87,8 +87,8 @@ describe('metadata endpoints', { timeout: 60000 }, () => {
         const metadata = await dbcClient.state.getPartnerMetadata(
             partner.publicKey
         )
-        expect(metadata.length).toBeGreaterThan(0)
-        expect(metadata[0].name).toBe('Partner Name')
+        expect(metadata?.name).toBe('Partner Name')
+        expect(metadata?.feeClaimer.equals(partner.publicKey)).toBe(true)
     })
 
     test('createPoolMetadata then getPoolMetadata returns it', async () => {
@@ -104,7 +104,7 @@ describe('metadata endpoints', { timeout: 60000 }, () => {
         await sendAndConfirmTransaction(connection, tx, [poolCreator])
 
         const metadata = await dbcClient.state.getPoolMetadata(pool)
-        expect(metadata.length).toBeGreaterThan(0)
-        expect(metadata[0].name).toBe('Pool Name')
+        expect(metadata?.name).toBe('Pool Name')
+        expect(metadata?.virtualPool.equals(pool)).toBe(true)
     })
 })

@@ -4,23 +4,28 @@ import {
     PublicKey,
     sendAndConfirmTransaction,
 } from '@solana/web3.js'
+import {
+    getAccount,
+    getAssociatedTokenAddressSync,
+    TOKEN_2022_PROGRAM_ID,
+} from '@solana/spl-token'
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
-    ActivationType,
-    BaseFeeMode,
     buildCurve,
-    CollectFeeMode,
     deriveDammV2PoolAddress,
     deriveDbcPoolAddress,
     deriveDbcPoolAuthority,
     deriveTokenBadgeAddress,
     DynamicBondingCurveClient,
+    getCurrentPoint,
+    getSwapQuoteTransferFees,
     MigrationFeeOption,
     MigrationOption,
     SwapMode,
     TokenAuthorityOption,
     TokenDecimal,
     TokenType,
+    type SwapQuote2Params,
 } from '../src'
 import { BN } from 'bn.js'
 import { fundSol, LOCALNET_RPC_URL } from './utils/common'
@@ -30,6 +35,7 @@ import {
     createStockQuoteMint,
     mintToken2022,
 } from './utils/tokenBadgeFlow'
+import { constantFee, curveBaseParams } from './utils/curve'
 
 const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
 const TOKEN_NAME = 'TEST'
@@ -41,52 +47,20 @@ const QUOTE_DECIMALS = TokenDecimal.SIX
 
 function buildBadgedQuoteCurveConfig() {
     return buildCurve({
-        token: {
-            tokenType: TokenType.Token2022,
-            tokenBaseDecimal: TokenDecimal.SIX,
-            tokenQuoteDecimal: QUOTE_DECIMALS,
-            tokenAuthorityOption: TokenAuthorityOption.PartnerUpdateAuthority,
-            totalTokenSupply: 1_000_000_000,
-            leftover: 0,
-        },
-        fee: {
-            baseFeeParams: {
-                baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-                feeSchedulerParam: {
-                    startingFeeBps: 25,
-                    endingFeeBps: 25,
-                    numberOfPeriod: 0,
-                    totalDuration: 0,
-                },
+        ...curveBaseParams({
+            token: {
+                tokenType: TokenType.Token2022,
+                tokenQuoteDecimal: QUOTE_DECIMALS,
+                tokenAuthorityOption:
+                    TokenAuthorityOption.PartnerUpdateAuthority,
             },
-            dynamicFeeEnabled: false,
-            collectFeeMode: CollectFeeMode.QuoteToken,
-            creatorTradingFeePercentage: 0,
-            poolCreationFee: 0,
-            enableFirstSwapWithMinFee: false,
-        },
-        migration: {
-            migrationOption: MigrationOption.MET_DAMM_V2,
-            migrationFeeOption: MigrationFeeOption.FixedBps25,
-            migrationFee: {
-                feePercentage: 0,
-                creatorFeePercentage: 0,
+            fee: { baseFeeParams: constantFee(25) },
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM_V2,
+                migrationFeeOption: MigrationFeeOption.FixedBps25,
+                migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
             },
-        },
-        liquidityDistribution: {
-            partnerLiquidityPercentage: 0,
-            partnerPermanentLockedLiquidityPercentage: 100,
-            creatorLiquidityPercentage: 0,
-            creatorPermanentLockedLiquidityPercentage: 0,
-        },
-        lockedVesting: {
-            totalLockedVestingAmount: 0,
-            numberOfVestingPeriod: 0,
-            cliffUnlockAmount: 0,
-            totalVestingDuration: 0,
-            cliffDurationFromMigrationTime: 0,
-        },
-        activationType: ActivationType.Timestamp,
+        }),
         percentageSupplyOnMigration: 20,
         migrationQuoteThreshold: MIGRATION_QUOTE_THRESHOLD,
     })
@@ -129,22 +103,17 @@ describe(
 
         test('rejects createConfig when the quote mint needs a badge and none is passed', async () => {
             const config = Keypair.generate()
-            const createConfigTx = await dbcClient.partner.createConfig({
-                config: config.publicKey,
-                feeClaimer: partner.publicKey,
-                leftoverReceiver: partner.publicKey,
-                payer: partner.publicKey,
-                quoteMint,
-                ...buildBadgedQuoteCurveConfig(),
-            })
-            createConfigTx.feePayer = partner.publicKey
 
             await expect(
-                sendAndConfirmTransaction(connection, createConfigTx, [
-                    partner,
-                    config,
-                ])
-            ).rejects.toThrow(/Invalid token badge/)
+                dbcClient.partner.createConfig({
+                    config: config.publicKey,
+                    feeClaimer: partner.publicKey,
+                    leftoverReceiver: partner.publicKey,
+                    payer: partner.publicKey,
+                    quoteMint,
+                    ...buildBadgedQuoteCurveConfig(),
+                })
+            ).rejects.toThrow(/requires an initialized token badge/)
         })
 
         test('badges a Token-2022 quote mint, launches on DBC, and migrates to DAMM v2', async () => {
@@ -215,6 +184,34 @@ describe(
                 swapAmount
             )
 
+            const quoteParams: SwapQuote2Params = {
+                virtualPool: poolState!,
+                config: configState!,
+                swapBaseForQuote: false,
+                hasReferral: false,
+                eligibleForFirstSwapWithMinFee: false,
+                currentPoint: await getCurrentPoint(
+                    connection,
+                    configState!.activationType
+                ),
+                swapMode: SwapMode.PartialFill,
+                amountIn: new BN(swapAmount.toString()),
+            }
+            expect(() => dbcClient.pool.swapQuote2(quoteParams)).toThrow(
+                'quoteMint and currentEpoch are required for a Token-2022 quote mint'
+            )
+            const quoteTransferFees = await getSwapQuoteTransferFees(
+                connection,
+                configState!
+            )
+            expect(quoteTransferFees.quoteMint!.address.equals(quoteMint)).toBe(
+                true
+            )
+            const quote = dbcClient.pool.swapQuote2({
+                ...quoteParams,
+                ...quoteTransferFees,
+            })
+
             const swapTx = await dbcClient.pool.swap2({
                 pool,
                 owner: user.publicKey,
@@ -227,6 +224,23 @@ describe(
             })
             swapTx.feePayer = user.publicKey
             await sendAndConfirmTransaction(connection, swapTx, [user])
+
+            const userBaseAccount = await getAccount(
+                connection,
+                getAssociatedTokenAddressSync(
+                    baseMint.publicKey,
+                    user.publicKey,
+                    false,
+                    TOKEN_2022_PROGRAM_ID
+                ),
+                'confirmed',
+                TOKEN_2022_PROGRAM_ID
+            )
+            expect(
+                new BN(userBaseAccount.amount.toString()).eq(
+                    quote.excludedTransferFeeAmountOut
+                )
+            ).toBe(true)
 
             const poolAfterSwap = await dbcClient.state.getPool(pool)
             expect(
