@@ -619,7 +619,7 @@ export const getCurveBreakdown = (
             continue
         }
 
-        const maxSegmentAmount = getDeltaAmountQuoteUnsigned(
+        const maxSegmentAmount = getDeltaAmountQuoteUnsigned256(
             lowerSqrtPrice,
             upperSqrtPrice,
             liquidity,
@@ -673,7 +673,11 @@ export const getSwapAmountWithBuffer = (
         MAX_SQRT_PRICE,
         curve
     )
-    return BN.min(swapAmountBuffer, maxBaseAmountOnCurve)
+    const swapAmountWithBuffer = BN.min(swapAmountBuffer, maxBaseAmountOnCurve)
+    if (swapAmountWithBuffer.gt(U64_MAX)) {
+        throw new Error(ProgramError.MathOverflow)
+    }
+    return swapAmountWithBuffer
 }
 
 // x = r * (100 - V - L) / (1 + r) with r = sqrt(initialMC / migrationMC) * (1 - f),

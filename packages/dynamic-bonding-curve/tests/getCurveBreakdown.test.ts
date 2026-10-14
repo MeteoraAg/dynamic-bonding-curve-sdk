@@ -1,14 +1,21 @@
 import BN from 'bn.js'
 import { describe, expect, test } from 'vitest'
 import {
+    getBaseTokenForSwap,
     getCurveBreakdown,
     getMigrationThresholdPrice,
+    getSwapAmountWithBuffer,
+    MAX_SQRT_PRICE,
     Rounding,
+    U64_MAX,
     type LiquidityDistributionParameters,
 } from '../src'
 import {
     calculateQuoteToBaseFromAmountIn,
+    getDeltaAmountBaseUnsigned256,
     getDeltaAmountQuoteUnsigned,
+    getDeltaAmountQuoteUnsigned256,
+    ProgramError,
 } from '../src/math'
 import { validateCurve } from '../src/helpers/validation'
 
@@ -237,6 +244,56 @@ describe('getCurveBreakdown', () => {
             getCurveBreakdown(new BN('1900000000000'), Q64.clone(), curve)
         ).toThrowError(
             /^Not enough liquidity: the curve holds 1800000000000 quote, the threshold is 1900000000000$/
+        )
+    })
+
+    test('takes a partial slice of a segment wider than u64', () => {
+        const start = new BN(1).shln(40)
+        const liquidity = new BN(1).shln(100)
+        const curve = [{ sqrtPrice: MAX_SQRT_PRICE, liquidity }]
+        const threshold = new BN(10).pow(new BN(12))
+        expect(
+            getDeltaAmountQuoteUnsigned256(
+                start,
+                MAX_SQRT_PRICE,
+                liquidity,
+                Rounding.Up
+            ).gt(U64_MAX)
+        ).toBe(true)
+
+        const breakdown = getCurveBreakdown(threshold, start, curve)
+        expect(
+            breakdown.segmentAmounts.map((amount) => amount.toString())
+        ).toEqual([threshold.toString()])
+        expect(breakdown.finalSqrtPrice.toString()).toBe(
+            getMigrationThresholdPrice(threshold, start, curve).toString()
+        )
+    })
+})
+
+describe('getSwapAmountWithBuffer', () => {
+    test('casts only the amount it keeps when the curve tail exceeds u64', () => {
+        const start = new BN(1).shln(40)
+        const migration = new BN(1).shln(41)
+        const liquidity = new BN(1).shln(100)
+        const curve = [
+            { sqrtPrice: migration, liquidity },
+            { sqrtPrice: MAX_SQRT_PRICE, liquidity: new BN(1).shln(110) },
+        ]
+        const swapBase = getDeltaAmountBaseUnsigned256(
+            start,
+            migration,
+            liquidity,
+            Rounding.Up
+        )
+        expect(
+            getBaseTokenForSwap(start, MAX_SQRT_PRICE, curve).gt(U64_MAX)
+        ).toBe(true)
+        expect(getSwapAmountWithBuffer(swapBase, start, curve).toString()).toBe(
+            swapBase.muln(125).divn(100).toString()
+        )
+        expect(() => getSwapAmountWithBuffer(U64_MAX, start, curve)).toThrow(
+            ProgramError.MathOverflow
         )
     })
 })

@@ -4,7 +4,7 @@ import {
     type LiquidityDistributionParameters,
     type PoolConfig,
 } from '../types'
-import { MAX_BASIS_POINT, U64_MAX } from '../constants'
+import { MAX_BASIS_POINT } from '../constants'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
 import {
@@ -12,7 +12,6 @@ import {
     getDeltaAmountQuoteUnsigned,
     liveCurve,
 } from '../math/curve'
-import { ProgramError } from '../math/errors'
 
 /** Price of one base token in quote tokens: (sqrtPrice / 2^64)^2 * 10^(baseDecimal - quoteDecimal). */
 export function getPriceFromSqrtPrice(
@@ -96,9 +95,6 @@ export function getBaseTokenForSwap(
             break
         }
         lowerSqrtPrice = point.sqrtPrice
-    }
-    if (totalAmount.gt(U64_MAX)) {
-        throw new Error(ProgramError.MathOverflow)
     }
     return totalAmount
 }
