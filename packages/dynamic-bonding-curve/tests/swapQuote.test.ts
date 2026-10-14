@@ -5,7 +5,6 @@ import {
     ActivationType,
     BaseFeeMode,
     buildCurveWithCustomSqrtPrices,
-    calculateBaseToQuoteFromAmountIn,
     CollectFeeMode,
     ConfigParameters,
     createSqrtPrices,
@@ -13,6 +12,7 @@ import {
     DammV2DynamicFeeMode,
     deriveDbcPoolAddress,
     DynamicBondingCurveClient,
+    getCurrentPoint,
     MigratedCollectFeeMode,
     MigrationFeeOption,
     MigrationOption,
@@ -26,7 +26,7 @@ import { NATIVE_MINT } from '@solana/spl-token'
 
 const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
 
-describe('swapQuote Tests', { timeout: 60000 }, () => {
+describe('swapQuote', { timeout: 60000 }, () => {
     let partner: Keypair
     let user: Keypair
     let poolCreator: Keypair
@@ -169,7 +169,10 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(virtualPool).not.toBeNull()
         expect(poolConfigState).not.toBeNull()
 
-        const currentPoint = new BN(await getCurrentTimestamp())
+        const currentPoint = await getCurrentPoint(
+            connection,
+            ActivationType.Timestamp
+        )
 
         const quote = dbcClient.pool.swapQuote({
             virtualPool: virtualPool!,
@@ -199,7 +202,10 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(virtualPool).not.toBeNull()
         expect(poolConfigState).not.toBeNull()
 
-        const currentPoint = new BN(await getCurrentTimestamp())
+        const currentPoint = await getCurrentPoint(
+            connection,
+            ActivationType.Timestamp
+        )
 
         const exactInQuote = dbcClient.pool.swapQuote2({
             virtualPool: virtualPool!,
@@ -276,14 +282,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
             slippageBps: 50,
         })
 
-        const quoteFromPoolConfig = dbcClient.pool.getQuoteFromInputAmount({
-            config: poolConfigState!,
-            swapBaseForQuote: false,
-            swapMode: SwapMode.ExactIn,
-            amountIn,
-            slippageBps: 50,
-        })
-
         expect(quoteFromBuildCurve.includedFeeInputAmount.eq(amountIn)).toBe(
             true
         )
@@ -309,13 +307,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         )
         expect(
             quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)
-        ).toBe(true)
-
-        expect(quoteFromPoolConfig.outputAmount.eq(expected.outputAmount)).toBe(
-            true
-        )
-        expect(
-            quoteFromPoolConfig.minimumAmountOut!.eq(expected.minimumAmountOut!)
         ).toBe(true)
     })
 
@@ -353,13 +344,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
             slippageBps: 50,
         })
 
-        const quoteFromPoolConfig = dbcClient.pool.getQuoteFromOutputAmount({
-            config: poolConfigState!,
-            swapBaseForQuote: false,
-            amountOut,
-            slippageBps: 50,
-        })
-
         expect(
             quoteFromBuildCurve.includedFeeInputAmount.eq(
                 expected.includedFeeInputAmount
@@ -388,15 +372,6 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(
             quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)
         ).toBe(true)
-
-        expect(
-            quoteFromPoolConfig.includedFeeInputAmount.eq(
-                expected.includedFeeInputAmount
-            )
-        ).toBe(true)
-        expect(
-            quoteFromPoolConfig.maximumAmountIn!.eq(expected.maximumAmountIn!)
-        ).toBe(true)
     })
 
     test('getQuoteFromInputAmount supports partial fill before pool creation', () => {
@@ -409,7 +384,7 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
                 swapMode: SwapMode.ExactIn,
                 amountIn,
             })
-        ).toThrow('Insufficient Liquidity')
+        ).toThrow('Liquidity in bonding curve is insufficient')
 
         const quote = dbcClient.pool.getQuoteFromInputAmount({
             config: curveConfig,
@@ -421,74 +396,5 @@ describe('swapQuote Tests', { timeout: 60000 }, () => {
         expect(quote.outputAmount.gt(new BN(0))).toBe(true)
         expect(quote.amountLeft.gt(new BN(0))).toBe(true)
         expect(quote.includedFeeInputAmount.lt(amountIn)).toBe(true)
-    })
-
-    async function getCurrentTimestamp(): Promise<number> {
-        const slot = await connection.getSlot()
-        const time = await connection.getBlockTime(slot)
-        if (!time) {
-            throw new Error('Current time is null')
-        }
-        return time
-    }
-
-    test('calculateBaseToQuoteFromAmountIn returns amountLeft when input exceeds available liquidity', async () => {
-        const configState = {
-            curve: curveConfig.curve,
-            sqrtStartPrice: curveConfig.sqrtStartPrice,
-        }
-
-        const currentSqrtPrice = curveConfig.sqrtStartPrice
-
-        const excessiveAmountIn = new BN('1000000000000000')
-
-        const result = calculateBaseToQuoteFromAmountIn(
-            configState,
-            currentSqrtPrice,
-            excessiveAmountIn
-        )
-
-        expect(result.nextSqrtPrice.eq(curveConfig.sqrtStartPrice)).toBe(true)
-
-        // amountLeft greater than 0 and equal to the input
-        expect(result.amountLeft.gte(new BN(0))).toBe(true)
-        expect(result.amountLeft.eq(excessiveAmountIn)).toBe(true)
-
-        // outputAmount should be equal to 0
-        expect(result.outputAmount.eq(new BN(0))).toBe(true)
-    })
-
-    test('calculateBaseToQuoteFromAmountIn caps at sqrtStartPrice when selling pushes price below', async () => {
-        const configState = {
-            curve: curveConfig.curve,
-            sqrtStartPrice: curveConfig.sqrtStartPrice,
-        }
-
-        // get a higher sqrt price from the curve
-        let currentSqrtPrice = curveConfig.sqrtStartPrice
-        for (const point of curveConfig.curve) {
-            if (
-                !point.sqrtPrice.isZero() &&
-                point.sqrtPrice.gt(currentSqrtPrice)
-            ) {
-                currentSqrtPrice = point.sqrtPrice
-            }
-        }
-
-        const excessiveAmountIn = new BN('10000000000000000000')
-
-        const result = calculateBaseToQuoteFromAmountIn(
-            configState,
-            currentSqrtPrice,
-            excessiveAmountIn
-        )
-
-        // the price should be capped at sqrtStartPrice
-        expect(result.nextSqrtPrice.eq(curveConfig.sqrtStartPrice)).toBe(true)
-
-        // amountLeft should be greater than 0
-        expect(result.amountLeft.gt(new BN(0))).toBe(true)
-        // outputAmount should be greater than 0
-        expect(result.outputAmount.gt(new BN(0))).toBe(true)
     })
 })

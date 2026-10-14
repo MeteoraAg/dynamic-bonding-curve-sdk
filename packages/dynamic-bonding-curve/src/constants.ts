@@ -7,12 +7,14 @@ import {
 
 export const MAX_CURVE_POINT = 16
 
-export const OFFSET = 64
 export const RESOLUTION = 64
 export const ONE_Q64 = new BN(1).shln(RESOLUTION)
 
 export const FEE_DENOMINATOR = 1_000_000_000
 export const MAX_BASIS_POINT = 10_000
+export const MAX_BASE_TRANSFER_FEE_BPS = 1_000
+
+export const LEGACY_CONFIG_VERSION = 0
 
 export const U16_MAX = 65_535
 export const U24_MAX = 16_777_215
@@ -42,15 +44,23 @@ export const BIN_STEP_BPS_DEFAULT = 1
 //  bin_step << 64 / MAX_BASIS_POINT
 export const BIN_STEP_BPS_U128_DEFAULT = new BN('1844674407370955')
 export const MAX_PRICE_CHANGE_BPS_DEFAULT = 1500 // 15%
+export const MAX_DYNAMIC_FEE_PERCENT = 20 // of the base fee
 
 // Protocol Fee
 export const PROTOCOL_FEE_PERCENT = 20 // 20%
+export const PARTNER_AND_CREATOR_SURPLUS_SHARE = 80 // 80%
 
 // Referral Fee
 export const HOST_FEE_PERCENT = 20 // 20%
 
 // Swap Buffer
 export const SWAP_BUFFER_PERCENTAGE = 25 // 25%
+
+// Protocol liquidity migration fee
+export const PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS = 20 // 0.2%
+
+// DAMM v2 locks this liquidity in a compounding pool
+export const DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY = new BN(100).shln(64)
 
 // Migration Fee
 export const MAX_MIGRATION_FEE_PERCENTAGE = 99 // 99% // previously 50%

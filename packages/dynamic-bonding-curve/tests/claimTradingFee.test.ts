@@ -6,13 +6,17 @@ import {
 } from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
 import { buildTestCurveConfig, fundSol, LOCALNET_RPC_URL } from './utils/common'
-import { deriveDbcPoolAddress, DynamicBondingCurveClient } from '../src'
+import {
+    deriveDbcPoolAddress,
+    DynamicBondingCurveClient,
+    U64_MAX,
+} from '../src'
 import { BN } from 'bn.js'
 import { NATIVE_MINT } from '@solana/spl-token'
 
 const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
 
-describe('Claim Partner Trading Fee Tests', { timeout: 60000 }, () => {
+describe('claim trading fees', { timeout: 60000 }, () => {
     let partner: Keypair
     let poolCreator: Keypair
     let dbcClient: DynamicBondingCurveClient
@@ -95,13 +99,13 @@ describe('Claim Partner Trading Fee Tests', { timeout: 60000 }, () => {
             payer: partner.publicKey,
             pool,
             maxBaseAmount: new BN(0),
-            maxQuoteAmount: new BN('18446744073709551615'),
+            maxQuoteAmount: U64_MAX,
         })
         tx.feePayer = partner.publicKey
         await sendAndConfirmTransaction(connection, tx, [partner])
     })
 
-    test('claimPartnerTradingFee (SOL quote, distinct receiver via tempWSolAcc)', async () => {
+    test('claimPartnerTradingFee (SOL quote, distinct receiver)', async () => {
         const receiver = Keypair.generate()
 
         const balanceBefore = await connection.getBalance(receiver.publicKey)
@@ -111,9 +115,8 @@ describe('Claim Partner Trading Fee Tests', { timeout: 60000 }, () => {
             payer: partner.publicKey,
             pool,
             maxBaseAmount: new BN(0),
-            maxQuoteAmount: new BN('18446744073709551615'),
+            maxQuoteAmount: U64_MAX,
             receiver: receiver.publicKey,
-            tempWSolAcc: partner.publicKey,
         })
         tx.feePayer = partner.publicKey
         await sendAndConfirmTransaction(connection, tx, [partner])
@@ -132,7 +135,7 @@ describe('Claim Partner Trading Fee Tests', { timeout: 60000 }, () => {
             payer: partner.publicKey,
             pool,
             maxBaseAmount: new BN(0),
-            maxQuoteAmount: new BN('18446744073709551615'),
+            maxQuoteAmount: U64_MAX,
             receiver: receiver.publicKey,
         })
         tx.feePayer = partner.publicKey
@@ -150,7 +153,7 @@ describe('Claim Partner Trading Fee Tests', { timeout: 60000 }, () => {
             payer: partner.publicKey,
             pool,
             maxBaseAmount: new BN(0),
-            maxQuoteAmount: new BN('18446744073709551615'),
+            maxQuoteAmount: U64_MAX,
             receiver: receiver.publicKey,
         })
         tx.feePayer = partner.publicKey
@@ -166,7 +169,7 @@ describe('Claim Partner Trading Fee Tests', { timeout: 60000 }, () => {
             payer: poolCreator.publicKey,
             pool,
             maxBaseAmount: new BN(0),
-            maxQuoteAmount: new BN('18446744073709551615'),
+            maxQuoteAmount: U64_MAX,
         })
         tx.feePayer = poolCreator.publicKey
         await sendAndConfirmTransaction(connection, tx, [poolCreator])
@@ -180,7 +183,7 @@ describe('Claim Partner Trading Fee Tests', { timeout: 60000 }, () => {
             payer: poolCreator.publicKey,
             pool,
             maxBaseAmount: new BN(0),
-            maxQuoteAmount: new BN('18446744073709551615'),
+            maxQuoteAmount: U64_MAX,
             receiver: receiver.publicKey,
         })
         tx.feePayer = poolCreator.publicKey
@@ -195,7 +198,7 @@ describe('Claim Partner Trading Fee Tests', { timeout: 60000 }, () => {
             payer: poolCreator.publicKey,
             pool,
             maxBaseAmount: new BN(0),
-            maxQuoteAmount: new BN('18446744073709551615'),
+            maxQuoteAmount: U64_MAX,
             receiver: receiver.publicKey,
         })
         tx.feePayer = poolCreator.publicKey

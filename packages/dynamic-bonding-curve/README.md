@@ -1,10 +1,10 @@
 # Meteora Dynamic Bonding Curve SDK
 
-A Typescript SDK for interacting with the Dynamic Bonding Curve on Meteora.
+A TypeScript SDK for interacting with the Dynamic Bonding Curve on Meteora.
 
 ## Overview
 
-This SDK provides a set of tools and methods to interact with the [Meteora Dynamic Bonding Curve](https://github.com/MeteoraAg/dynamic-bonding-curve). It enables developers to easily create and manage dynamic bonding curves, with support for custom configurations and fee structures.
+This SDK provides a set of tools and methods to interact with the [Meteora Dynamic Bonding Curve](https://github.com/MeteoraAg/dynamic-bonding-curve). It lets developers create and manage dynamic bonding curves with custom configurations and fee structures.
 
 ## Installation
 
@@ -30,6 +30,15 @@ const client = new DynamicBondingCurveClient(connection, 'confirmed')
 
 Refer to the [docs](./docs.md) for how to use the functions.
 
+The package root exports the client, the curve builders, quotes, parameter builders, and address derivations. The ports of the program's curve, fee, and swap math (dynamic-bonding-curve 0.2.2) are published under a separate entry:
+
+```typescript
+import {
+    getFeeMode,
+    getSwapResult,
+} from '@meteora-ag/dynamic-bonding-curve-sdk/math'
+```
+
 ## Flow
 
 The generic flow of how Dynamic Bonding Curve works is as follows:
@@ -37,7 +46,7 @@ The generic flow of how Dynamic Bonding Curve works is as follows:
 1. The partner creates a config key for the pool.
 2. The creator creates a pool.
 3. The pool is tradeable on the Dynamic Bonding Curve.
-4. Meteora's migrator service migrates the pool to DAMM V2 based on the config key once the quote reserve is more than or equals to the migration quote threshold. Existing DBC pools created with `MigrationOption.MET_DAMM` can still graduate to DAMM V1; new configs and new pools cannot use that option.
+4. Meteora's migrator service migrates the pool to DAMM V2 based on the config key once the quote reserve reaches the migration quote threshold. Existing DBC pools created with `MigrationOption.MET_DAMM` can still graduate to DAMM V1; new configs and new pools cannot use that option.
 5. The graduated pool is tradeable on DAMM V2. Existing DAMM V1-graduated pools remain tradeable on DAMM V1.
 
 ## Flow of migration
@@ -55,7 +64,7 @@ The generic flow of how Dynamic Bonding Curve works is as follows:
 1. `createLocker` (if the token has locked vesting)
 2. `migrateToDammV2`
 
-### Test
+## Test
 
 1. Run solana localnet validator
 
@@ -70,16 +79,16 @@ pnpm start-validator
 pnpm test
 ```
 
-### Manual Migrator
+## Manual Migrator
 
 We have created a [Manual Migrator UI](https://migrator.meteora.ag) that allows you to manually migrate a pool to either DAMM V1 or DAMM V2. Compatible with both Mainnet and Devnet pools.
 
-### Program Address
+## Program Address
 
 - Mainnet-beta: dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN
 - Devnet: dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN
 
-### Graduated DAMM Pool Config Keys
+## Graduated DAMM Pool Config Keys
 
 Accessible via `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` in the SDK.
 

@@ -1,61 +1,198 @@
+import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
 import {
-    SystemProgram,
-    Transaction,
-    TransactionInstruction,
-} from '@solana/web3.js'
-import {
-    ClaimCreatorTradingFeeParams,
-    ClaimCreatorTradingFeeToReceiverParams,
-    CreatePoolParams,
-    CreatePoolWithFirstBuyWithTransferHookParams,
-    CreatePoolWithTransferHookParams,
-    CreatePoolWithFirstBuyParams,
-    CreatePoolWithPartnerAndCreatorFirstBuyWithTransferHookParams,
-    CreatePoolWithPartnerAndCreatorFirstBuyParams,
-    CreateVirtualPoolMetadataParams,
-    CreatorWithdrawSurplusParams,
-    PoolConfig,
-    TransferPoolCreatorParams,
-    WithdrawMigrationFeeParams,
+    AccountsType,
+    type ClaimCreatorTradingFeeParams,
+    type ClaimCreatorTradingFeeToReceiverParams,
+    type CreatePoolParams,
+    type CreatePoolWithFirstBuyParams,
+    type CreatePoolWithFirstBuyWithTransferHookParams,
+    type CreatePoolWithPartnerAndCreatorFirstBuyParams,
+    type CreatePoolWithPartnerAndCreatorFirstBuyWithTransferHookParams,
+    type CreatePoolWithTransferHookParams,
+    type CreateVirtualPoolMetadataParams,
+    type CreatorWithdrawSurplusParams,
+    type FirstBuyParams,
+    type FirstBuyWithTransferHookParams,
+    type PoolConfig,
+    type TransferPoolCreatorParams,
+    type WithdrawMigrationFeeParams,
 } from '../types'
 import { DynamicBondingCurveProgram } from './program'
 import {
     deriveDammV1MigrationMetadataAddress,
     deriveDbcPoolMetadata,
-    getOrCreateATAInstruction,
     getTokenProgram,
-    isNativeSol,
-    unwrapSOLInstruction,
     assertConfigAllowsNewPool,
+    hasMintAuthority,
+    validateMinimumLockedLiquidity,
 } from '../helpers'
+import { getFeeSchedulerMinBaseFeeNumerator } from '../math/poolFees/feeScheduler'
+import {
+    LEGACY_CONFIG_VERSION,
+    MIN_FEE_NUMERATOR,
+    MIN_LOCKED_LIQUIDITY_BPS,
+} from '../constants'
 import BN from 'bn.js'
 
+function toFirstBuyParams(
+    buyer: PublicKey,
+    params: Omit<FirstBuyWithTransferHookParams, 'buyer'>
+): FirstBuyWithTransferHookParams {
+    return { buyer, ...params }
+}
+
 export class CreatorService extends DynamicBondingCurveProgram {
+    /**
+     * The config a new pool is created from, after the checks initialize_pool
+     * makes: the config variant matches the method, no deprecated options,
+     * mint authority only on transfer-hook configs, 10% locked at day 1, and
+     * a scheduler that stays above the minimum fee.
+     */
     private async getPoolConfigForNewPool(
-        config: CreatePoolParams['config']
+        config: PublicKey,
+        transferHookProgram?: PublicKey
     ): Promise<PoolConfig> {
-        const poolConfigState = await this.state.getPoolConfig(config)
-        if (!poolConfigState) {
-            throw new Error(`Pool config not found for virtual pool`)
+        const found = await this.state.getPoolConfigWithKind(config)
+        if (!found) {
+            throw new Error(`Pool config not found: ${config.toBase58()}`)
+        }
+        const { poolConfig, transferHookConfig } = found
+
+        if (
+            (transferHookConfig !== null) !==
+            (transferHookProgram !== undefined)
+        ) {
+            throw new Error(
+                transferHookConfig
+                    ? 'Config uses a transfer hook, create the pool with the transfer-hook method'
+                    : 'Config does not use a transfer hook, create the pool with the standard method'
+            )
+        }
+        if (
+            transferHookConfig &&
+            transferHookProgram &&
+            !transferHookConfig.transferHookProgram.equals(transferHookProgram)
+        ) {
+            throw new Error(
+                `Transfer hook program does not match config: expected ${transferHookConfig.transferHookProgram.toBase58()}`
+            )
         }
 
         assertConfigAllowsNewPool({
-            baseFeeMode: poolConfigState.poolFees.baseFee.baseFeeMode,
-            migrationOption: poolConfigState.migrationOption,
+            baseFeeMode: poolConfig.poolFees.baseFee.baseFeeMode,
+            migrationOption: poolConfig.migrationOption,
         })
+        if (
+            !transferHookConfig &&
+            hasMintAuthority(poolConfig.tokenUpdateAuthority)
+        ) {
+            throw new Error(
+                'Mint authority token update options are only supported for transfer-hook configs'
+            )
+        }
+        if (
+            !validateMinimumLockedLiquidity(
+                poolConfig.partnerPermanentLockedLiquidityPercentage,
+                poolConfig.creatorPermanentLockedLiquidityPercentage,
+                poolConfig.partnerLiquidityVestingInfo,
+                poolConfig.creatorLiquidityVestingInfo
+            )
+        ) {
+            throw new Error(
+                `Config must lock at least ${MIN_LOCKED_LIQUIDITY_BPS} BPS of migrated liquidity at day 1`
+            )
+        }
 
-        return poolConfigState
+        const { baseFee } = poolConfig.poolFees
+        const minBaseFeeNumerator = getFeeSchedulerMinBaseFeeNumerator(
+            baseFee.cliffFeeNumerator,
+            baseFee.firstFactor,
+            baseFee.thirdFactor,
+            baseFee.baseFeeMode
+        )
+        if (minBaseFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR))) {
+            throw new Error(
+                `Config minimum base fee numerator ${minBaseFeeNumerator.toString()} is below ${MIN_FEE_NUMERATOR}`
+            )
+        }
+
+        return poolConfig
     }
 
-    /**
-     * Build a transaction that creates metadata for a virtual pool.
-     */
+    private createPoolTx(
+        createPoolParam: CreatePoolParams,
+        poolConfig: PoolConfig
+    ): Promise<Transaction> {
+        return this.buildCreatePoolTx(
+            createPoolParam,
+            poolConfig.tokenType,
+            poolConfig.quoteMint,
+            // a legacy config was never checked against the transfer fee rules
+            poolConfig.version !== LEGACY_CONFIG_VERSION
+        )
+    }
+
+    private createPoolWithTransferHookTx(
+        createPoolParam: CreatePoolWithTransferHookParams,
+        poolConfig: PoolConfig
+    ): Promise<Transaction> {
+        return this.buildCreatePoolWithTransferHookTx(
+            createPoolParam,
+            poolConfig.quoteMint,
+            getTokenProgram(poolConfig.quoteTokenFlag)
+        )
+    }
+
+    private async appendFirstBuys(
+        transaction: Transaction,
+        createPoolParam: CreatePoolParams,
+        poolConfig: PoolConfig,
+        firstBuys: (FirstBuyParams | undefined)[]
+    ): Promise<Transaction> {
+        for (const firstBuy of firstBuys) {
+            if (firstBuy && firstBuy.buyAmount.gt(new BN(0))) {
+                transaction.add(
+                    await this.buildSwapBuyTx(
+                        firstBuy,
+                        createPoolParam.baseMint,
+                        createPoolParam.config,
+                        poolConfig.tokenType,
+                        poolConfig.quoteMint,
+                        poolConfig.enableFirstSwapWithMinFee === 1
+                    )
+                )
+            }
+        }
+        return transaction
+    }
+
+    private async appendFirstBuysWithTransferHook(
+        transaction: Transaction,
+        createPoolParam: CreatePoolWithTransferHookParams,
+        poolConfig: PoolConfig,
+        firstBuys: (FirstBuyWithTransferHookParams | undefined)[]
+    ): Promise<Transaction> {
+        for (const firstBuy of firstBuys) {
+            if (firstBuy && firstBuy.buyAmount.gt(new BN(0))) {
+                transaction.add(
+                    await this.buildSwap2WithTransferHookBuyTx(
+                        firstBuy,
+                        createPoolParam.baseMint,
+                        createPoolParam.config,
+                        poolConfig.collectFeeMode,
+                        poolConfig.quoteMint,
+                        poolConfig.enableFirstSwapWithMinFee === 1
+                    )
+                )
+            }
+        }
+        return transaction
+    }
+
     async createPoolMetadata(
         params: CreateVirtualPoolMetadataParams
     ): Promise<Transaction> {
         const { virtualPool, name, website, logo, creator, payer } = params
-
-        const virtualPoolMetadata = deriveDbcPoolMetadata(virtualPool)
 
         return this.program.methods
             .createVirtualPoolMetadata({
@@ -66,7 +203,7 @@ export class CreatorService extends DynamicBondingCurveProgram {
             })
             .accountsPartial({
                 virtualPool,
-                virtualPoolMetadata,
+                virtualPoolMetadata: deriveDbcPoolMetadata(virtualPool),
                 creator,
                 payer,
                 systemProgram: SystemProgram.programId,
@@ -74,522 +211,229 @@ export class CreatorService extends DynamicBondingCurveProgram {
             .transaction()
     }
 
-    /**
-     * Build a transaction that initializes a pool from an existing config.
-     */
+    /** Build a transaction that initializes a pool from an existing config. */
     async createPool(params: CreatePoolParams): Promise<Transaction> {
-        const { config } = params
-
-        const poolConfigState = await this.getPoolConfigForNewPool(config)
-
-        return this.buildCreatePoolTx(
-            params,
-            poolConfigState.tokenType,
-            poolConfigState.quoteMint
-        )
+        const poolConfig = await this.getPoolConfigForNewPool(params.config)
+        return this.createPoolTx(params, poolConfig)
     }
 
-    /**
-     * Build a transaction that initializes a Token-2022 transfer-hook pool from an existing config.
-     */
+    /** Build a transaction that initializes a Token-2022 transfer-hook pool from an existing config. */
     async createPoolWithTransferHook(
         params: CreatePoolWithTransferHookParams
     ): Promise<Transaction> {
-        const { config } = params
-
-        const poolConfigState = await this.getPoolConfigForNewPool(config)
-
-        const tokenQuoteProgram = getTokenProgram(
-            poolConfigState.quoteTokenFlag
+        const poolConfig = await this.getPoolConfigForNewPool(
+            params.config,
+            params.transferHookProgram
         )
-
-        return this.buildCreatePoolWithTransferHookTx(
-            params,
-            poolConfigState.quoteMint,
-            tokenQuoteProgram
-        )
+        return this.createPoolWithTransferHookTx(params, poolConfig)
     }
 
-    /**
-     * Build one transaction that initializes a pool and optionally appends the first buy.
-     *
-     * The first-buy instruction is only included when `firstBuyParam.buyAmount` is greater than 0.
-     */
+    /** Build one transaction that initializes a pool and appends the first buy when buyAmount is above zero. */
     async createPoolWithFirstBuy(
         params: CreatePoolWithFirstBuyParams
     ): Promise<Transaction> {
         const { createPoolParam, firstBuyParam } = params
-        const { config } = createPoolParam
-
-        const poolConfigState = await this.getPoolConfigForNewPool(config)
-
-        const createPoolWithFirstBuyTx = await this.buildCreatePoolTx(
-            createPoolParam,
-            poolConfigState.tokenType,
-            poolConfigState.quoteMint
+        const poolConfig = await this.getPoolConfigForNewPool(
+            createPoolParam.config
         )
-
-        if (firstBuyParam && firstBuyParam.buyAmount.gt(new BN(0))) {
-            const swapBuyTx = await this.buildSwapBuyTx(
-                firstBuyParam,
-                createPoolParam.baseMint,
-                config,
-                poolConfigState.poolFees.baseFee,
-                false,
-                poolConfigState.activationType,
-                poolConfigState.tokenType,
-                poolConfigState.quoteMint,
-                true
-            )
-            createPoolWithFirstBuyTx.add(swapBuyTx)
-        }
-
-        return createPoolWithFirstBuyTx
+        return this.appendFirstBuys(
+            await this.createPoolTx(createPoolParam, poolConfig),
+            createPoolParam,
+            poolConfig,
+            [firstBuyParam]
+        )
     }
 
-    /**
-     * Build one transaction that initializes a transfer-hook pool and optionally appends the first buy.
-     */
+    /** createPoolWithFirstBuy for a transfer-hook config. */
     async createPoolWithFirstBuyWithTransferHook(
         params: CreatePoolWithFirstBuyWithTransferHookParams
     ): Promise<Transaction> {
         const { createPoolParam, firstBuyParam } = params
-        const { config } = createPoolParam
-
-        const poolConfigState = await this.getPoolConfigForNewPool(config)
-
-        const createPoolWithFirstBuyTx =
-            await this.buildCreatePoolWithTransferHookTx(
+        const poolConfig = await this.getPoolConfigForNewPool(
+            createPoolParam.config,
+            createPoolParam.transferHookProgram
+        )
+        return this.appendFirstBuysWithTransferHook(
+            await this.createPoolWithTransferHookTx(
                 createPoolParam,
-                poolConfigState.quoteMint,
-                getTokenProgram(poolConfigState.quoteTokenFlag)
-            )
-
-        if (firstBuyParam && firstBuyParam.buyAmount.gt(new BN(0))) {
-            const swapBuyTx = await this.buildSwap2WithTransferHookBuyTx(
-                firstBuyParam,
-                createPoolParam.baseMint,
-                config,
-                poolConfigState.poolFees.baseFee,
-                poolConfigState.activationType,
-                poolConfigState.quoteMint,
-                true
-            )
-            createPoolWithFirstBuyTx.add(swapBuyTx)
-        }
-
-        return createPoolWithFirstBuyTx
+                poolConfig
+            ),
+            createPoolParam,
+            poolConfig,
+            [firstBuyParam]
+        )
     }
 
-    /**
-     * Build one transaction that initializes a pool and optionally appends partner and creator first buys.
-     */
+    /** Build one transaction that initializes a pool and appends the partner's and the creator's first buys. */
     async createPoolWithPartnerAndCreatorFirstBuy(
         params: CreatePoolWithPartnerAndCreatorFirstBuyParams
     ): Promise<Transaction> {
         const { createPoolParam, partnerFirstBuyParam, creatorFirstBuyParam } =
             params
-        const { config } = createPoolParam
-
-        const poolConfigState = await this.getPoolConfigForNewPool(config)
-
-        const createPoolWithFirstBuysTx = await this.buildCreatePoolTx(
-            createPoolParam,
-            poolConfigState.tokenType,
-            poolConfigState.quoteMint
+        const poolConfig = await this.getPoolConfigForNewPool(
+            createPoolParam.config
         )
-
-        if (
-            partnerFirstBuyParam &&
-            partnerFirstBuyParam.buyAmount.gt(new BN(0))
-        ) {
-            const partnerSwapBuyTx = await this.buildSwapBuyTx(
-                {
-                    buyer: partnerFirstBuyParam.partner,
-                    receiver: partnerFirstBuyParam.receiver,
-                    buyAmount: partnerFirstBuyParam.buyAmount,
-                    minimumAmountOut: partnerFirstBuyParam.minimumAmountOut,
-                    referralTokenAccount:
-                        partnerFirstBuyParam.referralTokenAccount,
-                },
-                createPoolParam.baseMint,
-                config,
-                poolConfigState.poolFees.baseFee,
-                false,
-                poolConfigState.activationType,
-                poolConfigState.tokenType,
-                poolConfigState.quoteMint,
-                true
-            )
-            createPoolWithFirstBuysTx.add(partnerSwapBuyTx)
-        }
-
-        if (
-            creatorFirstBuyParam &&
-            creatorFirstBuyParam.buyAmount.gt(new BN(0))
-        ) {
-            const creatorSwapBuyTx = await this.buildSwapBuyTx(
-                {
-                    buyer: creatorFirstBuyParam.creator,
-                    receiver: creatorFirstBuyParam.receiver,
-                    buyAmount: creatorFirstBuyParam.buyAmount,
-                    minimumAmountOut: creatorFirstBuyParam.minimumAmountOut,
-                    referralTokenAccount:
-                        creatorFirstBuyParam.referralTokenAccount,
-                },
-                createPoolParam.baseMint,
-                config,
-                poolConfigState.poolFees.baseFee,
-                false,
-                poolConfigState.activationType,
-                poolConfigState.tokenType,
-                poolConfigState.quoteMint,
-                true
-            )
-            createPoolWithFirstBuysTx.add(creatorSwapBuyTx)
-        }
-
-        return createPoolWithFirstBuysTx
+        return this.appendFirstBuys(
+            await this.createPoolTx(createPoolParam, poolConfig),
+            createPoolParam,
+            poolConfig,
+            [
+                partnerFirstBuyParam &&
+                    toFirstBuyParams(
+                        partnerFirstBuyParam.partner,
+                        partnerFirstBuyParam
+                    ),
+                creatorFirstBuyParam &&
+                    toFirstBuyParams(
+                        creatorFirstBuyParam.creator,
+                        creatorFirstBuyParam
+                    ),
+            ]
+        )
     }
 
-    /**
-     * Build one transaction that initializes a transfer-hook pool and optionally appends partner and creator first buys.
-     */
+    /** createPoolWithPartnerAndCreatorFirstBuy for a transfer-hook config. */
     async createPoolWithPartnerAndCreatorFirstBuyWithTransferHook(
         params: CreatePoolWithPartnerAndCreatorFirstBuyWithTransferHookParams
     ): Promise<Transaction> {
         const { createPoolParam, partnerFirstBuyParam, creatorFirstBuyParam } =
             params
-        const { config } = createPoolParam
-
-        const poolConfigState = await this.getPoolConfigForNewPool(config)
-
-        const createPoolWithFirstBuysTx =
-            await this.buildCreatePoolWithTransferHookTx(
+        const poolConfig = await this.getPoolConfigForNewPool(
+            createPoolParam.config,
+            createPoolParam.transferHookProgram
+        )
+        return this.appendFirstBuysWithTransferHook(
+            await this.createPoolWithTransferHookTx(
                 createPoolParam,
-                poolConfigState.quoteMint,
-                getTokenProgram(poolConfigState.quoteTokenFlag)
-            )
-
-        if (
-            partnerFirstBuyParam &&
-            partnerFirstBuyParam.buyAmount.gt(new BN(0))
-        ) {
-            const partnerSwapBuyTx = await this.buildSwap2WithTransferHookBuyTx(
-                {
-                    buyer: partnerFirstBuyParam.partner,
-                    receiver: partnerFirstBuyParam.receiver,
-                    buyAmount: partnerFirstBuyParam.buyAmount,
-                    minimumAmountOut: partnerFirstBuyParam.minimumAmountOut,
-                    referralTokenAccount:
-                        partnerFirstBuyParam.referralTokenAccount,
-                    transferHookAccountsInfo:
-                        partnerFirstBuyParam.transferHookAccountsInfo,
-                    transferHookAccounts:
-                        partnerFirstBuyParam.transferHookAccounts,
-                },
-                createPoolParam.baseMint,
-                config,
-                poolConfigState.poolFees.baseFee,
-                poolConfigState.activationType,
-                poolConfigState.quoteMint,
-                true
-            )
-            createPoolWithFirstBuysTx.add(partnerSwapBuyTx)
-        }
-
-        if (
-            creatorFirstBuyParam &&
-            creatorFirstBuyParam.buyAmount.gt(new BN(0))
-        ) {
-            const creatorSwapBuyTx = await this.buildSwap2WithTransferHookBuyTx(
-                {
-                    buyer: creatorFirstBuyParam.creator,
-                    receiver: creatorFirstBuyParam.receiver,
-                    buyAmount: creatorFirstBuyParam.buyAmount,
-                    minimumAmountOut: creatorFirstBuyParam.minimumAmountOut,
-                    referralTokenAccount:
-                        creatorFirstBuyParam.referralTokenAccount,
-                    transferHookAccountsInfo:
-                        creatorFirstBuyParam.transferHookAccountsInfo,
-                    transferHookAccounts:
-                        creatorFirstBuyParam.transferHookAccounts,
-                },
-                createPoolParam.baseMint,
-                config,
-                poolConfigState.poolFees.baseFee,
-                poolConfigState.activationType,
-                poolConfigState.quoteMint,
-                true
-            )
-            createPoolWithFirstBuysTx.add(creatorSwapBuyTx)
-        }
-
-        return createPoolWithFirstBuysTx
+                poolConfig
+            ),
+            createPoolParam,
+            poolConfig,
+            [
+                partnerFirstBuyParam &&
+                    toFirstBuyParams(
+                        partnerFirstBuyParam.partner,
+                        partnerFirstBuyParam
+                    ),
+                creatorFirstBuyParam &&
+                    toFirstBuyParams(
+                        creatorFirstBuyParam.creator,
+                        creatorFirstBuyParam
+                    ),
+            ]
+        )
     }
 
-    /**
-     * Build a transaction that claims creator trading fees.
-     *
-     * When the quote mint is SOL, the transaction may create and close a temporary wrapped SOL account.
-     * If `receiver` differs from `creator`, provide `tempWSolAcc`.
-     */
-    async claimCreatorTradingFee(
-        params: ClaimCreatorTradingFeeParams
+    private async claimTradingFeeTx(
+        params: ClaimCreatorTradingFeeToReceiverParams,
+        transferHook: boolean
     ): Promise<Transaction> {
-        const {
-            creator,
-            pool,
-            maxBaseAmount,
-            maxQuoteAmount,
-            receiver,
-            payer,
-            tempWSolAcc,
-        } = params
-
-        const { virtualPool, poolConfigState } =
+        const { creator, pool, maxBaseAmount, maxQuoteAmount, payer } = params
+        const { virtualPool, poolConfigState, isTransferHookPool } =
             await this.getPoolWithConfig(pool)
+        if (isTransferHookPool && !transferHook) {
+            throw new Error(
+                'Pool uses a transfer hook, use claimCreatorTradingFee2'
+            )
+        }
 
-        const tokenBaseProgram = getTokenProgram(poolConfigState.tokenType)
-        const tokenQuoteProgram = getTokenProgram(
-            poolConfigState.quoteTokenFlag
-        )
-
-        const isSOLQuoteMint = isNativeSol(poolConfigState.quoteMint)
-
-        if (isSOLQuoteMint) {
-            // if receiver is present and not equal to creator, use tempWSolAcc, otherwise use creator
-            const tempWSol =
-                receiver && !receiver.equals(creator) ? tempWSolAcc : creator
-            // if receiver is provided, use receiver, otherwise use creator
-            const feeReceiver = receiver ? receiver : creator
-
-            const result = await this.buildClaimTradingFeeAccountsForSol({
+        const { accounts, preInstructions, postInstructions } =
+            await this.resolveTradingFeeAccounts({
                 payer,
-                feeReceiver,
-                tempWSolAcc: tempWSol,
+                feeReceiver: params.receiver,
+                claimer: creator,
                 pool,
                 virtualPool,
                 poolConfigState,
-                tokenBaseProgram,
-                tokenQuoteProgram,
             })
 
+        if (!transferHook) {
             return this.program.methods
                 .claimCreatorTradingFee(maxBaseAmount, maxQuoteAmount)
-                .accountsPartial({ ...result.accounts, creator })
-                .preInstructions(result.preInstructions)
-                .postInstructions(result.postInstructions)
-                .transaction()
-        } else {
-            // check if receiver is provided, use receiver, otherwise use creator
-            const feeReceiver = receiver ? receiver : creator
-
-            const result = await this.buildClaimTradingFeeAccountsForNonSol({
-                payer,
-                feeReceiver,
-                pool,
-                virtualPool,
-                poolConfigState,
-                tokenBaseProgram,
-                tokenQuoteProgram,
-            })
-            return this.program.methods
-                .claimCreatorTradingFee(maxBaseAmount, maxQuoteAmount)
-                .accountsPartial({ ...result.accounts, creator })
-                .preInstructions(result.preInstructions)
-                .postInstructions([])
+                .accountsPartial({ ...accounts, creator })
+                .preInstructions(preInstructions)
+                .postInstructions(postInstructions)
                 .transaction()
         }
-    }
 
-    /**
-     * Build a transaction that claims creator trading fees to an explicit receiver.
-     */
-    async claimCreatorTradingFeeToReceiver(
-        params: ClaimCreatorTradingFeeToReceiverParams
-    ): Promise<Transaction> {
-        const {
-            creator,
-            pool,
-            maxBaseAmount,
-            maxQuoteAmount,
-            receiver,
-            payer,
-        } = params
-
-        const { virtualPool, poolConfigState } =
-            await this.getPoolWithConfig(pool)
-
-        const tokenBaseProgram = getTokenProgram(poolConfigState.tokenType)
-        const tokenQuoteProgram = getTokenProgram(
-            poolConfigState.quoteTokenFlag
-        )
-
-        const isSOLQuoteMint = isNativeSol(poolConfigState.quoteMint)
-
-        if (isSOLQuoteMint) {
-            const result = await this.buildClaimTradingFeeAccountsForSol({
-                payer,
-                feeReceiver: receiver,
-                tempWSolAcc: creator,
-                pool,
-                virtualPool,
-                poolConfigState,
-                tokenBaseProgram,
-                tokenQuoteProgram,
-            })
-
-            return this.program.methods
-                .claimCreatorTradingFee(maxBaseAmount, maxQuoteAmount)
-                .accountsPartial({ ...result.accounts, creator })
-                .preInstructions(result.preInstructions)
-                .postInstructions(result.postInstructions)
-                .transaction()
-        } else {
-            const result = await this.buildClaimTradingFeeAccountsForNonSol({
-                payer,
-                feeReceiver: receiver,
-                pool,
-                virtualPool,
-                poolConfigState,
-                tokenBaseProgram,
-                tokenQuoteProgram,
-            })
-            return this.program.methods
-                .claimCreatorTradingFee(maxBaseAmount, maxQuoteAmount)
-                .accountsPartial({ ...result.accounts, creator })
-                .preInstructions(result.preInstructions)
-                .postInstructions([])
-                .transaction()
-        }
-    }
-
-    /**
-     * Build a transaction that claims creator trading fees with transfer-hook support.
-     */
-    async claimCreatorTradingFee2(
-        params: ClaimCreatorTradingFeeToReceiverParams
-    ): Promise<Transaction> {
-        const {
-            creator,
-            pool,
-            maxBaseAmount,
-            maxQuoteAmount,
-            receiver,
-            payer,
-        } = params
-
-        const { virtualPool, poolConfigState } =
-            await this.getPoolWithConfig(pool)
-
-        const tokenBaseProgram = getTokenProgram(poolConfigState.tokenType)
-        const tokenQuoteProgram = getTokenProgram(
-            poolConfigState.quoteTokenFlag
-        )
-
-        const isSOLQuoteMint = isNativeSol(poolConfigState.quoteMint)
-        const result = isSOLQuoteMint
-            ? await this.buildClaimTradingFeeAccountsForSol({
-                  payer,
-                  feeReceiver: receiver,
-                  tempWSolAcc: creator,
-                  pool,
-                  virtualPool,
-                  poolConfigState,
-                  tokenBaseProgram,
-                  tokenQuoteProgram,
-              })
-            : await this.buildClaimTradingFeeAccountsForNonSol({
-                  payer,
-                  feeReceiver: receiver,
-                  pool,
-                  virtualPool,
-                  poolConfigState,
-                  tokenBaseProgram,
-                  tokenQuoteProgram,
-              })
-
-        const {
-            info: transferHookAccountsInfo,
-            accounts: transferHookAccounts,
-        } = await this.getRemainingAccountsForTransferHook(
-            virtualPool.poolState.baseMint
-        )
-        const postInstructions: TransactionInstruction[] =
-            isSOLQuoteMint && 'postInstructions' in result
-                ? (result.postInstructions as TransactionInstruction[])
-                : []
-
+        const transferHookAccounts =
+            await this.getRemainingAccountsForTransferHook(
+                virtualPool.poolState.baseMint,
+                [
+                    {
+                        accountsType: AccountsType.TransferHookBase,
+                        source: virtualPool.poolState.baseVault,
+                        destination: accounts.tokenAAccount,
+                        authority: this.poolAuthority,
+                    },
+                ]
+            )
         return this.program.methods
             .claimCreatorTradingFee2(
                 maxBaseAmount,
                 maxQuoteAmount,
-                transferHookAccountsInfo
+                transferHookAccounts.info
             )
-            .accountsPartial({ ...result.accounts, creator })
-            .remainingAccounts(transferHookAccounts)
-            .preInstructions(result.preInstructions)
+            .accountsPartial({ ...accounts, creator })
+            .remainingAccounts(transferHookAccounts.accounts)
+            .preInstructions(preInstructions)
             .postInstructions(postInstructions)
             .transaction()
     }
 
     /**
-     * Build a transaction that withdraws creator surplus from a pool.
+     * Build a transaction that claims creator trading fees to receiver, or to
+     * creator when no receiver is given. With a native SOL quote the fee
+     * arrives in creator's wrapped SOL account and is unwrapped to receiver.
      */
+    async claimCreatorTradingFee(
+        params: ClaimCreatorTradingFeeParams
+    ): Promise<Transaction> {
+        return this.claimTradingFeeTx(
+            { ...params, receiver: params.receiver ?? params.creator },
+            false
+        )
+    }
+
+    /** claimCreatorTradingFee with a required receiver. */
+    async claimCreatorTradingFeeToReceiver(
+        params: ClaimCreatorTradingFeeToReceiverParams
+    ): Promise<Transaction> {
+        return this.claimTradingFeeTx(params, false)
+    }
+
+    /** claimCreatorTradingFeeToReceiver for a pool whose base mint has a transfer hook. */
+    async claimCreatorTradingFee2(
+        params: ClaimCreatorTradingFeeToReceiverParams
+    ): Promise<Transaction> {
+        return this.claimTradingFeeTx(params, true)
+    }
+
     async creatorWithdrawSurplus(
         params: CreatorWithdrawSurplusParams
     ): Promise<Transaction> {
         const { creator, pool } = params
-
         const { virtualPool, poolConfigState } =
             await this.getPoolWithConfig(pool)
-
-        const tokenQuoteProgram = getTokenProgram(
-            poolConfigState.quoteTokenFlag
-        )
-
-        const preInstructions: TransactionInstruction[] = []
-        const postInstructions: TransactionInstruction[] = []
-
-        const { ataPubkey: tokenQuoteAccount, ix: createQuoteTokenAccountIx } =
-            await getOrCreateATAInstruction(
-                this.connection,
-                poolConfigState.quoteMint,
-                creator,
-                creator,
-                true,
-                tokenQuoteProgram,
-                this.commitment
-            )
-
-        if (createQuoteTokenAccountIx) {
-            preInstructions.push(createQuoteTokenAccountIx)
-        }
-
-        const isSOLQuoteMint = isNativeSol(poolConfigState.quoteMint)
-
-        if (isSOLQuoteMint) {
-            const unwrapIx = unwrapSOLInstruction(creator, creator)
-            if (unwrapIx) {
-                postInstructions.push(unwrapIx)
-            }
-        }
-
-        const accounts = {
-            poolAuthority: this.poolAuthority,
-            config: virtualPool.poolState.config,
-            virtualPool: pool,
+        const {
             tokenQuoteAccount,
-            quoteVault: virtualPool.poolState.quoteVault,
-            quoteMint: poolConfigState.quoteMint,
-            creator,
             tokenQuoteProgram,
-        }
+            preInstructions,
+            postInstructions,
+        } = await this.buildWithdrawSurplusAccounts(creator, poolConfigState)
 
         return this.program.methods
             .creatorWithdrawSurplus()
-            .accountsPartial(accounts)
+            .accountsPartial({
+                poolAuthority: this.poolAuthority,
+                config: virtualPool.poolState.config,
+                virtualPool: pool,
+                tokenQuoteAccount,
+                quoteVault: virtualPool.poolState.quoteVault,
+                quoteMint: poolConfigState.quoteMint,
+                creator,
+                tokenQuoteProgram,
+            })
             .preInstructions(preInstructions)
             .postInstructions(postInstructions)
             .transaction()
@@ -597,19 +441,24 @@ export class CreatorService extends DynamicBondingCurveProgram {
 
     /**
      * Build a transaction that transfers pool creator ownership.
+     * Token-2022 and metadata authorities on the creator wallet are not moved.
      */
     async transferPoolCreator(
         params: TransferPoolCreatorParams
     ): Promise<Transaction> {
         const { pool, creator, newCreator } = params
+        if (newCreator.equals(creator)) {
+            throw new Error('newCreator must differ from creator')
+        }
 
         const virtualPool = await this.state.getPool(pool)
         if (!virtualPool) {
             throw new Error(`Pool not found: ${pool.toString()}`)
         }
 
+        // read only for a pool already migrated to DAMM v1
         const migrationMetadata = deriveDammV1MigrationMetadataAddress(pool)
-        const transaction = await this.program.methods
+        return this.program.methods
             .transferPoolCreator()
             .accountsPartial({
                 virtualPool: pool,
@@ -625,18 +474,15 @@ export class CreatorService extends DynamicBondingCurveProgram {
                 },
             ])
             .transaction()
-
-        return transaction
     }
 
-    /**
-     * Build a transaction that withdraws the creator migration fee.
-     */
     async creatorWithdrawMigrationFee(
         params: WithdrawMigrationFeeParams
     ): Promise<Transaction> {
-        const { pool, sender } = params
-
-        return this.buildWithdrawMigrationFeeTx('creator', pool, sender)
+        return this.buildWithdrawMigrationFeeTx(
+            'creator',
+            params.pool,
+            params.sender
+        )
     }
 }

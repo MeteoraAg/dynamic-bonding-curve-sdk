@@ -6,18 +6,11 @@ import {
 } from '@solana/web3.js'
 import { Vault } from '../idl/dynamic-vault/idl'
 import { Program } from '@coral-xyz/anchor'
-import {
-    deriveTokenVaultKey,
-    deriveVaultAddress,
-    deriveVaultLpMintAddress,
-} from './pda'
-import { BASE_ADDRESS } from '../constants'
+import { deriveVaultPdas } from './pda'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { Amm } from '../idl/damm-v1/idl'
 
-/**
- * Build the instruction and derived addresses for a permissionless dynamic vault.
- */
+/** The instruction that initializes the permissionless dynamic vault of a mint, with its addresses. */
 export async function createInitializePermissionlessDynamicVaultIx(
     mint: PublicKey,
     payer: PublicKey,
@@ -28,19 +21,14 @@ export async function createInitializePermissionlessDynamicVaultIx(
     lpMintKey: PublicKey
     instruction: TransactionInstruction
 }> {
-    const vaultKey = deriveVaultAddress(mint, BASE_ADDRESS)
-
-    const tokenVaultKey = deriveTokenVaultKey(vaultKey)
-
-    const lpMintKey = deriveVaultLpMintAddress(vaultKey)
-
-    const ix = await vaultProgram.methods
+    const { vaultPda, tokenVaultPda, lpMintPda } = deriveVaultPdas(mint)
+    const instruction = await vaultProgram.methods
         .initialize()
         .accountsPartial({
-            vault: vaultKey,
-            tokenVault: tokenVaultKey,
+            vault: vaultPda,
+            tokenVault: tokenVaultPda,
             tokenMint: mint,
-            lpMint: lpMintKey,
+            lpMint: lpMintPda,
             payer,
             rent: SYSVAR_RENT_PUBKEY,
             tokenProgram: TOKEN_PROGRAM_ID,
@@ -49,17 +37,15 @@ export async function createInitializePermissionlessDynamicVaultIx(
         .instruction()
 
     return {
-        instruction: ix,
-        vaultKey,
-        tokenVaultKey,
-        lpMintKey,
+        instruction,
+        vaultKey: vaultPda,
+        tokenVaultKey: tokenVaultPda,
+        lpMintKey: lpMintPda,
     }
 }
 
-/**
- * Build the DAMM V1 lock escrow instruction.
- */
-export async function createLockEscrowIx(
+/** The DAMM v1 instruction that creates a lock escrow for an owner. */
+export function createLockEscrowIx(
     payer: PublicKey,
     pool: PublicKey,
     lpMint: PublicKey,
@@ -67,17 +53,15 @@ export async function createLockEscrowIx(
     lockEscrowKey: PublicKey,
     dammV1Program: Program<Amm>
 ): Promise<TransactionInstruction> {
-    const ix = await dammV1Program.methods
+    return dammV1Program.methods
         .createLockEscrow()
         .accountsPartial({
             pool,
             lpMint,
             owner: escrowOwner,
             lockEscrow: lockEscrowKey,
-            payer: payer,
+            payer,
             systemProgram: SystemProgram.programId,
         })
         .instruction()
-
-    return ix
 }
