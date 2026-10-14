@@ -28,7 +28,7 @@ Syncs the SDK with dynamic-bonding-curve 0.2.2 (audited release, program commit 
 - `MigratedCollectFeeMode.Compounding` allows `compoundingFeeBps` of `0`.
 - Configs created by program 0.2.2 have `PoolConfig.version` 1 and `transferFeeFlag`. Swap quotes read the base transfer fee from that flag unless `baseMint` or `baseTransferFeeBasisPoints` is passed. A transfer fee is zero when its basis points are 0 or its maximum fee is 0.
 - A legacy config (`version` 0) cannot initialize a pool on a quote mint with a non-zero transfer fee or a live transfer fee config authority, and `migrateToDammV2` rejects it when the quote mint's current transfer fee is non-zero. Transfer-hook pool initialization rejects those quote mints at any version.
-- Compounding migration deposits round the scaled base up and the quote down. `getTransferFeeMigrationPositionSplit` uses the numerator `(1_000_000_000 / 100) * percentage` and rounds the liquidity down.
+- Compounding migration deposits round the scaled base up and the quote down.
 - Partial-fill quotes throw `Required input amount exceeds the provided amount in` when the reconstructed input is larger than `amountIn`.
 - `withdrawLeftover` makes `leftoverReceiver` a signer when the leftover charges a transfer fee.
 - Curve builders reserve the program migration base, `ceil(migrationQuoteThreshold * (100 - migrationFee.feePercentage) / 100)`. `buildCurveWithLiquidityWeights` and `buildCurveWithCustomSqrtPrices` use constant product for `Compounding` and concentrated liquidity otherwise, and the last segment of `buildCurveWithLiquidityWeights` now ends exactly at the migration sqrt price. `buildCurveWithTwoSegments` and `buildCurveWithMidPrice` keep a fractional `percentageSupplyOnMigration`.
@@ -41,11 +41,11 @@ Syncs the SDK with dynamic-bonding-curve 0.2.2 (audited release, program commit 
 - `client.state.getPoolConfigsByOwner` filters on the config's fee claimer. It filtered on the leftover receiver since 1.0.
 - `getCurveBreakdown` consumes only the remaining threshold on each segment and stops at exact cumulative completion (PR #120, snuff12).
 - `getBaseTokenForSwap`, `getMigrationThresholdPrice`, `getSwapAmountWithBuffer`, `getCurveBreakdown` and `getQuoteReserveFromNextSqrtPrice` stop at the first zero point of a stored curve, like the program. `client.state.getPoolBaseTokenCurveProgress` threw `Math operation overflow` once the price reached the last curve point, and at any time for a config whose last point is the migration price.
-- `getBaseTokenForSwap` and `getMigrationThresholdPrice` accumulate without a per-segment `u64` bound, like the program.
+- `getBaseTokenForSwap`, `getMigrationThresholdPrice` and `getCurveBreakdown` accumulate without a `u64` bound. `getSwapAmountWithBuffer` casts only the amount it keeps, and `validateConfigParameters` casts the swap base with `Type cast error` before it computes the migration amounts.
 - The first-buy builders pass the instructions sysvar only when the config enables the first swap with the minimum fee.
 - `client.state.getDammV1MigrationMetadata` returns `null` instead of throwing when the account does not exist.
 - `client.state.getPoolMetadata(pool)` and `client.state.getPartnerMetadata(feeClaimer)` fetch the metadata PDA and return the account, or `null` when none was created, instead of an array.
-- `getTokenType` and `getTokenDecimals` take an optional commitment.
+- `getTokenType` takes an optional commitment.
 - Synced the DAMM v2 IDL and `cp_amm.so` fixture to cp_amm 0.2.5.
 - `docs.md` and `CHANGELOG.md` ship in the package.
 
@@ -56,7 +56,7 @@ Syncs the SDK with dynamic-bonding-curve 0.2.2 (audited release, program commit 
 
 ### Removed
 
-- Helpers nothing referenced: `getAccountData`, `getAccountCreationTimestamp`, `getAccountCreationTimestamps`, `prepareTokenAccountTx`, `cleanUpTokenAccountTx`, `checkRateLimiterApplied`, `validateBalance`, `validateBaseTokenType`, `validateQuoteMintBasic`, `deriveDammV1EventAuthority`, `deriveDammV1PoolAuthority`, `deriveDammV2LockEscrowAddress`, `findAssociatedTokenAddress`, `deriveVaultAddress`, `deriveTokenVaultKey`, `deriveVaultLpMintAddress`, `requirePublicKey`, `convertDecimalToBN` (use `fromDecimalToBN`), `mulShr`, `SafeMath.mod`, `getFeeSchedulerMaxBaseFeeNumerator`, `getRateLimiterMinBaseFeeNumerator`, `getDeltaAmountBaseUnsignedUnchecked` and `getDeltaAmountQuoteUnsignedUnchecked` (the `256` variants are the unbounded ones), `BaseFeeHandler.validate`, `getProgram()` on the services (use `program`), and `DynamicBondingCurveClient.create` (the constructor defaults `commitment` to `confirmed`).
+- Helpers nothing referenced: `getAccountData`, `getAccountCreationTimestamp`, `getAccountCreationTimestamps`, `prepareTokenAccountTx`, `cleanUpTokenAccountTx`, `checkRateLimiterApplied`, `validateBalance`, `validateBaseTokenType`, `validateQuoteMintBasic`, `deriveDammV1EventAuthority`, `deriveDammV1PoolAuthority`, `deriveDammV2LockEscrowAddress`, `findAssociatedTokenAddress`, `deriveVaultAddress`, `deriveTokenVaultKey`, `deriveVaultLpMintAddress`, `convertDecimalToBN` (use `fromDecimalToBN`), `mulShr`, `SafeMath.mod`, `getFeeSchedulerMaxBaseFeeNumerator`, `getRateLimiterMinBaseFeeNumerator`, `getDeltaAmountBaseUnsignedUnchecked` and `getDeltaAmountQuoteUnsignedUnchecked` (the `256` variants are the unbounded ones), `BaseFeeHandler.validate`, `getProgram()` on the services (use `program`), and `DynamicBondingCurveClient.create` (the constructor defaults `commitment` to `confirmed`).
 - Types nothing used: `SwapQuoteConfig`, `DynamicCurveProgram`, `CreateConfigAccounts`, `InitializeSplPoolAccounts`, `InitializeToken2022PoolAccounts`, `InitializePoolParameters`, `LockEscrow`, `FeeResult`, `ClaimCreatorTradingFeeWithQuoteMintNotSolParams` and `ClaimCreatorTradingFeeWithQuoteMintSolParams`.
 - The `jito-ts` dev dependency.
 
@@ -65,15 +65,13 @@ Syncs the SDK with dynamic-bonding-curve 0.2.2 (audited release, program commit 
 - Import from `@meteora-ag/dynamic-bonding-curve-sdk` or `@meteora-ag/dynamic-bonding-curve-sdk/math`. The package root is an explicit export list and the `exports` map exposes only those two entries. The curve, fee, transfer fee and swap math moved to `./math` (57 functions, among them `calculateBaseToQuoteFromAmountIn`, `getFeeMode`, `getIncludedFeeAmount`, `getFeeNumeratorFromIncludedAmount`, `getSwapResult`, the `getDeltaAmount*` and `getNextSqrtPrice*` functions, `SafeMath`, `mulDiv` and `pow`). `swapQuoteExactIn`, `swapQuoteExactOut`, `swapQuotePartialFill` and `DynamicBondingCurveProgram` are not exported; `swapQuote` stays on the root. Internal helpers such as `getOrCreateATAInstruction`, `unwrapSOLInstruction`, `wrapSOLInstruction`, `deriveMintMetadata`, `derivePositionAddress`, `createDammV1Program`, `getFirstCurve`, `getTwoCurve`, `isDefaultLockedVesting` and the `validate*` building blocks are no longer exported.
 - Construct the services through `DynamicBondingCurveClient`. `new PoolService(connection, commitment)` and the same constructor on the other services are no longer supported.
 - `CreateConfigParams`, `CreateConfig2Params` and `CreateConfigWithTransferHookParams` declare `config`, `feeClaimer`, `leftoverReceiver`, `quoteMint` and `payer` as required `PublicKey`s.
-- `getSwapQuoteTransferFees` takes an options object instead of a commitment string. Swap quotes for a Token-2022 quote mint require `quoteMint` and `currentEpoch`.
+- Swap quotes for a Token-2022 quote mint require `quoteMint` and `currentEpoch`.
 - `getFeeOnAmount` and `splitFees` no longer take `poolFees`. `calculateBaseToQuoteFromAmountOut` and `calculateQuoteToBaseFromAmountOut` return `{ amountIn, nextSqrtPrice }`.
-- `getOrCreateATAInstruction(connection, mint, owner, payer, tokenProgram, commitment?)`: the `allowOwnerOffCurve` argument is gone and always on. `unwrapSOLInstruction` always returns an instruction.
 - `createDbcProgram` returns the `Program` instead of `{ program }`. `deriveEscrow` is `deriveLockerEscrowAddress`.
 - `getMigratedPoolFeeParams` throws for `MigrationFeeOption.Customizable` when `migratedPoolFee.poolFeeBps` is not set.
 - `swap`, `swap2`, `claimPartnerTradingFee`, `claimPartnerTradingFeeToReceiver`, `claimCreatorTradingFee` and `claimCreatorTradingFeeToReceiver` reject transfer-hook pools. Use `swap2WithTransferHook`, `claimPartnerTradingFee2` and `claimCreatorTradingFee2`. Standard pool creation rejects a transfer-hook config, and transfer-hook pool creation rejects a standard config.
 - `transferPoolCreator` rejects a `newCreator` equal to `creator`.
 - `tempWSolAcc` is gone from `claimPartnerTradingFee` and `claimCreatorTradingFee`. With a native SOL quote the fee is wrapped into the fee claimer's or creator's token account and unwrapped to `receiver`, so only the claimer signs.
-- `validateSwapAmount` returns nothing and throws `Amount is zero`.
 
 ## [1.5.13] - 2026-09-24
 

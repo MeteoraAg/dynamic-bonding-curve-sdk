@@ -16,6 +16,7 @@ export const ProgramError = {
     InvalidMigrationOption: 'Invalid migration option',
     InvalidTokenDecimals: 'Invalid token decimals',
     InvalidTokenType: 'Invalid token type',
+    InvalidQuoteThreshold: 'Invalid quote threshold',
     InvalidTokenSupply: 'Invalid token supply',
     InvalidCurve: 'Invalid curve',
     InvalidVestingParameters: 'Invalid vesting parameters',

@@ -980,13 +980,13 @@ export function validateConfigParameters(
 
     // curve shape is checked before any curve math runs on it
     if (configParam.migrationQuoteThreshold.lte(new BN(0))) {
-        throw new Error('Migration quote threshold must be greater than 0')
+        throw new Error(ProgramError.InvalidQuoteThreshold)
     }
     if (
         configParam.sqrtStartPrice.lt(MIN_SQRT_PRICE) ||
         configParam.sqrtStartPrice.gte(MAX_SQRT_PRICE)
     ) {
-        throw new Error('Invalid sqrt start price')
+        throw new Error(ProgramError.InvalidCurve)
     }
     if (!validateCurve(configParam.curve, configParam.sqrtStartPrice)) {
         throw new Error(ProgramError.InvalidCurve)
@@ -998,7 +998,7 @@ export function validateConfigParameters(
         configParam.curve
     )
     if (sqrtMigrationPrice.gte(MAX_SQRT_PRICE)) {
-        throw new Error('Migration sqrt price exceeds maximum')
+        throw new Error(ProgramError.InvalidCurve)
     }
 
     const swapBaseAmountForCurve = getBaseTokenForSwap(
@@ -1006,6 +1006,9 @@ export function validateConfigParameters(
         sqrtMigrationPrice,
         configParam.curve
     )
+    if (swapBaseAmountForCurve.gt(U64_MAX)) {
+        throw new Error(ProgramError.TypeCastFailed)
+    }
     const migratedCollectFeeMode =
         configParam.migratedPoolFee?.collectFeeMode ??
         MigratedCollectFeeMode.QuoteToken
@@ -1022,17 +1025,7 @@ export function validateConfigParameters(
         swapBaseAmountForCurve.lte(new BN(0)) ||
         migrationBaseAmountForCurve.lte(new BN(0))
     ) {
-        throw new Error(
-            'Invalid curve: swap base amount and migration base amount must both be greater than 0'
-        )
-    }
-    if (
-        swapBaseAmountForCurve.gt(U64_MAX) ||
-        migrationBaseAmountForCurve.gt(U64_MAX)
-    ) {
-        throw new Error(
-            'Invalid curve: swap base amount and migration base amount must fit in u64'
-        )
+        throw new Error(ProgramError.InvalidCurve)
     }
 
     // the program requires at least 10% (1000 BPS) of liquidity to be locked at day 1
