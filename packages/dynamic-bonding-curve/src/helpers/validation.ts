@@ -1204,6 +1204,11 @@ function validateMigratedPoolBaseFeeMode(
                 'numberOfPeriod, sqrtPriceStepBps, schedulerExpirationDuration, and reductionFactor must all be greater than zero for a market cap scheduler base fee mode'
             )
         }
+        if (
+            migratedPoolMarketCapFeeSchedulerParams.sqrtPriceStepBps > U16_MAX
+        ) {
+            throw new Error(`sqrtPriceStepBps must be at most ${U16_MAX}`)
+        }
 
         const schedulerMode =
             migratedPoolBaseFeeMode ===
