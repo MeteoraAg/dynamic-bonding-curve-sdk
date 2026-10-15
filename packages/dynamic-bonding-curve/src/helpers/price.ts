@@ -4,7 +4,7 @@ import {
     type LiquidityDistributionParameters,
     type PoolConfig,
 } from '../types'
-import { MAX_BASIS_POINT } from '../constants'
+import { MAX_BASIS_POINT, U16_MAX } from '../constants'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
 import {
@@ -119,6 +119,12 @@ export function computeSqrtPriceStepBps(
     if (sqrtPriceStepBps <= 0) {
         throw new Error(
             'sqrtPriceStepBps rounds to zero for the given priceMultiple and numberOfPeriod'
+        )
+    }
+    // the program stores sqrt_price_step_bps as a u16
+    if (sqrtPriceStepBps > U16_MAX) {
+        throw new Error(
+            `sqrtPriceStepBps must be at most ${U16_MAX}, use more periods or a smaller priceMultiple`
         )
     }
     return sqrtPriceStepBps
