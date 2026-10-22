@@ -605,7 +605,7 @@ const transaction = await client.partner.createConfig2({
 - When `transferFeeParameters` is set, or the quote mint has a non-zero transfer fee or a live transfer fee config authority, the config must use a constant token supply (`preMigrationTokenSupply == postMigrationTokenSupply`), no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`.
 - New configs are `PoolConfig.version` 1. A legacy config (`version` 0) cannot initialize a pool on a quote mint with a non-zero transfer fee or a live transfer fee config authority. Transfer-hook pool initialization rejects those quote mints at any version.
 - A base or quote transfer fee lowers what DAMM v2 receives at migration. The program keeps the migration price at or below the budget ratio by depositing the side that lost the larger share as is and scaling the other side: quote rounds down, base rounds up. The migrated pool starts with less liquidity. The amount not deposited is added to the protocol migration fee.
-- Swap quotes read the base transfer fee from `config.transferFeeFlag` unless `baseMint` is passed. Flag 1 means the config created a TransferFeeConfig. For a Token-2022 quote mint they throw unless `quoteMint` and `currentEpoch` are passed. `getSwapQuoteTransferFees(connection, config, { baseMint })` fetches the quote mint, the base mint, and the current epoch. See [swapQuote2](#swapQuote2).
+- Swap quotes read the base transfer fee from `config.transferFeeFlag` unless `baseMint` is passed. Flag 1 means the config created a TransferFeeConfig. For a Token-2022 quote mint they throw unless `quoteMint` and `currentEpoch` are passed. `getSwapQuoteTransferFees(connection, config, { baseMint })` fetches the quote mint, the base mint, and the current epoch. See [swapQuote2](#swapquote2).
 
 ---
 
@@ -2021,7 +2021,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are in seconds.
 - `feeSchedulerParam.totalDuration` is based on your `activationType`. Slot is 400ms, Timestamp is 1000ms.
-- See [buildCurve](#buildCurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
+- See [buildCurve](#buildcurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
 
 ---
 
@@ -2133,7 +2133,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are in seconds.
 - `feeSchedulerParam.totalDuration` is based on your `activationType`. Slot is 400ms, Timestamp is 1000ms.
-- See [buildCurve](#buildCurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
+- See [buildCurve](#buildcurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
 
 ---
 
@@ -2250,7 +2250,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are in seconds.
 - `feeSchedulerParam.totalDuration` is based on your `activationType`. Slot is 400ms, Timestamp is 1000ms.
-- See [buildCurve](#buildCurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
+- See [buildCurve](#buildcurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
 
 ---
 
@@ -2377,7 +2377,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are in seconds.
 - `feeSchedulerParam.totalDuration` is based on your `activationType`. Slot is 400ms, Timestamp is 1000ms.
-- See [buildCurve](#buildCurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
+- See [buildCurve](#buildcurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
 
 ---
 
@@ -2518,7 +2518,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are in seconds.
 - `feeSchedulerParam.totalDuration` is based on your `activationType`. Slot is 400ms, Timestamp is 1000ms.
-- See [buildCurve](#buildCurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
+- See [buildCurve](#buildcurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
 
 ---
 
