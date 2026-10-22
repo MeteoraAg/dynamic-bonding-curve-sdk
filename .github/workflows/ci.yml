@@ -7,7 +7,7 @@ on:
 
 env:
   CI: true
-  NODE_VERSION: "22.13"
+  NODE_VERSION: "22.23.4"
 
 jobs:
   lint:
