@@ -3919,13 +3919,13 @@ claimCreatorTradingFeeToReceiver(
 **Parameters**
 
 ```typescript
-interface ClaimCreatorTradingFee2Params {
+interface ClaimCreatorTradingFeeToReceiverParams {
     creator: PublicKey // The creator of the pool
     payer: PublicKey // The payer of the transaction
     pool: PublicKey // The pool address
     maxBaseAmount: BN // The maximum amount of base tokens to claim
     maxQuoteAmount: BN // The maximum amount of quote tokens to claim
-    receiver?: PublicKey | null // The wallet that will receive the tokens
+    receiver: PublicKey // The wallet that will receive the tokens
 }
 ```
 
@@ -3948,7 +3948,7 @@ const transaction = await client.creator.claimCreatorTradingFeeToReceiver({
 
 **Notes**
 
-- The creator of the pool must be the same as the creator in the `ClaimCreatorTradingFee2Params` params.
+- The creator of the pool must be the same as the creator in the `ClaimCreatorTradingFeeToReceiverParams` params.
 - You can indicate maxBaseAmount or maxQuoteAmount to be 0 to not claim Base or Quote tokens respectively.
 - Can be used in case the creator is a squad multisig account.
 
@@ -3975,7 +3975,7 @@ interface ClaimCreatorTradingFeeToReceiverParams {
     pool: PublicKey // The pool address
     maxBaseAmount: BN // The maximum amount of base tokens to claim
     maxQuoteAmount: BN // The maximum amount of quote tokens to claim
-    receiver?: PublicKey | null // The wallet that will receive the tokens
+    receiver: PublicKey // The wallet that will receive the tokens
 }
 ```
 
