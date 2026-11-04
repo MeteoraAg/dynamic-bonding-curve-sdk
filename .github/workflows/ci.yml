@@ -122,3 +122,17 @@ jobs:
 
       - name: Run tests
         run: pnpm --filter @meteora-ag/dynamic-bonding-curve-sdk test
+
+  # advisories of the published dependencies, ignored ones are in pnpm-workspace.yaml
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod
