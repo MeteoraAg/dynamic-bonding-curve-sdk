@@ -144,6 +144,30 @@ describe('getMigratedPoolMarketCapFeeSchedulerParams', () => {
         expect(params.schedulerExpirationDuration).toBe(3600)
         expect(params.reductionFactor.toNumber()).toBe(9_000_000)
     })
+
+    test('rejects a sqrtPriceStepBps the program cannot store in a u16', () => {
+        // (sqrt(1000) - 1) * 10_000 / 5 = 61_245 fits, / 4 = 76_556 does not
+        expect(
+            getMigratedPoolMarketCapFeeSchedulerParams(
+                1000,
+                10,
+                DammV2BaseFeeMode.FeeMarketCapSchedulerLinear,
+                5,
+                1000,
+                3600
+            ).sqrtPriceStepBps
+        ).toBe(61_245)
+        expect(() =>
+            getMigratedPoolMarketCapFeeSchedulerParams(
+                1000,
+                10,
+                DammV2BaseFeeMode.FeeMarketCapSchedulerLinear,
+                4,
+                1000,
+                3600
+            )
+        ).toThrow('sqrtPriceStepBps must be at most 65535')
+    })
 })
 
 describe('getMigratedPoolFeeParams', () => {

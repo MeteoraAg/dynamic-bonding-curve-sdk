@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import { Keypair, PublicKey } from '@solana/web3.js'
+import BN from 'bn.js'
 import {
     buildCurve,
+    DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
     MigratedCollectFeeMode,
     MigrationFeeOption,
@@ -122,5 +124,28 @@ describe('validateMigratedPoolFee', () => {
                 100
             )
         ).toBe(false)
+    })
+
+    test('a market cap scheduler needs a sqrtPriceStepBps that fits a u16', () => {
+        const withStep = (sqrtPriceStepBps: number) =>
+            validateMigratedPoolFee(
+                {
+                    collectFeeMode: MigratedCollectFeeMode.QuoteToken,
+                    dynamicFee: DammV2DynamicFeeMode.Disabled,
+                    poolFeeBps: 1000,
+                },
+                MigrationOption.MET_DAMM_V2,
+                MigrationFeeOption.Customizable,
+                {
+                    numberOfPeriod: 4,
+                    sqrtPriceStepBps,
+                    schedulerExpirationDuration: 3600,
+                    reductionFactor: new BN(9_000_000),
+                },
+                0,
+                DammV2BaseFeeMode.FeeMarketCapSchedulerLinear
+            )
+        expect(withStep(65_535)).toBe(true)
+        expect(withStep(65_536)).toBe(false)
     })
 })

@@ -1894,7 +1894,7 @@ const transaction = await client.partner.createConfig({
     - `baseFeeMode` must be `DammV2BaseFeeMode.FeeMarketCapSchedulerLinear` (3) or `FeeMarketCapSchedulerExponential` (4).
     - `endingBaseFeeBps` must be strictly less than the bonding curve's `baseFeeParams.feeSchedulerParam.endingFeeBps`.
     - `priceMultiple` is required and must be greater than 1.
-    - The SDK derives on-chain `sqrtPriceStepBps` from `priceMultiple` and `numberOfPeriod`.
+    - The SDK derives on-chain `sqrtPriceStepBps` from `priceMultiple` and `numberOfPeriod` as `floor((sqrt(priceMultiple) - 1) * 10_000 / numberOfPeriod)`. The program stores it as a u16, so it must be at most 65535: `priceMultiple: 1000` needs at least 5 periods.
     - `poolFeeBps` must be greater than 0.
 - If `migratedPoolFee.collectFeeMode = MigratedCollectFeeMode.Compounding` (2), `compoundingFeeBps` must be `>= 0` and `<= 10_000`. `0` collects the trading fee in the quote token. Otherwise `compoundingFeeBps` must be `0`.
 - For DAMM V1 migration, all `migratedPoolFee` parameters are ignored and defaults are used.
