@@ -14,6 +14,7 @@ import {
     calculateTransferFeeExcludedAmount,
     calculateTransferFeeIncludedAmount,
     DynamicBondingCurveClient,
+    getSwapQuoteTransferFees,
     MigratedCollectFeeMode,
     MigratedTransferFeeAuthorityOption,
     MigrationFeeOption,
@@ -30,7 +31,9 @@ import {
 import { validateTransferFeeRestrictions } from '../src/helpers/validation'
 import type { Mint } from '@solana/spl-token'
 import { MAX_BASE_TRANSFER_FEE_BPS, U64_MAX } from '../src/constants'
+import { fundSol, LOCALNET_RPC_URL } from './utils/common'
 import { curveBaseParams } from './utils/curve'
+import { createTransferFeeQuoteMint } from './utils/tokenBadgeFlow'
 
 const baseCurve = buildCurve({
     ...curveBaseParams({
@@ -234,11 +237,62 @@ describe('transfer fee migration position split', () => {
 })
 
 describe('transfer fee quotes', () => {
-    const client = new DynamicBondingCurveClient(
-        new Connection('http://127.0.0.1:8899'),
-        'confirmed'
-    )
+    const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
+    const client = new DynamicBondingCurveClient(connection, 'confirmed')
     const amountIn = new BN(1_000_000_000)
+
+    test('charges the Token-2022 quote mint fee before the config exists', async () => {
+        const payer = Keypair.generate()
+        await fundSol(connection, payer.publicKey)
+        const quoteMint = await createTransferFeeQuoteMint(
+            connection,
+            payer,
+            100
+        )
+        const transferFees = await getSwapQuoteTransferFees(connection, {
+            quoteMint,
+            quoteTokenFlag: TokenType.Token2022,
+        })
+
+        const quote = client.pool.getQuoteFromInputAmount({
+            config: baseCurve,
+            swapBaseForQuote: false,
+            amountIn,
+            quoteTokenFlag: TokenType.Token2022,
+            ...transferFees,
+        })
+
+        const { amount: amountAfterFee } = calculateTransferFeeExcludedAmount(
+            { transferFeeBasisPoints: 100, maximumFee: U64_MAX },
+            amountIn
+        )
+        expect(quote.includedTransferFeeAmountIn.eq(amountIn)).toBe(true)
+        expect(quote.includedFeeInputAmount.eq(amountAfterFee)).toBe(true)
+    })
+
+    test('rejects a mint address where a decoded Mint is expected', () => {
+        const address = Keypair.generate().publicKey as unknown as Mint
+
+        expect(() =>
+            client.pool.getQuoteFromInputAmount({
+                config: baseCurve,
+                swapBaseForQuote: false,
+                amountIn,
+                quoteTokenFlag: TokenType.Token2022,
+                quoteMint: address,
+                currentEpoch: 0,
+            })
+        ).toThrow('quoteMint must be the decoded Mint account')
+        expect(() =>
+            client.pool.getQuoteFromOutputAmount({
+                config: baseCurve,
+                swapBaseForQuote: false,
+                amountOut: amountIn,
+                baseMint: address,
+                currentEpoch: 0,
+            })
+        ).toThrow('baseMint must be the decoded Mint account')
+    })
 
     test('a base transfer fee reduces the quote bought with quote tokens', () => {
         const noFee = client.pool.getQuoteFromInputAmount({
@@ -313,6 +367,7 @@ describe('transfer fee quotes', () => {
             resolveSwapTransferFees(config, false, {
                 quoteMint: {
                     address: Keypair.generate().publicKey,
+                    tlvData: Buffer.alloc(0),
                 } as Mint,
                 currentEpoch: 0,
             })

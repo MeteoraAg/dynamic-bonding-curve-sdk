@@ -2911,7 +2911,7 @@ const quote = client.pool.swapQuote2({
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
 - Transfer fees are applied before the curve on the input mint and after the curve on the output mint. `amountIn` and `amountOut` are the amounts the user pays and receives. `includedTransferFeeAmountIn` is what the user pays. `excludedTransferFeeAmountOut` is what the user receives. `minimumAmountOut` and `maximumAmountIn` use those amounts.
 - A base transfer fee is read from `config.transferFeeFlag` when `baseMint` is omitted. Flag 1 uses `config.transferFeeBasisPoints` and a maximum fee of `u64::MAX`. Pass `baseMint` to use the mint's epoch fee, or `baseTransferFeeBasisPoints` before the mint exists. `currentEpoch` is required when either mint is set. A fee with basis points of 0 or a maximum fee of 0 charges nothing.
-- When `config.quoteTokenFlag` is Token-2022, `quoteMint` and `currentEpoch` are required, because the program applies the quote mint's fee for the current epoch. `getSwapQuoteTransferFees` fetches that mint. Pass the pool's base mint to fetch its epoch fee too. With neither a Token-2022 quote mint nor a base mint, it returns an empty object:
+- When `config.quoteTokenFlag` is Token-2022, the decoded `quoteMint` account and `currentEpoch` are required, because the program applies the quote mint's fee for the current epoch. `getSwapQuoteTransferFees` fetches that mint. Pass the pool's base mint to fetch its epoch fee too. With neither a Token-2022 quote mint nor a base mint, it returns an empty object:
 
 ```typescript
 const quote = client.pool.swapQuote2({
@@ -2985,7 +2985,21 @@ const quote = client.pool.getQuoteFromInputAmount({
 - `migrationSqrtPrice` is computed the way `process_create_config` computes it, from `migrationQuoteThreshold`, `sqrtStartPrice`, and `curve`.
 - `SwapMode.ExactIn` throws if the full input cannot be absorbed by the curve. Use `SwapMode.PartialFill` to fill up to the available curve liquidity and inspect `amountLeft`.
 - Omit `currentPoint` to use 0 for both the activation point and the current point. A caller-supplied `currentPoint` is used for both, so elapsed time stays 0.
-- Pass `baseTransferFeeBasisPoints` when `createConfig2` sets a base transfer fee. Pass `quoteTokenFlag: TokenType.Token2022` for a Token-2022 quote mint; `quoteMint` and `currentEpoch` are then required.
+- Pass `baseTransferFeeBasisPoints` when `createConfig2` sets a base transfer fee. Pass `quoteTokenFlag: TokenType.Token2022` for a Token-2022 quote mint; `quoteMint` and `currentEpoch` are then required. `quoteMint` here is the decoded `Mint` account, not its address. `getSwapQuoteTransferFees` fetches both before the config exists:
+
+```typescript
+const quote = client.pool.getQuoteFromInputAmount({
+    config: curveConfig,
+    swapBaseForQuote: false,
+    amountIn: new BN(10_000_000),
+    quoteTokenFlag: TokenType.Token2022,
+    ...(await getSwapQuoteTransferFees(connection, {
+        quoteMint, // PublicKey of the Token-2022 quote mint
+        quoteTokenFlag: TokenType.Token2022,
+    })),
+})
+```
+
 - An existing pool is quoted with `swapQuote2` once the pool exists. This function does not accept a decoded `PoolConfig`.
 
 ---
@@ -5436,7 +5450,7 @@ function rateLimiterApplied(params: {
 
 ### getSwapQuoteTransferFees
 
-The quote mint, optional base mint and current epoch a swap quote on an existing pool needs. Empty when the quote mint is SPL Token and no baseMint is given, since neither side can then carry a transfer fee.
+The decoded quote mint, optional base mint and current epoch a swap quote needs. Before the config exists, pass `{ quoteMint, quoteTokenFlag }` as `config`. Empty when the quote mint is SPL Token and no baseMint is given, since neither side can then carry a transfer fee.
 
 **Function**
 
@@ -5447,6 +5461,19 @@ function getSwapQuoteTransferFees(
     options: { commitment?: Commitment; baseMint?: PublicKey } = {}
 ): Promise<QuoteTransferFees>
 ```
+
+**Returns**
+
+```typescript
+type QuoteTransferFees = {
+    currentEpoch?: number
+    baseMint?: Mint // decoded mint account, as returned by getMint
+    quoteMint?: Mint // decoded mint account, as returned by getMint
+    baseTransferFeeBasisPoints?: number
+}
+```
+
+Spread the result into `swapQuote2`, `getQuoteFromInputAmount` or `getQuoteFromOutputAmount`. Passing a mint address as `quoteMint` or `baseMint` throws.
 
 ---
 

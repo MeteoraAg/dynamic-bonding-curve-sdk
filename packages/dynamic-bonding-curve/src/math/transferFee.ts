@@ -92,6 +92,15 @@ export function getEpochTransferFee(
     }
 }
 
+// spl-token reads a mint's extensions from tlvData, which a mint address lacks
+function assertMintAccount(mint: Mint, name: 'baseMint' | 'quoteMint'): void {
+    if (!Buffer.isBuffer(mint.tlvData)) {
+        throw new Error(
+            `${name} must be the decoded Mint account, not its address, use getSwapQuoteTransferFees`
+        )
+    }
+}
+
 /**
  * The transfer fees on the input and output side of a swap. The base fee
  * comes from baseMint, then baseTransferFeeBasisPoints, then the config; the
@@ -110,6 +119,7 @@ export function resolveSwapTransferFees(
 ): { input: EpochTransferFee | null; output: EpochTransferFee | null } {
     let base: EpochTransferFee | null
     if (transferFees?.baseMint) {
+        assertMintAccount(transferFees.baseMint, 'baseMint')
         if (transferFees.currentEpoch === undefined) {
             throw new Error('currentEpoch is required to quote a transfer fee')
         }
@@ -125,6 +135,7 @@ export function resolveSwapTransferFees(
 
     let quote: EpochTransferFee | null = null
     if (transferFees?.quoteMint) {
+        assertMintAccount(transferFees.quoteMint, 'quoteMint')
         if (
             config.quoteMint &&
             !transferFees.quoteMint.address.equals(config.quoteMint)

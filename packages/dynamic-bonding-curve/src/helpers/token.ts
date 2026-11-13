@@ -205,9 +205,10 @@ export function isSupportedQuoteMint(
 }
 
 /**
- * The quote mint, optional base mint and current epoch a swap quote on an
- * existing pool needs. Empty when the quote mint is SPL Token and no baseMint
- * is given, since neither side can then carry a transfer fee.
+ * The decoded quote mint, optional base mint and current epoch a swap quote
+ * needs. Before the config exists, pass `{ quoteMint, quoteTokenFlag }` as
+ * config. Empty when the quote mint is SPL Token and no baseMint is given,
+ * since neither side can then carry a transfer fee.
  */
 export async function getSwapQuoteTransferFees(
     connection: Connection,
