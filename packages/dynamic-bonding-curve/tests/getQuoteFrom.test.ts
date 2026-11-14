@@ -1,5 +1,7 @@
 import { expect, test, describe } from 'vitest'
 import BN from 'bn.js'
+import { Keypair } from '@solana/web3.js'
+import { NATIVE_MINT } from '@solana/spl-token'
 import {
     BaseFeeMode,
     BuildCurveParams,
@@ -48,6 +50,26 @@ describe('getQuoteFrom', () => {
         expect(
             exactOut.maximumAmountIn!.gte(exactOut.includedFeeInputAmount)
         ).toBe(true)
+    })
+
+    test('quotes createConfig params the same as the curve they contain', () => {
+        const wallet = Keypair.generate().publicKey
+        const createConfigParams = {
+            ...curveConfig,
+            config: Keypair.generate().publicKey,
+            feeClaimer: wallet,
+            leftoverReceiver: wallet,
+            quoteMint: NATIVE_MINT,
+            payer: wallet,
+        }
+        const params = {
+            swapBaseForQuote: false,
+            amountIn: new BN(1_000_000_000),
+        }
+
+        expect(
+            getQuoteFromInputAmount({ ...params, config: createConfigParams })
+        ).toEqual(getQuoteFromInputAmount({ ...params, config: curveConfig }))
     })
 
     test('partial fill returns the unfilled input', () => {

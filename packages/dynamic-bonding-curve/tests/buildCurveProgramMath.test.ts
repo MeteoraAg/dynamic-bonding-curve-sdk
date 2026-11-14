@@ -21,7 +21,8 @@ import {
 } from '../src'
 import { curveBaseParams } from './utils/curve'
 
-function programSupplyGap(config: ConfigParameters): { gap: BN } {
+/** Pre-migration supply minus what the swap buffer, the migration base and vesting need, recomputed from the built config. */
+function supplyAboveMinimum(config: ConfigParameters): BN {
     const sqrtMigrationPrice = getMigrationThresholdPrice(
         config.migrationQuoteThreshold,
         config.sqrtStartPrice,
@@ -49,12 +50,10 @@ function programSupplyGap(config: ConfigParameters): { gap: BN } {
     const minimumSupply = swapBaseAmountBuffer
         .add(migrationBaseAmount)
         .add(getTotalVestingAmount(config.lockedVesting))
-    return {
-        gap: config.tokenSupply!.preMigrationTokenSupply.sub(minimumSupply),
-    }
+    return config.tokenSupply!.preMigrationTokenSupply.sub(minimumSupply)
 }
 
-describe('buildCurve math matches program migration math', () => {
+describe('every curve builder reserves the supply the migration needs plus the leftover', () => {
     const collectFeeModes = [
         MigratedCollectFeeMode.QuoteToken,
         MigratedCollectFeeMode.Compounding,
@@ -122,9 +121,9 @@ describe('buildCurve math matches program migration math', () => {
         ]
 
         for (const [name, build] of builders) {
-            test(`${name} reserves the program migration base (collect fee mode ${collectFeeMode})`, () => {
+            test(`${name} leaves only the leftover above the required supply (collect fee mode ${collectFeeMode})`, () => {
                 const config = build()
-                const { gap } = programSupplyGap(config)
+                const gap = supplyAboveMinimum(config)
                 const leftover = new BN(1_000).mul(new BN(10 ** 6))
 
                 expect(gap.gte(new BN(0))).toBe(true)

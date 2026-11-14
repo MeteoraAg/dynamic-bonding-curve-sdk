@@ -1,6 +1,7 @@
 import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import {
     BaseFeeMode,
+    buildCurve,
     buildCurveWithCustomSqrtPrices,
     ConfigParameters,
     createSqrtPrices,
@@ -12,6 +13,7 @@ import {
     MigrationOption,
     TokenDecimal,
     TokenAuthorityOption,
+    TokenType,
 } from '../../src'
 import { curveBaseParams } from './curve'
 
@@ -40,6 +42,7 @@ export async function fundSol(
 /** A three-segment curve with an exponential fee schedule, used by the validator-backed tests. */
 export function buildTestCurveConfig(options?: {
     migratedPoolFee?: MigratedPoolFeeConfig
+    creatorTradingFeePercentage?: number
 }): ConfigParameters {
     const customPrices = [0.000000001, 0.00000000105, 0.000000002, 0.000001]
     const tokenBaseDecimal = TokenDecimal.SIX
@@ -72,6 +75,8 @@ export function buildTestCurveConfig(options?: {
                 },
                 dynamicFeeEnabled: true,
                 poolCreationFee: 1,
+                creatorTradingFeePercentage:
+                    options?.creatorTradingFeePercentage ?? 0,
             },
             migration: {
                 migrationOption: MigrationOption.MET_DAMM_V2,
@@ -90,5 +95,30 @@ export function buildTestCurveConfig(options?: {
         }),
         sqrtPrices,
         liquidityWeights,
+    })
+}
+
+/**
+ * A Token-2022 base, constant supply, no vesting and a compounding customizable
+ * migration: the shape a config needs when its quote mint carries a transfer fee.
+ */
+export function buildTransferFeeQuoteCurveConfig(): ConfigParameters {
+    return buildCurve({
+        ...curveBaseParams({
+            token: { tokenType: TokenType.Token2022 },
+            migration: {
+                migrationOption: MigrationOption.MET_DAMM_V2,
+                migrationFeeOption: MigrationFeeOption.Customizable,
+                migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
+                migratedPoolFee: {
+                    collectFeeMode: MigratedCollectFeeMode.Compounding,
+                    dynamicFee: 0,
+                    poolFeeBps: 100,
+                    compoundingFeeBps: 0,
+                },
+            },
+        }),
+        percentageSupplyOnMigration: 20,
+        migrationQuoteThreshold: 50,
     })
 }

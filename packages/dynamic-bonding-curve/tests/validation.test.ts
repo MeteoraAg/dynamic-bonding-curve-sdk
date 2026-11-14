@@ -43,6 +43,15 @@ describe('validateConfigParameters', () => {
         ).toThrow('Invalid fee claimer')
     })
 
+    test('rejects a default leftover receiver as InvalidLeftoverAddress', () => {
+        expect(() =>
+            validateConfigParameters({
+                ...config,
+                leftoverReceiver: PublicKey.default,
+            })
+        ).toThrow('Invalid leftover address')
+    })
+
     test('checks the curve shape before running curve math on it', () => {
         expect(() =>
             validateConfigParameters({ ...config, curve: [] })
