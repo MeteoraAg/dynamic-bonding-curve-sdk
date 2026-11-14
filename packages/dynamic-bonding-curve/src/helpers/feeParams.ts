@@ -38,7 +38,6 @@ import {
     convertToLamports,
     feeNumeratorToBps,
 } from './utils'
-import { computeSqrtPriceStepBps } from './price'
 import { getFeeNumeratorOnExponentialFeeScheduler } from '../math/poolFees/feeScheduler'
 import { getMaxIndex } from '../math/poolFees/rateLimiter'
 import { ProgramError } from '../math/errors'
@@ -49,6 +48,40 @@ function assertFeeBpsRange(name: string, bps: number): void {
             `${name} must be between ${MIN_FEE_BPS} and ${MAX_FEE_BPS} bps`
         )
     }
+}
+
+function getReductionFactor(
+    isLinear: boolean,
+    maxBaseFeeNumerator: BN,
+    minBaseFeeNumerator: BN,
+    numberOfPeriod: number
+): BN {
+    return isLinear
+        ? maxBaseFeeNumerator.sub(minBaseFeeNumerator).divn(numberOfPeriod)
+        : exponentialReductionFactor(
+              maxBaseFeeNumerator,
+              minBaseFeeNumerator,
+              numberOfPeriod
+          )
+}
+
+/**
+ * The sqrtPriceStepBps that exhausts a market cap fee schedule when the spot
+ * price reaches priceMultiple times the initial price.
+ */
+function computeSqrtPriceStepBps(
+    priceMultiple: number,
+    numberOfPeriod: number
+): number {
+    const sqrtPriceStepBps = Math.floor(
+        ((Math.sqrt(priceMultiple) - 1) * MAX_BASIS_POINT) / numberOfPeriod
+    )
+    if (sqrtPriceStepBps <= 0) {
+        throw new Error(
+            'sqrtPriceStepBps rounds to zero for the given priceMultiple and numberOfPeriod'
+        )
+    }
+    return sqrtPriceStepBps
 }
 
 /**
@@ -159,14 +192,12 @@ export function getFeeSchedulerParams(
 
     const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
     const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
-    const reductionFactor =
-        baseFeeMode === BaseFeeMode.FeeSchedulerLinear
-            ? maxBaseFeeNumerator.sub(minBaseFeeNumerator).divn(numberOfPeriod)
-            : exponentialReductionFactor(
-                  maxBaseFeeNumerator,
-                  minBaseFeeNumerator,
-                  numberOfPeriod
-              )
+    const reductionFactor = getReductionFactor(
+        baseFeeMode === BaseFeeMode.FeeSchedulerLinear,
+        maxBaseFeeNumerator,
+        minBaseFeeNumerator,
+        numberOfPeriod
+    )
 
     return {
         cliffFeeNumerator: maxBaseFeeNumerator,
@@ -306,7 +337,10 @@ export function getDynamicFeeParams(
     }
 }
 
-/** The fee the pre-migration pool ends on, which the migrated pool starts from. */
+/**
+ * The fee the pre-migration pool's base fee ends on. It scales the pool's own
+ * dynamic fee; the migrated pool's fee comes from the migrated pool fee params.
+ */
 export function getStartingBaseFeeBpsFromBaseFeeParams(
     baseFeeParams: BaseFeeParams
 ): number {
@@ -357,14 +391,12 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
 
     const maxBaseFeeNumerator = bpsToFeeNumerator(startingBaseFeeBps)
     const minBaseFeeNumerator = bpsToFeeNumerator(endingBaseFeeBps)
-    const reductionFactor =
-        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerLinear
-            ? maxBaseFeeNumerator.sub(minBaseFeeNumerator).divn(numberOfPeriod)
-            : exponentialReductionFactor(
-                  maxBaseFeeNumerator,
-                  minBaseFeeNumerator,
-                  numberOfPeriod
-              )
+    const reductionFactor = getReductionFactor(
+        dammV2BaseFeeMode === DammV2BaseFeeMode.FeeMarketCapSchedulerLinear,
+        maxBaseFeeNumerator,
+        minBaseFeeNumerator,
+        numberOfPeriod
+    )
 
     return {
         numberOfPeriod,
@@ -381,7 +413,7 @@ export function getMigratedPoolMarketCapFeeSchedulerParams(
 export function getBaseFeeParams(baseFeeParams: BaseFeeParams): BaseFee {
     if (baseFeeParams.baseFeeMode === BaseFeeMode.RateLimiter) {
         throw new Error(
-            'BaseFeeMode.RateLimiter is deprecated. New configs must use FeeSchedulerLinear or FeeSchedulerExponential.'
+            'BaseFeeMode.RateLimiter is deprecated. New configs and pools must use FeeSchedulerLinear or FeeSchedulerExponential. Existing rate-limiter pools are unaffected.'
         )
     }
 
@@ -409,7 +441,7 @@ export function getMigratedPoolFeeParams(
 ): MigratedPoolFeeResult {
     if (migrationOption === MigrationOption.MET_DAMM) {
         throw new Error(
-            'MigrationOption.MET_DAMM (DAMM v1) is deprecated. New configs must use MigrationOption.MET_DAMM_V2.'
+            'MigrationOption.MET_DAMM (DAMM v1) is deprecated. New configs and pools must use MigrationOption.MET_DAMM_V2. Existing DAMM v1 pools can still migrate.'
         )
     }
 

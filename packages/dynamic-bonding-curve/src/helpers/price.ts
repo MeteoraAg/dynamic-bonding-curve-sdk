@@ -4,7 +4,6 @@ import {
     type LiquidityDistributionParameters,
     type PoolConfig,
 } from '../types'
-import { MAX_BASIS_POINT } from '../constants'
 import BN from 'bn.js'
 import Decimal from 'decimal.js'
 import {
@@ -97,31 +96,6 @@ export function getBaseTokenForSwap(
         lowerSqrtPrice = point.sqrtPrice
     }
     return totalAmount
-}
-
-/**
- * The sqrtPriceStepBps that exhausts a market cap fee schedule when the spot
- * price reaches priceMultiple times the initial price.
- */
-export function computeSqrtPriceStepBps(
-    priceMultiple: number,
-    numberOfPeriod: number
-): number {
-    if (priceMultiple <= 1) {
-        throw new Error('priceMultiple must be greater than 1')
-    }
-    if (numberOfPeriod <= 0) {
-        throw new Error('numberOfPeriod must be greater than 0')
-    }
-    const sqrtPriceStepBps = Math.floor(
-        ((Math.sqrt(priceMultiple) - 1) * MAX_BASIS_POINT) / numberOfPeriod
-    )
-    if (sqrtPriceStepBps <= 0) {
-        throw new Error(
-            'sqrtPriceStepBps rounds to zero for the given priceMultiple and numberOfPeriod'
-        )
-    }
-    return sqrtPriceStepBps
 }
 
 /** Quote tokens the curve holds once it has been bought up to nextSqrtPrice. */

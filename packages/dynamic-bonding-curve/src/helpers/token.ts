@@ -118,14 +118,10 @@ async function fetchMint(
 
 export async function getTokenDecimals(
     connection: Connection,
-    mintAddress: PublicKey | string,
+    mintAddress: PublicKey,
     commitment: Commitment = 'confirmed'
 ): Promise<number> {
-    const mint = await fetchMint(
-        connection,
-        new PublicKey(mintAddress),
-        commitment
-    )
+    const mint = await fetchMint(connection, mintAddress, commitment)
     return mint.decimals
 }
 

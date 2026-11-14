@@ -19,7 +19,6 @@ import {
     MAX_LOCK_DURATION_IN_SECONDS,
     U16_MAX,
     U24_MAX,
-    U128_MAX,
     U64_MAX,
 } from '../constants'
 import { getBaseTransferFee, type EpochTransferFee } from '../math/transferFee'
@@ -45,7 +44,6 @@ import {
     TransferFeeWithheldAuthority,
     MigratedTransferFeeAuthorityOption,
     type CreateConfigParams,
-    type PoolConfig,
     type TransferFeeParameters,
 } from '../types'
 import { Connection, PublicKey } from '@solana/web3.js'
@@ -60,6 +58,7 @@ import {
 import { getBaseTokenForSwap } from './price'
 import {
     calculateLockedLiquidityBpsAtTime,
+    getDammV2VestingParameters,
     getTotalVestingAmount,
 } from './vesting'
 import { ProgramError } from '../math/errors'
@@ -67,15 +66,8 @@ import { isDefaultLockedVesting } from './utils'
 import {
     FEE_DENOMINATOR,
     MAX_FEE_NUMERATOR,
-    MAX_RATE_LIMITER_DURATION_IN_SECONDS,
-    MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     MIN_FEE_NUMERATOR,
 } from '../constants'
-import {
-    getFeeNumeratorFromIncludedAmount,
-    isNonZeroRateLimiter,
-    isZeroRateLimiter,
-} from '../math/poolFees/rateLimiter'
 import { getFeeSchedulerMinBaseFeeNumerator } from '../math/poolFees/feeScheduler'
 import { toNumerator } from '../math/utilsMath'
 
@@ -103,14 +95,8 @@ export function assertConfigAllowsNewPool(params: {
     }
 }
 
-/**
- * Validate base fee, scheduler, rate-limiter, and dynamic fee settings for a pool config.
- */
-function validatePoolFees(
-    poolFees: PoolFeeParameters,
-    collectFeeMode: CollectFeeMode,
-    activationType: ActivationType
-): boolean {
+/** Validate base fee, scheduler, and dynamic fee settings for a pool config. */
+function validatePoolFees(poolFees: PoolFeeParameters): boolean {
     if (poolFees.baseFee.cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR))) {
         return false
     }
@@ -126,19 +112,6 @@ function validatePoolFees(
                 new BN(poolFees.baseFee.thirdFactor),
                 poolFees.baseFee.cliffFeeNumerator,
                 poolFees.baseFee.baseFeeMode
-            )
-        ) {
-            return false
-        }
-    } else if (poolFees.baseFee.baseFeeMode === BaseFeeMode.RateLimiter) {
-        if (
-            !validateFeeRateLimiter(
-                poolFees.baseFee.cliffFeeNumerator,
-                new BN(poolFees.baseFee.firstFactor),
-                new BN(poolFees.baseFee.secondFactor),
-                new BN(poolFees.baseFee.thirdFactor),
-                collectFeeMode,
-                activationType
             )
         ) {
             return false
@@ -192,78 +165,6 @@ export function validateFeeScheduler(
     return true
 }
 
-/** Validate rate-limiter parameters and activation duration bounds. */
-export function validateFeeRateLimiter(
-    cliffFeeNumerator: BN,
-    feeIncrementBps: BN,
-    maxLimiterDuration: BN,
-    referenceAmount: BN,
-    collectFeeMode: CollectFeeMode,
-    activationType: ActivationType
-): boolean {
-    // can only be applied in quote token collect fee mode
-    if (collectFeeMode !== CollectFeeMode.QuoteToken) {
-        return false
-    }
-
-    if (
-        cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
-        cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
-    ) {
-        return false
-    }
-
-    if (
-        isZeroRateLimiter(referenceAmount, maxLimiterDuration, feeIncrementBps)
-    ) {
-        return true
-    }
-    if (
-        !isNonZeroRateLimiter(
-            referenceAmount,
-            maxLimiterDuration,
-            feeIncrementBps
-        )
-    ) {
-        return false
-    }
-
-    const maxLimiterDurationLimit =
-        activationType === ActivationType.Slot
-            ? new BN(MAX_RATE_LIMITER_DURATION_IN_SLOTS)
-            : new BN(MAX_RATE_LIMITER_DURATION_IN_SECONDS)
-
-    if (maxLimiterDuration.gt(maxLimiterDurationLimit)) {
-        return false
-    }
-
-    const feeIncrementNumerator = toNumerator(
-        feeIncrementBps,
-        new BN(FEE_DENOMINATOR)
-    )
-    if (feeIncrementNumerator.gte(new BN(FEE_DENOMINATOR))) {
-        return false
-    }
-
-    const minFeeNumerator = getFeeNumeratorFromIncludedAmount(
-        cliffFeeNumerator,
-        referenceAmount,
-        feeIncrementBps,
-        new BN(0)
-    )
-    const maxFeeNumerator = getFeeNumeratorFromIncludedAmount(
-        cliffFeeNumerator,
-        referenceAmount,
-        feeIncrementBps,
-        U64_MAX
-    )
-
-    return (
-        minFeeNumerator.gte(new BN(MIN_FEE_NUMERATOR)) &&
-        maxFeeNumerator.lte(new BN(MAX_FEE_NUMERATOR))
-    )
-}
-
 function validateDynamicFee(dynamicFee: DynamicFeeParameters | null): boolean {
     if (!dynamicFee) return true
 
@@ -277,35 +178,28 @@ function validateDynamicFee(dynamicFee: DynamicFeeParameters | null): boolean {
     return true
 }
 
-/** Return whether the DBC collect fee mode is supported. */
 function validateCollectFeeMode(collectFeeMode: CollectFeeMode): boolean {
     return [CollectFeeMode.QuoteToken, CollectFeeMode.OutputToken].includes(
         collectFeeMode
     )
 }
 
-/** Return whether the base token type is supported. */
 function validateTokenType(tokenType: TokenType): boolean {
     return [TokenType.SPLToken, TokenType.Token2022].includes(tokenType)
 }
 
-/** Return whether the migration option is supported. */
 function validateMigrationOption(migrationOption: MigrationOption): boolean {
     return [MigrationOption.MET_DAMM, MigrationOption.MET_DAMM_V2].includes(
         migrationOption
     )
 }
 
-/** Return whether the activation type is supported. */
 function validateActivationType(activationType: ActivationType): boolean {
     return [ActivationType.Slot, ActivationType.Timestamp].includes(
         activationType
     )
 }
 
-/**
- * Return whether the migration fee option is supported for the migration path.
- */
 function validateMigrationFeeOption(
     migrationFeeOption: MigrationFeeOption,
     migrationOption?: MigrationOption
@@ -327,12 +221,10 @@ function validateMigrationFeeOption(
     return validOptions.includes(migrationFeeOption)
 }
 
-/** Return whether the token decimal is within the supported range. */
 function validateTokenDecimals(tokenDecimal: TokenDecimal): boolean {
     return tokenDecimal >= TokenDecimal.SIX && tokenDecimal <= TokenDecimal.NINE
 }
 
-/** Return whether all liquidity distribution percentages sum to 100. */
 function validateLPPercentages(
     partnerLiquidityPercentage: number,
     partnerPermanentLockedLiquidityPercentage: number,
@@ -384,16 +276,11 @@ function validateTokenSupply(
         preMigrationTokenSupply: BN
         postMigrationTokenSupply: BN
     },
-    leftoverReceiver: PublicKey,
     swapBaseAmount: BN,
     migrationBaseAmount: BN,
     lockedVesting: LockedVestingParameters,
     swapBaseAmountBuffer: BN
 ): boolean {
-    if (leftoverReceiver.equals(PublicKey.default)) {
-        return false
-    }
-
     const minimumBaseSupplyWithBuffer = getTotalTokenSupply(
         swapBaseAmountBuffer,
         migrationBaseAmount,
@@ -442,17 +329,14 @@ export function hasMintAuthority(option: TokenAuthorityOption): boolean {
  * Return whether a transfer-hook program is not DBC, SPL Token, SPL Token-2022, or the default pubkey.
  */
 export function validateTransferHookProgram(
-    transferHookProgram: PublicKey | undefined
+    transferHookProgram: PublicKey
 ): boolean {
-    return (
-        transferHookProgram !== undefined &&
-        ![
-            PublicKey.default,
-            DYNAMIC_BONDING_CURVE_PROGRAM_ID,
-            TOKEN_PROGRAM_ID,
-            TOKEN_2022_PROGRAM_ID,
-        ].some((program) => program.equals(transferHookProgram))
-    )
+    return ![
+        PublicKey.default,
+        DYNAMIC_BONDING_CURVE_PROGRAM_ID,
+        TOKEN_PROGRAM_ID,
+        TOKEN_2022_PROGRAM_ID,
+    ].some((program) => program.equals(transferHookProgram))
 }
 
 /**
@@ -521,53 +405,30 @@ function validateLiquidityVestingInfo(
         return false
     }
 
-    const totalVestedLiquidity = U128_MAX.mul(
-        new BN(vestingInfo.vestingPercentage)
-    ).div(new BN(100))
-    const totalVestingLiquidityAfterCliff = totalVestedLiquidity
-        .mul(new BN(totalBpsAfterCliff))
-        .div(new BN(MAX_BASIS_POINT))
-    const liquidityPerPeriod =
-        vestingInfo.numberOfPeriods > 0
-            ? totalVestingLiquidityAfterCliff.div(
-                  new BN(vestingInfo.numberOfPeriods)
-              )
-            : new BN(0)
+    const {
+        totalVestedLiquidity,
+        liquidityPerPeriod,
+        numberOfPeriods,
+        frequency,
+        cliffDuration,
+    } = getDammV2VestingParameters(vestingInfo)
 
-    let effectiveNumberOfPeriods = vestingInfo.numberOfPeriods
-    let effectiveFrequency = vestingInfo.frequency
-    let effectiveCliffDuration = vestingInfo.cliffDurationFromMigrationTime
-
-    if (liquidityPerPeriod.gt(new BN(0))) {
-        if (vestingInfo.numberOfPeriods === 0) {
-            return false
-        }
-
-        if (vestingInfo.frequency === 0) {
-            return false
-        }
-    } else {
-        effectiveNumberOfPeriods = 0
-        effectiveFrequency = 0
-        effectiveCliffDuration = Math.max(effectiveCliffDuration, 1)
+    if (liquidityPerPeriod.gt(new BN(0)) && vestingInfo.frequency === 0) {
+        return false
     }
 
     const totalPeriodicLiquidity = liquidityPerPeriod.mul(
-        new BN(effectiveNumberOfPeriods)
+        new BN(numberOfPeriods)
     )
     if (totalPeriodicLiquidity.gt(totalVestedLiquidity)) {
         return false
     }
 
-    const cliffUnlockLiquidity = totalVestedLiquidity.sub(
-        totalPeriodicLiquidity
-    )
-    const vestingDuration =
-        effectiveCliffDuration + effectiveFrequency * effectiveNumberOfPeriods
+    const vestingDuration = cliffDuration + frequency * numberOfPeriods
 
     return (
         vestingDuration <= MAX_LOCK_DURATION_IN_SECONDS &&
-        cliffUnlockLiquidity.add(totalPeriodicLiquidity).gt(new BN(0))
+        totalVestedLiquidity.gt(new BN(0))
     )
 }
 
@@ -685,8 +546,8 @@ export function validateMigratedPoolFee(
         migrationOption === undefined ||
         migrationOption === MigrationOption.MET_DAMM_V2
     ) {
-        try {
-            validateMigratedPoolBaseFeeMode(
+        return (
+            findMigratedPoolBaseFeeModeError(
                 migratedPoolBaseFeeMode,
                 migratedPoolMarketCapFeeSchedulerParams ?? {
                     numberOfPeriod: 0,
@@ -694,12 +555,9 @@ export function validateMigratedPoolFee(
                     schedulerExpirationDuration: 0,
                     reductionFactor: new BN(0),
                 },
-                migrationOption,
                 migratedPoolFee.poolFeeBps
-            )
-        } catch {
-            return false
-        }
+            ) === undefined
+        )
     }
 
     return true
@@ -737,7 +595,7 @@ export function validateTransferFeeParameters(
             MigratedTransferFeeAuthorityOption.Partner,
         ].includes(migratedTransferFeeAuthorityOption)
     ) {
-        throw new Error('Invalid transfer fee parameters')
+        throw new Error(ProgramError.InvalidTransferFeeParameters)
     }
     if (
         transferFeeBasisPoints === 0 &&
@@ -746,7 +604,7 @@ export function validateTransferFeeParameters(
             migratedTransferFeeAuthorityOption ===
                 MigratedTransferFeeAuthorityOption.RevokeZeroFee)
     ) {
-        throw new Error('Invalid transfer fee parameters')
+        throw new Error(ProgramError.InvalidTransferFeeParameters)
     }
 
     const isPartnerAuthority =
@@ -758,45 +616,6 @@ export function validateTransferFeeParameters(
     }
 }
 
-export function validateTransferFeeRestrictions(
-    config: Pick<
-        PoolConfig,
-        | 'fixedTokenSupplyFlag'
-        | 'preMigrationTokenSupply'
-        | 'postMigrationTokenSupply'
-        | 'lockedVestingConfig'
-        | 'migrationFeeOption'
-        | 'migratedCollectFeeMode'
-    >
-): void {
-    const constantSupply =
-        Number(config.fixedTokenSupplyFlag) === 1 &&
-        new BN(config.preMigrationTokenSupply.toString()).eq(
-            new BN(config.postMigrationTokenSupply.toString())
-        )
-    if (!constantSupply) {
-        throw new Error('Invalid token supply')
-    }
-    if (!isDefaultLockedVesting(config.lockedVestingConfig)) {
-        throw new Error('Invalid vesting parameters')
-    }
-    if (Number(config.migrationFeeOption) !== MigrationFeeOption.Customizable) {
-        throw new Error(ProgramError.InvalidMigrationFeeOption)
-    }
-
-    const collectFeeMode = Number(config.migratedCollectFeeMode)
-    if (collectFeeMode === MigratedCollectFeeMode.Compounding) {
-        return
-    }
-    if (
-        collectFeeMode === MigratedCollectFeeMode.QuoteToken ||
-        collectFeeMode === MigratedCollectFeeMode.OutputToken
-    ) {
-        throw new Error('Invalid migrated pool fee params')
-    }
-    throw new Error(ProgramError.InvalidCollectFeeMode)
-}
-
 function validateTransferFeeConfigMode(configParam: {
     tokenSupply: CreateConfigParams['tokenSupply']
     lockedVesting: CreateConfigParams['lockedVesting']
@@ -806,8 +625,8 @@ function validateTransferFeeConfigMode(configParam: {
     const tokenSupply = configParam.tokenSupply
     if (
         !tokenSupply ||
-        !new BN(tokenSupply.preMigrationTokenSupply.toString()).eq(
-            new BN(tokenSupply.postMigrationTokenSupply.toString())
+        !tokenSupply.preMigrationTokenSupply.eq(
+            tokenSupply.postMigrationTokenSupply
         )
     ) {
         throw new Error('Transfer fee configs require a constant token supply')
@@ -860,13 +679,7 @@ export function validateConfigParameters(
         baseFeeMode: configParam.poolFees.baseFee.baseFeeMode,
         migrationOption: configParam.migrationOption,
     })
-    if (
-        !validatePoolFees(
-            configParam.poolFees,
-            configParam.collectFeeMode,
-            configParam.activationType
-        )
-    ) {
+    if (!validatePoolFees(configParam.poolFees)) {
         throw new Error('Invalid pool fees')
     }
 
@@ -918,9 +731,7 @@ export function validateConfigParameters(
         throw new Error(ProgramError.InvalidMigrationFeeOption)
     }
 
-    if (!validateMigrationFee(configParam.migrationFee)) {
-        throw new Error('Invalid migration fee')
-    }
+    validateMigrationFee(configParam.migrationFee)
 
     if (
         configParam.creatorTradingFeePercentage < 0 ||
@@ -935,19 +746,14 @@ export function validateConfigParameters(
         throw new Error(ProgramError.InvalidTokenDecimals)
     }
 
-    const partnerVestingPercentage =
-        configParam.partnerLiquidityVestingInfo?.vestingPercentage ?? 0
-    const creatorVestingPercentage =
-        configParam.creatorLiquidityVestingInfo?.vestingPercentage ?? 0
-
     if (
         !validateLPPercentages(
             configParam.partnerLiquidityPercentage,
             configParam.partnerPermanentLockedLiquidityPercentage,
             configParam.creatorLiquidityPercentage,
             configParam.creatorPermanentLockedLiquidityPercentage,
-            partnerVestingPercentage,
-            creatorVestingPercentage
+            configParam.partnerLiquidityVestingInfo.vestingPercentage,
+            configParam.creatorLiquidityVestingInfo.vestingPercentage
         )
     ) {
         throw new Error('Sum of LP percentages must equal 100')
@@ -959,23 +765,15 @@ export function validateConfigParameters(
         )
     }
 
-    if (configParam.partnerLiquidityVestingInfo) {
-        if (
-            !validateLiquidityVestingInfo(
-                configParam.partnerLiquidityVestingInfo
-            )
-        ) {
-            throw new Error('Invalid partner liquidity vesting info')
-        }
+    if (
+        !validateLiquidityVestingInfo(configParam.partnerLiquidityVestingInfo)
+    ) {
+        throw new Error('Invalid partner liquidity vesting info')
     }
-    if (configParam.creatorLiquidityVestingInfo) {
-        if (
-            !validateLiquidityVestingInfo(
-                configParam.creatorLiquidityVestingInfo
-            )
-        ) {
-            throw new Error('Invalid creator liquidity vesting info')
-        }
+    if (
+        !validateLiquidityVestingInfo(configParam.creatorLiquidityVestingInfo)
+    ) {
+        throw new Error('Invalid creator liquidity vesting info')
     }
 
     // curve shape is checked before any curve math runs on it
@@ -1009,9 +807,7 @@ export function validateConfigParameters(
     if (swapBaseAmountForCurve.gt(U64_MAX)) {
         throw new Error(ProgramError.TypeCastFailed)
     }
-    const migratedCollectFeeMode =
-        configParam.migratedPoolFee?.collectFeeMode ??
-        MigratedCollectFeeMode.QuoteToken
+    const migratedCollectFeeMode = configParam.migratedPoolFee.collectFeeMode
     const migrationBaseAmountForCurve = getMigrationBaseToken(
         getMigrationQuoteAmountFromThreshold(
             configParam.migrationQuoteThreshold,
@@ -1028,33 +824,23 @@ export function validateConfigParameters(
         throw new Error(ProgramError.InvalidCurve)
     }
 
-    // the program requires at least 10% (1000 BPS) of liquidity to be locked at day 1
-    if (
-        !validateMinimumLockedLiquidity(
-            configParam.partnerPermanentLockedLiquidityPercentage,
-            configParam.creatorPermanentLockedLiquidityPercentage,
-            configParam.partnerLiquidityVestingInfo,
-            configParam.creatorLiquidityVestingInfo
-        )
-    ) {
-        const lockedBpsAtDay1 = calculateLockedLiquidityBpsAtTime(
-            configParam.partnerPermanentLockedLiquidityPercentage,
-            configParam.creatorPermanentLockedLiquidityPercentage,
-            configParam.partnerLiquidityVestingInfo,
-            configParam.creatorLiquidityVestingInfo,
-            SECONDS_PER_DAY
-        )
+    const lockedBpsAtDay1 = calculateLockedLiquidityBpsAtTime(
+        configParam.partnerPermanentLockedLiquidityPercentage,
+        configParam.creatorPermanentLockedLiquidityPercentage,
+        configParam.partnerLiquidityVestingInfo,
+        configParam.creatorLiquidityVestingInfo,
+        SECONDS_PER_DAY
+    )
+    if (lockedBpsAtDay1 < MIN_LOCKED_LIQUIDITY_BPS) {
         throw new Error(
             `At least ${MIN_LOCKED_LIQUIDITY_BPS} bps of migrated liquidity must be locked at day 1, got ${lockedBpsAtDay1} bps`
         )
     }
 
-    // the detailed base fee mode check runs first so its message is not
-    // collapsed by the boolean validateMigratedPoolFee
+    // runs before the boolean validateMigratedPoolFee so its message is kept
     validateMigratedPoolBaseFeeMode(
         configParam.migratedPoolBaseFeeMode,
         configParam.migratedPoolMarketCapFeeSchedulerParams,
-        configParam.migrationOption,
         configParam.migratedPoolFee.poolFeeBps
     )
     if (
@@ -1082,6 +868,9 @@ export function validateConfigParameters(
     }
 
     if (configParam.tokenSupply) {
+        if (configParam.leftoverReceiver.equals(PublicKey.default)) {
+            throw new Error(ProgramError.InvalidLeftoverAddress)
+        }
         const swapBaseAmountBuffer = getSwapAmountWithBuffer(
             swapBaseAmountForCurve,
             configParam.sqrtStartPrice,
@@ -1090,7 +879,6 @@ export function validateConfigParameters(
         if (
             !validateTokenSupply(
                 configParam.tokenSupply,
-                new PublicKey(configParam.leftoverReceiver),
                 swapBaseAmountForCurve,
                 migrationBaseAmountForCurve,
                 configParam.lockedVesting,
@@ -1138,7 +926,6 @@ export function validateConfigParameters(
     }
 }
 
-/** Validate that a swap amount is greater than zero. */
 export function validateSwapAmount(amountIn: BN): void {
     if (amountIn.lte(new BN(0))) {
         throw new Error(ProgramError.AmountIsZero)
@@ -1146,25 +933,16 @@ export function validateSwapAmount(amountIn: BN): void {
 }
 
 /**
- * Validate DAMM v2 migrated-pool base fee modes and market-cap scheduler requirements.
+ * Describe why a migrated pool's base fee mode and market-cap scheduler
+ * parameters are invalid, or return undefined when they are valid.
  */
-function validateMigratedPoolBaseFeeMode(
+function findMigratedPoolBaseFeeModeError(
     migratedPoolBaseFeeMode: DammV2BaseFeeMode,
     migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParameters,
-    migrationOption?: MigrationOption,
-    poolFeeBps = MIN_MIGRATED_POOL_FEE_BPS
-): boolean {
-    if (
-        migrationOption !== undefined &&
-        migrationOption !== MigrationOption.MET_DAMM_V2
-    ) {
-        return true
-    }
-
+    poolFeeBps: number
+): string | undefined {
     if (migratedPoolBaseFeeMode === DammV2BaseFeeMode.RateLimiter) {
-        throw new Error(
-            'DammV2BaseFeeMode.RateLimiter is not supported for a migrated pool'
-        )
+        return 'DammV2BaseFeeMode.RateLimiter is not supported for a migrated pool'
     }
 
     // time schedulers are a fixed fee on the migrated pool
@@ -1173,16 +951,11 @@ function validateMigratedPoolBaseFeeMode(
         migratedPoolBaseFeeMode ===
             DammV2BaseFeeMode.FeeTimeSchedulerExponential
     ) {
-        if (
-            !isZeroMarketCapFeeScheduler(
-                migratedPoolMarketCapFeeSchedulerParams
-            )
-        ) {
-            throw new Error(
-                'migratedPoolMarketCapFeeSchedulerParams must be zero for a time scheduler base fee mode'
-            )
-        }
-        return true
+        return isZeroMarketCapFeeScheduler(
+            migratedPoolMarketCapFeeSchedulerParams
+        )
+            ? undefined
+            : 'migratedPoolMarketCapFeeSchedulerParams must be zero for a time scheduler base fee mode'
     }
 
     if (
@@ -1200,9 +973,7 @@ function validateMigratedPoolBaseFeeMode(
                 new BN(0)
             )
         ) {
-            throw new Error(
-                'numberOfPeriod, sqrtPriceStepBps, schedulerExpirationDuration, and reductionFactor must all be greater than zero for a market cap scheduler base fee mode'
-            )
+            return 'numberOfPeriod, sqrtPriceStepBps, schedulerExpirationDuration, and reductionFactor must all be greater than zero for a market cap scheduler base fee mode'
         }
 
         const schedulerMode =
@@ -1221,25 +992,34 @@ function validateMigratedPoolBaseFeeMode(
             schedulerMode
         )
 
-        if (
-            minFeeNumerator.lt(new BN(DAMM_V2_MIN_FEE_NUMERATOR)) ||
+        return minFeeNumerator.lt(new BN(DAMM_V2_MIN_FEE_NUMERATOR)) ||
             cliffFeeNumerator.gt(new BN(DAMM_V2_MAX_FEE_NUMERATOR))
-        ) {
-            throw new Error('Invalid market cap fee scheduler fee bounds')
-        }
-
-        return true
+            ? 'Invalid market cap fee scheduler fee bounds'
+            : undefined
     }
 
-    throw new Error(
-        `Unknown migratedPoolBaseFeeMode: ${migratedPoolBaseFeeMode}`
+    return `Unknown migratedPoolBaseFeeMode: ${migratedPoolBaseFeeMode}`
+}
+
+function validateMigratedPoolBaseFeeMode(
+    migratedPoolBaseFeeMode: DammV2BaseFeeMode,
+    migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParameters,
+    poolFeeBps: number
+): void {
+    const error = findMigratedPoolBaseFeeModeError(
+        migratedPoolBaseFeeMode,
+        migratedPoolMarketCapFeeSchedulerParams,
+        poolFeeBps
     )
+    if (error !== undefined) {
+        throw new Error(error)
+    }
 }
 
 function validateMigrationFee(migrationFee: {
     feePercentage: number
     creatorFeePercentage: number
-}): boolean {
+}): void {
     if (
         !Number.isInteger(migrationFee.feePercentage) ||
         !Number.isInteger(migrationFee.creatorFeePercentage)
@@ -1272,5 +1052,4 @@ function validateMigrationFee(migrationFee: {
             'Migration creator fee percentage must be 0 when migration fee percentage is 0'
         )
     }
-    return true
 }
