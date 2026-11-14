@@ -62,6 +62,11 @@ function baseFeeHandlerOf(poolFees: QuotePoolFees) {
     )
 }
 
+/** The program's PoolFeesConfig::get_min_base_fee_numerator. */
+export function getMinBaseFeeNumerator(poolFees: QuotePoolFees): BN {
+    return baseFeeHandlerOf(poolFees).getMinBaseFeeNumerator()
+}
+
 /** Base plus dynamic fee numerator for an amount that includes the fee. */
 export function getTotalFeeNumeratorFromIncludedFeeAmount(
     poolFees: QuotePoolFees,

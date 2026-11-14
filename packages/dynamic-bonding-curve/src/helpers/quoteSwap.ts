@@ -79,10 +79,21 @@ function quoteAtInitialization(
         )
 ): SwapQuote2Result {
     const currentPoint = params.currentPoint ?? new BN(0)
-    const config = poolConfigFromParameters(
-        params.config,
-        params.quoteTokenFlag ?? TokenType.SPLToken
-    )
+    // createConfig params carry quoteMint too; only a decoded PoolConfig has
+    // migrationSqrtPrice
+    const config =
+        'migrationSqrtPrice' in params.config
+            ? params.config
+            : poolConfigFromParameters(
+                  params.config,
+                  params.quoteTokenFlag ?? TokenType.SPLToken
+              )
+    if (
+        params.quoteTokenFlag !== undefined &&
+        params.quoteTokenFlag !== config.quoteTokenFlag
+    ) {
+        throw new Error('quoteTokenFlag does not match config.quoteTokenFlag')
+    }
     const virtualPool = initialVirtualPool(
         params.config.sqrtStartPrice,
         currentPoint
@@ -132,9 +143,10 @@ function quoteAtInitialization(
 }
 
 /**
- * Quote a buildCurve result as if its pool had just been initialized at
- * currentPoint. A base transfer fee is only applied when
- * baseTransferFeeBasisPoints or baseMint is passed.
+ * Quote a buildCurve result, or a decoded PoolConfig, as if its pool had just
+ * been initialized at currentPoint. For a buildCurve result a base transfer fee
+ * is only applied when baseTransferFeeBasisPoints or baseMint is passed; a
+ * PoolConfig carries its own quote token flag and transfer fee.
  */
 export function getQuoteFromInputAmount(
     params: SimulatedQuoteFromInputAmountParams

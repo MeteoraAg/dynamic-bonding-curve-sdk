@@ -1,5 +1,5 @@
-// Error text of the program's `PoolError` variants (programs/dynamic-bonding-curve/src/error.rs)
-// that the SDK reproduces client-side.
+// Error text of the program's `PoolError` variants (programs/dynamic-bonding-curve/src/error.rs).
+// The SDK throws these messages where it reproduces a program check.
 export const ProgramError = {
     MathOverflow: 'Math operation overflow',
     ExceededSlippage: 'Exceeded slippage tolerance',
@@ -40,4 +40,5 @@ export const ProgramError = {
     InvalidTransferFeeParameters: 'Invalid transfer fee parameters',
     ExceededInputAmount: 'Required input amount exceeds the provided amount in',
     InvalidFeeClaimer: 'Invalid fee claimer',
+    InvalidLeftoverAddress: 'Invalid leftover address',
 } as const

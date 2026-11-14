@@ -163,7 +163,7 @@ export class StateService {
         configAddress: PublicKey | string
     ): Promise<boolean> {
         const found = await this.getPoolConfigWithKind(configAddress)
-        return found?.transferHookConfig !== null && found !== null
+        return Boolean(found?.transferHookConfig)
     }
 
     async getConfigWithTransferHook(
@@ -177,7 +177,7 @@ export class StateService {
         return this.fetchPoolConfigs()
     }
 
-    /** Fetch all pool configs whose fee claimer is a wallet. */
+    /** Fetch all pool configs whose fee claimer is `owner`. */
     async getPoolConfigsByOwner(
         owner: PublicKey | string
     ): Promise<ProgramAccount<PoolConfig>[]> {
@@ -244,7 +244,7 @@ export class StateService {
         const config = await this.getPoolConfig(pool.poolState.config)
         if (!config) {
             throw new Error(
-                `Config not found: ${pool.poolState.config.toString()}`
+                `Pool config not found: ${pool.poolState.config.toBase58()}`
             )
         }
         return { pool, config }

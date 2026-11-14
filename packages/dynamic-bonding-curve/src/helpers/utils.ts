@@ -7,7 +7,7 @@ import type { LockedVestingParameters } from '../types'
 
 /** A UI amount in lamports, rounded down. */
 export function convertToLamports(
-    amount: number | string,
+    amount: number | string | Decimal,
     tokenDecimal: number
 ): BN {
     return fromDecimalToBN(

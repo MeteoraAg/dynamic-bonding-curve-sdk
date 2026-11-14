@@ -17,16 +17,17 @@ import {
 import BN from 'bn.js'
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
-    bpsToFeeNumerator,
     deriveDbcPoolAddress,
     deriveDbcPoolAuthority,
     DYNAMIC_BONDING_CURVE_PROGRAM_ID,
     DynamicBondingCurveClient,
-    FEE_DENOMINATOR,
     SwapMode,
     TokenType,
     type ConfigParameters,
+    type FirstBuyWithTransferHookParams,
     type Swap2Params,
+    type SwapQuote2Result,
+    type VirtualPool,
 } from '../src'
 import { createDbcProgram } from '../src/helpers/createProgram'
 import { buildTestCurveConfig, fundSol, LOCALNET_RPC_URL } from './utils/common'
@@ -269,7 +270,7 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
             enableFirstSwapWithMinFee: true,
         })
         const baseMint = Keypair.generate()
-        const amountIn = new BN(1)
+        const amountIn = new BN(1_000_000)
         const transferHookAccounts = getTransferHookRemainingAccounts(
             baseMint.publicKey
         )
@@ -313,13 +314,7 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         const poolState = await dbcClient.state.getPool(pool)
         expect(poolState).not.toBeNull()
         expect(await getCounterValue(connection, baseMint.publicKey)).toBe(1)
-        expectMinFee(
-            poolState!.poolState.metrics.totalProtocolQuoteFee.add(
-                poolState!.poolState.metrics.totalTradingQuoteFee
-            ),
-            amountIn
-        )
-        expect(curveConfig.enableFirstSwapWithMinFee).toBe(true)
+        expectFirstSwapMinFee(poolState!, curveConfig, amountIn)
     })
 
     test('createPoolWithPartnerAndCreatorFirstBuyWithTransferHook executes both transfer-hook swaps', async () => {
@@ -388,7 +383,7 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
     test('createConfigAndPoolWithFirstBuyWithTransferHook returns config and bundled pool transactions', async () => {
         const config = Keypair.generate()
         const baseMint = Keypair.generate()
-        const amountIn = new BN(1)
+        const amountIn = new BN(1_000_000)
         const curveConfig = buildTransferHookCurveConfig({
             enableFirstSwapWithMinFee: true,
         })
@@ -448,11 +443,115 @@ describe('transfer hook SDK tests', { timeout: 90000 }, () => {
         const poolState = await dbcClient.state.getPool(pool)
         expect(poolState).not.toBeNull()
         expect(await getCounterValue(connection, baseMint.publicKey)).toBe(1)
-        expectMinFee(
-            poolState!.poolState.metrics.totalProtocolQuoteFee.add(
-                poolState!.poolState.metrics.totalTradingQuoteFee
-            ),
-            amountIn
+        expectFirstSwapMinFee(poolState!, curveConfig, amountIn)
+    })
+
+    test('a JavaScript caller that omits the hook accounts gets a clear error', async () => {
+        const { config } = await createTransferHookConfig()
+        const baseMint = Keypair.generate()
+        const message =
+            'transferHookAccountsInfo and transferHookAccounts are required for a first buy bundled with pool creation'
+        const firstBuy = {
+            buyAmount: new BN(1),
+            minimumAmountOut: new BN(0),
+            referralTokenAccount: null,
+        }
+
+        await expect(
+            dbcClient.creator.createPoolWithFirstBuyWithTransferHook({
+                createPoolParam: {
+                    baseMint: baseMint.publicKey,
+                    config: config.publicKey,
+                    name: TOKEN_NAME,
+                    symbol: TOKEN_SYMBOL,
+                    uri: TOKEN_URI,
+                    payer: poolCreator.publicKey,
+                    poolCreator: poolCreator.publicKey,
+                },
+                firstBuyParam: {
+                    buyer: poolCreator.publicKey,
+                    ...firstBuy,
+                } as FirstBuyWithTransferHookParams,
+            })
+        ).rejects.toThrow(message)
+
+        await expect(
+            dbcClient.partner.createConfigAndPoolWithFirstBuyWithTransferHook({
+                config: Keypair.generate().publicKey,
+                feeClaimer: partner.publicKey,
+                leftoverReceiver: partner.publicKey,
+                payer: poolCreator.publicKey,
+                quoteMint: NATIVE_MINT,
+                transferHookProgram: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+                ...buildTransferHookCurveConfig(),
+                preCreatePoolParam: {
+                    baseMint: baseMint.publicKey,
+                    name: TOKEN_NAME,
+                    symbol: TOKEN_SYMBOL,
+                    uri: TOKEN_URI,
+                    poolCreator: poolCreator.publicKey,
+                },
+                firstBuyParam: {
+                    buyer: poolCreator.publicKey,
+                    ...firstBuy,
+                } as FirstBuyWithTransferHookParams,
+            })
+        ).rejects.toThrow(message)
+
+        await expect(
+            dbcClient.creator.createPoolWithFirstBuyWithTransferHook({
+                createPoolParam: {
+                    baseMint: baseMint.publicKey,
+                    config: config.publicKey,
+                    name: TOKEN_NAME,
+                    symbol: TOKEN_SYMBOL,
+                    uri: TOKEN_URI,
+                    payer: poolCreator.publicKey,
+                    poolCreator: poolCreator.publicKey,
+                },
+                firstBuyParam: {
+                    buyer: poolCreator.publicKey,
+                    ...firstBuy,
+                    transferHookAccountsInfo: { slices: [] },
+                    transferHookAccounts: [],
+                },
+            })
+        ).rejects.toThrow(message)
+    })
+
+    test('createPoolWithTransferHook defaults to the config hook program and rejects another', async () => {
+        const { config } = await createTransferHookConfig()
+        const baseMint = Keypair.generate()
+        const createPoolParam = {
+            baseMint: baseMint.publicKey,
+            config: config.publicKey,
+            name: TOKEN_NAME,
+            symbol: TOKEN_SYMBOL,
+            uri: TOKEN_URI,
+            payer: poolCreator.publicKey,
+            poolCreator: poolCreator.publicKey,
+        }
+
+        await expect(
+            dbcClient.creator.createPoolWithTransferHook({
+                ...createPoolParam,
+                transferHookProgram: Keypair.generate().publicKey,
+            })
+        ).rejects.toThrow('Transfer hook program does not match config')
+
+        const tx =
+            await dbcClient.creator.createPoolWithTransferHook(createPoolParam)
+        tx.feePayer = poolCreator.publicKey
+        await sendAndConfirmTransaction(connection, tx, [baseMint, poolCreator])
+
+        const mintInfo = await getMint(
+            connection,
+            baseMint.publicKey,
+            'confirmed',
+            TOKEN_2022_PROGRAM_ID
+        )
+        expect(getTransferHook(mintInfo)!.programId.toString()).toBe(
+            TRANSFER_HOOK_COUNTER_PROGRAM_ID.toString()
         )
     })
 })
@@ -559,10 +658,26 @@ function insertAfterFirstInstruction(
     )
 }
 
-function expectMinFee(totalTradingFee: BN, amountIn: BN) {
-    const expectedFee = amountIn
-        .mul(bpsToFeeNumerator(120))
-        .div(new BN(FEE_DENOMINATOR))
-    const feeDiff = totalTradingFee.sub(expectedFee).abs()
-    expect(feeDiff.lte(new BN(1))).toBe(true)
+function expectFirstSwapMinFee(
+    poolState: VirtualPool,
+    curveConfig: ConfigParameters,
+    amountIn: BN
+) {
+    const quote = (eligibleForFirstSwapWithMinFee: boolean) =>
+        dbcClient.pool.getQuoteFromInputAmount({
+            config: curveConfig,
+            swapBaseForQuote: false,
+            amountIn,
+            eligibleForFirstSwapWithMinFee,
+        })
+    const totalFee = (result: SwapQuote2Result) =>
+        result.tradingFee.add(result.protocolFee).add(result.referralFee)
+    const { metrics } = poolState.poolState
+
+    expect(
+        metrics.totalProtocolQuoteFee
+            .add(metrics.totalTradingQuoteFee)
+            .eq(totalFee(quote(true)))
+    ).toBe(true)
+    expect(totalFee(quote(true)).lt(totalFee(quote(false)))).toBe(true)
 }

@@ -1,6 +1,7 @@
 import { Keypair, Connection, sendAndConfirmTransaction } from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
 import { buildTestCurveConfig, fundSol, LOCALNET_RPC_URL } from './utils/common'
+import { curveBaseParams } from './utils/curve'
 import {
     ActivationType,
     BaseFeeMode,
@@ -11,6 +12,7 @@ import {
     DammV2DynamicFeeMode,
     deriveDbcPoolAddress,
     deriveTokenBadgeAddress,
+    ConfigParameters,
     DynamicBondingCurveClient,
     MigratedCollectFeeMode,
     getVestingLockedLiquidityBpsAtNSeconds,
@@ -21,6 +23,7 @@ import {
     TokenDecimal,
     TokenType,
     TokenAuthorityOption,
+    validateConfigParameters,
 } from '../src'
 import {
     createMint,
@@ -529,156 +532,77 @@ describe('Locked Liquidity Validation Tests', () => {
     })
 
     describe('validateConfigParameters validation', () => {
-        test('should throw error for 10% vesting with insufficient locked liquidity', () => {
-            const curveConfig = buildCurve({
-                token: {
-                    tokenType: TokenType.SPLToken,
-                    tokenBaseDecimal: TokenDecimal.SIX,
-                    tokenQuoteDecimal: TokenDecimal.NINE,
-                    tokenAuthorityOption: TokenAuthorityOption.Immutable,
-                    totalTokenSupply: 1_000_000_000,
-                    leftover: 0,
-                },
-                fee: {
-                    baseFeeParams: {
-                        baseFeeMode: BaseFeeMode.FeeSchedulerExponential,
-                        feeSchedulerParam: {
-                            startingFeeBps: 120,
-                            endingFeeBps: 120,
-                            numberOfPeriod: 0,
-                            totalDuration: 0,
+        const migratedLiquidityLockedAtDayOne = (
+            vestingPercentage: number,
+            vesting: { bpsPerPeriod: number; numberOfPeriods: number }
+        ) =>
+            buildCurve({
+                ...curveBaseParams({
+                    migration: {
+                        migrationOption: MigrationOption.MET_DAMM_V2,
+                        migrationFeeOption: MigrationFeeOption.Customizable,
+                        migrationFee: {
+                            feePercentage: 0,
+                            creatorFeePercentage: 0,
+                        },
+                        migratedPoolFee: {
+                            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
+                            dynamicFee: DammV2DynamicFeeMode.Enabled,
+                            poolFeeBps: 120,
                         },
                     },
-                    dynamicFeeEnabled: true,
-                    collectFeeMode: CollectFeeMode.QuoteToken,
-                    creatorTradingFeePercentage: 0,
-                    poolCreationFee: 1,
-                    enableFirstSwapWithMinFee: false,
-                },
-                migration: {
-                    migrationOption: MigrationOption.MET_DAMM_V2,
-                    migrationFeeOption: MigrationFeeOption.Customizable,
-                    migrationFee: {
-                        feePercentage: 0,
-                        creatorFeePercentage: 0,
+                    liquidityDistribution: {
+                        partnerLiquidityPercentage: 100 - vestingPercentage,
+                        partnerPermanentLockedLiquidityPercentage: 0,
+                        partnerLiquidityVestingInfoParams: {
+                            vestingPercentage,
+                            ...vesting,
+                            cliffDurationFromMigrationTime: SECONDS_PER_DAY + 1,
+                            totalDuration: 100000,
+                        },
+                        creatorLiquidityPercentage: 0,
+                        creatorPermanentLockedLiquidityPercentage: 0,
                     },
-                    migratedPoolFee: {
-                        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
-                        dynamicFee: DammV2DynamicFeeMode.Enabled,
-                        poolFeeBps: 120,
-                    },
-                },
-                liquidityDistribution: {
-                    partnerLiquidityPercentage: 90,
-                    partnerPermanentLockedLiquidityPercentage: 0,
-                    partnerLiquidityVestingInfoParams: {
-                        vestingPercentage: 10, // 10% = 999 BPS (fails)
-                        bpsPerPeriod: 10,
-                        cliffDurationFromMigrationTime: SECONDS_PER_DAY + 1,
-                        numberOfPeriods: 100,
-                        totalDuration: 100000,
-                    },
-                    creatorLiquidityPercentage: 0,
-                    creatorPermanentLockedLiquidityPercentage: 0,
-                },
-                lockedVesting: {
-                    totalLockedVestingAmount: 0,
-                    numberOfVestingPeriod: 0,
-                    cliffUnlockAmount: 0,
-                    totalVestingDuration: 0,
-                    cliffDurationFromMigrationTime: 0,
-                },
-                activationType: ActivationType.Timestamp,
+                }),
                 percentageSupplyOnMigration: 25,
                 migrationQuoteThreshold: 1,
             })
 
-            // verify the locked BPS calculation shows 999 BPS
-            const lockedBps = calculateLockedLiquidityBpsAtTime(
+        const lockedBpsAtDayOne = (curveConfig: ConfigParameters) =>
+            calculateLockedLiquidityBpsAtTime(
                 curveConfig.partnerPermanentLockedLiquidityPercentage,
                 curveConfig.creatorPermanentLockedLiquidityPercentage,
                 curveConfig.partnerLiquidityVestingInfo,
                 curveConfig.creatorLiquidityVestingInfo,
                 SECONDS_PER_DAY
             )
-            expect(lockedBps).toBe(999)
-            expect(lockedBps).toBeLessThan(MIN_LOCKED_LIQUIDITY_BPS)
+
+        const validate = (curveConfig: ConfigParameters) =>
+            validateConfigParameters({
+                ...curveConfig,
+                leftoverReceiver: Keypair.generate().publicKey,
+            })
+
+        test('rejects 10% vesting, which locks 999 bps at day 1', () => {
+            const curveConfig = migratedLiquidityLockedAtDayOne(10, {
+                bpsPerPeriod: 10,
+                numberOfPeriods: 100,
+            })
+
+            expect(lockedBpsAtDayOne(curveConfig)).toBe(999)
+            expect(() => validate(curveConfig)).toThrow(
+                'At least 1000 bps of migrated liquidity must be locked at day 1, got 999 bps'
+            )
         })
 
-        test('should succeed for 11% vesting with sufficient locked liquidity', () => {
-            const curveConfig = buildCurve({
-                token: {
-                    tokenType: TokenType.SPLToken,
-                    tokenBaseDecimal: TokenDecimal.SIX,
-                    tokenQuoteDecimal: TokenDecimal.NINE,
-                    tokenAuthorityOption: TokenAuthorityOption.Immutable,
-                    totalTokenSupply: 1_000_000_000,
-                    leftover: 0,
-                },
-                fee: {
-                    baseFeeParams: {
-                        baseFeeMode: BaseFeeMode.FeeSchedulerExponential,
-                        feeSchedulerParam: {
-                            startingFeeBps: 120,
-                            endingFeeBps: 120,
-                            numberOfPeriod: 0,
-                            totalDuration: 0,
-                        },
-                    },
-                    dynamicFeeEnabled: true,
-                    collectFeeMode: CollectFeeMode.QuoteToken,
-                    creatorTradingFeePercentage: 0,
-                    poolCreationFee: 1,
-                    enableFirstSwapWithMinFee: false,
-                },
-                migration: {
-                    migrationOption: MigrationOption.MET_DAMM_V2,
-                    migrationFeeOption: MigrationFeeOption.Customizable,
-                    migrationFee: {
-                        feePercentage: 0,
-                        creatorFeePercentage: 0,
-                    },
-                    migratedPoolFee: {
-                        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
-                        dynamicFee: DammV2DynamicFeeMode.Enabled,
-                        poolFeeBps: 120,
-                    },
-                },
-                liquidityDistribution: {
-                    partnerLiquidityPercentage: 89,
-                    partnerPermanentLockedLiquidityPercentage: 0,
-                    partnerLiquidityVestingInfoParams: {
-                        vestingPercentage: 11, // 11% = 1099 BPS (passes)
-                        bpsPerPeriod: 1,
-                        cliffDurationFromMigrationTime: SECONDS_PER_DAY,
-                        numberOfPeriods: 10000,
-                        totalDuration: 100000,
-                    },
-                    creatorLiquidityPercentage: 0,
-                    creatorPermanentLockedLiquidityPercentage: 0,
-                },
-                lockedVesting: {
-                    totalLockedVestingAmount: 0,
-                    numberOfVestingPeriod: 0,
-                    cliffUnlockAmount: 0,
-                    totalVestingDuration: 0,
-                    cliffDurationFromMigrationTime: 0,
-                },
-                activationType: ActivationType.Timestamp,
-                percentageSupplyOnMigration: 25,
-                migrationQuoteThreshold: 1,
+        test('accepts 11% vesting, which locks 1099 bps at day 1', () => {
+            const curveConfig = migratedLiquidityLockedAtDayOne(11, {
+                bpsPerPeriod: 1,
+                numberOfPeriods: 10000,
             })
 
-            // verify the locked BPS calculation shows >= 1000 BPS
-            const lockedBps = calculateLockedLiquidityBpsAtTime(
-                curveConfig.partnerPermanentLockedLiquidityPercentage,
-                curveConfig.creatorPermanentLockedLiquidityPercentage,
-                curveConfig.partnerLiquidityVestingInfo,
-                curveConfig.creatorLiquidityVestingInfo,
-                SECONDS_PER_DAY
-            )
-            expect(lockedBps).toBe(1099)
-            expect(lockedBps).toBeGreaterThanOrEqual(MIN_LOCKED_LIQUIDITY_BPS)
+            expect(lockedBpsAtDayOne(curveConfig)).toBe(1099)
+            expect(() => validate(curveConfig)).not.toThrow()
         })
     })
 })

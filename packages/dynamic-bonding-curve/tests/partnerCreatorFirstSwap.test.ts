@@ -3,6 +3,7 @@ import {
     Keypair,
     PublicKey,
     sendAndConfirmTransaction,
+    Transaction,
 } from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
 import { fundSol, LOCALNET_RPC_URL } from './utils/common'
@@ -23,9 +24,14 @@ import {
     TokenDecimal,
     TokenType,
     TokenAuthorityOption,
+    type VirtualPool,
 } from '../src'
-import { BN } from 'bn.js'
-import { NATIVE_MINT } from '@solana/spl-token'
+import BN from 'bn.js'
+import {
+    createAssociatedTokenAccountIdempotentInstruction,
+    getAssociatedTokenAddressSync,
+    NATIVE_MINT,
+} from '@solana/spl-token'
 
 const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
 
@@ -146,6 +152,27 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
         )
     })
 
+    const dbcInstructions = (tx: Transaction) =>
+        tx.instructions.filter((ix) =>
+            ix.programId.equals(dbcClient.program.programId)
+        )
+
+    const totalTradingFee = (virtualPool: VirtualPool) =>
+        virtualPool.poolState.metrics.totalProtocolQuoteFee.add(
+            virtualPool.poolState.metrics.totalTradingQuoteFee
+        )
+
+    /** The fee of a buy that is the pool's first swap, bundled with initialize_pool. */
+    const firstSwapMinFee = (amountIn: BN) => {
+        const quote = dbcClient.pool.getQuoteFromInputAmount({
+            config: curveConfig,
+            swapBaseForQuote: false,
+            amountIn,
+            eligibleForFirstSwapWithMinFee: true,
+        })
+        return quote.tradingFee.add(quote.protocolFee)
+    }
+
     test('bundles createPool + partnerBuy + creatorBuy into one transaction', async () => {
         const partnerAmountIn = new BN(1_000_000_000)
         const creatorAmountIn = new BN(500_000_000)
@@ -182,9 +209,9 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
                 },
             })
 
-        expect(bundledTx.instructions.length).toBeGreaterThan(
-            createOnlyPoolTx.instructions.length
-        )
+        expect(dbcInstructions(createOnlyPoolTx)).toHaveLength(1)
+        // initialize pool, partner buy and creator buy
+        expect(dbcInstructions(bundledTx)).toHaveLength(3)
 
         bundledTx.feePayer = poolCreator.publicKey
         await sendAndConfirmTransaction(connection, bundledTx, [
@@ -194,12 +221,68 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
         ])
 
         const virtualPool = await dbcClient.state.getPool(pool)
-        expect(virtualPool).not.toBeNull()
-        const totalTradingFee =
-            virtualPool!.poolState.metrics.totalProtocolQuoteFee.add(
-                virtualPool!.poolState.metrics.totalTradingQuoteFee
-            )
-        expect(totalTradingFee.gt(new BN(0))).toBe(true)
+        const partnerMinFee = firstSwapMinFee(partnerAmountIn)
+        const creatorMinFee = firstSwapMinFee(creatorAmountIn)
+        expect(
+            totalTradingFee(virtualPool!).gt(partnerMinFee.add(creatorMinFee))
+        ).toBe(true)
+    })
+
+    test('both first buys succeed when partner and creator share an existing wSOL account', async () => {
+        const wsolAccount = getAssociatedTokenAddressSync(
+            NATIVE_MINT,
+            partner.publicKey
+        )
+        await sendAndConfirmTransaction(
+            connection,
+            new Transaction().add(
+                createAssociatedTokenAccountIdempotentInstruction(
+                    partner.publicKey,
+                    wsolAccount,
+                    partner.publicKey,
+                    NATIVE_MINT
+                )
+            ),
+            [partner]
+        )
+
+        const bundledTx =
+            await dbcClient.creator.createPoolWithPartnerAndCreatorFirstBuy({
+                createPoolParam: {
+                    baseMint: baseMint.publicKey,
+                    config: config.publicKey,
+                    name: 'TEST',
+                    symbol: 'TEST',
+                    uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
+                    payer: poolCreator.publicKey,
+                    poolCreator: poolCreator.publicKey,
+                },
+                partnerFirstBuyParam: {
+                    partner: partner.publicKey,
+                    receiver: partner.publicKey,
+                    buyAmount: new BN(1_000_000_000),
+                    minimumAmountOut: new BN(0),
+                    referralTokenAccount: null,
+                },
+                creatorFirstBuyParam: {
+                    creator: partner.publicKey,
+                    receiver: partner.publicKey,
+                    buyAmount: new BN(500_000_000),
+                    minimumAmountOut: new BN(0),
+                    referralTokenAccount: null,
+                },
+            })
+
+        bundledTx.feePayer = poolCreator.publicKey
+        await sendAndConfirmTransaction(connection, bundledTx, [
+            poolCreator,
+            baseMint,
+            partner,
+        ])
+
+        expect(await connection.getAccountInfo(wsolAccount)).toBeNull()
+        const virtualPool = await dbcClient.state.getPool(pool)
+        expect(virtualPool!.poolState.quoteReserve.gt(new BN(0))).toBe(true)
     })
 
     test('bundles createPool + partnerBuy only when creator buy is omitted', async () => {
@@ -229,9 +312,9 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
                 },
             })
 
-        expect(bundledTx.instructions.length).toBeGreaterThan(
-            createOnlyPoolTx.instructions.length
-        )
+        expect(dbcInstructions(createOnlyPoolTx)).toHaveLength(1)
+        // initialize pool and the partner buy
+        expect(dbcInstructions(bundledTx)).toHaveLength(2)
 
         bundledTx.feePayer = poolCreator.publicKey
         await sendAndConfirmTransaction(connection, bundledTx, [
@@ -241,11 +324,8 @@ describe('Partner Creator First Swap Tests', { timeout: 60000 }, () => {
         ])
 
         const virtualPool = await dbcClient.state.getPool(pool)
-        expect(virtualPool).not.toBeNull()
-        const totalTradingFee =
-            virtualPool!.poolState.metrics.totalProtocolQuoteFee.add(
-                virtualPool!.poolState.metrics.totalTradingQuoteFee
-            )
-        expect(totalTradingFee.gt(new BN(0))).toBe(true)
+        expect(
+            totalTradingFee(virtualPool!).eq(firstSwapMinFee(partnerAmountIn))
+        ).toBe(true)
     })
 })

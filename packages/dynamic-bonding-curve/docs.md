@@ -178,6 +178,7 @@
     - [getNextSqrtPriceFromBaseAmountInRoundingUp](#getnextsqrtpricefrombaseamountinroundingup)
     - [getNextSqrtPriceFromQuoteAmountInRoundingDown](#getnextsqrtpricefromquoteamountinroundingdown)
     - [getFeeMode](#getfeemode)
+    - [getMinBaseFeeNumerator](#getminbasefeenumerator)
     - [getTotalFeeNumeratorFromIncludedFeeAmount](#gettotalfeenumeratorfromincludedfeeamount)
     - [getTotalFeeNumeratorFromExcludedFeeAmount](#gettotalfeenumeratorfromexcludedfeeamount)
     - [getTotalFeeNumerator](#gettotalfeenumerator)
@@ -237,7 +238,7 @@ interface CreateConfigParams {
     feeClaimer: PublicKey // The wallet that will be able to claim the fee
     leftoverReceiver: PublicKey // The wallet that will receive the bonding curve leftover
     quoteMint: PublicKey // The quote mint address
-    tokenBadge?: PublicKey // Optional. Required remaining account when the quote mint is not permissionless-supported
+    tokenBadge?: PublicKey // Deprecated. The SDK derives the quote mint's token badge when the mint needs one
     poolFees: {
         baseFee: {
             cliffFeeNumerator: BN // Initial fee numerator (base fee)
@@ -283,7 +284,7 @@ interface CreateConfigParams {
         postMigrationTokenSupply: BN // The token supply after migration
     } | null
     creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
-    tokenAuthorityOption: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority. 3 and 4 are rejected unless the config is a transfer-hook config
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
@@ -294,7 +295,6 @@ interface CreateConfigParams {
         collectFeeMode: number // 0: QuoteToken, 1: OutputToken, 2: Compounding
         dynamicFee: number // 0: Disabled, 1: Enabled
         poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
-        compoundingFeeBps?: number // 0 to 10_000 when collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
     }
     poolCreationFee: BN // The pool creation fee
     partnerLiquidityVestingInfo: {
@@ -320,6 +320,7 @@ interface CreateConfigParams {
         reductionFactor: BN // The reduction factor
     }
     enableFirstSwapWithMinFee: boolean // Whether to enable first swap with minimum fee (defaults to false)
+    compoundingFeeBps: number // 0 to 10_000 when migratedPoolFee.collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
     padding: []
     curve: {
         // The curve of the pool
@@ -381,7 +382,7 @@ const transaction = await client.partner.createConfig({
     migrationFeeOption: 0,
     tokenSupply: null,
     creatorTradingFeePercentage: 0,
-    tokenAuthorityOption: 0,
+    tokenUpdateAuthority: 0,
     migrationFee: {
         feePercentage: 25,
         creatorFeePercentage: 50,
@@ -420,6 +421,7 @@ const transaction = await client.partner.createConfig({
         },
     ],
     enableFirstSwapWithMinFee: false,
+    compoundingFeeBps: 0,
     migratedPoolFee: {
         dynamicFee: 0,
         poolFeeBps: 0,
@@ -434,13 +436,12 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 
 **Pool Fees**
 
-- Base fee must have a positive cliff fee numerator
+- Base fee cliff fee numerator must be at least MIN_FEE_NUMERATOR
 - If using Fee Scheduler (Linear or Exponential):
     - All parameters (firstFactor, secondFactor, thirdFactor) must be set if any are set
-    - Cliff fee numerator must be positive
     - For Linear mode, final fee must not be negative
     - Min and max fee numerators must be within valid range (MIN_FEE_NUMERATOR to MAX_FEE_NUMERATOR)
-    - Fee numerators must be less than FEE_DENOMINATOR
+    - Cliff fee numerator must not exceed MAX_FEE_NUMERATOR
 - If using Rate Limiter:
     - Deprecated for new configs and new pools. Existing rate-limiter pools can still be quoted and swapped.
 
@@ -451,7 +452,7 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 **Migration and Token Type**
 
 - New configs must use DAMM v2 (`MigrationOption.MET_DAMM_V2`). DAMM v1 migration is deprecated for new configs and new pools. Existing DAMM v1 pools can still migrate.
-- Token-badge remaining account is required when the quote mint is not permissionless-supported. Use `deriveTokenBadgeAddress(quoteMint)` and pass it as `tokenBadge`.
+- A quote mint that is not permissionless-supported needs an initialized DBC token badge. The SDK derives it with `deriveTokenBadgeAddress(quoteMint)` and throws when the mint has no initialized badge or when `tokenBadge` is a different address. `tokenBadge` is deprecated.
 - A quote mint with a zero transfer fee and a revoked transfer fee config authority is permissionless-supported. A fee is zero when its basis points are 0 or its maximum fee is 0. A non-zero transfer fee or a live transfer fee config authority is only accepted by `createConfig2`, and still needs a token badge when the mint is not otherwise permissionless-supported.
 - A Token-2022 config whose token update authority is `PartnerUpdateAuthority` or `PartnerUpdateAndMintAuthority` requires a non-default `feeClaimer`.
 - `createConfig` and `createConfigWithTransferHook` reject those quote mints. Use `createConfig2`.
@@ -464,8 +465,8 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 
 - Must be a valid option: FixedBps25 (0), FixedBps30 (1), FixedBps100 (2), FixedBps200 (3), FixedBps400 (4), FixedBps600 (5), Customizable (6)
 - Customizable (6) is only allowed for DAMM V2 migration
-- When `marketCapFeeSchedulerParams` is configured in `migratedPoolFee`, the on-chain program requires `migrationFeeOption` to be `Customizable` (6). The SDK's `buildCurve*` functions handle this automatically by overriding `migrationFeeOption` to `Customizable` when `marketCapFeeSchedulerParams` is present.
-- For fixed options (0-5), all `migratedPoolFee` fields must be zero (defaults). Custom values are ignored.
+- For fixed options (0-5), `migratedPoolFee`, `compoundingFeeBps`, `migratedPoolBaseFeeMode` and `migratedPoolMarketCapFeeSchedulerParams` must all be zero or their defaults. Non-zero values are rejected.
+- A market cap fee scheduler (`migratedPoolBaseFeeMode` 3 or 4) requires `migrationFeeOption` to be `Customizable` (6). The `buildCurve*` functions throw when a fixed option is combined with `marketCapFeeSchedulerParams` or a migrated base fee mode other than `FeeTimeSchedulerLinear`.
 
 **Migration Fee**
 
@@ -514,6 +515,7 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 **Token Update Authority**
 
 - Must be either CreatorUpdateAuthority (0), Immutable (1), PartnerUpdateAuthority (2), CreatorUpdateAndMintAuthority (3), PartnerUpdateAndMintAuthority (4)
+- Options 3 and 4 give the creator or partner mint authority. They are rejected unless the config is a transfer-hook config.
 
 **Pool Creation Fee**
 
@@ -538,12 +540,13 @@ When creating a new configuration for a dynamic bonding curve, several validatio
 
 - Configures the graduated pool fee parameters for the migrated DAMM V2 pool.
 - Only applies when `migrationOption = MET_DAMM_V2` (1).
-- When using `migrationFeeOption = Customizable` (6), you can configure: `collectFeeMode`, `dynamicFee`, `poolFeeBps`, and `compoundingFeeBps`.
-- When `marketCapFeeSchedulerParams` is configured:
+- When using `migrationFeeOption = Customizable` (6), you can configure `collectFeeMode`, `dynamicFee` and `poolFeeBps` in `migratedPoolFee`. `compoundingFeeBps` is a top-level field of the config, not part of `migratedPoolFee`. It must be 0 unless `collectFeeMode` is `Compounding` (2), and at most 10_000.
+- When `migratedPoolMarketCapFeeSchedulerParams` is configured:
     - `poolFeeBps` must be greater than 0 (serves as the starting/cliff fee for the market cap scheduler).
-    - `baseFeeMode` must be `FeeMarketCapSchedulerLinear` (3) or `FeeMarketCapSchedulerExponential` (4).
-    - `endingBaseFeeBps` must be strictly less than the bonding curve's `endingFeeBps`.
-- For DAMM V1 migration, all migrated pool fee parameters are ignored.
+    - `migratedPoolBaseFeeMode` must be `FeeMarketCapSchedulerLinear` (3) or `FeeMarketCapSchedulerExponential` (4).
+    - The fee after the last period must be at least 1 bps.
+    - The `buildCurve*` functions take `endingBaseFeeBps` and require it to be strictly less than `migratedPoolFee.poolFeeBps`.
+- `MigrationOption.MET_DAMM` (DAMM V1) is rejected for new configs.
 
 ---
 
@@ -583,11 +586,11 @@ Pass `null` or omit the field when the base mint has no transfer fee, including 
 
 ```typescript
 const transaction = await client.partner.createConfig2({
-    payer,
+    payer: wallet.publicKey,
     config: configKeypair.publicKey,
-    feeClaimer,
-    leftoverReceiver,
-    quoteMint,
+    feeClaimer: wallet.publicKey,
+    leftoverReceiver: wallet.publicKey,
+    quoteMint: NATIVE_MINT,
     ...configParameters,
     transferFeeParameters: {
         transferFeeBasisPoints: 250,
@@ -605,7 +608,7 @@ const transaction = await client.partner.createConfig2({
 - When `transferFeeParameters` is set, or the quote mint has a non-zero transfer fee or a live transfer fee config authority, the config must use a constant token supply (`preMigrationTokenSupply == postMigrationTokenSupply`), no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`.
 - New configs are `PoolConfig.version` 1. A legacy config (`version` 0) cannot initialize a pool on a quote mint with a non-zero transfer fee or a live transfer fee config authority. Transfer-hook pool initialization rejects those quote mints at any version.
 - A base or quote transfer fee lowers what DAMM v2 receives at migration. The program keeps the migration price at or below the budget ratio by depositing the side that lost the larger share as is and scaling the other side: quote rounds down, base rounds up. The migrated pool starts with less liquidity. The amount not deposited is added to the protocol migration fee.
-- Swap quotes read the base transfer fee from `config.transferFeeFlag` unless `baseMint` is passed. Flag 1 means the config created a TransferFeeConfig. For a Token-2022 quote mint they throw unless `quoteMint` and `currentEpoch` are passed. `getSwapQuoteTransferFees(connection, config, { baseMint })` fetches the quote mint, the base mint, and the current epoch. See [swapQuote2](#swapQuote2).
+- Swap quotes read the base transfer fee from `config.transferFeeFlag` unless `baseMint` is passed. Flag 1 means the config created a TransferFeeConfig. For a Token-2022 quote mint they throw unless `quoteMint` and `currentEpoch` are passed. `getSwapQuoteTransferFees(connection, config, { baseMint })` fetches the quote mint, the base mint, and the current epoch. See [swapQuote2](#swapquote2).
 
 ---
 
@@ -636,9 +639,8 @@ type CreateConfigWithTransferHookParams = CreateConfigParams & {
 **Example**
 
 ```typescript
-const curveConfig = buildCurve({
-    // See buildCurve for the full curve configuration.
-})
+// curveParams: the BuildCurveParams from the buildCurve example
+const curveConfig = buildCurve(curveParams)
 
 const transaction = await client.partner.createConfigWithTransferHook({
     payer: wallet.publicKey,
@@ -655,13 +657,14 @@ const transaction = await client.partner.createConfigWithTransferHook({
 
 - Use this function for Token-2022 base mints that should run a transfer-hook program on transfers.
 - The config's `tokenType` must be `TokenType.Token2022`.
+- `tokenUpdateAuthority` options 3 (`CreatorUpdateAndMintAuthority`) and 4 (`PartnerUpdateAndMintAuthority`) are accepted only by this function.
 - The config keypair must sign the transaction.
 
 ---
 
 ### createConfigAndPool
 
-Creates a config key and a token pool in a single transaction.
+Creates a config key and a token pool in a single transaction. The transaction exceeds the 1232-byte limit once the curve has 8 or more points, which includes every `buildCurveWithLiquidityWeights` result (16 points). For those curves use [createConfigAndPoolWithFirstBuy](#createconfigandpoolwithfirstbuy), which returns the config and pool transactions separately.
 
 **Function**
 
@@ -680,7 +683,7 @@ interface CreateConfigAndPoolParams {
     feeClaimer: PublicKey // The wallet that will be able to claim the fee
     leftoverReceiver: PublicKey // The wallet that will receive the bonding curve leftover
     quoteMint: PublicKey // The quote mint address
-    tokenBadge?: PublicKey // Optional. Required remaining account when the quote mint is not permissionless-supported
+    tokenBadge?: PublicKey // Deprecated. The SDK derives the quote mint's token badge when the mint needs one
     poolFees: {
         baseFee: {
             cliffFeeNumerator: BN // Initial fee numerator (base fee)
@@ -726,7 +729,8 @@ interface CreateConfigAndPoolParams {
         postMigrationTokenSupply: BN // The token supply after migration
     } | null
     creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
-    tokenAuthorityOption: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
+    transferFeeParameters?: TransferFeeParameters | null // The base mint transfer fee, see createConfig2. Omitting it is the same as null
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority. 3 and 4 are rejected unless the config is a transfer-hook config
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
@@ -737,7 +741,6 @@ interface CreateConfigAndPoolParams {
         collectFeeMode: number // 0: QuoteToken, 1: OutputToken, 2: Compounding
         dynamicFee: number // 0: Disabled, 1: Enabled
         poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
-        compoundingFeeBps?: number // 0 to 10_000 when collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
     }
     migratedPoolBaseFeeMode: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeTimeSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams: {
@@ -748,6 +751,7 @@ interface CreateConfigAndPoolParams {
         reductionFactor: BN // The reduction factor
     }
     enableFirstSwapWithMinFee: boolean // Whether to enable first swap with minimum fee (defaults to false)
+    compoundingFeeBps: number // 0 to 10_000 when migratedPoolFee.collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
     poolCreationFee: BN // The pool creation fee
     partnerLiquidityVestingInfo: {
         vestingPercentage: number // The percentage of the liquidity that will be vested
@@ -781,7 +785,7 @@ interface CreateConfigAndPoolParams {
 
 **Returns**
 
-- A transaction that requires signatures from the payer, the baseMint keypair, and the config keypair before being submitted to the network.
+- A transaction that requires signatures from the payer, the config keypair, the baseMint keypair, and the poolCreator before being submitted to the network.
 
 **Example**
 
@@ -831,7 +835,7 @@ const transaction = await client.partner.createConfigAndPool({
     migrationFeeOption: 0,
     tokenSupply: null,
     creatorTradingFeePercentage: 0,
-    tokenAuthorityOption: 0,
+    tokenUpdateAuthority: 0,
     migrationFee: {
         feePercentage: 25,
         creatorFeePercentage: 50,
@@ -870,6 +874,7 @@ const transaction = await client.partner.createConfigAndPool({
         },
     ],
     enableFirstSwapWithMinFee: false,
+    compoundingFeeBps: 0,
     migratedPoolFee: {
         dynamicFee: 0,
         poolFeeBps: 0,
@@ -887,16 +892,14 @@ const transaction = await client.partner.createConfigAndPool({
 
 **Notes**
 
-- The payer must be the same as the payer in the `CreateConfigAndPoolParam` params.
 - The poolCreator is required to sign when creating the pool.
-- The baseMint token type must be the same as the config key's token type.
 - You can use any of the build curve functions to create the curve configuration.
 
 ---
 
 ### createConfigAndPoolWithTransferHook
 
-Creates a transfer-hook config and initializes a Token-2022 transfer-hook pool in a single transaction.
+Creates a transfer-hook config and initializes a Token-2022 transfer-hook pool in a single transaction. The transaction exceeds the 1232-byte limit once the curve has 8 or more points, which includes every `buildCurveWithLiquidityWeights` result (16 points). For those curves use [createConfigAndPoolWithFirstBuyWithTransferHook](#createconfigandpoolwithfirstbuywithtransferhook), which returns the config and pool transactions separately.
 
 **Function**
 
@@ -928,9 +931,8 @@ type CreateConfigAndPoolWithTransferHookParams =
 **Example**
 
 ```typescript
-const curveConfig = buildCurve({
-    // See buildCurve for the full curve configuration.
-})
+// curveParams: the BuildCurveParams from the buildCurve example
+const curveConfig = buildCurve(curveParams)
 
 const transaction = await client.partner.createConfigAndPoolWithTransferHook({
     payer: wallet.publicKey,
@@ -982,7 +984,7 @@ interface CreateConfigAndPoolWithFirstBuyParams {
     feeClaimer: PublicKey // The wallet that will be able to claim the fee
     leftoverReceiver: PublicKey // The wallet that will receive the bonding curve leftover
     quoteMint: PublicKey // The quote mint address
-    tokenBadge?: PublicKey // Optional. Required remaining account when the quote mint is not permissionless-supported
+    tokenBadge?: PublicKey // Deprecated. The SDK derives the quote mint's token badge when the mint needs one
     poolFees: {
         baseFee: {
             cliffFeeNumerator: BN // Initial fee numerator (base fee)
@@ -1028,7 +1030,8 @@ interface CreateConfigAndPoolWithFirstBuyParams {
         postMigrationTokenSupply: BN // The token supply after migration
     } | null
     creatorTradingFeePercentage: number // The percentage of the trading fee that will be allocated to the creator
-    tokenAuthorityOption: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority
+    transferFeeParameters?: TransferFeeParameters | null // The base mint transfer fee, see createConfig2. Omitting it is the same as null
+    tokenUpdateAuthority: number // 0 - CreatorUpdateAuthority, 1 - Immutable, 2 - PartnerUpdateAuthority, 3 - CreatorUpdateAndMintAuthority, 4 - PartnerUpdateAndMintAuthority. 3 and 4 are rejected unless the config is a transfer-hook config
     migrationFee: {
         // Optional migration fee (set as 0 for feePercentage and creatorFeePercentage for no migration fee)
         feePercentage: number // The percentage of fee taken from migration quote threshold (0-99)
@@ -1039,7 +1042,6 @@ interface CreateConfigAndPoolWithFirstBuyParams {
         collectFeeMode: number // 0: QuoteToken, 1: OutputToken, 2: Compounding
         dynamicFee: number // 0: Disabled, 1: Enabled
         poolFeeBps: number // The pool fee in basis points. Minimum 10, Maximum 1000 bps.
-        compoundingFeeBps?: number // 0 to 10_000 when collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
     }
     migratedPoolBaseFeeMode: number // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential (defaults to FeeTimeSchedulerLinear)
     migratedPoolMarketCapFeeSchedulerParams: {
@@ -1050,6 +1052,7 @@ interface CreateConfigAndPoolWithFirstBuyParams {
         reductionFactor: BN // The reduction factor
     }
     enableFirstSwapWithMinFee: boolean // Whether to enable first swap with minimum fee (defaults to false)
+    compoundingFeeBps: number // 0 to 10_000 when migratedPoolFee.collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
     poolCreationFee: BN // The pool creation fee
     partnerLiquidityVestingInfo: {
         vestingPercentage: number // The percentage of the liquidity that will be vested
@@ -1149,7 +1152,7 @@ const { createConfigTx, createPoolWithFirstBuyTx } =
         migrationFeeOption: 0,
         tokenSupply: null,
         creatorTradingFeePercentage: 0,
-        tokenAuthorityOption: 0,
+        tokenUpdateAuthority: 0,
         migrationFee: {
             feePercentage: 25,
             creatorFeePercentage: 50,
@@ -1188,6 +1191,7 @@ const { createConfigTx, createPoolWithFirstBuyTx } =
             },
         ],
         enableFirstSwapWithMinFee: false,
+        compoundingFeeBps: 0,
         migratedPoolFee: {
             dynamicFee: 0,
             poolFeeBps: 0,
@@ -1213,7 +1217,6 @@ const { createConfigTx, createPoolWithFirstBuyTx } =
 
 **Notes**
 
-- The payer must be the same as the payer in the `CreateConfigAndPoolWithFirstBuyParam` params.
 - The `createConfigTx` requires the payer and config to sign the transaction.
 - The `createPoolWithFirstBuyTx` requires the payer, poolCreator, and baseMint to sign the transaction. If `firstBuyParam` is provided, it also requires buyer/payer signatures for the appended first-buy instructions.
 - If the `firstBuyParam` is not provided, `createPoolWithFirstBuyTx` includes only pool-creation instructions.
@@ -1247,8 +1250,8 @@ type CreateConfigAndPoolWithFirstBuyWithTransferHookParams =
             buyAmount: BN // The quote token amount to spend
             minimumAmountOut: BN // The minimum base token amount to receive
             referralTokenAccount: PublicKey | null // The referral token account (optional)
-            transferHookAccountsInfo?: TransferHookAccountsInfo // Optional precomputed transfer-hook account slice info
-            transferHookAccounts?: AccountMeta[] // Optional precomputed transfer-hook remaining accounts
+            transferHookAccountsInfo: TransferHookAccountsInfo // The slice info for transferHookAccounts
+            transferHookAccounts: AccountMeta[] // The transfer-hook remaining accounts for the base mint
         }
     }
 ```
@@ -1263,9 +1266,10 @@ An object of transactions containing:
 **Example**
 
 ```typescript
-const curveConfig = buildCurve({
-    // See buildCurve for the full curve configuration.
-})
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
+// curveParams: the BuildCurveParams from the buildCurve example
+const curveConfig = buildCurve(curveParams)
 
 const { createConfigTx, createPoolWithFirstBuyTx } =
     await client.partner.createConfigAndPoolWithFirstBuyWithTransferHook({
@@ -1288,14 +1292,24 @@ const { createConfigTx, createPoolWithFirstBuyTx } =
             buyAmount: amountIn,
             minimumAmountOut: new BN(1),
             referralTokenAccount: null,
+            // the hook's accounts for baseMint, as AccountMeta[]
+            transferHookAccounts,
+            transferHookAccountsInfo: {
+                slices: [
+                    {
+                        accountsType: AccountsType.TransferHookBase,
+                        length: transferHookAccounts.length,
+                    },
+                ],
+            },
         },
     })
 ```
 
 **Notes**
 
-- If your transfer-hook program requires extra account metas before the first buy, initialize those accounts before sending `createPoolWithFirstBuyTx`.
-- `transferHookAccountsInfo` and `transferHookAccounts` are optional; when omitted, the SDK derives the transfer-hook remaining accounts from the base mint.
+- `transferHookAccountsInfo` and `transferHookAccounts` are required. The base mint does not exist yet, so neither the SDK nor `addExtraAccountMetasForExecute` can read the hook's accounts from chain, and an empty list throws. Derive them yourself: the extra account meta list PDA of the hook program for `baseMint`, the accounts that list will hold, and the hook program, with one `AccountsType.TransferHookBase` slice per buy giving their count.
+- The hook's extra account meta list for `baseMint` cannot exist before the pool creates the mint either. Insert its initialize instruction right after the pool initialization instruction, before the first buy.
 - The config's `tokenType` must be `TokenType.Token2022`.
 
 ---
@@ -1357,13 +1371,13 @@ claimPartnerTradingFee(
 **Parameters**
 
 ```typescript
-interface ClaimTradingFeeParams {
+interface ClaimPartnerTradingFeeParams {
     pool: PublicKey // The pool address
     feeClaimer: PublicKey // The wallet that will claim the fee
     payer: PublicKey // The wallet that will pay for the transaction
     maxBaseAmount: BN // The maximum base amount to claim (use 0 to not claim base tokens)
     maxQuoteAmount: BN // The maximum quote amount to claim (use 0 to not claim quote tokens)
-    receiver?: PublicKey | null // The wallet that will receive the tokens (optional)
+    receiver?: PublicKey // The wallet that will receive the tokens. Defaults to feeClaimer
 }
 ```
 
@@ -1386,9 +1400,10 @@ const transaction = await client.partner.claimPartnerTradingFee({
 
 **Notes**
 
-- The feeClaimer of the pool must be the same as the feeClaimer in the `ClaimTradingFeeParam` params.
+- `feeClaimer` signs and must be the config's `feeClaimer`.
 - You can indicate maxBaseAmount or maxQuoteAmount to be 0 to not claim Base or Quote tokens respectively.
-- With a native SOL quote the fee arrives in the fee claimer's wrapped SOL account and is unwrapped to `receiver`, so the receiver does not sign.
+- It throws on a transfer-hook pool. Use [claimPartnerTradingFee2](#claimpartnertradingfee2).
+- With a native SOL quote the fee is unwrapped to `receiver` as SOL, so the receiver does not sign. The fee goes through a temporary wrapped SOL account derived from `feeClaimer`, so `feeClaimer`'s own wrapped SOL account is never touched.
 
 ---
 
@@ -1407,13 +1422,13 @@ claimPartnerTradingFeeToReceiver(
 **Parameters**
 
 ```typescript
-interface ClaimPartnerTradingFee2Params {
+interface ClaimPartnerTradingFeeToReceiverParams {
     pool: PublicKey // The pool address
     feeClaimer: PublicKey // The wallet that will claim the fee
     payer: PublicKey // The wallet that will pay for the transaction
     maxBaseAmount: BN // The maximum base amount to claim (use 0 to not claim base tokens)
     maxQuoteAmount: BN // The maximum quote amount to claim (use 0 to not claim quote tokens)
-    receiver?: PublicKey | null // The wallet that will receive the tokens
+    receiver: PublicKey // The wallet that will receive the tokens
 }
 ```
 
@@ -1436,9 +1451,11 @@ const transaction = await client.partner.claimPartnerTradingFeeToReceiver({
 
 **Notes**
 
-- The feeClaimer of the pool must be the same as the feeClaimer in the `ClaimPartnerTradingFee2Params` params.
+- `feeClaimer` signs and must be the config's `feeClaimer`.
 - You can indicate maxBaseAmount or maxQuoteAmount to be 0 to not claim Base or Quote tokens respectively.
 - Can be used in case the partner is a squad multisig account.
+- It throws on a transfer-hook pool. Use [claimPartnerTradingFee2](#claimpartnertradingfee2).
+- With a native SOL quote the fee is unwrapped to `receiver` as SOL. The fee goes through a temporary wrapped SOL account derived from `feeClaimer`, so `feeClaimer`'s own wrapped SOL account is never touched.
 
 ---
 
@@ -1463,7 +1480,7 @@ interface ClaimPartnerTradingFeeToReceiverParams {
     payer: PublicKey // The wallet that will pay for the transaction
     maxBaseAmount: BN // The maximum base amount to claim (use 0 to not claim base tokens)
     maxQuoteAmount: BN // The maximum quote amount to claim (use 0 to not claim quote tokens)
-    receiver?: PublicKey | null // The wallet that will receive the tokens
+    receiver: PublicKey // The wallet that will receive the tokens
 }
 ```
 
@@ -1487,7 +1504,8 @@ const transaction = await client.partner.claimPartnerTradingFee2({
 **Notes**
 
 - Use this function for transfer-hook pools so the transfer-hook remaining accounts are included in the claim instruction.
-- The `feeClaimer` must match the config's partner fee claimer.
+- `feeClaimer` signs and must be the config's `feeClaimer`.
+- A native SOL quote is handled as in [claimPartnerTradingFeeToReceiver](#claimpartnertradingfeetoreceiver).
 - You can set `maxBaseAmount` or `maxQuoteAmount` to 0 to skip claiming that token.
 
 ---
@@ -1528,7 +1546,7 @@ const transaction = await client.partner.partnerWithdrawSurplus({
 
 **Notes**
 
-- The feeClaimer of the pool must be the same as the feeClaimer in the `PartnerWithdrawSurplusParam` params.
+- `feeClaimer` signs and must be the config's `feeClaimer`.
 
 ---
 
@@ -1635,7 +1653,7 @@ interface BuildCurveParams {
         tokenType: TokenType // 0: SPLToken, 1: Token2022
         tokenBaseDecimal: TokenDecimal // 6, 7, 8, or 9
         tokenQuoteDecimal: number // The quote mint decimals, for example 9 for SOL or 5 for BONK
-        tokenAuthorityOption: TokenAuthorityOption // 0: CreatorUpdateAuthority, 1: Immutable, 2: PartnerUpdateAuthority, 3: CreatorUpdateAndMintAuthority, 4: PartnerUpdateAndMintAuthority
+        tokenAuthorityOption: TokenAuthorityOption // 0: CreatorUpdateAuthority, 1: Immutable, 2: PartnerUpdateAuthority, 3: CreatorUpdateAndMintAuthority, 4: PartnerUpdateAndMintAuthority. Becomes `tokenUpdateAuthority` in the config; 3 and 4 are rejected unless the config is a transfer-hook config
         totalTokenSupply: number // The total token supply
         leftover: number // The leftover amount that can be withdrawn by leftover receiver
     }
@@ -1660,12 +1678,12 @@ interface BuildCurveParams {
             // Optional. Configure only for DAMM V2 migration.
             collectFeeMode: MigratedCollectFeeMode // 0: QuoteToken, 1: OutputToken, 2: Compounding
             dynamicFee: DammV2DynamicFeeMode // 0: Disabled, 1: Enabled
-            poolFeeBps: number // The pool fee in basis points
+            poolFeeBps: number // The pool fee in basis points. Required when migrationFeeOption is Customizable
             compoundingFeeBps?: number // 0 to 10_000 when collectFeeMode = 2 (Compounding). 0 collects the trading fee in the quote token. Otherwise must be 0
             baseFeeMode?: DammV2BaseFeeMode // 0: FeeTimeSchedulerLinear, 1: FeeTimeSchedulerExponential, 3: FeeMarketCapSchedulerLinear, 4: FeeMarketCapSchedulerExponential
             marketCapFeeSchedulerParams?: {
                 // Configure for market cap-based fee scheduling
-                endingBaseFeeBps: number // The ending base fee in basis points (must be < bonding curve's endingFeeBps)
+                endingBaseFeeBps: number // The ending base fee in basis points (must be < poolFeeBps)
                 numberOfPeriod: number // The number of periods
                 priceMultiple: number // Target spot-price multiple from the initial price
                 schedulerExpirationDuration: number // The scheduler expiration duration in seconds
@@ -1822,7 +1840,7 @@ const curveConfigWithScheduler = buildCurve({
     },
     migration: {
         migrationOption: MigrationOption.MET_DAMM_V2,
-        migrationFeeOption: MigrationFeeOption.FixedBps100, // Will be auto-overridden to Customizable
+        migrationFeeOption: MigrationFeeOption.Customizable, // Required with marketCapFeeSchedulerParams
         migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
         migratedPoolFee: {
             collectFeeMode: MigratedCollectFeeMode.QuoteToken,
@@ -1830,7 +1848,7 @@ const curveConfigWithScheduler = buildCurve({
             poolFeeBps: 120,
             baseFeeMode: DammV2BaseFeeMode.FeeMarketCapSchedulerLinear,
             marketCapFeeSchedulerParams: {
-                endingBaseFeeBps: 25, // Must be less than bonding curve's endingFeeBps (100)
+                endingBaseFeeBps: 25, // Must be less than poolFeeBps (120)
                 numberOfPeriod: 100,
                 priceMultiple: 1000,
                 schedulerExpirationDuration: 1000000,
@@ -1882,22 +1900,21 @@ const transaction = await client.partner.createConfig({
 
 **Notes**
 
-- `buildCurve` helps you create a curve structure based on percentage of supply on migration and migration quote threshold.
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are calculated in terms of seconds.
-- `feeSchedulerParam.totalDuration` is calculated based on your `activationType` and `activationTime`. Slot is 400ms, Timestamp is 1000ms.
+- `feeSchedulerParam.totalDuration` is in slots when `activationType` is `ActivationType.Slot` and in seconds when it is `ActivationType.Timestamp`.
 - **Migration Fee Option behavior:**
-    - **Fixed options (0-5):** Uses default migrated pool fee parameters. Any custom `migratedPoolFee` values are ignored.
-    - **Customizable (6):** Uses your custom `migratedPoolFee` values. Falls back to defaults for any omitted fields (including `compoundingFeeBps`, which defaults to `0`).
-    - **Auto-override:** When `marketCapFeeSchedulerParams` is configured inside `migratedPoolFee`, the SDK automatically overrides `migrationFeeOption` to `Customizable` regardless of what you set. This is required by the on-chain program.
+    - **Fixed options (0-5):** Uses the default migrated pool fee parameters. `collectFeeMode`, `dynamicFee`, `poolFeeBps` and `compoundingFeeBps` in `migratedPoolFee` are ignored. A `baseFeeMode` other than `FeeTimeSchedulerLinear` or any `marketCapFeeSchedulerParams` throws.
+    - **Customizable (6):** Uses your `migratedPoolFee` values. `poolFeeBps` is required and the builder throws without it. `compoundingFeeBps` defaults to `0`.
+- When using `marketCapFeeSchedulerParams`, `migrationFeeOption` must be `Customizable` (6). The builder does not change it and throws with a fixed option.
 - When using `marketCapFeeSchedulerParams`:
     - `baseFeeMode` must be `DammV2BaseFeeMode.FeeMarketCapSchedulerLinear` (3) or `FeeMarketCapSchedulerExponential` (4).
-    - `endingBaseFeeBps` must be strictly less than the bonding curve's `baseFeeParams.feeSchedulerParam.endingFeeBps`.
+    - `endingBaseFeeBps` must be strictly less than `migratedPoolFee.poolFeeBps`, which is the starting fee of the scheduler.
     - `priceMultiple` is required and must be greater than 1.
     - The SDK derives on-chain `sqrtPriceStepBps` from `priceMultiple` and `numberOfPeriod`.
     - `poolFeeBps` must be greater than 0.
 - If `migratedPoolFee.collectFeeMode = MigratedCollectFeeMode.Compounding` (2), `compoundingFeeBps` must be `>= 0` and `<= 10_000`. `0` collects the trading fee in the quote token. Otherwise `compoundingFeeBps` must be `0`.
-- For DAMM V1 migration, all `migratedPoolFee` parameters are ignored and defaults are used.
+- `MigrationOption.MET_DAMM` (DAMM V1) is rejected for new configs; the builder throws.
 
 ---
 
@@ -2017,11 +2034,10 @@ const transaction = await client.partner.createConfig({
 
 **Notes**
 
-- `buildCurveWithMarketCap` helps you create a curve structure based on initial market cap and migration market cap.
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are in seconds.
 - `feeSchedulerParam.totalDuration` is based on your `activationType`. Slot is 400ms, Timestamp is 1000ms.
-- See [buildCurve](#buildCurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
+- See [buildCurve](#buildcurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
 
 ---
 
@@ -2070,7 +2086,7 @@ const curveConfig = buildCurveWithTwoSegments({
         tokenQuoteDecimal: TokenDecimal.NINE,
         tokenAuthorityOption: TokenAuthorityOption.Immutable,
         totalTokenSupply: 1_000_000_000,
-        leftover: 0,
+        leftover: 1000,
     },
     fee: {
         baseFeeParams: {
@@ -2099,8 +2115,8 @@ const curveConfig = buildCurveWithTwoSegments({
         },
     },
     liquidityDistribution: {
-        partnerLiquidityPercentage: 55,
-        partnerPermanentLockedLiquidityPercentage: 0,
+        partnerLiquidityPercentage: 50,
+        partnerPermanentLockedLiquidityPercentage: 50,
         creatorLiquidityPercentage: 0,
         creatorPermanentLockedLiquidityPercentage: 0,
     },
@@ -2129,11 +2145,10 @@ const transaction = await client.partner.createConfig({
 
 **Notes**
 
-- `buildCurveWithTwoSegments` helps you create a curve structure based on initial market cap, migration market cap and percentage of supply on migration.
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are in seconds.
 - `feeSchedulerParam.totalDuration` is based on your `activationType`. Slot is 400ms, Timestamp is 1000ms.
-- See [buildCurve](#buildCurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
+- See [buildCurve](#buildcurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
 
 ---
 
@@ -2183,7 +2198,7 @@ const curveConfig = buildCurveWithMidPrice({
         tokenQuoteDecimal: TokenDecimal.NINE,
         tokenAuthorityOption: TokenAuthorityOption.Immutable,
         totalTokenSupply: 1_000_000_000,
-        leftover: 0,
+        leftover: 1000,
     },
     fee: {
         baseFeeParams: {
@@ -2212,8 +2227,8 @@ const curveConfig = buildCurveWithMidPrice({
         },
     },
     liquidityDistribution: {
-        partnerLiquidityPercentage: 55,
-        partnerPermanentLockedLiquidityPercentage: 0,
+        partnerLiquidityPercentage: 50,
+        partnerPermanentLockedLiquidityPercentage: 50,
         creatorLiquidityPercentage: 0,
         creatorPermanentLockedLiquidityPercentage: 0,
     },
@@ -2227,7 +2242,7 @@ const curveConfig = buildCurveWithMidPrice({
     activationType: ActivationType.Timestamp,
     initialMarketCap: 5000,
     migrationMarketCap: 1000000,
-    midPrice: 141.75,
+    midPrice: 0.0001,
     percentageSupplyOnMigration: 20,
 })
 
@@ -2243,14 +2258,12 @@ const transaction = await client.partner.createConfig({
 
 **Notes**
 
-- `buildCurveWithMidPrice` helps you create a curve structure based on initial market cap, migration market cap and mid price.
 - What does mid price do?
-    - The `midPrice` is the price at which the curve will be segmented into two parts between the start price and the migration price.
-    - The `percentageSupplyOnMigration` is the percentage of the supply that will be migrated.
+    - The `midPrice` is the price at which the curve will be segmented into two parts between the start price and the migration price. A `midPrice` at or outside those two prices throws.
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are in seconds.
 - `feeSchedulerParam.totalDuration` is based on your `activationType`. Slot is 400ms, Timestamp is 1000ms.
-- See [buildCurve](#buildCurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
+- See [buildCurve](#buildcurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
 
 ---
 
@@ -2281,7 +2294,7 @@ interface BuildCurveWithLiquidityWeightsParams {
     // buildCurveWithLiquidityWeights-specific parameters:
     initialMarketCap: number // The initial market cap
     migrationMarketCap: number // The migration market cap
-    liquidityWeights: number[] // The liquidity weights for each segment (max 16 elements)
+    liquidityWeights: number[] // The liquidity weights, one for each of the 16 segments (exactly 16 entries)
 }
 ```
 
@@ -2304,7 +2317,7 @@ const curveConfig = buildCurveWithLiquidityWeights({
         tokenQuoteDecimal: TokenDecimal.NINE,
         tokenAuthorityOption: TokenAuthorityOption.Immutable,
         totalTokenSupply: 1_000_000_000,
-        leftover: 0,
+        leftover: 1000,
     },
     fee: {
         baseFeeParams: {
@@ -2333,8 +2346,8 @@ const curveConfig = buildCurveWithLiquidityWeights({
         },
     },
     liquidityDistribution: {
-        partnerLiquidityPercentage: 55,
-        partnerPermanentLockedLiquidityPercentage: 0,
+        partnerLiquidityPercentage: 50,
+        partnerPermanentLockedLiquidityPercentage: 50,
         creatorLiquidityPercentage: 0,
         creatorPermanentLockedLiquidityPercentage: 0,
     },
@@ -2363,10 +2376,9 @@ const transaction = await client.partner.createConfig({
 
 **Notes**
 
-- `buildCurveWithLiquidityWeights` helps you create a curve structure based on initial market cap, migration market cap and liquidity weights.
 - What does liquidity weights do?
     - The `liquidityWeights` is an array of numbers that determines how liquidity is distributed across the curve's price ranges.
-    - The maximum number of liquidity weights[i] is `16`.
+    - `liquidityWeights` must have exactly `16` entries; the builder throws otherwise.
     - Each element in the array represents the liquidity weight for a specific curve segment (total `16` curve segments).
     - For each segment of the curve, the liquidity is scaled by liquidityWeights[i] (where `i` is the liquidityWeight index).
     - This means that as you move along the curve (from lower to higher price ranges), the liquidity in each curve segment can be controlled.
@@ -2377,7 +2389,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are in seconds.
 - `feeSchedulerParam.totalDuration` is based on your `activationType`. Slot is 400ms, Timestamp is 1000ms.
-- See [buildCurve](#buildCurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
+- See [buildCurve](#buildcurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
 
 ---
 
@@ -2440,7 +2452,7 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
         tokenQuoteDecimal: TokenDecimal.SIX,
         tokenAuthorityOption: TokenAuthorityOption.Immutable,
         totalTokenSupply: 1_000_000_000,
-        leftover: 0,
+        leftover: 1000,
     },
     fee: {
         baseFeeParams: {
@@ -2469,8 +2481,8 @@ const curveConfig = buildCurveWithCustomSqrtPrices({
         },
     },
     liquidityDistribution: {
-        partnerLiquidityPercentage: 55,
-        partnerPermanentLockedLiquidityPercentage: 0,
+        partnerLiquidityPercentage: 50,
+        partnerPermanentLockedLiquidityPercentage: 50,
         creatorLiquidityPercentage: 0,
         creatorPermanentLockedLiquidityPercentage: 0,
     },
@@ -2498,7 +2510,6 @@ const transaction = await client.partner.createConfig({
 
 **Notes**
 
-- `buildCurveWithCustomSqrtPrices` helps you create a curve structure based on custom sqrt prices and optional liquidity weights.
 - What does sqrt prices do?
     - The `sqrtPrices` is an array of BN values representing the sqrt prices of the curve segments.
     - The length of the `sqrtPrices` array must be at least 2.
@@ -2507,7 +2518,7 @@ const transaction = await client.partner.createConfig({
     - Use `createSqrtPrices()` helper to convert regular prices to sqrt prices.
 - What does liquidity weights do?
     - The `liquidityWeights` is an array of numbers that determines how liquidity is distributed across the curve's price ranges.
-    - The maximum number of liquidity weights[i] is `16`.
+    - The curve has at most `16` segments, so `sqrtPrices` has at most 17 elements.
     - Each element in the array represents the liquidity weight for a specific curve segment.
     - If not provided, liquidity is distributed evenly across all segments.
     - The length of the `liquidityWeights` array must be `sqrtPrices.length - 1`.
@@ -2518,7 +2529,7 @@ const transaction = await client.partner.createConfig({
 - If `dynamicFeeEnabled` is true, the dynamic fee will be enabled and capped at 20% of minimum base fee.
 - `lockedVesting.totalVestingDuration` and `lockedVesting.cliffDurationFromMigrationTime` are in seconds.
 - `feeSchedulerParam.totalDuration` is based on your `activationType`. Slot is 400ms, Timestamp is 1000ms.
-- See [buildCurve](#buildCurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
+- See [buildCurve](#buildcurve) notes for details on migration fee option behavior and `marketCapFeeSchedulerParams` constraints.
 
 ---
 
@@ -2542,7 +2553,7 @@ interface SwapParams {
     amountIn: BN // The amount of quote or base tokens to swap
     minimumAmountOut: BN // The minimum amount of quote or base tokens to receive
     swapBaseForQuote: boolean // Whether to swap base for quote. true = swap base for quote, false = swap quote for base
-    poolAddress: PublicKey // The pool address
+    pool: PublicKey // The pool address
     referralTokenAccount: PublicKey | null // The referral token account (optional)
     payer?: PublicKey // The payer of the transaction (optional)
 }
@@ -2558,9 +2569,11 @@ interface SwapParams {
 const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
 
 const virtualPoolState = await client.state.getPool(poolAddress)
+if (!virtualPoolState) throw new Error('Pool not found')
 const poolConfigState = await client.state.getPoolConfig(
     virtualPoolState.poolState.config
 )
+if (!poolConfigState) throw new Error('Config not found')
 const currentPoint = await getCurrentPoint(
     connection,
     poolConfigState.activationType
@@ -2572,31 +2585,25 @@ const quote = client.pool.swapQuote({
     swapBaseForQuote: false,
     amountIn,
     slippageBps: 50,
-    hasReferral: false,
     currentPoint,
-    swapMode: SwapMode.PartialFill,
 })
 
 const transaction = await client.pool.swap({
-    owner: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    amountIn: new BN(1000000000),
-    minimumAmountOut: new BN(0),
+    owner: wallet.publicKey,
+    amountIn,
+    minimumAmountOut: quote.minimumAmountOut,
     swapBaseForQuote: false,
-    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
+    pool: poolAddress,
     referralTokenAccount: null,
-    payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
+    payer: payer.publicKey,
 })
 ```
 
 **Notes**
 
 - The owner must have sufficient balance for the swap.
-- For SOL swaps, the owner needs additional SOL for transaction fees (approximately 0.01 SOL).
-- When swapping quote for base (buying tokens), set `swapBaseForQuote` to `false`.
-- When swapping base for quote (selling tokens), set `swapBaseForQuote` to `true`.
-- The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
+- `minimumAmountOut` protects against slippage. Take it from [swapQuote](#swapquote), or use [swap2](#swap2) with [swapQuote2](#swapquote2).
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
-- If the transaction fails with "insufficient balance", check that you have enough tokens plus fees for the transaction.
 - The pool address can be derived using `deriveDbcPoolAddress`.
 - The `payer` parameter is optional. If not provided, the owner will be used as the payer to fund ATA creation.
 
@@ -2620,15 +2627,35 @@ interface SwapQuoteParams {
     config: PoolConfig // The pool config account state, from client.state.getPoolConfig
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     amountIn: BN // The amount of tokens to swap in
-    slippageBps?: number // The slippage in bps
-    hasReferral: boolean // Whether to include a referral fee
+    slippageBps?: number // The slippage in bps, 0 to 10_000. Defaults to 0
+    hasReferral?: boolean // Whether to include a referral fee. Defaults to false
+    eligibleForFirstSwapWithMinFee?: boolean // True only for the pool's first swap bundled with initialize_pool. Defaults to false
     currentPoint: BN // The current point
+} & QuoteTransferFees
+
+type QuoteTransferFees = {
+    currentEpoch?: number
+    baseMint?: Mint // The decoded base mint account
+    quoteMint?: Mint // The decoded quote mint account
+    baseTransferFeeBasisPoints?: number
 }
 ```
 
 **Returns**
 
-The exact swap out quotation in between quote and base swaps (only ExactIn).
+```typescript
+interface SwapQuoteResult {
+    actualInputAmount: BN // The input after the trading fee and any transfer fee
+    outputAmount: BN // The output before any transfer fee on the output mint
+    nextSqrtPrice: BN
+    tradingFee: BN
+    protocolFee: BN
+    referralFee: BN
+    minimumAmountOut: BN // excludedTransferFeeAmountOut reduced by slippageBps
+    includedTransferFeeAmountIn: BN // What the user pays, equal to amountIn
+    excludedTransferFeeAmountOut: BN // What the user receives
+}
+```
 
 **Example**
 
@@ -2636,9 +2663,11 @@ The exact swap out quotation in between quote and base swaps (only ExactIn).
 const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
 
 const virtualPoolState = await client.state.getPool(poolAddress)
+if (!virtualPoolState) throw new Error('Pool not found')
 const poolConfigState = await client.state.getPoolConfig(
     virtualPoolState.poolState.config
 )
+if (!poolConfigState) throw new Error('Config not found')
 const currentPoint = await getCurrentPoint(
     connection,
     poolConfigState.activationType
@@ -2650,7 +2679,6 @@ const quote = client.pool.swapQuote({
     swapBaseForQuote: false,
     amountIn,
     slippageBps: 50,
-    hasReferral: false,
     currentPoint,
 })
 ```
@@ -2658,8 +2686,8 @@ const quote = client.pool.swapQuote({
 **Notes**
 
 - `amountIn` is in the smallest unit of the input token (lamports for SOL) and includes any transfer fee on the input mint.
-- `minimumAmountOut` is `excludedTransferFeeAmountOut` reduced by `slippageBps`.
 - A Token-2022 quote mint needs `quoteMint` and `currentEpoch`; `getSwapQuoteTransferFees` fetches them.
+- `eligibleForFirstSwapWithMinFee` applies only when the config has `enableFirstSwapWithMinFee`, `hasReferral` is false and the pool has not swapped.
 
 ---
 
@@ -2711,9 +2739,11 @@ interface Swap2Params {
 const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
 
 const virtualPoolState = await client.state.getPool(poolAddress)
+if (!virtualPoolState) throw new Error('Pool not found')
 const poolConfigState = await client.state.getPoolConfig(
     virtualPoolState.poolState.config
 )
+if (!poolConfigState) throw new Error('Config not found')
 const currentPoint = await getCurrentPoint(
     connection,
     poolConfigState.activationType
@@ -2725,7 +2755,6 @@ const quote = client.pool.swapQuote2({
     swapBaseForQuote: false,
     amountIn,
     slippageBps: 50,
-    hasReferral: false,
     currentPoint,
     swapMode: SwapMode.PartialFill,
 })
@@ -2749,8 +2778,7 @@ const transaction = await client.pool.swap2({
     - `SwapMode.PartialFill`: Allow partial fills
     - `SwapMode.ExactOut`: Swap for exact output amount
 - The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
-- The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
-- The `maximumAmountIn` parameter protects against slippage. Set it to a value slightly higher than the expected input.
+- `minimumAmountOut` (`ExactIn`, `PartialFill`) and `maximumAmountIn` (`ExactOut`) protect against slippage. Take them from [swapQuote2](#swapquote2), which returns them with `slippageBps` applied.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
 - The `payer` parameter is optional. If not provided, the owner will be used as the payer to fund ATA creation.
 
@@ -2803,13 +2831,23 @@ interface Swap2Params {
 ```typescript
 const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
 
+const virtualPoolState = await client.state.getPool(poolAddress)
+if (!virtualPoolState) throw new Error('Pool not found')
+const poolConfigState = await client.state.getPoolConfig(
+    virtualPoolState.poolState.config
+)
+if (!poolConfigState) throw new Error('Config not found')
+const currentPoint = await getCurrentPoint(
+    connection,
+    poolConfigState.activationType
+)
+
 const quote = client.pool.swapQuote2({
     virtualPool: virtualPoolState,
     config: poolConfigState,
     swapBaseForQuote: false,
     amountIn,
     slippageBps: 50,
-    hasReferral: false,
     currentPoint,
     swapMode: SwapMode.ExactIn,
 })
@@ -2841,6 +2879,14 @@ Gets the exact swap out quotation in between quote and base swaps with specific 
 **Function**
 
 ```typescript
+swapQuote2(
+    params: SwapQuote2Params & {
+        swapMode: SwapMode.ExactIn | SwapMode.PartialFill
+    }
+): SwapQuote2Result & { minimumAmountOut: BN }
+swapQuote2(
+    params: SwapQuote2Params & { swapMode: SwapMode.ExactOut }
+): SwapQuote2Result & { maximumAmountIn: BN }
 swapQuote2(params: SwapQuote2Params): SwapQuote2Result
 ```
 
@@ -2851,9 +2897,10 @@ interface SwapQuote2Params {
     virtualPool: VirtualPool // The virtual pool account state, from client.state.getPool
     config: PoolConfig // The pool config account state, from client.state.getPoolConfig
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
-    hasReferral: boolean // Whether to include a referral fee
+    hasReferral?: boolean // Whether to include a referral fee. Defaults to false
+    eligibleForFirstSwapWithMinFee?: boolean // True only for the pool's first swap bundled with initialize_pool. Defaults to false
     currentPoint: BN // The current point
-    slippageBps?: number // The slippage in bps
+    slippageBps?: number // The slippage in bps, 0 to 10_000. Defaults to 0
 } & (
     | {
           swapMode: SwapMode.ExactIn // Swap exact input amount
@@ -2867,12 +2914,30 @@ interface SwapQuote2Params {
           swapMode: SwapMode.ExactOut // Swap for exact output amount
           amountOut: BN // The exact amount to swap out
       }
-)
+) &
+    QuoteTransferFees // currentEpoch, baseMint, quoteMint, baseTransferFeeBasisPoints, see getSwapQuoteTransferFees
 ```
 
 **Returns**
 
-The exact swap out quotation in between quote and base swaps with specific swap modes (ExactIn, ExactOut, PartialFill).
+```typescript
+interface SwapQuote2Result {
+    includedFeeInputAmount: BN // The input before the trading fee
+    excludedFeeInputAmount: BN // The input after the trading fee
+    amountLeft: BN // The input the curve could not take. Non-zero only for PartialFill
+    outputAmount: BN
+    nextSqrtPrice: BN
+    tradingFee: BN
+    protocolFee: BN
+    referralFee: BN
+    minimumAmountOut?: BN // ExactIn and PartialFill
+    maximumAmountIn?: BN // ExactOut
+    includedTransferFeeAmountIn: BN // What the user pays
+    excludedTransferFeeAmountOut: BN // What the user receives
+}
+```
+
+`minimumAmountOut` is always set for `ExactIn` and `PartialFill`, and `maximumAmountIn` for `ExactOut`, so `quote.minimumAmountOut` can be passed straight to `swap2`.
 
 **Example**
 
@@ -2880,9 +2945,11 @@ The exact swap out quotation in between quote and base swaps with specific swap 
 const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
 
 const virtualPoolState = await client.state.getPool(poolAddress)
+if (!virtualPoolState) throw new Error('Pool not found')
 const poolConfigState = await client.state.getPoolConfig(
     virtualPoolState.poolState.config
 )
+if (!poolConfigState) throw new Error('Config not found')
 const currentPoint = await getCurrentPoint(
     connection,
     poolConfigState.activationType
@@ -2894,7 +2961,6 @@ const quote = client.pool.swapQuote2({
     swapBaseForQuote: false,
     amountIn,
     slippageBps: 50,
-    hasReferral: false,
     currentPoint,
     swapMode: SwapMode.PartialFill,
 })
@@ -2907,11 +2973,12 @@ const quote = client.pool.swapQuote2({
     - `SwapMode.PartialFill`: Allow partial fills. The quote throws when rounding reconstructs an input larger than `amountIn`
     - `SwapMode.ExactOut`: Swap for exact output amount
 - The `amountIn` is the amount of tokens you want to swap, denominated in the smallest unit and token decimals. (e.g., lamports for SOL).
-- The `slippageBps` parameter protects against slippage. Set it to a value slightly lower than the expected output.
-- The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
+- `slippageBps` is in basis points, from 0 to 10_000, and defaults to 0. It lowers `minimumAmountOut` (`ExactIn`, `PartialFill`) or raises `maximumAmountIn` (`ExactOut`) by that share.
+- `hasReferral` makes the quote include the referral fee. Pass a `referralTokenAccount` to `swap2` to match it.
+- `eligibleForFirstSwapWithMinFee` quotes the minimum base fee, and applies only when the config has `enableFirstSwapWithMinFee`, `hasReferral` is false and the pool has not swapped.
 - Transfer fees are applied before the curve on the input mint and after the curve on the output mint. `amountIn` and `amountOut` are the amounts the user pays and receives. `includedTransferFeeAmountIn` is what the user pays. `excludedTransferFeeAmountOut` is what the user receives. `minimumAmountOut` and `maximumAmountIn` use those amounts.
 - A base transfer fee is read from `config.transferFeeFlag` when `baseMint` is omitted. Flag 1 uses `config.transferFeeBasisPoints` and a maximum fee of `u64::MAX`. Pass `baseMint` to use the mint's epoch fee, or `baseTransferFeeBasisPoints` before the mint exists. `currentEpoch` is required when either mint is set. A fee with basis points of 0 or a maximum fee of 0 charges nothing.
-- When `config.quoteTokenFlag` is Token-2022, `quoteMint` and `currentEpoch` are required, because the program applies the quote mint's fee for the current epoch. `getSwapQuoteTransferFees` fetches that mint. Pass the pool's base mint to fetch its epoch fee too. With neither a Token-2022 quote mint nor a base mint, it returns an empty object:
+- When `config.quoteTokenFlag` is Token-2022, the decoded `quoteMint` account and `currentEpoch` are required, because the program applies the quote mint's fee for the current epoch. `getSwapQuoteTransferFees` fetches that mint. Pass the pool's base mint to fetch its epoch fee too. With neither a Token-2022 quote mint nor a base mint, it returns an empty object:
 
 ```typescript
 const quote = client.pool.swapQuote2({
@@ -2920,8 +2987,6 @@ const quote = client.pool.swapQuote2({
     swapBaseForQuote: false,
     amountIn,
     slippageBps: 50,
-    hasReferral: false,
-    eligibleForFirstSwapWithMinFee: false,
     currentPoint,
     swapMode: SwapMode.ExactIn,
     ...(await getSwapQuoteTransferFees(connection, poolConfigState, {
@@ -2934,7 +2999,7 @@ const quote = client.pool.swapQuote2({
 
 ### getQuoteFromInputAmount
 
-Quotes a swap from an input amount before a pool exists. `config` is a `ConfigParameters` value, which is what `buildCurve` returns and what `createConfig` takes. The quote is the pool `initialize_pool` would write at `currentPoint`: sqrt price is `sqrtStartPrice`, volatility is zero, and `hasSwap` is 0. Elapsed time is 0, so a fee scheduler is at the cliff fee.
+Quotes a swap from an input amount before a pool exists. `config` is a `ConfigParameters` value, which is what `buildCurve` returns and what `createConfig` takes, or a decoded `PoolConfig`, for example to quote a creator's first buy on an existing config. The quote is the pool `initialize_pool` would write at `currentPoint`: sqrt price is `sqrtStartPrice`, volatility is zero, and `hasSwap` is 0. Elapsed time is 0, so a fee scheduler is at the cliff fee.
 
 **Function**
 
@@ -2948,7 +3013,7 @@ getQuoteFromInputAmount(
 
 ```typescript
 type SimulatedQuoteFromInputAmountParams = {
-    config: ConfigParameters
+    config: ConfigParameters | PoolConfig
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     amountIn: BN
     swapMode?: SwapMode.ExactIn | SwapMode.PartialFill
@@ -2956,7 +3021,7 @@ type SimulatedQuoteFromInputAmountParams = {
     hasReferral?: boolean
     currentPoint?: BN // Initialization point. Omit to use 0
     eligibleForFirstSwapWithMinFee?: boolean
-    quoteTokenFlag?: number // TokenType.Token2022 when the quote mint is Token-2022
+    quoteTokenFlag?: number // TokenType.Token2022 when the quote mint is Token-2022. Ignored when config is a PoolConfig
 } & QuoteTransferFees
 ```
 
@@ -2967,9 +3032,8 @@ type SimulatedQuoteFromInputAmountParams = {
 **Example**
 
 ```typescript
-const curveConfig = buildCurve({
-    // token, fee, migration, liquidity distribution, and activation params
-})
+// curveParams: the BuildCurveParams from the buildCurve example
+const curveConfig = buildCurve(curveParams)
 
 const quote = client.pool.getQuoteFromInputAmount({
     config: curveConfig,
@@ -2985,14 +3049,42 @@ const quote = client.pool.getQuoteFromInputAmount({
 - `migrationSqrtPrice` is computed the way `process_create_config` computes it, from `migrationQuoteThreshold`, `sqrtStartPrice`, and `curve`.
 - `SwapMode.ExactIn` throws if the full input cannot be absorbed by the curve. Use `SwapMode.PartialFill` to fill up to the available curve liquidity and inspect `amountLeft`.
 - Omit `currentPoint` to use 0 for both the activation point and the current point. A caller-supplied `currentPoint` is used for both, so elapsed time stays 0.
-- Pass `baseTransferFeeBasisPoints` when `createConfig2` sets a base transfer fee. Pass `quoteTokenFlag: TokenType.Token2022` for a Token-2022 quote mint; `quoteMint` and `currentEpoch` are then required.
-- An existing pool is quoted with `swapQuote2` once the pool exists. This function does not accept a decoded `PoolConfig`.
+- Pass `baseTransferFeeBasisPoints` when `createConfig2` sets a base transfer fee. Pass `quoteTokenFlag: TokenType.Token2022` for a Token-2022 quote mint; `quoteMint` and `currentEpoch` are then required. `quoteMint` here is the decoded `Mint` account, not its address. `getSwapQuoteTransferFees` fetches both before the config exists:
+
+```typescript
+const quote = client.pool.getQuoteFromInputAmount({
+    config: curveConfig,
+    swapBaseForQuote: false,
+    amountIn: new BN(10_000_000),
+    quoteTokenFlag: TokenType.Token2022,
+    ...(await getSwapQuoteTransferFees(connection, {
+        quoteMint, // PublicKey of the Token-2022 quote mint
+        quoteTokenFlag: TokenType.Token2022,
+    })),
+})
+```
+
+- A decoded `PoolConfig` uses its stored `quoteTokenFlag`, `transferFeeFlag` and `transferFeeBasisPoints`; a `quoteTokenFlag` that differs from the stored one throws. A Token-2022 quote mint still needs `quoteMint` and `currentEpoch`:
+
+```typescript
+const poolConfig = await client.state.getPoolConfig(configAddress)
+if (!poolConfig) throw new Error('Config not found')
+
+const quote = client.pool.getQuoteFromInputAmount({
+    config: poolConfig,
+    swapBaseForQuote: false,
+    amountIn: new BN(10_000_000),
+    ...(await getSwapQuoteTransferFees(connection, poolConfig)),
+})
+```
+
+- A pool that already exists is quoted with `swapQuote2`.
 
 ---
 
 ### getQuoteFromOutputAmount
 
-Quotes an exact-out swap before a pool exists, using the same initial pool as `getQuoteFromInputAmount`.
+Quotes an exact-out swap before a pool exists, using the same initial pool as `getQuoteFromInputAmount`. `config` can also be a decoded `PoolConfig`, which uses its stored quote token flag and transfer fee.
 
 **Function**
 
@@ -3006,14 +3098,14 @@ getQuoteFromOutputAmount(
 
 ```typescript
 type SimulatedQuoteFromOutputAmountParams = {
-    config: ConfigParameters
+    config: ConfigParameters | PoolConfig
     swapBaseForQuote: boolean // True for base->quote, false for quote->base
     amountOut: BN
     slippageBps?: number
     hasReferral?: boolean
     currentPoint?: BN // Initialization point. Omit to use 0
     eligibleForFirstSwapWithMinFee?: boolean
-    quoteTokenFlag?: number
+    quoteTokenFlag?: number // Ignored when config is a PoolConfig
 } & QuoteTransferFees
 ```
 
@@ -3024,9 +3116,8 @@ type SimulatedQuoteFromOutputAmountParams = {
 **Example**
 
 ```typescript
-const curveConfig = buildCurve({
-    // token, fee, migration, liquidity distribution, and activation params
-})
+// curveParams: the BuildCurveParams from the buildCurve example
+const curveConfig = buildCurve(curveParams)
 
 const quote = client.pool.getQuoteFromOutputAmount({
     config: curveConfig,
@@ -3186,7 +3277,7 @@ migrateToDammV1(params: MigrateToDammV1Params): Promise<Transaction>
 interface MigrateToDammV1Params {
     payer: PublicKey // The payer of the transaction
     pool: PublicKey // The pool address
-    dammConfig: PublicKey // The damm graduation fee config address
+    dammConfig?: PublicKey // The DAMM v1 config. Defaults to DAMM_V1_MIGRATION_FEE_ADDRESS[migrationFeeOption] of the pool's config
 }
 ```
 
@@ -3206,21 +3297,7 @@ const transaction = await client.migration.migrateToDammV1({
 
 **Notes**
 
-- Ensure that when attempting to migrate the virtual pool, all these validation checks have already been met:
-    1. The `MigrationFeeOption` must be a valid enum value with a valid base fee in basis points
-    2. The pool's config account must have:
-        - pool_creator_authority matching the pool_authority key
-        - activation_duration set to 0
-        - partner_fee_numerator set to 0
-        - vault_config_key set to the default Pubkey (all zeros)
-    3. The virtual pool's migration progress must be in the LockedVesting state
-    4. The pool must be "complete" based on the migration_quote_threshold (checked via is_curve_complete)
-    5. The migration option must be valid and specifically set to MeteoraDamm
-    6. The account relationships must be valid:
-        - virtual_pool must have matching base_vault and quote_vault
-        - virtual_pool must have a matching config
-        - migration_metadata must have a matching virtual_pool
-- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- `dammConfig` defaults to `DAMM_V1_MIGRATION_FEE_ADDRESS[migrationFeeOption]` for the pool's config. DAMM v1 has no config for `MigrationFeeOption.Customizable`, so the call throws unless you pass `dammConfig`. The addresses are in the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md).
 
 ---
 
@@ -3240,7 +3317,7 @@ lockDammV1LpToken(params: DammLpTokenParams): Promise<Transaction>
 interface DammLpTokenParams {
     payer: PublicKey // The payer of the transaction
     pool: PublicKey // The pool address
-    dammConfig: PublicKey // The damm graduation fee config address
+    dammConfig?: PublicKey // The DAMM v1 config. Defaults to DAMM_V1_MIGRATION_FEE_ADDRESS[migrationFeeOption] of the pool's config
     isPartner: boolean // Whether the LP token is a partner
 }
 ```
@@ -3263,7 +3340,7 @@ const transaction = await client.migration.lockDammV1LpToken({
 **Notes**
 
 - This function is called when the `creatorPermanentLockedLiquidityPercentage` or `partnerPermanentLockedLiquidityPercentage` is > 0.
-- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- `dammConfig` defaults to `DAMM_V1_MIGRATION_FEE_ADDRESS[migrationFeeOption]` for the pool's config. DAMM v1 has no config for `MigrationFeeOption.Customizable`, so the call throws unless you pass `dammConfig`. The addresses are in the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md).
 
 ---
 
@@ -3283,7 +3360,7 @@ claimDammV1LpToken(params: DammLpTokenParams): Promise<Transaction>
 interface DammLpTokenParams {
     payer: PublicKey // The payer of the transaction
     pool: PublicKey // The pool address
-    dammConfig: PublicKey // The damm graduation fee config address
+    dammConfig?: PublicKey // The DAMM v1 config. Defaults to DAMM_V1_MIGRATION_FEE_ADDRESS[migrationFeeOption] of the pool's config
     isPartner: boolean // Whether the LP token is a partner
 }
 ```
@@ -3306,7 +3383,7 @@ const transaction = await client.migration.claimDammV1LpToken({
 **Notes**
 
 - This function is called when the `creatorLiquidityPercentage` or `partnerLiquiditypercentage` is > 0.
-- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V1_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- `dammConfig` defaults to `DAMM_V1_MIGRATION_FEE_ADDRESS[migrationFeeOption]` for the pool's config. DAMM v1 has no config for `MigrationFeeOption.Customizable`, so the call throws unless you pass `dammConfig`. The addresses are in the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md).
 
 ---
 
@@ -3328,46 +3405,43 @@ migrateToDammV2(
 interface MigrateToDammV2Params {
     payer: PublicKey // The payer of the transaction
     pool: PublicKey // The pool address
-    dammConfig: PublicKey // The damm graduation fee config address
+    dammConfig?: PublicKey // The DAMM v2 config. Defaults to DAMM_V2_MIGRATION_FEE_ADDRESS[migrationFeeOption] of the pool's config
 }
 ```
 
 **Returns**
 
-- A transaction that can be signed and sent to the network.
+```typescript
+interface MigrateToDammV2Response {
+    transaction: Transaction
+    firstPositionNftKeypair: Keypair // Signs the transaction
+    secondPositionNftKeypair: Keypair // Signs the transaction
+}
+```
+
+The transaction creates two DAMM v2 position NFT mints, so both keypairs must sign along with the payer.
 
 **Example**
 
 ```typescript
-const transaction = await client.migration.migrateToDammV2({
-    payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
-    pool: new PublicKey('abcdefghijklmnopqrstuvwxyz1234567890'),
-    dammConfig: new PublicKey('7F6dnUcRuyM2TwR8myT1dYypFXpPSxqwKNSFNkxyNESd'),
-})
+const { transaction, firstPositionNftKeypair, secondPositionNftKeypair } =
+    await client.migration.migrateToDammV2({
+        payer: payer.publicKey,
+        pool: poolAddress,
+    })
+
+await sendAndConfirmTransaction(connection, transaction, [
+    payer,
+    firstPositionNftKeypair,
+    secondPositionNftKeypair,
+])
 ```
 
 **Notes**
 
-- Ensure that when attempting to migrate the virtual pool, all these validation checks have already been met:
-    1. The `MigrationFeeOption` must be a valid enum value with a valid base fee in basis points
-    2. The pool's config account must have:
-        - pool_creator_authority matching the pool_authority key
-        - partner_fee_percent set to 0
-        - sqrt_min_price equal to MIN_SQRT_PRICE
-        - sqrt_max_price equal to MAX_SQRT_PRICE
-        - vault_config_key set to the default Pubkey (all zeros)
-    3. The virtual pool's migration progress must be in the LockedVesting state
-    4. The pool must be "complete" based on the migration_quote_threshold (checked via is_curve_complete)
-    5. The migration option must be valid and specifically set to DammV2
-    6. The account relationships must be valid:
-        - virtual_pool must have matching base_vault and quote_vault
-        - virtual_pool must have a matching config
-        - migration_metadata must have a matching virtual_pool
-        - first_position_nft_mint must not equal second_position_nft_mint
-    7. Exactly one remaining account must be provided (for the DAMM V2 config)
-- A version 0 config is rejected when the quote mint's current transfer fee is non-zero. Any other version with `transferFeeFlag` 1, or a quote mint that has a transfer fee or a live transfer fee config authority, must use a constant token supply, no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`.
+- The SDK does not check the quote mint's transfer fee; the program does. It rejects a version 0 config when the quote mint's current transfer fee is non-zero. Any other version with `transferFeeFlag` 1, or a quote mint that has a transfer fee or a live transfer fee config authority, must use a constant token supply, no locked vesting, `MigrationFeeOption.Customizable`, and `MigratedCollectFeeMode.Compounding`.
 - On that path, `getTransferFeeMigrationPositionSplit` returns the second position's numerator and liquidity.
-- You can get the dammConfig key from the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md), or you can use `DAMM_V2_MIGRATION_FEE_ADDRESS[i]` to get the dammConfig key address.
+- `dammConfig` defaults to `DAMM_V2_MIGRATION_FEE_ADDRESS[migrationFeeOption]` for the pool's config. The addresses are in the [README.md](https://github.com/MeteoraAg/dynamic-bonding-curve-sdk/blob/main/packages/dynamic-bonding-curve/README.md).
 
 ---
 
@@ -3394,7 +3468,7 @@ interface CreatePoolParams {
     uri: string // The uri of the pool
     payer: PublicKey // The payer of the transaction
     poolCreator: PublicKey // The pool creator of the transaction
-    tokenBadge?: PublicKey // Optional. Required remaining account when the quote mint is not permissionless-supported
+    tokenBadge?: PublicKey // Deprecated. The SDK derives the quote mint's token badge when the mint needs one
 }
 ```
 
@@ -3418,11 +3492,9 @@ const transaction = await client.creator.createPool({
 
 **Notes**
 
-- The payer must be the same as the payer in the `CreatePoolParam` params.
 - The poolCreator is required to sign when creating the pool.
-- The baseMint token type must be the same as the config key's token type.
+- It throws for a transfer-hook config. Use [createPoolWithTransferHook](#createpoolwithtransferhook).
 - Existing configs with `BaseFeeMode.RateLimiter` or `MigrationOption.MET_DAMM` cannot create new pools.
-- Pass `tokenBadge` when the quote mint is not permissionless-supported.
 
 ---
 
@@ -3449,7 +3521,8 @@ interface CreatePoolWithTransferHookParams {
     uri: string // The URI of the pool
     payer: PublicKey // The payer of the transaction
     poolCreator: PublicKey // The pool creator of the transaction
-    transferHookProgram: PublicKey // The Token-2022 transfer-hook program
+    transferHookProgram?: PublicKey // The Token-2022 transfer-hook program. Defaults to the config's; a different program throws
+    tokenBadge?: PublicKey // Deprecated. The SDK derives the quote mint's token badge when the mint needs one
 }
 ```
 
@@ -3462,13 +3535,12 @@ interface CreatePoolWithTransferHookParams {
 ```typescript
 const transaction = await client.creator.createPoolWithTransferHook({
     baseMint: baseMintKeypair.publicKey,
-    config: config.publicKey,
+    config: configAddress,
     name: 'Meteora',
     symbol: 'MET',
     uri: 'https://launch.meteora.ag/icons/logo.svg',
     payer: payer.publicKey,
     poolCreator: poolCreator.publicKey,
-    transferHookProgram: transferHookProgramId,
 })
 ```
 
@@ -3504,6 +3576,7 @@ interface CreatePoolWithFirstBuyParams {
         uri: string // The uri of the pool
         payer: PublicKey // The payer of the transaction
         poolCreator: PublicKey // The pool creator of the transaction
+        tokenBadge?: PublicKey // Deprecated. The SDK derives the quote mint's token badge when the mint needs one
     }
     firstBuyParam?: {
         // Optional first buy param
@@ -3548,7 +3621,6 @@ const transaction = await client.creator.createPoolWithFirstBuy({
 
 - The `poolCreator` is required to sign when creating the pool.
 - The `buyer` is required to sign when `firstBuyParam` is provided.
-- The `baseMint` token type must be the same as the config key's token type.
 - The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
 - The `receiver` parameter is an optional account. If provided, the token will be sent to the receiver address.
@@ -3578,8 +3650,8 @@ interface CreatePoolWithFirstBuyWithTransferHookParams {
         buyAmount: BN // The quote token amount to spend
         minimumAmountOut: BN // The minimum base token amount to receive
         referralTokenAccount: PublicKey | null // The referral token account (optional)
-        transferHookAccountsInfo?: TransferHookAccountsInfo // Optional precomputed transfer-hook account slice info
-        transferHookAccounts?: AccountMeta[] // Optional precomputed transfer-hook remaining accounts
+        transferHookAccountsInfo: TransferHookAccountsInfo // The slice info for transferHookAccounts
+        transferHookAccounts: AccountMeta[] // The transfer-hook remaining accounts for the base mint
     }
 }
 ```
@@ -3591,23 +3663,34 @@ A transaction containing transfer-hook pool creation instructions, with first-bu
 **Example**
 
 ```typescript
+const amountIn = await prepareSwapAmountParam(1, NATIVE_MINT, connection)
+
 const transaction = await client.creator.createPoolWithFirstBuyWithTransferHook(
     {
         createPoolParam: {
             baseMint: baseMintKeypair.publicKey,
-            config: config.publicKey,
+            config: configAddress,
             name: 'Meteora',
             symbol: 'MET',
             uri: 'https://launch.meteora.ag/icons/logo.svg',
             payer: poolCreator.publicKey,
             poolCreator: poolCreator.publicKey,
-            transferHookProgram: transferHookProgramId,
         },
         firstBuyParam: {
             buyer: poolCreator.publicKey,
             buyAmount: amountIn,
             minimumAmountOut: new BN(0),
             referralTokenAccount: null,
+            // the hook's accounts for baseMint, as AccountMeta[]
+            transferHookAccounts,
+            transferHookAccountsInfo: {
+                slices: [
+                    {
+                        accountsType: AccountsType.TransferHookBase,
+                        length: transferHookAccounts.length,
+                    },
+                ],
+            },
         },
     }
 )
@@ -3615,8 +3698,9 @@ const transaction = await client.creator.createPoolWithFirstBuyWithTransferHook(
 
 **Notes**
 
-- If your transfer-hook program requires extra account metas before the first buy, initialize those accounts before sending this transaction.
-- `transferHookAccountsInfo` and `transferHookAccounts` are optional; when omitted, the SDK derives the transfer-hook remaining accounts from the base mint.
+- `transferHookAccountsInfo` and `transferHookAccounts` are required. The base mint does not exist yet, so neither the SDK nor `addExtraAccountMetasForExecute` can read the hook's accounts from chain, and an empty list throws. Derive them yourself: the extra account meta list PDA of the hook program for `baseMint`, the accounts that list will hold, and the hook program, with one `AccountsType.TransferHookBase` slice per buy giving their count.
+- The hook's extra account meta list for `baseMint` cannot exist before the pool creates the mint either. Insert its initialize instruction right after the pool initialization instruction, before the first buy.
+- `createPoolParam.transferHookProgram` is optional and defaults to the config's transfer hook program.
 - The `buyer` is required to sign when `firstBuyParam` is provided.
 
 ---
@@ -3718,7 +3802,6 @@ const transaction =
 - The `poolCreator` is required to sign when creating the pool.
 - The `partner` is required to sign when `partnerFirstBuyParam` is provided with `buyAmount > 0`.
 - The `creator` is required to sign when `creatorFirstBuyParam` is provided with `buyAmount > 0`.
-- The `baseMint` token type must be the same as the config key's token type.
 - The `minimumAmountOut` parameter protects against slippage. Set it to a value slightly lower than the expected output.
 - The `referralTokenAccount` parameter is an optional token account. If provided, the referral fee will be applied to the transaction.
 
@@ -3747,8 +3830,8 @@ interface CreatePoolWithPartnerAndCreatorFirstBuyWithTransferHookParams {
         buyAmount: BN // The quote token amount to spend
         minimumAmountOut: BN // The minimum base token amount to receive
         referralTokenAccount: PublicKey | null // The referral token account (optional)
-        transferHookAccountsInfo?: TransferHookAccountsInfo // Optional precomputed transfer-hook account slice info
-        transferHookAccounts?: AccountMeta[] // Optional precomputed transfer-hook remaining accounts
+        transferHookAccountsInfo: TransferHookAccountsInfo // The slice info for transferHookAccounts
+        transferHookAccounts: AccountMeta[] // The transfer-hook remaining accounts for the base mint
     }
     creatorFirstBuyParam?: {
         creator: PublicKey // The pool creator
@@ -3756,8 +3839,8 @@ interface CreatePoolWithPartnerAndCreatorFirstBuyWithTransferHookParams {
         buyAmount: BN // The quote token amount to spend
         minimumAmountOut: BN // The minimum base token amount to receive
         referralTokenAccount: PublicKey | null // The referral token account (optional)
-        transferHookAccountsInfo?: TransferHookAccountsInfo // Optional precomputed transfer-hook account slice info
-        transferHookAccounts?: AccountMeta[] // Optional precomputed transfer-hook remaining accounts
+        transferHookAccountsInfo: TransferHookAccountsInfo // The slice info for transferHookAccounts
+        transferHookAccounts: AccountMeta[] // The transfer-hook remaining accounts for the base mint
     }
 }
 ```
@@ -3769,18 +3852,28 @@ A single transaction containing transfer-hook pool creation and optional partner
 **Example**
 
 ```typescript
+const creatorAmountIn = await prepareSwapAmountParam(
+    0.5,
+    NATIVE_MINT,
+    connection
+)
+const partnerAmountIn = await prepareSwapAmountParam(
+    0.1,
+    NATIVE_MINT,
+    connection
+)
+
 const transaction =
     await client.creator.createPoolWithPartnerAndCreatorFirstBuyWithTransferHook(
         {
             createPoolParam: {
                 baseMint: baseMintKeypair.publicKey,
-                config: config.publicKey,
+                config: configAddress,
                 name: 'Meteora',
                 symbol: 'MET',
                 uri: 'https://launch.meteora.ag/icons/logo.svg',
                 payer: poolCreator.publicKey,
                 poolCreator: poolCreator.publicKey,
-                transferHookProgram: transferHookProgramId,
             },
             partnerFirstBuyParam: {
                 partner: partner.publicKey,
@@ -3788,6 +3881,16 @@ const transaction =
                 buyAmount: partnerAmountIn,
                 minimumAmountOut: new BN(1),
                 referralTokenAccount: null,
+                // the hook's accounts for baseMint, as AccountMeta[]
+                transferHookAccounts,
+                transferHookAccountsInfo: {
+                    slices: [
+                        {
+                            accountsType: AccountsType.TransferHookBase,
+                            length: transferHookAccounts.length,
+                        },
+                    ],
+                },
             },
             creatorFirstBuyParam: {
                 creator: poolCreator.publicKey,
@@ -3795,6 +3898,16 @@ const transaction =
                 buyAmount: creatorAmountIn,
                 minimumAmountOut: new BN(1),
                 referralTokenAccount: null,
+                // the hook's accounts for baseMint, as AccountMeta[]
+                transferHookAccounts,
+                transferHookAccountsInfo: {
+                    slices: [
+                        {
+                            accountsType: AccountsType.TransferHookBase,
+                            length: transferHookAccounts.length,
+                        },
+                    ],
+                },
             },
         }
     )
@@ -3804,8 +3917,9 @@ const transaction =
 
 - The `partner` is required to sign when `partnerFirstBuyParam` is provided with `buyAmount > 0`.
 - The `creator` is required to sign when `creatorFirstBuyParam` is provided with `buyAmount > 0`.
-- If your transfer-hook program requires extra account metas before the first buys, initialize those accounts before sending this transaction.
-- `transferHookAccountsInfo` and `transferHookAccounts` are optional; when omitted, the SDK derives the transfer-hook remaining accounts from the base mint.
+- `transferHookAccountsInfo` and `transferHookAccounts` are required on each first buy. The base mint does not exist yet, so neither the SDK nor `addExtraAccountMetasForExecute` can read the hook's accounts from chain, and an empty list throws. Derive them yourself: the extra account meta list PDA of the hook program for `baseMint`, the accounts that list will hold, and the hook program, with one `AccountsType.TransferHookBase` slice per buy giving their count.
+- The hook's extra account meta list for `baseMint` cannot exist before the pool creates the mint either. Insert its initialize instruction right after the pool initialization instruction, before the first buys.
+- `createPoolParam.transferHookProgram` is optional and defaults to the config's transfer hook program.
 
 ---
 
@@ -3847,7 +3961,6 @@ const transaction = await client.creator.createPoolMetadata({
     name: 'Meteora',
     website: 'https://launch.meteora.ag',
     logo: 'https://launch.meteora.ag/icons/logo.svg',
-    feeClaimer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
     payer: new PublicKey('boss1234567890abcdefghijklmnopqrstuvwxyz'),
 })
 ```
@@ -3875,7 +3988,7 @@ interface ClaimCreatorTradingFeeParams {
     pool: PublicKey // The pool address
     maxBaseAmount: BN // The maximum amount of base tokens to claim
     maxQuoteAmount: BN // The maximum amount of quote tokens to claim
-    receiver?: PublicKey | null // The wallet that will receive the tokens (optional)
+    receiver?: PublicKey // The wallet that will receive the tokens. Defaults to creator
 }
 ```
 
@@ -3898,9 +4011,10 @@ const transaction = await client.creator.claimCreatorTradingFee({
 
 **Notes**
 
-- The creator of the pool must be the same as the creator in the `ClaimCreatorTradingFeeParams` params.
+- `creator` signs and must be the pool's creator.
 - You can indicate maxBaseAmount or maxQuoteAmount to be 0 to not claim Base or Quote tokens respectively.
-- With a native SOL quote the fee arrives in the creator's wrapped SOL account and is unwrapped to `receiver`, so the receiver does not sign.
+- It throws on a transfer-hook pool. Use [claimCreatorTradingFee2](#claimcreatortradingfee2).
+- With a native SOL quote the fee is unwrapped to `receiver` as SOL, so the receiver does not sign. The fee goes through a temporary wrapped SOL account derived from `creator`, so `creator`'s own wrapped SOL account is never touched.
 
 ---
 
@@ -3919,13 +4033,13 @@ claimCreatorTradingFeeToReceiver(
 **Parameters**
 
 ```typescript
-interface ClaimCreatorTradingFee2Params {
+interface ClaimCreatorTradingFeeToReceiverParams {
     creator: PublicKey // The creator of the pool
     payer: PublicKey // The payer of the transaction
     pool: PublicKey // The pool address
     maxBaseAmount: BN // The maximum amount of base tokens to claim
     maxQuoteAmount: BN // The maximum amount of quote tokens to claim
-    receiver?: PublicKey | null // The wallet that will receive the tokens
+    receiver: PublicKey // The wallet that will receive the tokens
 }
 ```
 
@@ -3948,9 +4062,11 @@ const transaction = await client.creator.claimCreatorTradingFeeToReceiver({
 
 **Notes**
 
-- The creator of the pool must be the same as the creator in the `ClaimCreatorTradingFee2Params` params.
+- `creator` signs and must be the pool's creator.
 - You can indicate maxBaseAmount or maxQuoteAmount to be 0 to not claim Base or Quote tokens respectively.
 - Can be used in case the creator is a squad multisig account.
+- It throws on a transfer-hook pool. Use [claimCreatorTradingFee2](#claimcreatortradingfee2).
+- With a native SOL quote the fee is unwrapped to `receiver` as SOL. The fee goes through a temporary wrapped SOL account derived from `creator`, so `creator`'s own wrapped SOL account is never touched.
 
 ---
 
@@ -3975,7 +4091,7 @@ interface ClaimCreatorTradingFeeToReceiverParams {
     pool: PublicKey // The pool address
     maxBaseAmount: BN // The maximum amount of base tokens to claim
     maxQuoteAmount: BN // The maximum amount of quote tokens to claim
-    receiver?: PublicKey | null // The wallet that will receive the tokens
+    receiver: PublicKey // The wallet that will receive the tokens
 }
 ```
 
@@ -3999,7 +4115,8 @@ const transaction = await client.creator.claimCreatorTradingFee2({
 **Notes**
 
 - Use this function for transfer-hook pools so the transfer-hook remaining accounts are included in the claim instruction.
-- The `creator` must match the virtual pool creator.
+- `creator` signs and must be the pool's creator.
+- A native SOL quote is handled as in [claimCreatorTradingFeeToReceiver](#claimcreatortradingfeetoreceiver).
 - You can set `maxBaseAmount` or `maxQuoteAmount` to 0 to skip claiming that token.
 
 ---
@@ -4040,7 +4157,7 @@ const transaction = await client.creator.creatorWithdrawSurplus({
 
 **Notes**
 
-- The creator of the pool must be the same as the creator in the `CreatorWithdrawSurplusParams` params.
+- `creator` signs and must be the pool's creator.
 
 ---
 
@@ -4183,7 +4300,7 @@ const configs = await client.state.getPoolConfigs()
 
 ### getPoolConfigsByOwner
 
-Retrieves all configs owned by a specific wallet.
+Retrieves all configs whose `feeClaimer` is a specific wallet.
 
 **Function**
 
@@ -4196,12 +4313,12 @@ getPoolConfigsByOwner(
 **Parameters**
 
 ```typescript
-owner: PublicKey | string // The owner's wallet address
+owner: PublicKey | string // The wallet address, matched against the config's feeClaimer
 ```
 
 **Returns**
 
-- An array of configs owned by the specified wallet.
+- An array of configs whose `feeClaimer` is the specified wallet.
 - Check return type <a href ="https://docs.meteora.ag/developer-guide/guides/dbc/typescript-sdk/sdk-functions#getpoolconfig">here</a>.
 
 **Example**
@@ -4232,7 +4349,7 @@ poolAddress: PublicKey | string // The address of the pool
 
 **Returns**
 
-- A `VirtualPool` object containing the pool's details, or null if not found.
+- A `VirtualPool` object containing the pool's details under `poolState`, or null if not found. A transfer-hook pool decodes to the same shape.
 
 ```typescript
 type VolatilityTracker = {
@@ -4251,33 +4368,41 @@ type Metrics = {
 }
 
 type VirtualPool = {
-    volatilityTracker: VolatilityTracker
-    config: PublicKey
-    creator: PublicKey
-    baseMint: PublicKey
-    baseVault: PublicKey
-    quoteVault: PublicKey
-    baseReserve: BN
-    quoteReserve: BN
-    protocolBaseFee: BN
-    protocolQuoteFee: BN
-    partnerBaseFee: BN
-    partnerQuoteFee: BN
-    sqrtPrice: BN
-    activationPoint: BN
-    poolType: number
-    isMigrated: number
-    isPartnerWithdrawSurplus: number
-    isProtocolWithdrawSurplus: number
-    migrationProgress: number
-    isWithdrawLeftover: number
-    isCreatorWithdrawSurplus: number
-    migrationFeeWithdrawStatus: number
-    metrics: Metrics
-    finishCurveTimestamp: BN
-    creatorBaseFee: BN
-    creatorQuoteFee: BN
-    padding1: BN[]
+    poolState: {
+        volatilityTracker: VolatilityTracker
+        config: PublicKey
+        creator: PublicKey
+        baseMint: PublicKey
+        baseVault: PublicKey
+        quoteVault: PublicKey
+        baseReserve: BN
+        quoteReserve: BN
+        protocolBaseFee: BN
+        protocolQuoteFee: BN
+        partnerBaseFee: BN
+        partnerQuoteFee: BN
+        sqrtPrice: BN
+        activationPoint: BN
+        poolType: number
+        isMigrated: number
+        isPartnerWithdrawSurplus: number
+        isProtocolWithdrawSurplus: number
+        migrationProgress: number
+        isWithdrawLeftover: number
+        isCreatorWithdrawSurplus: number
+        migrationFeeWithdrawStatus: number
+        metrics: Metrics
+        finishCurveTimestamp: BN
+        creatorBaseFee: BN
+        creatorQuoteFee: BN
+        legacyCreationFeeBits: number
+        creationFeeBits: number
+        hasSwap: number
+        protocolLiquidityMigrationFeeBps: number
+        protocolMigrationBaseFeeAmount: BN
+        protocolMigrationQuoteFeeAmount: BN
+        // plus padding fields
+    }
 }
 ```
 
@@ -4559,7 +4684,7 @@ partnerAddress: PublicKey | string // The partner's fee claimer address
 - The partner's `PartnerMetadata`, or `null` when none was created.
 
 ```typescript
-type partnerMetadata = {
+type PartnerMetadata = {
     feeClaimer: PublicKey
     padding: BN[]
     name: string
@@ -4599,7 +4724,7 @@ poolAddress: PublicKey // The address of the DBC pool
 A `MeteoraDammMigrationMetadata` object containing the DAMM V1 migration metadata, or `null` when the pool has none.
 
 ```typescript
-type meteoraDammMigrationMetadata = {
+type MeteoraDammMigrationMetadata = {
     virtualPool: PublicKey
     padding0: number | number[]
     partner: PublicKey
@@ -4842,7 +4967,7 @@ poolAddress: PublicKey // The address of the pool
 
 **Returns**
 
-- An object containing current and total fee breakdown for the pool.
+- An object containing current and total fee breakdown for the pool. The program floors the creator share per swap, so the split of the lifetime totals is an estimate.
 
 ```typescript
 {
@@ -4896,7 +5021,7 @@ configAddress: PublicKey // The address of the pool config
 - An array of objects containing quote fee metrics for each pool.
 
 ```typescript
-type FeeMetrics = {
+type PoolFeeSummary = {
     poolAddress: PublicKey
     partnerBaseFee: BN
     partnerQuoteFee: BN
@@ -4938,7 +5063,7 @@ creatorAddress: PublicKey // The address of the creator
 - An array of objects containing quote fee metrics for each pool.
 
 ```typescript
-type FeeMetrics = {
+type PoolFeeSummary = {
     poolAddress: PublicKey
     partnerBaseFee: BN
     partnerQuoteFee: BN
@@ -5063,7 +5188,7 @@ function deriveDammV1PoolAddress(
 **Parameters**
 
 ```typescript
-dammConfig: PublicKey // The DAMM V1 graduation config key (retrievable from the README.md)
+config: PublicKey // The DAMM V1 graduation config key (retrievable from the README.md)
 tokenAMint: PublicKey // The A token mint
 tokenBMint: PublicKey // The B token mint
 ```
@@ -5076,6 +5201,7 @@ tokenBMint: PublicKey // The B token mint
 
 ```typescript
 const poolConfig = await client.state.getPoolConfig(configAddress)
+if (!poolConfig) throw new Error('Config not found')
 
 const dammV1PoolAddress = deriveDammV1PoolAddress(
     DAMM_V1_MIGRATION_FEE_ADDRESS[poolConfig.migrationFeeOption],
@@ -5103,7 +5229,7 @@ function deriveDammV2PoolAddress(
 **Parameters**
 
 ```typescript
-dammConfig: PublicKey // The DAMM V2 graduation config key (retrievable from the README.md)
+config: PublicKey // The DAMM V2 graduation config key (retrievable from the README.md)
 tokenAMint: PublicKey // The A token mint
 tokenBMint: PublicKey // The B token mint
 ```
@@ -5116,6 +5242,7 @@ tokenBMint: PublicKey // The B token mint
 
 ```typescript
 const poolConfig = await client.state.getPoolConfig(configAddress)
+if (!poolConfig) throw new Error('Config not found')
 
 const dammV2PoolAddress = deriveDammV2PoolAddress(
     DAMM_V2_MIGRATION_FEE_ADDRESS[poolConfig.migrationFeeOption],
@@ -5160,7 +5287,7 @@ const dbcTokenVaultAddress = deriveDbcTokenVaultAddress(
 
 ### deriveTokenBadgeAddress
 
-Derives the DBC token badge PDA for a mint. Pass this as `tokenBadge` when creating a config or pool whose quote mint is not permissionless-supported.
+Derives the DBC token badge PDA for a mint. The SDK derives it for a quote mint that is not permissionless-supported, so callers do not pass it to `createConfig` or `createPool`. Use this function with `getTokenBadge` to check that a badge exists.
 
 **Function**
 
@@ -5182,13 +5309,7 @@ tokenMint: PublicKey // The token mint
 
 ```typescript
 const tokenBadge = deriveTokenBadgeAddress(quoteMint)
-
-const transaction = await client.partner.createConfig({
-    // ...
-    quoteMint,
-    tokenBadge,
-    ...curveConfig,
-})
+const badgeAccount = await client.state.getTokenBadge(quoteMint)
 ```
 
 ---
@@ -5253,7 +5374,7 @@ function deriveBaseKeyForLocker(virtualPool: PublicKey): PublicKey
 
 ### deriveDammV1MigrationMetadataAddress
 
-See the source in `src/helpers/pda.ts`.
+The DAMM v1 migration metadata account of a pool.
 
 **Function**
 
@@ -5265,7 +5386,7 @@ function deriveDammV1MigrationMetadataAddress(virtualPool: PublicKey): PublicKey
 
 ### deriveDbcEventAuthority
 
-See the source in `src/helpers/pda.ts`.
+The event authority of the DBC program.
 
 **Function**
 
@@ -5277,7 +5398,7 @@ function deriveDbcEventAuthority(): PublicKey
 
 ### deriveDbcPoolAuthority
 
-See the source in `src/helpers/pda.ts`.
+The pool authority of the DBC program, which owns the pool vaults.
 
 **Function**
 
@@ -5289,7 +5410,7 @@ function deriveDbcPoolAuthority(): PublicKey
 
 ### deriveDbcPoolMetadata
 
-See the source in `src/helpers/pda.ts`.
+The metadata account that `createPoolMetadata` creates for a pool.
 
 **Function**
 
@@ -5313,7 +5434,7 @@ function deriveLockerEscrowAddress(base: PublicKey): PublicKey
 
 ### derivePartnerMetadata
 
-See the source in `src/helpers/pda.ts`.
+The metadata account that `createPartnerMetadata` creates for a fee claimer.
 
 **Function**
 
@@ -5436,7 +5557,7 @@ function rateLimiterApplied(params: {
 
 ### getSwapQuoteTransferFees
 
-The quote mint, optional base mint and current epoch a swap quote on an existing pool needs. Empty when the quote mint is SPL Token and no baseMint is given, since neither side can then carry a transfer fee.
+The decoded quote mint, optional base mint and current epoch a swap quote needs. Before the config exists, pass `{ quoteMint, quoteTokenFlag }` as `config`. Empty when the quote mint is SPL Token and no baseMint is given, since neither side can then carry a transfer fee.
 
 **Function**
 
@@ -5447,6 +5568,19 @@ function getSwapQuoteTransferFees(
     options: { commitment?: Commitment; baseMint?: PublicKey } = {}
 ): Promise<QuoteTransferFees>
 ```
+
+**Returns**
+
+```typescript
+type QuoteTransferFees = {
+    currentEpoch?: number
+    baseMint?: Mint // decoded mint account, as returned by getMint
+    quoteMint?: Mint // decoded mint account, as returned by getMint
+    baseTransferFeeBasisPoints?: number
+}
+```
+
+Spread the result into `swapQuote2`, `getQuoteFromInputAmount` or `getQuoteFromOutputAmount`. Passing a mint address as `quoteMint` or `baseMint` throws.
 
 ---
 
@@ -5492,12 +5626,15 @@ function bpsToFeeNumerator(bps: number): BN
 
 ### convertToLamports
 
-A UI amount in lamports, rounded down.
+A UI amount in lamports, rounded down. The amount can be a `number`, a string or a `Decimal`.
 
 **Function**
 
 ```typescript
-function convertToLamports(amount: number | string, tokenDecimal: number): BN
+function convertToLamports(
+    amount: number | string | Decimal,
+    tokenDecimal: number
+): BN
 ```
 
 ---
@@ -5547,9 +5684,9 @@ function getFeeSchedulerParams(
 **Parameters**
 
 ```typescript
-startingFeeBps: number // The starting fee in basis points
-endingFeeBps: number // The ending fee in basis points
-feeSchedulerMode: number // 0: Linear, 1: Exponential
+startingBaseFeeBps: number // The starting fee in basis points
+endingBaseFeeBps: number // The ending fee in basis points
+baseFeeMode: BaseFeeMode // 0: FeeSchedulerLinear, 1: FeeSchedulerExponential
 numberOfPeriod: number // The number of periods
 totalDuration: number // The total duration of the fee scheduler
 ```
@@ -5571,13 +5708,19 @@ type BaseFee = {
 **Example**
 
 ```typescript
-const baseFeeParams = getFeeSchedulerParams(5000, 100, 1, 600, 600)
+const baseFeeParams = getFeeSchedulerParams(
+    5000,
+    100,
+    BaseFeeMode.FeeSchedulerExponential,
+    600,
+    600
+)
 ```
 
 **Notes**
 
 - The `totalDuration` is the total duration of the fee scheduler. It must be calculated based on your `activationType`. If you use `ActivationType.Slot`, the `totalDuration` is denominated in terms of 400ms (slot). If you use `ActivationType.Timestamp`, the `totalDuration` is denominated in terms of 1000ms (timestamp).
-- `startingFeeBps` must always be greater than or equal to `endingFeeBps`.
+- `startingBaseFeeBps` must always be greater than or equal to `endingBaseFeeBps`.
 - `totalDuration` must always be greater than or equal to `numberOfPeriod`.
 
 ---
@@ -5615,7 +5758,7 @@ activationType: ActivationType // The activation type
 - A `BaseFee` object containing the calculated rate limiter parameters.
 
 ```typescript
-type BaseFeeParams = {
+type BaseFee = {
     cliffFeeNumerator: BN
     firstFactor: number
     secondFactor: BN
@@ -5628,10 +5771,10 @@ type BaseFeeParams = {
 
 ```typescript
 const baseFeeParams = getRateLimiterParams(
-    100,
-    100,
-    referenceAmount: 1, // 1 SOL
-    maxLimiterDuration: 600, // 600 slots
+    100, // baseFeeBps
+    100, // feeIncrementBps
+    1, // referenceAmount, 1 SOL
+    600, // maxLimiterDuration, 600 slots
     TokenDecimal.NINE,
     ActivationType.Slot
 )
@@ -5641,10 +5784,9 @@ const baseFeeParams = getRateLimiterParams(
 
 - Deprecated for new configs and new pools. Existing rate-limiter pools can still be quoted and swapped.
 - The `maxLimiterDuration` is the max duration of the rate limiter. It must be calculated based on your `activationType`. If you use `ActivationType.Slot`, the `maxLimiterDuration` is denominated in terms of 400ms (slot). If you use `ActivationType.Timestamp`, the `maxLimiterDuration` is denominated in terms of 1000ms (timestamp).
-- `referenceAmount` must always be greater than 0. This parameter takes into account the quoteMint decimals. For example, if you use `TokenDecimal.NINE`, the `referenceAmount` must be 1 (1 SOL).
-- `maxLimiterDuration` must always be greater than 0.
-- `activationType` must always be greater than 0.
-- `baseFeeBps` must always be greater than 0.
+- `referenceAmount` must always be greater than 0. It is in quote token units and is converted to the smallest unit with `tokenQuoteDecimal`, so with `TokenDecimal.NINE` a `referenceAmount` of 1 is 1 SOL.
+- `baseFeeBps`, `feeIncrementBps` and `maxLimiterDuration` must always be greater than 0.
+- `maxLimiterDuration` is at most 108_000 slots or 43_200 seconds.
 
 ---
 
@@ -5670,10 +5812,10 @@ maxPriceChangeBps: number // The maximum price change in basis points
 
 **Returns**
 
-- A `DynamicFeeParams` object containing the calculated dynamic fee parameters.
+- A `DynamicFeeParameters` object containing the calculated dynamic fee parameters.
 
 ```typescript
-type dynamicFeeParameters = {
+type DynamicFeeParameters = {
     binStep: number
     binStepU128: BN
     filterPeriod: number
@@ -5722,10 +5864,10 @@ tokenBaseDecimal: TokenDecimal // The number of decimals for the base token
 
 **Returns**
 
-- A `LockedVestingParams` object containing the calculated locked vesting parameters.
+- A `LockedVestingParameters` object containing the calculated locked vesting parameters.
 
 ```typescript
-type LockedVestingParams = {
+type LockedVestingParameters = {
     amountPerPeriod: BN
     cliffDurationFromMigrationTime: BN
     frequency: BN
@@ -5781,6 +5923,7 @@ config: PoolConfig // The pool config
 
 ```typescript
 const poolConfig = await client.state.getPoolConfig(configAddress)
+if (!poolConfig) throw new Error('Config not found')
 
 const quoteReserve = getQuoteReserveFromNextSqrtPrice(
     new BN('13663931917038696'),
@@ -5860,7 +6003,7 @@ function getMigratedPoolMarketCapFeeSchedulerParams(
 
 ### getStartingBaseFeeBpsFromBaseFeeParams
 
-The fee the pre-migration pool ends on, which the migrated pool starts from.
+The fee the pre-migration pool's base fee ends on (`endingFeeBps`, or the rate limiter's `baseFeeBps`). It scales the pool's own dynamic fee; the migrated pool's fee comes from the migrated pool fee parameters.
 
 **Function**
 
@@ -5942,7 +6085,7 @@ function getMigrationThresholdPrice(
 
 ### getPercentageSupplyOnMigration
 
-Percentage of the supply on migration for a market cap pair without a migration fee.
+Percentage of the supply on migration for a market cap pair, with the migration fee taken off the deposit. `migrationFeePercentage` defaults to 0.
 
 **Function**
 
@@ -5952,7 +6095,8 @@ function getPercentageSupplyOnMigration(
     migrationMarketCap: Decimal,
     lockedVesting: LockedVestingParameters,
     totalLeftover: BN,
-    totalTokenSupply: BN
+    totalTokenSupply: BN,
+    migrationFeePercentage?: number
 ): number
 ```
 
@@ -6074,7 +6218,7 @@ function calculateLockedLiquidityBpsAtTime(
 
 ### getLiquidityVestingInfoParams
 
-See the source in `src/helpers/vesting.ts`.
+Liquidity vesting parameters for a config. `frequency` is `totalDuration / numberOfPeriods`, rounded down. When `vestingPercentage` is 0, every other argument must be 0.
 
 **Function**
 
@@ -6208,7 +6352,7 @@ function resolveSwapTransferFees(
 
 ### validateCompoundingFeeBps
 
-See the source in `src/helpers/validation.ts`.
+Whether `compoundingFeeBps` fits the collect fee mode: 0 to 10_000 for `Compounding`, and 0 for any other mode.
 
 **Function**
 
@@ -6248,7 +6392,7 @@ function validateConfigParameters(
 
 ### validateMigratedPoolFee
 
-See the source in `src/helpers/validation.ts`.
+Whether the migrated pool fee fields are valid for the migration option and migration fee option, the way the program checks them. A fixed migration fee option requires every field to be zero or its default.
 
 **Function**
 
@@ -6288,9 +6432,11 @@ Ports of the program's curve, fee and swap math (dynamic-bonding-curve 0.2.2), p
 ```typescript
 import {
     getFeeMode,
-    getSwapResult,
+    getSwapResultFromExactInput,
 } from '@meteora-ag/dynamic-bonding-curve-sdk/math'
 ```
+
+`isZeroTransferFee`, `resolveSwapTransferFees`, `calculateTransferFeeExcludedAmount` and `calculateTransferFeeIncludedAmount` are exported from both entries and documented under [Quote Functions](#quote-functions).
 
 ### calculateBaseToQuoteFromAmountIn
 
@@ -6359,7 +6505,7 @@ function calculateQuoteToBaseFromAmountOut(
 
 ### getSwapResult
 
-The legacy swap result shape, derived like the program's SwapResult2::get_swap_result.
+Deprecated: use [swapQuote2](#swapquote2). The legacy swap result shape, derived like the program's SwapResult2::get_swap_result. `eligibleForFirstSwapWithMinFee` is applied as given.
 
 **Function**
 
@@ -6379,7 +6525,7 @@ function getSwapResult(
 
 ### getSwapResultFromExactInput
 
-The program's get_swap_result_from_exact_input.
+The program's get_swap_result_from_exact_input. `eligibleForFirstSwapWithMinFee` is applied as given, so gate it the way `swapQuote2` does: `enableFirstSwapWithMinFee` set on the config, no referral, and the pool has not swapped.
 
 **Function**
 
@@ -6399,7 +6545,7 @@ function getSwapResultFromExactInput(
 
 ### getSwapResultFromExactOutput
 
-The program's get_swap_result_from_exact_output.
+The program's get_swap_result_from_exact_output. `eligibleForFirstSwapWithMinFee` is applied as given, so gate it the way `swapQuote2` does: `enableFirstSwapWithMinFee` set on the config, no referral, and the pool has not swapped.
 
 **Function**
 
@@ -6419,7 +6565,7 @@ function getSwapResultFromExactOutput(
 
 ### getSwapResultFromPartialInput
 
-The program's get_swap_result_from_partial_input.
+The program's get_swap_result_from_partial_input. `eligibleForFirstSwapWithMinFee` is applied as given, so gate it the way `swapQuote2` does: `enableFirstSwapWithMinFee` set on the config, no referral, and the pool has not swapped.
 
 **Function**
 
@@ -6439,7 +6585,7 @@ function getSwapResultFromPartialInput(
 
 ### getInitialLiquidityFromDeltaQuote
 
-L = Δb / (√P_upper - √P_lower), rounded down, bounded by u128.
+`L = Δb / (√P_upper - √P_lower)`, rounded down, bounded by u128.
 
 **Function**
 
@@ -6455,7 +6601,7 @@ function getInitialLiquidityFromDeltaQuote(
 
 ### getInitialLiquidityFromDeltaBase
 
-L = Δa _ √P_lower _ √P_upper / (√P_upper - √P_lower), rounded down.
+`L = Δa * √P_lower * √P_upper / (√P_upper - √P_lower)`, rounded down.
 
 **Function**
 
@@ -6471,7 +6617,7 @@ function getInitialLiquidityFromDeltaBase(
 
 ### getDeltaAmountBaseUnsigned
 
-Δa = L _ (√P_upper - √P_lower) / (√P_upper _ √P_lower), bounded by u64.
+`Δa = L * (√P_upper - √P_lower) / (√P_upper * √P_lower)`, bounded by u64.
 
 **Function**
 
@@ -6488,7 +6634,7 @@ function getDeltaAmountBaseUnsigned(
 
 ### getDeltaAmountBaseUnsigned256
 
-Δa = L _ (√P_upper - √P_lower) / (√P_upper _ √P_lower), unbounded.
+`Δa = L * (√P_upper - √P_lower) / (√P_upper * √P_lower)`, unbounded.
 
 **Function**
 
@@ -6505,7 +6651,7 @@ function getDeltaAmountBaseUnsigned256(
 
 ### getDeltaAmountQuoteUnsigned
 
-Δb = L \* (√P_upper - √P_lower), bounded by u64.
+`Δb = L * (√P_upper - √P_lower)`, bounded by u64.
 
 **Function**
 
@@ -6522,7 +6668,7 @@ function getDeltaAmountQuoteUnsigned(
 
 ### getDeltaAmountQuoteUnsigned256
 
-Δb = L \* (√P_upper - √P_lower), unbounded.
+`Δb = L * (√P_upper - √P_lower)`, unbounded.
 
 **Function**
 
@@ -6573,7 +6719,7 @@ function getNextSqrtPriceFromOutput(
 
 ### getNextSqrtPriceFromQuoteAmountOutRoundingDown
 
-√P' = √P - ceil(Δy / L)
+`√P' = √P - ceil(Δy / L)`
 
 **Function**
 
@@ -6589,7 +6735,7 @@ function getNextSqrtPriceFromQuoteAmountOutRoundingDown(
 
 ### getNextSqrtPriceFromBaseAmountOutRoundingUp
 
-√P' = √P _ L / (L - Δx _ √P), rounded up
+`√P' = √P * L / (L - Δx * √P)`, rounded up.
 
 **Function**
 
@@ -6605,7 +6751,7 @@ function getNextSqrtPriceFromBaseAmountOutRoundingUp(
 
 ### getNextSqrtPriceFromBaseAmountInRoundingUp
 
-√P' = √P _ L / (L + Δx _ √P), rounded up so an exact output is met and an exact input does not move the price further than necessary.
+`√P' = √P * L / (L + Δx * √P)`, rounded up so an exact output is met and an exact input does not move the price further than necessary.
 
 **Function**
 
@@ -6621,7 +6767,7 @@ function getNextSqrtPriceFromBaseAmountInRoundingUp(
 
 ### getNextSqrtPriceFromQuoteAmountInRoundingDown
 
-√P' = √P + Δy / L, rounded down so an exact output is met and an exact input does not move the price further than necessary.
+`√P' = √P + Δy / L`, rounded down so an exact output is met and an exact input does not move the price further than necessary.
 
 **Function**
 
@@ -6647,6 +6793,18 @@ function getFeeMode(
     tradeDirection: TradeDirection,
     hasReferral: boolean
 ): FeeMode
+```
+
+---
+
+### getMinBaseFeeNumerator
+
+The minimum base fee numerator of the pool fees; the program's PoolFeesConfig::get_min_base_fee_numerator. A swap that is eligible for the first-swap minimum fee pays it.
+
+**Function**
+
+```typescript
+function getMinBaseFeeNumerator(poolFees: QuotePoolFees): BN
 ```
 
 ---
@@ -6811,23 +6969,6 @@ function sqrt(value: BN): BN
 
 ---
 
-### isZeroTransferFee
-
-Token-2022 charges min(amount \* bps / 10_000, maximumFee), so either being zero means no fee.
-
-**Function**
-
-```typescript
-function isZeroTransferFee(
-    transferFee: {
-        transferFeeBasisPoints: number
-        maximumFee: BN | bigint
-    } | null
-): boolean
-```
-
----
-
 ### getBaseTransferFee
 
 A DBC base mint's fee has no cap, so the config only stores the basis points.
@@ -6857,58 +6998,6 @@ function getEpochTransferFee(
 
 ---
 
-### resolveSwapTransferFees
-
-The transfer fees on the input and output side of a swap. The base fee comes from baseMint, then baseTransferFeeBasisPoints, then the config; the quote fee has to come from the quote mint account.
-
-**Function**
-
-```typescript
-function resolveSwapTransferFees(
-    config: Pick<
-        QuotePoolConfig,
-        | 'quoteTokenFlag'
-        | 'quoteMint'
-        | 'transferFeeFlag'
-        | 'transferFeeBasisPoints'
-    >,
-    swapBaseForQuote: boolean,
-    transferFees?: QuoteTransferFees
-): { input: EpochTransferFee | null; output: EpochTransferFee | null }
-```
-
----
-
-### calculateTransferFeeExcludedAmount
-
-The amount received after the transfer fee and the fee; spl-token-2022's calculate_fee.
-
-**Function**
-
-```typescript
-function calculateTransferFeeExcludedAmount(
-    transferFee: EpochTransferFee | null,
-    includedAmount: BN
-): TransferFeeAmount
-```
-
----
-
-### calculateTransferFeeIncludedAmount
-
-The amount to send so that excludedAmount arrives after the transfer fee, and the fee; the program's calculate_transfer_fee_included_amount.
-
-**Function**
-
-```typescript
-function calculateTransferFeeIncludedAmount(
-    transferFee: EpochTransferFee | null,
-    excludedAmount: BN
-): TransferFeeAmount
-```
-
----
-
 ### getBaseFeeHandler
 
 The handler for a base fee config. The factors are the scheduler's numberOfPeriod, periodFrequency and reductionFactor, or the rate limiter's feeIncrementBps, maxLimiterDuration and referenceAmount.
@@ -6929,7 +7018,7 @@ function getBaseFeeHandler(
 
 ### isDynamicFeeEnabled
 
-See the source in `src/math/poolFees/dynamicFee.ts`.
+Whether the dynamic fee is initialized.
 
 **Function**
 
@@ -6941,7 +7030,7 @@ function isDynamicFeeEnabled(dynamicFee: QuoteDynamicFee): boolean
 
 ### getVariableFeeNumerator
 
-((volatility*accumulator * bin*step)^2 * variable_fee_control + 99_999_999_999) / 100_000_000_000, or 0 when the dynamic fee is not initialized.
+`((volatility_accumulator * bin_step)^2 * variable_fee_control + 99_999_999_999) / 100_000_000_000`, or 0 when the dynamic fee is not initialized.
 
 **Function**
 
@@ -6991,7 +7080,7 @@ function getBaseFeeNumeratorByPeriod(
 
 ### getFeeNumeratorOnLinearFeeScheduler
 
-fee = cliff_fee_numerator - period \* reduction_factor
+`fee = cliff_fee_numerator - period * reduction_factor`
 
 **Function**
 
@@ -7007,7 +7096,7 @@ function getFeeNumeratorOnLinearFeeScheduler(
 
 ### getFeeNumeratorOnExponentialFeeScheduler
 
-fee = cliff_fee_numerator \* (1 - reduction_factor / 10_000)^period in Q64
+`fee = cliff_fee_numerator * (1 - reduction_factor / 10_000)^period` in Q64
 
 **Function**
 
@@ -7062,7 +7151,7 @@ function isRateLimiterApplied(
 
 ### isZeroRateLimiter
 
-See the source in `src/math/poolFees/rateLimiter.ts`.
+Whether the reference amount, maximum limiter duration and fee increment are all zero.
 
 **Function**
 
@@ -7078,7 +7167,7 @@ function isZeroRateLimiter(
 
 ### isNonZeroRateLimiter
 
-See the source in `src/math/poolFees/rateLimiter.ts`.
+Whether the reference amount, maximum limiter duration and fee increment are all non-zero.
 
 **Function**
 

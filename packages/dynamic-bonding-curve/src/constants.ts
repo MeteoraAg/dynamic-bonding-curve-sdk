@@ -25,9 +25,9 @@ export const MIN_SQRT_PRICE = new BN('4295048016')
 export const MAX_SQRT_PRICE = new BN('79226673521066979257578248091')
 
 // Base Fee
-export const MIN_FEE_BPS = 25 // 0.25% // previously 0.01%
+export const MIN_FEE_BPS = 25 // 0.25%
 export const MAX_FEE_BPS = 9900 // 99%
-export const MIN_FEE_NUMERATOR = 2_500_000 // 0.25% // previously 100_000 (0.01%)
+export const MIN_FEE_NUMERATOR = 2_500_000 // 0.25%
 export const MAX_FEE_NUMERATOR = 990_000_000 // 99%
 
 // Base Fee - Rate Limiter
@@ -63,7 +63,7 @@ export const PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS = 20 // 0.2%
 export const DAMM_V2_COMPOUNDING_DEAD_LIQUIDITY = new BN(100).shln(64)
 
 // Migration Fee
-export const MAX_MIGRATION_FEE_PERCENTAGE = 99 // 99% // previously 50%
+export const MAX_MIGRATION_FEE_PERCENTAGE = 99 // 99%
 export const MAX_CREATOR_MIGRATION_FEE_PERCENTAGE = 100 // 100%
 
 // Migrated Pool Locked Liquidity
