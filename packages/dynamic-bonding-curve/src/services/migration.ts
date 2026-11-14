@@ -36,8 +36,6 @@ import {
     deriveDammV1LockEscrowAddress,
     deriveDammV1ProtocolFeeAddress,
     deriveLockerEventAuthority,
-    hasTransferFeeOrConfigAuthority,
-    validateTransferFeeRestrictions,
 } from '../helpers'
 import type {
     CreateDammV1MigrationMetadataParams,
@@ -56,14 +54,14 @@ import {
     getAccount,
     getAssociatedTokenAddressSync,
     getMint,
-    unpackMint,
     TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 import {
+    DAMM_V1_MIGRATION_FEE_ADDRESS,
     DAMM_V1_PROGRAM_ID,
+    DAMM_V2_MIGRATION_FEE_ADDRESS,
     DAMM_V2_PROGRAM_ID,
-    LEGACY_CONFIG_VERSION,
     LOCKER_PROGRAM_ID,
     METAPLEX_PROGRAM_ID,
     VAULT_PROGRAM_ID,
@@ -72,11 +70,25 @@ import {
     calculateTransferFeeExcludedAmount,
     getEpochTransferFee,
     isZeroTransferFee,
-    type EpochTransferFee,
 } from '../math/transferFee'
 
 const MIGRATE_DAMM_V1_COMPUTE_UNITS = 500_000
 const MIGRATE_DAMM_V2_COMPUTE_UNITS = 600_000
+
+/** The explicit DAMM config, or the one the pool config's migration fee option selects. */
+function resolveDammConfig(
+    dammConfig: PublicKey | undefined,
+    defaults: PublicKey[],
+    poolConfig: PoolConfig
+): PublicKey {
+    const resolved = dammConfig ?? defaults[poolConfig.migrationFeeOption]
+    if (!resolved) {
+        throw new Error(
+            `Migration fee option ${poolConfig.migrationFeeOption} has no default DAMM config, pass dammConfig`
+        )
+    }
+    return resolved
+}
 
 export class MigrationService extends DynamicBondingCurveProgram {
     /** Build a transaction that creates the locker escrow for the pool's locked vesting tokens. */
@@ -125,77 +137,36 @@ export class MigrationService extends DynamicBondingCurveProgram {
             .transaction()
     }
 
-    /**
-     * The checks migration_damm_v2 makes on the quote mint's transfer fee: a
-     * legacy config rejects a non-zero fee; any other config on the transfer
-     * fee path has to satisfy the transfer fee restrictions.
-     */
-    private async assertDammV2MigrationTransferFee(
-        poolConfig: PoolConfig
-    ): Promise<void> {
-        const quoteMintInfo = await this.connection.getAccountInfo(
-            poolConfig.quoteMint,
-            this.commitment
-        )
-        if (!quoteMintInfo) {
-            throw new Error(
-                `Quote mint ${poolConfig.quoteMint.toBase58()} not found`
-            )
-        }
-
-        let epochTransferFee: EpochTransferFee | null = null
-        let quoteHasTransferFee = false
-        if (quoteMintInfo.owner.equals(TOKEN_2022_PROGRAM_ID)) {
-            const quoteMint = unpackMint(
-                poolConfig.quoteMint,
-                quoteMintInfo,
-                quoteMintInfo.owner
-            )
-            const { epoch } = await this.connection.getEpochInfo(
-                this.commitment
-            )
-            epochTransferFee = getEpochTransferFee(quoteMint, epoch)
-            quoteHasTransferFee = hasTransferFeeOrConfigAuthority(
-                quoteMint,
-                epoch
-            )
-        }
-
-        if (poolConfig.version === LEGACY_CONFIG_VERSION) {
-            if (!isZeroTransferFee(epochTransferFee)) {
-                throw new Error('Quote mint has a non-zero transfer fee')
-            }
-            return
-        }
-        if (poolConfig.transferFeeFlag === 1 || quoteHasTransferFee) {
-            validateTransferFeeRestrictions(poolConfig)
-        }
-    }
-
     /** Whether withdraw_leftover would charge a base transfer fee, in which case leftoverReceiver must sign. */
     private async leftoverWithdrawalChargesTransferFee(
         virtualPool: VirtualPool,
         tokenBaseProgram: PublicKey
     ): Promise<boolean> {
+        if (tokenBaseProgram.equals(TOKEN_PROGRAM_ID)) {
+            return false
+        }
+
         const { poolState } = virtualPool
-        const baseMint = await getMint(
-            this.connection,
-            poolState.baseMint,
-            this.commitment,
-            tokenBaseProgram
-        )
-        const { epoch } = await this.connection.getEpochInfo(this.commitment)
+        const [baseMint, { epoch }, vault] = await Promise.all([
+            getMint(
+                this.connection,
+                poolState.baseMint,
+                this.commitment,
+                tokenBaseProgram
+            ),
+            this.connection.getEpochInfo(this.commitment),
+            getAccount(
+                this.connection,
+                poolState.baseVault,
+                this.commitment,
+                tokenBaseProgram
+            ),
+        ])
         const transferFee = getEpochTransferFee(baseMint, epoch)
         if (isZeroTransferFee(transferFee)) {
             return false
         }
 
-        const vault = await getAccount(
-            this.connection,
-            poolState.baseVault,
-            this.commitment,
-            tokenBaseProgram
-        )
         const reserved = poolState.partnerBaseFee
             .add(poolState.protocolBaseFee)
             .add(poolState.creatorBaseFee)
@@ -314,13 +285,14 @@ export class MigrationService extends DynamicBondingCurveProgram {
         for (const [i, mint] of mints.entries()) {
             const account = accounts[i]
             if (!account) {
-                const { instruction } =
+                preInstructions.push(
                     await createInitializePermissionlessDynamicVaultIx(
                         mint,
+                        pdas[i],
                         payer,
                         vaultProgram
                     )
-                preInstructions.push(instruction)
+                )
             }
             vaults.push({
                 vault: pdas[i].vaultPda,
@@ -333,9 +305,14 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
     /** Build a transaction that migrates a completed virtual pool to DAMM v1. */
     async migrateToDammV1(params: MigrateToDammV1Params): Promise<Transaction> {
-        const { pool, dammConfig, payer } = params
+        const { pool, payer } = params
         const { virtualPool, poolConfigState } =
             await this.getPoolWithConfig(pool)
+        const dammConfig = resolveDammConfig(
+            params.dammConfig,
+            DAMM_V1_MIGRATION_FEE_ADDRESS,
+            poolConfigState
+        )
         const { baseMint } = virtualPool.poolState
         const { quoteMint } = poolConfigState
 
@@ -411,9 +388,14 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
     /** Build a transaction that locks the partner's or the creator's DAMM v1 LP tokens. */
     async lockDammV1LpToken(params: DammLpTokenParams): Promise<Transaction> {
-        const { pool, dammConfig, payer, isPartner } = params
+        const { pool, payer, isPartner } = params
         const { virtualPool, poolConfigState } =
             await this.getPoolWithConfig(pool)
+        const dammConfig = resolveDammConfig(
+            params.dammConfig,
+            DAMM_V1_MIGRATION_FEE_ADDRESS,
+            poolConfigState
+        )
         const { baseMint } = virtualPool.poolState
         const { quoteMint } = poolConfigState
         const owner = isPartner
@@ -497,9 +479,14 @@ export class MigrationService extends DynamicBondingCurveProgram {
 
     /** Build a transaction that sends the partner's or the creator's DAMM v1 LP tokens to them. */
     async claimDammV1LpToken(params: DammLpTokenParams): Promise<Transaction> {
-        const { pool, dammConfig, payer, isPartner } = params
+        const { pool, payer, isPartner } = params
         const { virtualPool, poolConfigState } =
             await this.getPoolWithConfig(pool)
+        const dammConfig = resolveDammConfig(
+            params.dammConfig,
+            DAMM_V1_MIGRATION_FEE_ADDRESS,
+            poolConfigState
+        )
         const owner = isPartner
             ? poolConfigState.feeClaimer
             : virtualPool.poolState.creator
@@ -553,10 +540,14 @@ export class MigrationService extends DynamicBondingCurveProgram {
     async migrateToDammV2(
         params: MigrateToDammV2Params
     ): Promise<MigrateToDammV2Response> {
-        const { pool, dammConfig, payer } = params
+        const { pool, payer } = params
         const { virtualPool, poolConfigState } =
             await this.getPoolWithConfig(pool)
-        await this.assertDammV2MigrationTransferFee(poolConfigState)
+        const dammConfig = resolveDammConfig(
+            params.dammConfig,
+            DAMM_V2_MIGRATION_FEE_ADDRESS,
+            poolConfigState
+        )
         const { baseMint } = virtualPool.poolState
         const { quoteMint } = poolConfigState
 
