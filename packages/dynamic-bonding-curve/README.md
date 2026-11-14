@@ -35,7 +35,7 @@ The package root exports the client, the curve builders, quotes, parameter build
 ```typescript
 import {
     getFeeMode,
-    getSwapResult,
+    getSwapResultFromExactInput,
 } from '@meteora-ag/dynamic-bonding-curve-sdk/math'
 ```
 
