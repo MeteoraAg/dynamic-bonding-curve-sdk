@@ -676,16 +676,21 @@ export class DynamicBondingCurveProgram {
             : quoteAta
         const postInstructions: TransactionInstruction[] = []
         if (quoteIsSol) {
+            // createAccountWithSeed fails once anyone sends lamports to this
+            // address, so fund and allocate it separately
             preInstructions.push(
-                SystemProgram.createAccountWithSeed({
+                SystemProgram.transfer({
                     fromPubkey: payer,
-                    basePubkey: claimer,
-                    seed: CLAIM_WSOL_SEED,
-                    newAccountPubkey: tokenBAccount,
+                    toPubkey: tokenBAccount,
                     lamports: await getMinimumBalanceForRentExemptAccount(
                         this.connection,
                         this.commitment
                     ),
+                }),
+                SystemProgram.allocate({
+                    accountPubkey: tokenBAccount,
+                    basePubkey: claimer,
+                    seed: CLAIM_WSOL_SEED,
                     space: ACCOUNT_SIZE,
                     programId: tokenQuoteProgram,
                 }),

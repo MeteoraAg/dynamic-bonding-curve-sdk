@@ -21,6 +21,7 @@ import {
     getAssociatedTokenAddressSync,
     ACCOUNT_SIZE,
     NATIVE_MINT,
+    TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 
 const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
@@ -245,6 +246,42 @@ describe('claim trading fees', { timeout: 60000 }, () => {
         expect(claimerWsol.amount).toBe(BigInt(heldWsol))
         expect(BigInt(await connection.getBalance(receiver.publicKey))).toBe(
             before.partner + (await tokenAccountRent())
+        )
+    })
+
+    test('a SOL fee claim succeeds after someone sends lamports to the temporary wSOL account', async () => {
+        const temporaryWsol = await PublicKey.createWithSeed(
+            partner.publicKey,
+            'dbc-claim-wsol',
+            TOKEN_PROGRAM_ID
+        )
+        const donation = BigInt(
+            await connection.getMinimumBalanceForRentExemption(0)
+        )
+        const donationTx = new Transaction().add(
+            SystemProgram.transfer({
+                fromPubkey: poolCreator.publicKey,
+                toPubkey: temporaryWsol,
+                lamports: donation,
+            })
+        )
+        await sendAndConfirmTransaction(connection, donationTx, [poolCreator])
+
+        const receiver = Keypair.generate()
+        const before = await unclaimedFees()
+        const tx = await dbcClient.partner.claimPartnerTradingFee({
+            feeClaimer: partner.publicKey,
+            payer: partner.publicKey,
+            pool,
+            maxBaseAmount: new BN(0),
+            maxQuoteAmount: U64_MAX,
+            receiver: receiver.publicKey,
+        })
+        tx.feePayer = partner.publicKey
+        await sendAndConfirmTransaction(connection, tx, [partner])
+
+        expect(BigInt(await connection.getBalance(receiver.publicKey))).toBe(
+            before.partner + (await tokenAccountRent()) + donation
         )
     })
 
