@@ -985,12 +985,18 @@ function findMigratedPoolBaseFeeModeError(
             new BN(poolFeeBps),
             new BN(FEE_DENOMINATOR)
         )
-        const minFeeNumerator = getFeeSchedulerMinBaseFeeNumerator(
-            cliffFeeNumerator,
-            migratedPoolMarketCapFeeSchedulerParams.numberOfPeriod,
-            migratedPoolMarketCapFeeSchedulerParams.reductionFactor,
-            schedulerMode
-        )
+        let minFeeNumerator: BN
+        try {
+            minFeeNumerator = getFeeSchedulerMinBaseFeeNumerator(
+                cliffFeeNumerator,
+                migratedPoolMarketCapFeeSchedulerParams.numberOfPeriod,
+                migratedPoolMarketCapFeeSchedulerParams.reductionFactor,
+                schedulerMode
+            )
+        } catch (error) {
+            // the program fails the same way, e.g. a linear reduction past the cliff fee
+            return (error as Error).message
+        }
 
         return minFeeNumerator.lt(new BN(DAMM_V2_MIN_FEE_NUMERATOR)) ||
             cliffFeeNumerator.gt(new BN(DAMM_V2_MAX_FEE_NUMERATOR))
