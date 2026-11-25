@@ -212,6 +212,16 @@ describe(
         })
 
         test('an ExactIn sell debits the base input and credits the output net of the quote transfer fee', async () => {
+            // a sell needs base tokens and a price above the curve's start
+            const buyTx = await client.pool.swap2({
+                ...swapAccounts(),
+                swapBaseForQuote: false,
+                swapMode: SwapMode.ExactIn,
+                amountIn: new BN(1_000_000_000),
+                minimumAmountOut: new BN(0),
+            })
+            await sendAndConfirmTransaction(connection, buyTx, [user])
+
             const amountIn = new BN(500_000)
             const quote = client.pool.swapQuote2({
                 ...(await quoteContext()),
