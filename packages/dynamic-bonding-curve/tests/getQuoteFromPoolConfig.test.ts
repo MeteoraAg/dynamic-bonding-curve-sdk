@@ -65,6 +65,6 @@ describe('getQuoteFrom with a decoded PoolConfig', { timeout: 60000 }, () => {
                 config: poolConfig!,
                 quoteTokenFlag: TokenType.Token2022,
             })
-        ).toThrow('quoteTokenFlag does not match config.quoteTokenFlag')
+        ).toThrow('quoteTokenFlag 1 does not match config.quoteTokenFlag 0')
     })
 })

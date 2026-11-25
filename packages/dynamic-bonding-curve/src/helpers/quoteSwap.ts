@@ -92,7 +92,9 @@ function quoteAtInitialization(
         params.quoteTokenFlag !== undefined &&
         params.quoteTokenFlag !== config.quoteTokenFlag
     ) {
-        throw new Error('quoteTokenFlag does not match config.quoteTokenFlag')
+        throw new Error(
+            `quoteTokenFlag ${params.quoteTokenFlag} does not match config.quoteTokenFlag ${config.quoteTokenFlag}`
+        )
     }
     const virtualPool = initialVirtualPool(
         params.config.sqrtStartPrice,
