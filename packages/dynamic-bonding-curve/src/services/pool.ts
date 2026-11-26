@@ -5,6 +5,7 @@ import {
 } from './program'
 import {
     AccountsType,
+    BaseFeeMode,
     SwapMode,
     TradeDirection,
     type SimulatedQuoteFromInputAmountParams,
@@ -28,7 +29,7 @@ import {
     swapQuoteExactOut,
     swapQuotePartialFill,
 } from '../math/swapQuote'
-import { prepareSwapAccounts, rateLimiterApplied } from '../helpers/swap'
+import { prepareSwapAccounts } from '../helpers/swap'
 import BN from 'bn.js'
 
 export class PoolService extends DynamicBondingCurveProgram {
@@ -60,13 +61,11 @@ export class PoolService extends DynamicBondingCurveProgram {
             )
         }
 
-        const rateLimited = await rateLimiterApplied({
-            connection: this.connection,
-            baseFee: poolConfigState.poolFees.baseFee,
-            activationType: poolConfigState.activationType,
-            activationPoint: virtualPool.poolState.activationPoint,
-            swapBaseForQuote,
-        })
+        // The program only reads the sysvar when the rate limiter applies, but
+        // accepts it whenever it is passed, so no clock read is needed here.
+        const mayBeRateLimited =
+            poolConfigState.poolFees.baseFee.baseFeeMode ===
+                BaseFeeMode.RateLimiter && !swapBaseForQuote
         const { inputMint, outputMint, inputTokenProgram, outputTokenProgram } =
             this.prepareSwapParams(
                 swapBaseForQuote,
@@ -86,7 +85,7 @@ export class PoolService extends DynamicBondingCurveProgram {
             outputTokenProgram,
             wrapAmount: params.wrapAmount,
             includeInstructionSysvar:
-                rateLimited ||
+                mayBeRateLimited ||
                 Boolean(poolConfigState.enableFirstSwapWithMinFee),
         })
 
@@ -265,24 +264,35 @@ export class PoolService extends DynamicBondingCurveProgram {
             params.swapBaseForQuote,
             params.amountIn,
             params.slippageBps,
-            params.hasReferral,
+            params.hasReferral ?? false,
             params.currentPoint,
-            params.eligibleForFirstSwapWithMinFee,
+            params.eligibleForFirstSwapWithMinFee ?? false,
             params
         )
     }
 
     /**
      * Quote an existing pool in SwapMode.ExactIn, SwapMode.PartialFill or
-     * SwapMode.ExactOut. currentPoint is the current chain slot or time.
+     * SwapMode.ExactOut. currentPoint is the current chain slot or time. The
+     * result carries minimumAmountOut, or maximumAmountIn for exact-out, ready
+     * for swap2.
      */
+    swapQuote2(
+        params: SwapQuote2Params & {
+            swapMode: SwapMode.ExactIn | SwapMode.PartialFill
+        }
+    ): SwapQuote2Result & { minimumAmountOut: BN }
+    swapQuote2(
+        params: SwapQuote2Params & { swapMode: SwapMode.ExactOut }
+    ): SwapQuote2Result & { maximumAmountIn: BN }
+    swapQuote2(params: SwapQuote2Params): SwapQuote2Result
     swapQuote2(params: SwapQuote2Params): SwapQuote2Result {
         const {
             virtualPool,
             config,
             swapBaseForQuote,
-            hasReferral,
-            eligibleForFirstSwapWithMinFee,
+            hasReferral = false,
+            eligibleForFirstSwapWithMinFee = false,
             currentPoint,
         } = params
         const slippageBps = params.slippageBps ?? 0

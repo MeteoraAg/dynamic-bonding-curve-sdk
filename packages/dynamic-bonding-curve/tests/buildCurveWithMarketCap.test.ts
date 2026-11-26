@@ -1,10 +1,5 @@
 import { expect, test, describe } from 'vitest'
-import {
-    buildCurveWithMarketCap,
-    getTotalVestingAmount,
-    getLockedVestingParams,
-} from '../src/helpers'
-import BN from 'bn.js'
+import { buildCurveWithMarketCap, getTotalVestingAmount } from '../src/helpers'
 import { MigrationFeeOption, MigrationOption, TokenDecimal } from '../src'
 import { curveBaseParams, expectProgramValidCurve } from './utils/curve'
 
@@ -51,43 +46,23 @@ describe('buildCurveWithMarketCap tests', () => {
 
         expectProgramValidCurve(config)
 
-        const lockedVesting = getLockedVestingParams(
-            lockedVestingConfig.totalLockedVestingAmount,
-            lockedVestingConfig.numberOfVestingPeriod,
-            lockedVestingConfig.cliffUnlockAmount,
-            lockedVestingConfig.totalVestingDuration,
-            lockedVestingConfig.cliffDurationFromMigrationTime,
-            baseParams.token.tokenBaseDecimal
-        )
-
-        const totalVestingAmount = getTotalVestingAmount(lockedVesting)
-
-        const vestingPercentage = totalVestingAmount
-            .mul(new BN(100))
-            .div(
-                new BN(
-                    baseParams.token.totalTokenSupply *
-                        10 ** baseParams.token.tokenBaseDecimal
-                )
+        // 10,000,000 tokens at 6 decimals over 1000 periods of 31,536 seconds
+        expect(
+            Object.fromEntries(
+                Object.entries(config.lockedVesting).map(([key, value]) => [
+                    key,
+                    value.toString(),
+                ])
             )
-            .toNumber()
-
-        expect(config.tokenSupply).not.toBeNull()
-        if (config.tokenSupply) {
-            expect(config.tokenSupply.preMigrationTokenSupply).toBeDefined()
-            expect(config.tokenSupply.postMigrationTokenSupply).toBeDefined()
-
-            const migrationPercentage = config.migrationQuoteThreshold
-                .mul(new BN(100))
-                .div(config.tokenSupply.preMigrationTokenSupply)
-                .toNumber()
-
-            expect(migrationPercentage).toBeLessThan(100 - vestingPercentage)
-        }
-
-        expect(totalVestingAmount.toNumber()).toBe(
-            lockedVestingConfig.totalLockedVestingAmount *
-                10 ** baseParams.token.tokenBaseDecimal
+        ).toEqual({
+            amountPerPeriod: '10000000000',
+            cliffDurationFromMigrationTime: '0',
+            cliffUnlockAmount: '0',
+            frequency: '31536',
+            numberOfPeriod: '1000',
+        })
+        expect(getTotalVestingAmount(config.lockedVesting).toString()).toBe(
+            '10000000000000'
         )
     })
 

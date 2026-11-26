@@ -53,6 +53,7 @@ describe('state query endpoints', { timeout: 90000 }, () => {
             owner: partner.publicKey,
             creator: poolCreator.publicKey,
             expectedTokenType: TokenType.SPLToken,
+            expectTransferHook: false,
         })
     })
 
@@ -96,7 +97,25 @@ describe('state query endpoints', { timeout: 90000 }, () => {
             owner: partner.publicKey,
             creator: poolCreator.publicKey,
             expectedTokenType: TokenType.Token2022,
+            expectTransferHook: true,
         })
+    })
+
+    test('the kind lookups find nothing at an address that is not a pool or config', async () => {
+        const unknown = Keypair.generate().publicKey
+
+        for (const address of [unknown, partner.publicKey]) {
+            expect(await dbcClient.state.getPoolWithKind(address)).toBeNull()
+            expect(await dbcClient.state.isTransferHookPool(address)).toBe(
+                false
+            )
+            expect(
+                await dbcClient.state.getPoolConfigWithKind(address)
+            ).toBeNull()
+            expect(await dbcClient.state.isTransferHookConfig(address)).toBe(
+                false
+            )
+        }
     })
 
     async function assertStateEndpoints(params: {
@@ -106,9 +125,17 @@ describe('state query endpoints', { timeout: 90000 }, () => {
         owner: PublicKey
         creator: PublicKey
         expectedTokenType: TokenType
+        expectTransferHook: boolean
     }) {
-        const { config, pool, baseMint, owner, creator, expectedTokenType } =
-            params
+        const {
+            config,
+            pool,
+            baseMint,
+            owner,
+            creator,
+            expectedTokenType,
+            expectTransferHook,
+        } = params
 
         const [
             configState,
@@ -170,6 +197,29 @@ describe('state query endpoints', { timeout: 90000 }, () => {
         expect(poolSurplus.total.isZero()).toBe(true)
         expect(poolSurplus.partnerWithdrawn).toBe(false)
         expect(poolSurplus.creatorWithdrawn).toBe(false)
+
+        const [poolKind, configKind] = await Promise.all([
+            dbcClient.state.getPoolWithKind(pool),
+            dbcClient.state.getPoolConfigWithKind(config),
+        ])
+        expect(poolKind!.isTransferHookPool).toBe(expectTransferHook)
+        expect(poolKind!.virtualPool.poolState.baseMint.equals(baseMint)).toBe(
+            true
+        )
+        expect(await dbcClient.state.isTransferHookPool(pool)).toBe(
+            expectTransferHook
+        )
+        expect(configKind!.poolConfig.tokenType).toBe(expectedTokenType)
+        expect(await dbcClient.state.isTransferHookConfig(config)).toBe(
+            expectTransferHook
+        )
+        expect(
+            configKind!.transferHookConfig?.transferHookProgram.toString()
+        ).toBe(
+            expectTransferHook
+                ? TRANSFER_HOOK_COUNTER_PROGRAM_ID.toString()
+                : undefined
+        )
 
         const [poolMetadata, partnerMetadata] = await Promise.all([
             dbcClient.state.getPoolMetadata(pool),

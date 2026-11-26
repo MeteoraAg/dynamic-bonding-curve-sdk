@@ -1,23 +1,10 @@
 import BN from 'bn.js'
 import { SafeMath } from './safeMath'
 import { mulDiv } from './utilsMath'
-import { RESOLUTION, U128_MAX, U64_MAX } from '../constants'
+import { RESOLUTION } from '../constants'
 import { Rounding } from '../types'
+import { requireU128, requireU64 } from './bounds'
 import { ProgramError } from './errors'
-
-function requireU64(value: BN): BN {
-    if (value.gt(U64_MAX)) {
-        throw new Error(ProgramError.MathOverflow)
-    }
-    return value
-}
-
-function requireU128(value: BN): BN {
-    if (value.gt(U128_MAX)) {
-        throw new Error(ProgramError.MathOverflow)
-    }
-    return value
-}
 
 /** L = Δb / (√P_upper - √P_lower), rounded down, bounded by u128. */
 export function getInitialLiquidityFromDeltaQuote(
@@ -226,8 +213,8 @@ export function getNextSqrtPriceFromQuoteAmountInRoundingDown(
 
 /**
  * The points of a stored curve up to the first zero point. PoolConfig.curve
- * holds MAX_CURVE_POINT entries and the unused ones are zero; the program
- * stops at the first of them.
+ * holds the program's MAX_CURVE_POINT_CONFIG (20) entries and the unused ones
+ * are zero; the program stops at the first of them.
  */
 export function liveCurve<T extends { sqrtPrice: BN; liquidity: BN }>(
     curve: T[]

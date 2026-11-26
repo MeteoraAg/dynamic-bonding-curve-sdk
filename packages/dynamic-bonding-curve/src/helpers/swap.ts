@@ -6,6 +6,10 @@ import {
     SYSVAR_INSTRUCTIONS_PUBKEY,
     TransactionInstruction,
 } from '@solana/web3.js'
+import {
+    createAssociatedTokenAccountIdempotentInstruction,
+    getAssociatedTokenAddressSync,
+} from '@solana/spl-token'
 import BN from 'bn.js'
 import { getCurrentPoint } from './chain'
 import {
@@ -54,6 +58,49 @@ export async function rateLimiterApplied(params: {
     )
 }
 
+/**
+ * A swap's token account and its create instruction. The wSOL account always
+ * gets one: the unwrap closes it, and another SOL swap in the same transaction
+ * has to find it open.
+ */
+async function getOrCreateSwapTokenAccount(
+    params: {
+        connection: Connection
+        commitment: Commitment
+        payer: PublicKey
+    },
+    mint: PublicKey,
+    owner: PublicKey,
+    tokenProgram: PublicKey
+): Promise<{ ataPubkey: PublicKey; ix?: TransactionInstruction }> {
+    if (!isNativeSol(mint)) {
+        return getOrCreateATAInstruction(
+            params.connection,
+            mint,
+            owner,
+            params.payer,
+            tokenProgram,
+            params.commitment
+        )
+    }
+    const ataPubkey = getAssociatedTokenAddressSync(
+        mint,
+        owner,
+        true,
+        tokenProgram
+    )
+    return {
+        ataPubkey,
+        ix: createAssociatedTokenAccountIdempotentInstruction(
+            params.payer,
+            ataPubkey,
+            owner,
+            mint,
+            tokenProgram
+        ),
+    }
+}
+
 /** Create the input and output token accounts of a swap, wrap and unwrap SOL, and add the instructions sysvar. */
 export async function prepareSwapAccounts(params: {
     connection: Connection
@@ -79,21 +126,17 @@ export async function prepareSwapAccounts(params: {
         { ataPubkey: inputTokenAccount, ix: createInputAtaIx },
         { ataPubkey: outputTokenAccount, ix: createOutputAtaIx },
     ] = await Promise.all([
-        getOrCreateATAInstruction(
-            params.connection,
+        getOrCreateSwapTokenAccount(
+            params,
             params.inputMint,
             params.inputOwner,
-            params.payer,
-            params.inputTokenProgram,
-            params.commitment
+            params.inputTokenProgram
         ),
-        getOrCreateATAInstruction(
-            params.connection,
+        getOrCreateSwapTokenAccount(
+            params,
             params.outputMint,
             params.outputOwner,
-            params.payer,
-            params.outputTokenProgram,
-            params.commitment
+            params.outputTokenProgram
         ),
     ])
 

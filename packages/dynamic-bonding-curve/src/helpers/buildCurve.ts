@@ -21,7 +21,6 @@ import {
     MAX_SQRT_PRICE,
 } from '../constants'
 import {
-    calculateAdjustedPercentageSupplyOnMigration,
     getFirstCurve,
     getMigrationBaseToken,
     getMigrationBaseWeight,
@@ -215,24 +214,21 @@ function assertPositiveSwapAmount(swapAmount: BN): void {
     }
 }
 
-/** Build config parameters for a single curve segment constant product curve. */
-export function buildCurve(params: BuildCurveParams): ConfigParameters {
+/** Migration price, threshold and swap amount shared by the curve builders. */
+function migrationCurveInputs(
+    params: BuildCurveBaseParams,
+    inputs: CurveInputs,
+    percentageSupplyOnMigration: number,
+    migrationQuoteAmount: Decimal,
+    migrationQuoteThreshold: Decimal | number
+) {
     const { tokenBaseDecimal, tokenQuoteDecimal, totalTokenSupply } =
         params.token
     const { migrationOption, migrationFee } = params.migration
-    const { percentageSupplyOnMigration, migrationQuoteThreshold } = params
-    const inputs = prepareCurveInputs(params)
-    const migratedCollectFeeMode =
-        inputs.migratedPoolFeeResult.migratedPoolFee.collectFeeMode
 
     const migrationBaseSupply = new Decimal(totalTokenSupply)
         .mul(new Decimal(percentageSupplyOnMigration))
         .div(new Decimal(100))
-    const migrationQuoteAmount =
-        getMigrationQuoteAmountFromMigrationQuoteThreshold(
-            new Decimal(migrationQuoteThreshold),
-            migrationFee.feePercentage
-        )
     const migrationPrice = migrationQuoteAmount.div(migrationBaseSupply)
     const migrationQuoteThresholdInLamport = convertToLamports(
         migrationQuoteThreshold,
@@ -250,7 +246,7 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
         ),
         migrateSqrtPrice,
         migrationOption,
-        migratedCollectFeeMode
+        inputs.migratedPoolFeeResult.migratedPoolFee.collectFeeMode
     )
 
     const swapAmount = inputs.totalSupply
@@ -258,6 +254,33 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
         .sub(inputs.totalVestingAmount)
         .sub(inputs.totalLeftover)
     assertPositiveSwapAmount(swapAmount)
+
+    return {
+        migrationQuoteThresholdInLamport,
+        migrateSqrtPrice,
+        swapAmount,
+    }
+}
+
+/** Build config parameters for a single curve segment constant product curve. */
+export function buildCurve(params: BuildCurveParams): ConfigParameters {
+    const { percentageSupplyOnMigration, migrationQuoteThreshold } = params
+    const { migrationOption, migrationFee } = params.migration
+    const inputs = prepareCurveInputs(params)
+    const migratedCollectFeeMode =
+        inputs.migratedPoolFeeResult.migratedPoolFee.collectFeeMode
+
+    const { migrationQuoteThresholdInLamport, migrateSqrtPrice, swapAmount } =
+        migrationCurveInputs(
+            params,
+            inputs,
+            percentageSupplyOnMigration,
+            getMigrationQuoteAmountFromMigrationQuoteThreshold(
+                new Decimal(migrationQuoteThreshold),
+                migrationFee.feePercentage
+            ),
+            migrationQuoteThreshold
+        )
 
     const { sqrtStartPrice, curve } = getFirstCurve(
         migrateSqrtPrice,
@@ -299,49 +322,18 @@ export function buildCurve(params: BuildCurveParams): ConfigParameters {
 export function buildCurveWithMarketCap(
     params: BuildCurveWithMarketCapParams
 ): ConfigParameters {
-    const {
-        token,
-        migration,
-        lockedVesting,
-        initialMarketCap,
-        migrationMarketCap,
-    } = params
+    const { migration, initialMarketCap, migrationMarketCap } = params
     const { migrationFee } = migration
+    const inputs = prepareCurveInputs(params)
 
-    const lockedVestingParams = getLockedVestingParams(
-        lockedVesting.totalLockedVestingAmount,
-        lockedVesting.numberOfVestingPeriod,
-        lockedVesting.cliffUnlockAmount,
-        lockedVesting.totalVestingDuration,
-        lockedVesting.cliffDurationFromMigrationTime,
-        token.tokenBaseDecimal
+    const percentageSupplyOnMigration = getPercentageSupplyOnMigration(
+        new Decimal(initialMarketCap),
+        new Decimal(migrationMarketCap),
+        inputs.lockedVestingParams,
+        inputs.totalLeftover,
+        inputs.totalSupply,
+        migrationFee.feePercentage
     )
-    const totalLeftover = convertToLamports(
-        token.leftover,
-        token.tokenBaseDecimal
-    )
-    const totalSupply = convertToLamports(
-        token.totalTokenSupply,
-        token.tokenBaseDecimal
-    )
-
-    const percentageSupplyOnMigration =
-        migrationFee.feePercentage > 0
-            ? calculateAdjustedPercentageSupplyOnMigration(
-                  initialMarketCap,
-                  migrationMarketCap,
-                  migrationFee,
-                  lockedVestingParams,
-                  totalLeftover,
-                  totalSupply
-              )
-            : getPercentageSupplyOnMigration(
-                  new Decimal(initialMarketCap),
-                  new Decimal(migrationMarketCap),
-                  lockedVestingParams,
-                  totalLeftover,
-                  totalSupply
-              )
 
     const migrationQuoteAmount = getMigrationQuoteAmount(
         new Decimal(migrationMarketCap),
@@ -370,44 +362,22 @@ function marketCapCurveInputs(
 ) {
     const { tokenBaseDecimal, tokenQuoteDecimal, totalTokenSupply } =
         params.token
-    const { migrationOption, migrationFee } = params.migration
 
     const migrationQuoteAmount = getMigrationQuoteAmount(
         new Decimal(migrationMarketCap),
         new Decimal(percentageSupplyOnMigration)
     )
-    const migrationQuoteThreshold =
-        getMigrationQuoteThresholdFromMigrationQuoteAmount(
+    const { migrationQuoteThresholdInLamport, migrateSqrtPrice, swapAmount } =
+        migrationCurveInputs(
+            params,
+            inputs,
+            percentageSupplyOnMigration,
             migrationQuoteAmount,
-            new Decimal(migrationFee.feePercentage)
+            getMigrationQuoteThresholdFromMigrationQuoteAmount(
+                migrationQuoteAmount,
+                new Decimal(params.migration.migrationFee.feePercentage)
+            )
         )
-    const migrationBaseSupply = new Decimal(totalTokenSupply)
-        .mul(new Decimal(percentageSupplyOnMigration))
-        .div(new Decimal(100))
-    const migrationPrice = migrationQuoteAmount.div(migrationBaseSupply)
-    const migrationQuoteThresholdInLamport = fromDecimalToBN(
-        migrationQuoteThreshold.mul(new Decimal(10 ** tokenQuoteDecimal))
-    )
-    const migrateSqrtPrice = getSqrtPriceFromPrice(
-        migrationPrice.toString(),
-        tokenBaseDecimal,
-        tokenQuoteDecimal
-    )
-    const migrationBaseAmount = getMigrationBaseToken(
-        getMigrationQuoteAmountFromThreshold(
-            migrationQuoteThresholdInLamport,
-            migrationFee.feePercentage
-        ),
-        migrateSqrtPrice,
-        migrationOption,
-        inputs.migratedPoolFeeResult.migratedPoolFee.collectFeeMode
-    )
-
-    const swapAmount = inputs.totalSupply
-        .sub(migrationBaseAmount)
-        .sub(inputs.totalVestingAmount)
-        .sub(inputs.totalLeftover)
-    assertPositiveSwapAmount(swapAmount)
 
     const initialSqrtPrice = getSqrtPriceFromMarketCap(
         initialMarketCap,
@@ -513,6 +483,14 @@ export function buildCurveWithMidPrice(
         tokenBaseDecimal,
         tokenQuoteDecimal
     )
+    if (
+        midSqrtPrice.lte(initialSqrtPrice) ||
+        midSqrtPrice.gte(migrateSqrtPrice)
+    ) {
+        throw new Error(
+            'midPrice must be between the initial and migration prices'
+        )
+    }
     const result = getTwoCurve(
         migrateSqrtPrice,
         midSqrtPrice,

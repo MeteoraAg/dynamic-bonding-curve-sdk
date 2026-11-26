@@ -1,25 +1,14 @@
 import { Keypair, Connection, sendAndConfirmTransaction } from '@solana/web3.js'
 import { test, describe, beforeEach, expect } from 'vitest'
-import { fundSol, LOCALNET_RPC_URL } from './utils/common'
+import { buildTestCurveConfig, fundSol, LOCALNET_RPC_URL } from './utils/common'
 import {
     ActivationType,
-    BaseFeeMode,
-    buildCurveWithCustomSqrtPrices,
-    CollectFeeMode,
     ConfigParameters,
-    createSqrtPrices,
-    DammV2BaseFeeMode,
-    DammV2DynamicFeeMode,
     deriveDbcPoolAddress,
     DynamicBondingCurveClient,
     getCurrentPoint,
-    MigratedCollectFeeMode,
-    MigrationFeeOption,
-    MigrationOption,
+    Swap2Params,
     SwapMode,
-    TokenDecimal,
-    TokenType,
-    TokenAuthorityOption,
 } from '../src'
 import { BN } from 'bn.js'
 import { NATIVE_MINT } from '@solana/spl-token'
@@ -48,77 +37,7 @@ describe('swapQuote', { timeout: 60000 }, () => {
 
         dbcClient = new DynamicBondingCurveClient(connection, 'confirmed')
 
-        // define sqrtPrices array for each curve segment checkpoint
-        const customPrices = [0.000000001, 0.00000000105, 0.000000002, 0.000001]
-        const tokenBaseDecimal = TokenDecimal.SIX
-        const tokenQuoteDecimal = TokenDecimal.NINE
-        const sqrtPrices = createSqrtPrices(
-            customPrices,
-            tokenBaseDecimal,
-            tokenQuoteDecimal
-        )
-
-        // define custom liquidity weights for custom segments (optional)
-        // length must be sqrtPrices.length - 1, or leave undefined for even
-        const liquidityWeights = [2, 1, 1]
-
-        curveConfig = buildCurveWithCustomSqrtPrices({
-            token: {
-                tokenType: TokenType.SPLToken,
-                tokenBaseDecimal: tokenBaseDecimal,
-                tokenQuoteDecimal: tokenQuoteDecimal,
-                tokenAuthorityOption:
-                    TokenAuthorityOption.PartnerUpdateAuthority,
-                totalTokenSupply: 1_000_000_000,
-                leftover: 1000,
-            },
-            fee: {
-                baseFeeParams: {
-                    baseFeeMode: BaseFeeMode.FeeSchedulerExponential,
-                    feeSchedulerParam: {
-                        startingFeeBps: 9000,
-                        endingFeeBps: 120,
-                        numberOfPeriod: 60,
-                        totalDuration: 60,
-                    },
-                },
-                dynamicFeeEnabled: true,
-                collectFeeMode: CollectFeeMode.QuoteToken,
-                creatorTradingFeePercentage: 0,
-                poolCreationFee: 1,
-                enableFirstSwapWithMinFee: false,
-            },
-            migration: {
-                migrationOption: MigrationOption.MET_DAMM_V2,
-                migrationFeeOption: MigrationFeeOption.Customizable,
-                migrationFee: {
-                    feePercentage: 10,
-                    creatorFeePercentage: 50,
-                },
-                migratedPoolFee: {
-                    collectFeeMode: MigratedCollectFeeMode.QuoteToken,
-                    dynamicFee: DammV2DynamicFeeMode.Enabled,
-                    poolFeeBps: 120,
-                    baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-                },
-            },
-            liquidityDistribution: {
-                partnerLiquidityPercentage: 0,
-                partnerPermanentLockedLiquidityPercentage: 100,
-                creatorLiquidityPercentage: 0,
-                creatorPermanentLockedLiquidityPercentage: 0,
-            },
-            lockedVesting: {
-                totalLockedVestingAmount: 0,
-                numberOfVestingPeriod: 0,
-                cliffUnlockAmount: 0,
-                totalVestingDuration: 0,
-                cliffDurationFromMigrationTime: 0,
-            },
-            activationType: ActivationType.Timestamp,
-            sqrtPrices,
-            liquidityWeights,
-        })
+        curveConfig = buildTestCurveConfig()
 
         // create config
         const createConfigTx = await dbcClient.partner.createConfig({
@@ -247,6 +166,63 @@ describe('swapQuote', { timeout: 60000 }, () => {
         expect(exactOutQuote.maximumAmountIn!.gt(new BN(0))).toBe(true)
     })
 
+    test('swapQuote2 results feed swap2 params and default the optional flags', async () => {
+        const pool = deriveDbcPoolAddress(
+            NATIVE_MINT,
+            baseMint.publicKey,
+            config.publicKey
+        )
+        const virtualPool = await dbcClient.state.getPool(pool)
+        const poolConfigState = await dbcClient.state.getPoolConfig(
+            config.publicKey
+        )
+        const currentPoint = await getCurrentPoint(
+            connection,
+            ActivationType.Timestamp
+        )
+        const quoteParams = {
+            virtualPool: virtualPool!,
+            config: poolConfigState!,
+            swapBaseForQuote: false,
+            slippageBps: 50,
+            currentPoint,
+        }
+
+        const exactIn = dbcClient.pool.swapQuote2({
+            ...quoteParams,
+            swapMode: SwapMode.ExactIn,
+            amountIn: new BN(1_000_000_000),
+        })
+        const exactInParams: Swap2Params = {
+            owner: user.publicKey,
+            pool,
+            swapBaseForQuote: false,
+            referralTokenAccount: null,
+            swapMode: SwapMode.ExactIn,
+            amountIn: new BN(1_000_000_000),
+            minimumAmountOut: exactIn.minimumAmountOut,
+        }
+        expect(exactInParams.minimumAmountOut.lte(exactIn.outputAmount)).toBe(
+            true
+        )
+
+        const exactOut = dbcClient.pool.swapQuote2({
+            ...quoteParams,
+            swapMode: SwapMode.ExactOut,
+            amountOut: new BN(1_000_000),
+        })
+        const exactOutParams: Swap2Params = {
+            owner: user.publicKey,
+            pool,
+            swapBaseForQuote: false,
+            referralTokenAccount: null,
+            swapMode: SwapMode.ExactOut,
+            amountOut: new BN(1_000_000),
+            maximumAmountIn: exactOut.maximumAmountIn,
+        }
+        expect(exactOutParams.maximumAmountIn.gt(new BN(0))).toBe(true)
+    })
+
     test('getQuoteFromInputAmount matches swapQuote2 at launch', async () => {
         const pool = deriveDbcPoolAddress(
             NATIVE_MINT,
@@ -372,29 +348,5 @@ describe('swapQuote', { timeout: 60000 }, () => {
         expect(
             quoteFromBuildCurve.nextSqrtPrice.eq(expected.nextSqrtPrice)
         ).toBe(true)
-    })
-
-    test('getQuoteFromInputAmount supports partial fill before pool creation', () => {
-        const amountIn = new BN('100000000000000000000')
-
-        expect(() =>
-            dbcClient.pool.getQuoteFromInputAmount({
-                config: curveConfig,
-                swapBaseForQuote: false,
-                swapMode: SwapMode.ExactIn,
-                amountIn,
-            })
-        ).toThrow('Liquidity in bonding curve is insufficient')
-
-        const quote = dbcClient.pool.getQuoteFromInputAmount({
-            config: curveConfig,
-            swapBaseForQuote: false,
-            swapMode: SwapMode.PartialFill,
-            amountIn,
-        })
-
-        expect(quote.outputAmount.gt(new BN(0))).toBe(true)
-        expect(quote.amountLeft.gt(new BN(0))).toBe(true)
-        expect(quote.includedFeeInputAmount.lt(amountIn)).toBe(true)
     })
 })

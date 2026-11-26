@@ -30,7 +30,6 @@ import {
     liveCurve,
 } from '../math/curve'
 import { mulDiv, sqrt } from '../math/utilsMath'
-import { SafeMath } from '../math/safeMath'
 import { fromDecimalToBN } from './utils'
 import {
     calculateTransferFeeExcludedAmount,
@@ -74,17 +73,7 @@ export const getMigrationQuoteThresholdFromMigrationQuoteAmount = (
         .mul(new Decimal(100))
         .div(new Decimal(100).sub(new Decimal(migrationFeePercent)))
 
-/**
- * Calculates the protocol migration fee for both base and quote tokens.
- *
- * @param depositBaseAmount - Amount of base token to deposit in pool (BN)
- * @param depositQuoteAmount - Amount of quote token to deposit in pool (BN)
- * @param migrationSqrtPrice - Migration sqrt price (BN)
- * @param migrationFeeBps - Migration fee in basis points (number)
- * @param migrationOption - Migration option (MigrationOption, enum)
- * @param migratedCollectFeeMode - Migrated DAMM v2 collect fee mode
- * @returns [baseFeeAmount: BN, quoteFeeAmount: BN]
- */
+/** The protocol migration fee as `[baseFeeAmount, quoteFeeAmount]`. */
 export function getProtocolMigrationFee(
     depositBaseAmount: BN,
     depositQuoteAmount: BN,
@@ -93,7 +82,6 @@ export function getProtocolMigrationFee(
     migrationOption: MigrationOption,
     migratedCollectFeeMode: MigratedCollectFeeMode = MigratedCollectFeeMode.QuoteToken
 ): [BN, BN] {
-    // quote fee amount = (depositQuoteAmount * migrationFeeBps) / MAX_BASIS_POINT
     const quoteFeeAmount = mulDiv(
         depositQuoteAmount,
         new BN(migrationFeeBps),
@@ -131,11 +119,7 @@ export function getProtocolMigrationFee(
     }
 }
 
-/**
- * Get the constant product base amount for a quote amount at a sqrt price
- * @param sqrtMigrationPrice - The migration sqrt price
- * @returns The base amount, rounded up
- */
+/** The constant product base amount for a quote amount at a sqrt price, rounded up. */
 export function constantProductBaseFromQuote(
     migrationQuoteAmount: BN,
     sqrtMigrationPrice: BN
@@ -153,13 +137,7 @@ export function constantProductBaseFromQuote(
     return base
 }
 
-/**
- * Get the base token for migration
- * @param migrationQuoteAmount - The migration quote amount to deposit to pool
- * @param sqrtMigrationPrice - The migration sqrt price
- * @param migratedCollectFeeMode - Migrated DAMM v2 collect fee mode. Compounding uses constant product.
- * @returns The base token
- */
+/** The base token deposited on migration. DAMM v1 and compounding pools use constant product. */
 export const getMigrationBaseToken = (
     migrationQuoteAmount: BN,
     sqrtMigrationPrice: BN,
@@ -375,7 +353,7 @@ function compoundingInitialSqrtPriceAndLiquidity(
     quoteAmount: BN
 ): { sqrtPrice: BN; liquidity: BN } {
     if (baseAmount.isZero()) {
-        throw new Error('Math overflow')
+        throw new Error(ProgramError.MathOverflow)
     }
     const shiftedQuote = quoteAmount.shln(128)
     const sqrtPrice = sqrt(
@@ -498,12 +476,7 @@ export const getFirstCurve = (
     }
 }
 
-/**
- * Get the total supply from curve
- * @param sqrtStartPrice - The start sqrt price
- * @param migratedCollectFeeMode - Migrated DAMM v2 collect fee mode
- * @returns The total supply
- */
+/** The base supply a curve needs: buffered swap base, migration base, locked vesting and leftover. */
 export const getTotalSupplyFromCurve = (
     migrationQuoteThreshold: BN,
     sqrtStartPrice: BN,
@@ -554,39 +527,8 @@ export const getMigrationThresholdPrice = (
     migrationThreshold: BN,
     sqrtStartPrice: BN,
     curve: Array<LiquidityDistributionParameters>
-): BN => {
-    const points = liveCurve(curve)
-    if (points.length === 0) {
-        throw new Error('Curve is empty')
-    }
-
-    let amountLeft = migrationThreshold
-    let sqrtPrice = sqrtStartPrice
-    for (const point of points) {
-        const maxAmount = getDeltaAmountQuoteUnsigned256(
-            sqrtPrice,
-            point.sqrtPrice,
-            point.liquidity,
-            Rounding.Up
-        )
-        if (maxAmount.gt(amountLeft)) {
-            return getNextSqrtPriceFromInput(
-                sqrtPrice,
-                point.liquidity,
-                amountLeft,
-                false
-            )
-        }
-        amountLeft = SafeMath.sub(amountLeft, maxAmount)
-        sqrtPrice = point.sqrtPrice
-    }
-    if (!amountLeft.isZero()) {
-        throw new Error(
-            `${ProgramError.NotEnoughLiquidity}: the curve holds ${migrationThreshold.sub(amountLeft).toString()} quote, the threshold is ${migrationThreshold.toString()}`
-        )
-    }
-    return sqrtPrice
-}
+): BN =>
+    getCurveBreakdown(migrationThreshold, sqrtStartPrice, curve).finalSqrtPrice
 
 /**
  * Split a migration quote threshold across the curve segments.
@@ -656,10 +598,7 @@ export const getCurveBreakdown = (
     }
 }
 
-/**
- * Get the swap amount with buffer
- * @param sqrtStartPrice - The start sqrt price
- */
+/** The swap base amount plus SWAP_BUFFER_PERCENTAGE, capped at the base the curve holds. */
 export const getSwapAmountWithBuffer = (
     swapBaseAmount: BN,
     sqrtStartPrice: BN,
@@ -706,51 +645,29 @@ function migrationSupplyPercentage(
         .div(new Decimal(1).add(r))
 }
 
-/** Percentage of the supply on migration for a market cap pair without a migration fee. */
+/** Percentage of the supply on migration, with the migration fee taken off the deposit. */
 export const getPercentageSupplyOnMigration = (
     initialMarketCap: Decimal,
     migrationMarketCap: Decimal,
     lockedVesting: LockedVestingParameters,
     totalLeftover: BN,
-    totalTokenSupply: BN
+    totalTokenSupply: BN,
+    migrationFeePercentage = 0
 ): number =>
     migrationSupplyPercentage(
         initialMarketCap,
         migrationMarketCap,
-        0,
+        migrationFeePercentage,
         getTotalVestingAmount(lockedVesting),
         totalLeftover,
         totalTokenSupply
     ).toNumber()
 
-/** Percentage of the supply on migration, with the migration fee taken off the deposit. */
-export function calculateAdjustedPercentageSupplyOnMigration(
-    initialMarketCap: number,
-    migrationMarketCap: number,
-    migrationFee: { feePercentage: number },
-    lockedVesting: LockedVestingParameters,
-    totalLeftover: BN,
-    totalTokenSupply: BN
-): number {
-    return migrationSupplyPercentage(
-        new Decimal(initialMarketCap),
-        new Decimal(migrationMarketCap),
-        migrationFee.feePercentage,
-        getTotalVestingAmount(lockedVesting),
-        totalLeftover,
-        totalTokenSupply
-    ).toNumber()
-}
-
-/**
- * Get the migration quote amount
- * @param percentageSupplyOnMigration - The percentage of supply on migration
- */
+/** The quote amount at the migration market cap for a percentage of the supply. */
 export const getMigrationQuoteAmount = (
     migrationMarketCap: Decimal,
     percentageSupplyOnMigration: Decimal
 ): Decimal => {
-    // migrationMC * x / 100
     return migrationMarketCap
         .mul(percentageSupplyOnMigration)
         .div(new Decimal(100))

@@ -195,11 +195,14 @@ export function deriveDammV2TokenVaultAddress(
 
 /** The dynamic vault of a mint and its token vault and LP mint. */
 export const deriveVaultPdas = (
-    tokenMint: PublicKey,
-    seedBaseKey: PublicKey = BASE_ADDRESS
+    tokenMint: PublicKey
 ): { vaultPda: PublicKey; tokenVaultPda: PublicKey; lpMintPda: PublicKey } => {
     const vaultPda = pda(
-        [Buffer.from(SEED.VAULT), tokenMint.toBuffer(), seedBaseKey.toBuffer()],
+        [
+            Buffer.from(SEED.VAULT),
+            tokenMint.toBuffer(),
+            BASE_ADDRESS.toBuffer(),
+        ],
         VAULT_PROGRAM_ID
     )
     return {

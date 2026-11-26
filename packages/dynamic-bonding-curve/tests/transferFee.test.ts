@@ -14,6 +14,7 @@ import {
     calculateTransferFeeExcludedAmount,
     calculateTransferFeeIncludedAmount,
     DynamicBondingCurveClient,
+    getSwapQuoteTransferFees,
     MigratedCollectFeeMode,
     MigratedTransferFeeAuthorityOption,
     MigrationFeeOption,
@@ -25,31 +26,25 @@ import {
     resolveSwapTransferFees,
     validateConfigParameters,
     validateTransferFeeParameters,
+    type LockedVestingParams,
+    type MigratedPoolFeeConfig,
     type PoolConfig,
+    type QuotePoolConfig,
+    type QuoteVirtualPool,
+    SwapMode,
 } from '../src'
-import { validateTransferFeeRestrictions } from '../src/helpers/validation'
-import type { Mint } from '@solana/spl-token'
+import { getMint, TOKEN_2022_PROGRAM_ID, type Mint } from '@solana/spl-token'
 import { MAX_BASE_TRANSFER_FEE_BPS, U64_MAX } from '../src/constants'
+import { swapQuoteExactIn } from '../src/math/swapQuote'
+import {
+    buildTransferFeeQuoteCurveConfig,
+    fundSol,
+    LOCALNET_RPC_URL,
+} from './utils/common'
 import { curveBaseParams } from './utils/curve'
+import { createTransferFeeQuoteMint } from './utils/tokenBadgeFlow'
 
-const baseCurve = buildCurve({
-    ...curveBaseParams({
-        token: { tokenType: TokenType.Token2022 },
-        migration: {
-            migrationOption: MigrationOption.MET_DAMM_V2,
-            migrationFeeOption: MigrationFeeOption.Customizable,
-            migrationFee: { feePercentage: 0, creatorFeePercentage: 0 },
-            migratedPoolFee: {
-                collectFeeMode: MigratedCollectFeeMode.Compounding,
-                dynamicFee: 0,
-                poolFeeBps: 100,
-                compoundingFeeBps: 0,
-            },
-        },
-    }),
-    percentageSupplyOnMigration: 20,
-    migrationQuoteThreshold: 50,
-})
+const baseCurve = buildTransferFeeQuoteCurveConfig()
 
 describe('transfer fee math', () => {
     const transferFee = {
@@ -234,11 +229,62 @@ describe('transfer fee migration position split', () => {
 })
 
 describe('transfer fee quotes', () => {
-    const client = new DynamicBondingCurveClient(
-        new Connection('http://127.0.0.1:8899'),
-        'confirmed'
-    )
+    const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
+    const client = new DynamicBondingCurveClient(connection, 'confirmed')
     const amountIn = new BN(1_000_000_000)
+
+    test('charges the Token-2022 quote mint fee before the config exists', async () => {
+        const payer = Keypair.generate()
+        await fundSol(connection, payer.publicKey)
+        const quoteMint = await createTransferFeeQuoteMint(
+            connection,
+            payer,
+            100
+        )
+        const transferFees = await getSwapQuoteTransferFees(connection, {
+            quoteMint,
+            quoteTokenFlag: TokenType.Token2022,
+        })
+
+        const quote = client.pool.getQuoteFromInputAmount({
+            config: baseCurve,
+            swapBaseForQuote: false,
+            amountIn,
+            quoteTokenFlag: TokenType.Token2022,
+            ...transferFees,
+        })
+
+        const { amount: amountAfterFee } = calculateTransferFeeExcludedAmount(
+            { transferFeeBasisPoints: 100, maximumFee: U64_MAX },
+            amountIn
+        )
+        expect(quote.includedTransferFeeAmountIn.eq(amountIn)).toBe(true)
+        expect(quote.includedFeeInputAmount.eq(amountAfterFee)).toBe(true)
+    })
+
+    test('rejects a mint address where a decoded Mint is expected', () => {
+        const address = Keypair.generate().publicKey as unknown as Mint
+
+        expect(() =>
+            client.pool.getQuoteFromInputAmount({
+                config: baseCurve,
+                swapBaseForQuote: false,
+                amountIn,
+                quoteTokenFlag: TokenType.Token2022,
+                quoteMint: address,
+                currentEpoch: 0,
+            })
+        ).toThrow('quoteMint must be the decoded Mint account')
+        expect(() =>
+            client.pool.getQuoteFromOutputAmount({
+                config: baseCurve,
+                swapBaseForQuote: false,
+                amountOut: amountIn,
+                baseMint: address,
+                currentEpoch: 0,
+            })
+        ).toThrow('baseMint must be the decoded Mint account')
+    })
 
     test('a base transfer fee reduces the quote bought with quote tokens', () => {
         const noFee = client.pool.getQuoteFromInputAmount({
@@ -298,6 +344,209 @@ describe('transfer fee quotes', () => {
         ).toBe(true)
     })
 
+    async function decodedTransferFeeMint(
+        transferFeeBasisPoints: number
+    ): Promise<Mint> {
+        const payer = Keypair.generate()
+        await fundSol(connection, payer.publicKey)
+        const address = await createTransferFeeQuoteMint(
+            connection,
+            payer,
+            transferFeeBasisPoints,
+            null
+        )
+        return getMint(connection, address, 'confirmed', TOKEN_2022_PROGRAM_ID)
+    }
+
+    const baseFee250 = { transferFeeBasisPoints: 250, maximumFee: U64_MAX }
+
+    /** The pool right after a no-fee buy of amountIn, so there is quote to sell back into. */
+    function poolAfterBuy(): QuoteVirtualPool {
+        const buy = client.pool.getQuoteFromInputAmount({
+            config: baseCurve,
+            swapBaseForQuote: false,
+            amountIn,
+        })
+        return {
+            poolState: {
+                sqrtPrice: buy.nextSqrtPrice,
+                quoteReserve: amountIn,
+                activationPoint: new BN(0),
+                hasSwap: 1,
+                volatilityTracker: { volatilityAccumulator: new BN(0) },
+            },
+        }
+    }
+
+    const quoteConfig: QuotePoolConfig = {
+        poolFees: {
+            baseFee: baseCurve.poolFees.baseFee,
+            dynamicFee: { initialized: 0, binStep: 0, variableFeeControl: 0 },
+        },
+        collectFeeMode: baseCurve.collectFeeMode,
+        sqrtStartPrice: baseCurve.sqrtStartPrice,
+        migrationQuoteThreshold: baseCurve.migrationQuoteThreshold,
+        migrationSqrtPrice: getMigrationThresholdPrice(
+            baseCurve.migrationQuoteThreshold,
+            baseCurve.sqrtStartPrice,
+            baseCurve.curve
+        ),
+        curve: baseCurve.curve,
+        enableFirstSwapWithMinFee: 0,
+        quoteTokenFlag: TokenType.SPLToken,
+        transferFeeFlag: 0,
+        transferFeeBasisPoints: 0,
+    }
+
+    test('a sell with a base transfer fee swaps only what the pool receives after the fee', () => {
+        const sellAmount = new BN(10_000_000)
+        const sell = (transferFees?: { baseTransferFeeBasisPoints: number }) =>
+            swapQuoteExactIn(
+                poolAfterBuy(),
+                quoteConfig,
+                true,
+                sellAmount,
+                0,
+                false,
+                new BN(0),
+                false,
+                transferFees
+            )
+        const withFee = sell({ baseTransferFeeBasisPoints: 250 })
+        const { amount: receivedByPool } = calculateTransferFeeExcludedAmount(
+            baseFee250,
+            sellAmount
+        )
+        const noFeeOnReceived = swapQuoteExactIn(
+            poolAfterBuy(),
+            quoteConfig,
+            true,
+            receivedByPool,
+            0,
+            false,
+            new BN(0),
+            false
+        )
+
+        expect(withFee.includedTransferFeeAmountIn.eq(sellAmount)).toBe(true)
+        expect(withFee.includedFeeInputAmount.eq(receivedByPool)).toBe(true)
+        expect(withFee.outputAmount.eq(noFeeOnReceived.outputAmount)).toBe(true)
+        expect(withFee.outputAmount.lt(sell().outputAmount)).toBe(true)
+        expect(
+            withFee.excludedTransferFeeAmountOut.eq(withFee.outputAmount)
+        ).toBe(true)
+    })
+
+    test('a partial-fill buy keeps the quote input and nets the base fee from the output', () => {
+        const hugeAmountIn = new BN(1_000_000_000_000_000)
+        const partial = client.pool.getQuoteFromInputAmount({
+            config: baseCurve,
+            swapBaseForQuote: false,
+            swapMode: SwapMode.PartialFill,
+            amountIn: hugeAmountIn,
+            baseTransferFeeBasisPoints: 250,
+        })
+        const { amount: netOutput } = calculateTransferFeeExcludedAmount(
+            baseFee250,
+            partial.outputAmount
+        )
+
+        expect(partial.includedTransferFeeAmountIn.lt(hugeAmountIn)).toBe(true)
+        expect(
+            partial.excludedTransferFeeAmountOut.lt(partial.outputAmount)
+        ).toBe(true)
+        expect(partial.excludedTransferFeeAmountOut.eq(netOutput)).toBe(true)
+        expect(partial.minimumAmountOut!.eq(netOutput)).toBe(true)
+    })
+
+    test('a decoded baseMint takes precedence over baseTransferFeeBasisPoints', async () => {
+        const baseMint = await decodedTransferFeeMint(300)
+        const quote = (transferFees: {
+            baseMint?: Mint
+            baseTransferFeeBasisPoints?: number
+            currentEpoch?: number
+        }) =>
+            client.pool.getQuoteFromInputAmount({
+                config: baseCurve,
+                swapBaseForQuote: false,
+                amountIn,
+                ...transferFees,
+            })
+
+        const both = quote({
+            baseMint,
+            currentEpoch: 0,
+            baseTransferFeeBasisPoints: 100,
+        })
+        const mintOnly = quote({ baseMint, currentEpoch: 0 })
+        const basisPointsOnly = quote({ baseTransferFeeBasisPoints: 100 })
+
+        expect(
+            both.excludedTransferFeeAmountOut.eq(
+                mintOnly.excludedTransferFeeAmountOut
+            )
+        ).toBe(true)
+        expect(
+            both.excludedTransferFeeAmountOut.eq(
+                calculateTransferFeeExcludedAmount(
+                    { transferFeeBasisPoints: 300, maximumFee: U64_MAX },
+                    both.outputAmount
+                ).amount
+            )
+        ).toBe(true)
+        expect(
+            both.excludedTransferFeeAmountOut.lt(
+                basisPointsOnly.excludedTransferFeeAmountOut
+            )
+        ).toBe(true)
+    })
+
+    test('a decoded zero-fee baseMint overrides a non-zero baseTransferFeeBasisPoints', async () => {
+        const baseMint = await decodedTransferFeeMint(0)
+        const quote = client.pool.getQuoteFromInputAmount({
+            config: baseCurve,
+            swapBaseForQuote: false,
+            amountIn,
+            baseMint,
+            currentEpoch: 0,
+            baseTransferFeeBasisPoints: 250,
+        })
+
+        expect(quote.excludedTransferFeeAmountOut.eq(quote.outputAmount)).toBe(
+            true
+        )
+    })
+
+    test('a decoded baseMint or quoteMint needs currentEpoch', async () => {
+        const mint = await decodedTransferFeeMint(100)
+        const config = {
+            quoteMint: mint.address,
+            quoteTokenFlag: TokenType.Token2022,
+            transferFeeBasisPoints: 0,
+        } as unknown as PoolConfig
+
+        expect(() =>
+            client.pool.getQuoteFromInputAmount({
+                config: baseCurve,
+                swapBaseForQuote: false,
+                amountIn,
+                baseMint: mint,
+            })
+        ).toThrow('currentEpoch is required to quote a transfer fee')
+        expect(() =>
+            client.pool.getQuoteFromOutputAmount({
+                config: baseCurve,
+                swapBaseForQuote: false,
+                amountOut: amountIn,
+                quoteTokenFlag: TokenType.Token2022,
+                quoteMint: mint,
+            })
+        ).toThrow('currentEpoch is required to quote a transfer fee')
+        expect(() =>
+            resolveSwapTransferFees(config, false, { quoteMint: mint })
+        ).toThrow('currentEpoch is required to quote a transfer fee')
+    })
+
     test('a Token-2022 quote mint requires quoteMint', () => {
         const quoteMint = Keypair.generate().publicKey
         const config = {
@@ -313,6 +562,7 @@ describe('transfer fee quotes', () => {
             resolveSwapTransferFees(config, false, {
                 quoteMint: {
                     address: Keypair.generate().publicKey,
+                    tlvData: Buffer.alloc(0),
                 } as Mint,
                 currentEpoch: 0,
             })
@@ -420,25 +670,55 @@ describe('transfer fee config validation', () => {
         ).toThrow('Invalid fee claimer')
     })
 
-    test('requires constant supply, no vesting, customizable migration, and compounding', () => {
-        const leftoverReceiver = Keypair.generate().publicKey
-        expect(() =>
-            validateConfigParameters(
-                { ...baseCurve, leftoverReceiver },
-                {
-                    transferFeeParameters,
-                    quoteMintHasTransferFee: false,
-                    feeClaimer,
-                }
-            )
-        ).not.toThrow()
+    describe('restrictions on the curve shape', () => {
+        const compoundingMigratedPoolFee: MigratedPoolFeeConfig = {
+            collectFeeMode: MigratedCollectFeeMode.Compounding,
+            dynamicFee: 0,
+            poolFeeBps: 100,
+            compoundingFeeBps: 0,
+        }
+        const curveWith = (overrides: {
+            lockedVesting?: LockedVestingParams
+            migrationFeeOption?: MigrationFeeOption
+            migratedPoolFee?: MigratedPoolFeeConfig
+        }) => {
+            const curve = buildCurve({
+                ...curveBaseParams({
+                    token: { tokenType: TokenType.Token2022 },
+                    lockedVesting: overrides.lockedVesting,
+                    migration: {
+                        migrationOption: MigrationOption.MET_DAMM_V2,
+                        migrationFeeOption:
+                            overrides.migrationFeeOption ??
+                            MigrationFeeOption.Customizable,
+                        migrationFee: {
+                            feePercentage: 0,
+                            creatorFeePercentage: 0,
+                        },
+                        migratedPoolFee:
+                            overrides.migratedPoolFee ??
+                            compoundingMigratedPoolFee,
+                    },
+                }),
+                percentageSupplyOnMigration: 20,
+                migrationQuoteThreshold: 50,
+            })
+            const supply = curve.tokenSupply!.preMigrationTokenSupply
+            return {
+                ...curve,
+                tokenSupply: {
+                    preMigrationTokenSupply: supply,
+                    postMigrationTokenSupply: supply,
+                },
+            }
+        }
 
-        expect(() =>
+        const validate = (curve: ReturnType<typeof curveWith> | null) =>
             validateConfigParameters(
                 {
-                    ...baseCurve,
-                    tokenSupply: null,
-                    leftoverReceiver,
+                    ...(curve ?? baseCurve),
+                    ...(curve ? {} : { tokenSupply: null }),
+                    leftoverReceiver: Keypair.generate().publicKey,
                 },
                 {
                     transferFeeParameters,
@@ -446,7 +726,60 @@ describe('transfer fee config validation', () => {
                     feeClaimer,
                 }
             )
-        ).toThrow('Transfer fee configs require a constant token supply')
+
+        test('accepts the compounding customizable curve with constant supply', () => {
+            expect(() => validate(curveWith({}))).not.toThrow()
+        })
+
+        test('rejects a variable token supply', () => {
+            expect(() => validate(null)).toThrow(
+                'Transfer fee configs require a constant token supply'
+            )
+        })
+
+        test('rejects locked vesting', () => {
+            expect(() =>
+                validate(
+                    curveWith({
+                        lockedVesting: {
+                            totalLockedVestingAmount: 1_000_000,
+                            numberOfVestingPeriod: 10,
+                            cliffUnlockAmount: 0,
+                            totalVestingDuration: 10,
+                            cliffDurationFromMigrationTime: 0,
+                        },
+                    })
+                )
+            ).toThrow('Transfer fee configs cannot include locked vesting')
+        })
+
+        test('rejects a fixed migration fee option', () => {
+            expect(() =>
+                validate(
+                    curveWith({
+                        migrationFeeOption: MigrationFeeOption.FixedBps100,
+                    })
+                )
+            ).toThrow(
+                'Transfer fee configs require MigrationFeeOption.Customizable'
+            )
+        })
+
+        test('rejects a migrated pool that does not compound', () => {
+            expect(() =>
+                validate(
+                    curveWith({
+                        migratedPoolFee: {
+                            collectFeeMode: MigratedCollectFeeMode.QuoteToken,
+                            dynamicFee: 0,
+                            poolFeeBps: 100,
+                        },
+                    })
+                )
+            ).toThrow(
+                'Transfer fee configs require MigratedCollectFeeMode.Compounding'
+            )
+        })
     })
 
     test('applies the transfer fee restrictions when the basis points are zero', () => {
@@ -485,58 +818,5 @@ describe('transfer fee config validation', () => {
                 { feeClaimer: PublicKey.default }
             )
         ).toThrow('Invalid fee claimer')
-    })
-
-    test('enforces the transfer-fee migration restrictions', () => {
-        const lockedVestingConfig = {
-            amountPerPeriod: new BN(0),
-            cliffDurationFromMigrationTime: new BN(0),
-            frequency: new BN(0),
-            numberOfPeriod: new BN(0),
-            cliffUnlockAmount: new BN(0),
-            padding: new BN(0),
-        }
-        const config = {
-            fixedTokenSupplyFlag: 1,
-            preMigrationTokenSupply: new BN(1),
-            postMigrationTokenSupply: new BN(1),
-            lockedVestingConfig,
-            migrationFeeOption: MigrationFeeOption.Customizable,
-            migratedCollectFeeMode: MigratedCollectFeeMode.Compounding,
-        }
-        expect(() => validateTransferFeeRestrictions(config)).not.toThrow()
-        expect(() =>
-            validateTransferFeeRestrictions({
-                ...config,
-                fixedTokenSupplyFlag: 0,
-            })
-        ).toThrow('Invalid token supply')
-        expect(() =>
-            validateTransferFeeRestrictions({
-                ...config,
-                lockedVestingConfig: {
-                    ...lockedVestingConfig,
-                    cliffUnlockAmount: new BN(1),
-                },
-            })
-        ).toThrow('Invalid vesting parameters')
-        expect(() =>
-            validateTransferFeeRestrictions({
-                ...config,
-                migrationFeeOption: MigrationFeeOption.FixedBps100,
-            })
-        ).toThrow('Invalid migration fee option')
-        expect(() =>
-            validateTransferFeeRestrictions({
-                ...config,
-                migratedCollectFeeMode: MigratedCollectFeeMode.QuoteToken,
-            })
-        ).toThrow('Invalid migrated pool fee params')
-        expect(() =>
-            validateTransferFeeRestrictions({
-                ...config,
-                migratedCollectFeeMode: 9,
-            })
-        ).toThrow('Invalid collect fee mode')
     })
 })

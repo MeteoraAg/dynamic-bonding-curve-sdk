@@ -13,9 +13,11 @@ import {
     createInitializeTransferFeeConfigInstruction,
     createMintToInstruction,
     ExtensionType,
+    getAccount,
     getAssociatedTokenAddressSync,
     getMintLen,
     TOKEN_2022_PROGRAM_ID,
+    TokenAccountNotFoundError,
 } from '@solana/spl-token'
 import BN from 'bn.js'
 import {
@@ -288,4 +290,32 @@ export async function createDammV2MigrationConfig(
     createConfigTx.feePayer = admin.publicKey
     await sendAndConfirmTransaction(connection, createConfigTx, [admin])
     return config
+}
+
+/** The owner's Token-2022 ATA balance, 0 while the account does not exist. */
+export async function getToken2022Balance(
+    connection: Connection,
+    mint: PublicKey,
+    owner: PublicKey
+): Promise<bigint> {
+    const ata = getAssociatedTokenAddressSync(
+        mint,
+        owner,
+        true,
+        TOKEN_2022_PROGRAM_ID
+    )
+    try {
+        const account = await getAccount(
+            connection,
+            ata,
+            'confirmed',
+            TOKEN_2022_PROGRAM_ID
+        )
+        return account.amount
+    } catch (error) {
+        if (error instanceof TokenAccountNotFoundError) {
+            return BigInt(0)
+        }
+        throw error
+    }
 }

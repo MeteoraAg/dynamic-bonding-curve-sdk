@@ -6,21 +6,13 @@ import {
 } from '@solana/web3.js'
 import { beforeEach, describe, expect, test } from 'vitest'
 import { NATIVE_MINT } from '@solana/spl-token'
+import { deriveDbcPoolAddress, DynamicBondingCurveClient } from '../src'
 import {
-    ActivationType,
-    BaseFeeMode,
-    buildCurve,
-    CollectFeeMode,
-    deriveDbcPoolAddress,
-    DynamicBondingCurveClient,
-    MigratedCollectFeeMode,
-    MigrationFeeOption,
-    MigrationOption,
-    TokenAuthorityOption,
-    TokenDecimal,
-    TokenType,
-} from '../src'
-import { buildTestCurveConfig, fundSol, LOCALNET_RPC_URL } from './utils/common'
+    buildTestCurveConfig,
+    buildTransferFeeQuoteCurveConfig,
+    fundSol,
+    LOCALNET_RPC_URL,
+} from './utils/common'
 import {
     createDbcTokenBadge,
     createTransferFeeQuoteMint,
@@ -107,62 +99,7 @@ describe('createConfigAndPool', { timeout: 60000 }, () => {
 
         const config = Keypair.generate()
         const baseMint = Keypair.generate()
-        const curveConfig = buildCurve({
-            token: {
-                tokenType: TokenType.Token2022,
-                tokenBaseDecimal: TokenDecimal.SIX,
-                tokenQuoteDecimal: TokenDecimal.NINE,
-                tokenAuthorityOption: TokenAuthorityOption.Immutable,
-                totalTokenSupply: 1_000_000_000,
-                leftover: 0,
-            },
-            fee: {
-                baseFeeParams: {
-                    baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-                    feeSchedulerParam: {
-                        startingFeeBps: 100,
-                        endingFeeBps: 100,
-                        numberOfPeriod: 0,
-                        totalDuration: 0,
-                    },
-                },
-                dynamicFeeEnabled: false,
-                collectFeeMode: CollectFeeMode.QuoteToken,
-                creatorTradingFeePercentage: 0,
-                poolCreationFee: 0,
-                enableFirstSwapWithMinFee: false,
-            },
-            migration: {
-                migrationOption: MigrationOption.MET_DAMM_V2,
-                migrationFeeOption: MigrationFeeOption.Customizable,
-                migrationFee: {
-                    feePercentage: 0,
-                    creatorFeePercentage: 0,
-                },
-                migratedPoolFee: {
-                    collectFeeMode: MigratedCollectFeeMode.Compounding,
-                    dynamicFee: 0,
-                    poolFeeBps: 100,
-                    compoundingFeeBps: 0,
-                },
-            },
-            liquidityDistribution: {
-                partnerPermanentLockedLiquidityPercentage: 100,
-                partnerLiquidityPercentage: 0,
-                creatorPermanentLockedLiquidityPercentage: 0,
-                creatorLiquidityPercentage: 0,
-            },
-            lockedVesting: {
-                totalLockedVestingAmount: 0,
-                numberOfVestingPeriod: 0,
-                cliffUnlockAmount: 0,
-                totalVestingDuration: 0,
-                cliffDurationFromMigrationTime: 0,
-            },
-            activationType: ActivationType.Timestamp,
-            percentageSupplyOnMigration: 20,
-            migrationQuoteThreshold: 50,
-        })
+        const curveConfig = buildTransferFeeQuoteCurveConfig()
 
         await expect(
             dbcClient.partner.createConfig({

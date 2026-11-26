@@ -179,32 +179,6 @@ describe('buildCurveWithCustomSqrtPrices', () => {
         expect(config.migrationQuoteThreshold.gt(new BN(0))).toBe(true)
     })
 
-    it('should respect percentage supply on migration', () => {
-        const prices = [0.001, 0.01]
-        const sqrtPrices = createSqrtPrices(
-            prices,
-            TokenDecimal.NINE,
-            TokenDecimal.NINE
-        )
-
-        const config80 = buildCurveWithCustomSqrtPrices({
-            ...baseParams,
-            sqrtPrices,
-        })
-
-        const config50 = buildCurveWithCustomSqrtPrices({
-            ...baseParams,
-            sqrtPrices,
-        })
-
-        // Both configs should be valid with positive liquidity
-        expect(config80.curve[0].liquidity.gt(new BN(0))).toBe(true)
-        expect(config50.curve[0].liquidity.gt(new BN(0))).toBe(true)
-
-        // Both should have the same curve structure
-        expect(config80.curve.length).toBe(config50.curve.length)
-    })
-
     it('should handle non-uniform price spacing', () => {
         // Prices with varying gaps
         const prices = [0.001, 0.002, 0.005, 0.01]

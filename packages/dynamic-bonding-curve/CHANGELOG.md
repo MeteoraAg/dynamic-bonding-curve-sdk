@@ -2,6 +2,42 @@
 
 All notable changes to the Dynamic Bonding Curve SDK will be documented in this file.
 
+## [2.0.1] - 2026-11-13
+
+### Added
+
+- `getQuoteFromInputAmount` and `getQuoteFromOutputAmount` accept a decoded `PoolConfig` again, for example to quote a creator's first buy on an existing config. A `PoolConfig` uses its stored quote token flag and transfer fee, and a `quoteTokenFlag` that differs from the stored one throws.
+- `swapQuote2` overloads by `swapMode`: `ExactIn` and `PartialFill` return a non-optional `minimumAmountOut` and `ExactOut` a non-optional `maximumAmountIn`, so the quote passes straight into `swap2`.
+- `getMinBaseFeeNumerator` on `./math`, the program's `PoolFeesConfig::get_min_base_fee_numerator`.
+- `ProgramError.InvalidLeftoverAddress`.
+
+### Changed
+
+- `hasReferral` and `eligibleForFirstSwapWithMinFee` are optional on `swapQuote` and `swapQuote2` and default to `false`.
+- `dammConfig` is optional on `migrateToDammV2`, `migrateToDammV1`, `lockDammV1LpToken` and `claimDammV1LpToken`. It defaults to the DAMM config of the pool config's `migrationFeeOption`; DAMM v1 has no default for `Customizable`.
+- `transferHookProgram` is optional on `createPoolWithTransferHook`, `createPoolWithFirstBuyWithTransferHook` and `createPoolWithPartnerAndCreatorFirstBuyWithTransferHook`, and defaults to the config's.
+- `getPercentageSupplyOnMigration` takes an optional `migrationFeePercentage`. `convertToLamports` accepts a `Decimal`.
+- Pool and config creation fetch the quote mint, the epoch and the token badge once per call. `createConfigAndPoolWithFirstBuyWithTransferHook` fetched the quote mint four times.
+- `swap`, `swap2` and `swap2WithTransferHook` pass the instructions sysvar on every quote-to-base swap of a rate-limiter config instead of reading the clock to decide. The program accepts the sysvar whenever it is passed.
+- `migrateToDammV2` no longer pre-checks the quote mint's transfer fee; the program's `migration_damm_v2` enforces it.
+- Error messages: `getPoolMigrationQuoteThreshold` and the curve progress methods say `Pool config not found` instead of `Config not found`, and a zero base amount in the compounding migration math throws `Math operation overflow` instead of `Math overflow`.
+- Protected helpers on the service classes were merged, renamed or made private. Construct the services through `DynamicBondingCurveClient`; subclassing them is not supported.
+
+### Fixed
+
+- Swap quotes throw `quoteMint must be the decoded Mint account, not its address` (or the same for `baseMint`) when a transfer-fee parameter is a `PublicKey`. They failed inside spl-token with `Cannot read properties of undefined (reading 'length')`.
+- `transferHookAccountsInfo` and `transferHookAccounts` are required on `FirstBuyWithTransferHookParams`, `PartnerFirstBuyWithTransferHookParams` and `CreatorFirstBuyWithTransferHookParams`, and the bundled transfer-hook first buys throw a clear error without them. Without them these calls tried to read the hook accounts from the base mint the same transaction creates, and always failed with `Invalid mint`.
+- Trading fee claims with a native SOL quote no longer touch the claimer's wrapped SOL account. The fee goes through a temporary wrapped SOL account derived from the claimer and is unwrapped to `receiver`. Before, the claim unwrapped through the claimer's own account and closed it to `receiver`, which also sent any wrapped SOL the claimer held there.
+- A second SOL swap in the same transaction, such as `createPoolWithPartnerAndCreatorFirstBuy` with one wallet as partner and creator, failed when that wallet already had a wrapped SOL account, because the first swap closed it. Swaps now always create the wrapped SOL account idempotently.
+- u128 casts in the curve math throw `Type cast error`, the program's `TypeCastFailed`, instead of `Math operation overflow`.
+- `validateConfigParameters` reports a default `leftoverReceiver` as `Invalid leftover address` instead of `Invalid token supply`, as the program does.
+- `buildCurveWithMidPrice` throws `midPrice must be between the initial and migration prices` instead of `Math operation overflow` for a mid price below the initial price.
+
+### Deprecated
+
+- `tokenBadge` on config and pool params. The SDK derives the quote mint's token badge when the mint needs one, and throws when a different address is passed.
+- `getSwapResult` on `./math`. Use `swapQuote2`.
+
 ## [2.0.0] - 2026-10-10
 
 Syncs the SDK with dynamic-bonding-curve 0.2.2 (audited release, program commit 82054df) and defines the 2.0 public API.

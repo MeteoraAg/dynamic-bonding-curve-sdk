@@ -15,8 +15,8 @@ import {
     splitFees,
     getFeeOnAmount,
     getFeeMode,
+    getMinBaseFeeNumerator,
 } from './feeMath'
-import { getBaseFeeHandler } from './poolFees/baseFee'
 import {
     Rounding,
     TradeDirection,
@@ -35,8 +35,9 @@ import {
     calculateTransferFeeIncludedAmount,
     resolveSwapTransferFees,
 } from './transferFee'
-import { MAX_BASIS_POINT, U64_MAX } from '../constants'
+import { MAX_BASIS_POINT } from '../constants'
 import { ProgramError } from './errors'
+import { requireU64 } from './bounds'
 
 export type SwapAmountFromOutput = {
     amountIn: BN
@@ -56,21 +57,6 @@ const NO_FEES: SwapFees = {
     tradingFee: ZERO,
     protocolFee: ZERO,
     referralFee: ZERO,
-}
-
-function addU64(total: BN, amount: BN): BN {
-    const sum = total.add(amount)
-    if (sum.gt(U64_MAX)) {
-        throw new Error(ProgramError.MathOverflow)
-    }
-    return sum
-}
-
-function u64(amount: BN): BN {
-    if (amount.gt(U64_MAX)) {
-        throw new Error(ProgramError.MathOverflow)
-    }
-    return amount
 }
 
 function assertSlippageBps(slippageBps: number): void {
@@ -143,14 +129,7 @@ function tradeFeeNumerator(
     eligibleForFirstSwapWithMinFee: boolean
 ): BN {
     if (eligibleForFirstSwapWithMinFee) {
-        const { baseFee } = config.poolFees
-        return getBaseFeeHandler(
-            baseFee.cliffFeeNumerator,
-            baseFee.firstFactor,
-            baseFee.secondFactor,
-            baseFee.thirdFactor,
-            baseFee.baseFeeMode
-        ).getMinBaseFeeNumerator()
+        return getMinBaseFeeNumerator(config.poolFees)
     }
     const totalFeeNumerator = amountExcludesFee
         ? getTotalFeeNumeratorFromExcludedFeeAmount
@@ -214,7 +193,12 @@ function swapFromInput(
           )
 }
 
-/** The program's get_swap_result_from_exact_input. */
+/**
+ * The program's get_swap_result_from_exact_input.
+ * `eligibleForFirstSwapWithMinFee` is applied as given, so the caller must
+ * gate it the way swapQuote2 does: min-fee mode enabled on the config, no
+ * referral, and the pool has not swapped yet.
+ */
 export function getSwapResultFromExactInput(
     virtualPool: QuoteVirtualPool,
     config: QuotePoolConfig,
@@ -273,7 +257,11 @@ export function getSwapResultFromExactInput(
     }
 }
 
-/** The legacy swap result shape, derived like the program's SwapResult2::get_swap_result. */
+/**
+ * An exact-in swap result mapped to the legacy SwapResult shape.
+ *
+ * @deprecated Use swapQuote2.
+ */
 export function getSwapResult(
     virtualPool: QuoteVirtualPool,
     config: QuotePoolConfig,
@@ -302,7 +290,12 @@ export function getSwapResult(
     }
 }
 
-/** The program's get_swap_result_from_partial_input. */
+/**
+ * The program's get_swap_result_from_partial_input.
+ * `eligibleForFirstSwapWithMinFee` is applied as given, so the caller must
+ * gate it the way swapQuote2 does: min-fee mode enabled on the config, no
+ * referral, and the pool has not swapped yet.
+ */
 export function getSwapResultFromPartialInput(
     virtualPool: QuoteVirtualPool,
     config: QuotePoolConfig,
@@ -382,7 +375,12 @@ export function getSwapResultFromPartialInput(
     }
 }
 
-/** The program's get_swap_result_from_exact_output. */
+/**
+ * The program's get_swap_result_from_exact_output.
+ * `eligibleForFirstSwapWithMinFee` is applied as given, so the caller must
+ * gate it the way swapQuote2 does: min-fee mode enabled on the config, no
+ * referral, and the pool has not swapped yet.
+ */
 export function getSwapResultFromExactOutput(
     virtualPool: QuoteVirtualPool,
     config: QuotePoolConfig,
@@ -491,13 +489,14 @@ export function calculateBaseToQuoteFromAmountIn(
                 amountLeft,
                 true
             )
-            totalOutputAmount = addU64(
-                totalOutputAmount,
-                getDeltaAmountQuoteUnsigned(
-                    nextSqrtPrice,
-                    sqrtPrice,
-                    liquidity,
-                    Rounding.Down
+            totalOutputAmount = requireU64(
+                totalOutputAmount.add(
+                    getDeltaAmountQuoteUnsigned(
+                        nextSqrtPrice,
+                        sqrtPrice,
+                        liquidity,
+                        Rounding.Down
+                    )
                 )
             )
             sqrtPrice = nextSqrtPrice
@@ -505,17 +504,18 @@ export function calculateBaseToQuoteFromAmountIn(
             break
         }
 
-        totalOutputAmount = addU64(
-            totalOutputAmount,
-            getDeltaAmountQuoteUnsigned(
-                point.sqrtPrice,
-                sqrtPrice,
-                liquidity,
-                Rounding.Down
+        totalOutputAmount = requireU64(
+            totalOutputAmount.add(
+                getDeltaAmountQuoteUnsigned(
+                    point.sqrtPrice,
+                    sqrtPrice,
+                    liquidity,
+                    Rounding.Down
+                )
             )
         )
         sqrtPrice = point.sqrtPrice
-        amountLeft = SafeMath.sub(amountLeft, u64(maxAmountIn))
+        amountLeft = SafeMath.sub(amountLeft, requireU64(maxAmountIn))
     }
 
     // the first segment runs down to sqrtStartPrice
@@ -541,13 +541,14 @@ export function calculateBaseToQuoteFromAmountIn(
         } else {
             amountLeft = ZERO
         }
-        totalOutputAmount = addU64(
-            totalOutputAmount,
-            getDeltaAmountQuoteUnsigned(
-                nextSqrtPrice,
-                sqrtPrice,
-                liquidity,
-                Rounding.Down
+        totalOutputAmount = requireU64(
+            totalOutputAmount.add(
+                getDeltaAmountQuoteUnsigned(
+                    nextSqrtPrice,
+                    sqrtPrice,
+                    liquidity,
+                    Rounding.Down
+                )
             )
         )
         sqrtPrice = nextSqrtPrice
@@ -593,13 +594,14 @@ export function calculateQuoteToBaseFromAmountIn(
                 amountLeft,
                 false
             )
-            totalOutputAmount = addU64(
-                totalOutputAmount,
-                getDeltaAmountBaseUnsigned(
-                    sqrtPrice,
-                    nextSqrtPrice,
-                    point.liquidity,
-                    Rounding.Down
+            totalOutputAmount = requireU64(
+                totalOutputAmount.add(
+                    getDeltaAmountBaseUnsigned(
+                        sqrtPrice,
+                        nextSqrtPrice,
+                        point.liquidity,
+                        Rounding.Down
+                    )
                 )
             )
             sqrtPrice = nextSqrtPrice
@@ -607,17 +609,18 @@ export function calculateQuoteToBaseFromAmountIn(
             break
         }
 
-        totalOutputAmount = addU64(
-            totalOutputAmount,
-            getDeltaAmountBaseUnsigned(
-                sqrtPrice,
-                referenceSqrtPrice,
-                point.liquidity,
-                Rounding.Down
+        totalOutputAmount = requireU64(
+            totalOutputAmount.add(
+                getDeltaAmountBaseUnsigned(
+                    sqrtPrice,
+                    referenceSqrtPrice,
+                    point.liquidity,
+                    Rounding.Down
+                )
             )
         )
         sqrtPrice = referenceSqrtPrice
-        amountLeft = SafeMath.sub(amountLeft, u64(maxAmountIn))
+        amountLeft = SafeMath.sub(amountLeft, requireU64(maxAmountIn))
         if (sqrtPrice.eq(stopSqrtPrice)) {
             break
         }
@@ -663,13 +666,14 @@ export function calculateBaseToQuoteFromAmountOut(
                 amountLeft,
                 true
             )
-            totalAmountIn = addU64(
-                totalAmountIn,
-                getDeltaAmountBaseUnsigned(
-                    nextSqrtPrice,
-                    sqrtPrice,
-                    liquidity,
-                    Rounding.Up
+            totalAmountIn = requireU64(
+                totalAmountIn.add(
+                    getDeltaAmountBaseUnsigned(
+                        nextSqrtPrice,
+                        sqrtPrice,
+                        liquidity,
+                        Rounding.Up
+                    )
                 )
             )
             sqrtPrice = nextSqrtPrice
@@ -677,17 +681,18 @@ export function calculateBaseToQuoteFromAmountOut(
             break
         }
 
-        totalAmountIn = addU64(
-            totalAmountIn,
-            getDeltaAmountBaseUnsigned(
-                point.sqrtPrice,
-                sqrtPrice,
-                liquidity,
-                Rounding.Up
+        totalAmountIn = requireU64(
+            totalAmountIn.add(
+                getDeltaAmountBaseUnsigned(
+                    point.sqrtPrice,
+                    sqrtPrice,
+                    liquidity,
+                    Rounding.Up
+                )
             )
         )
         sqrtPrice = point.sqrtPrice
-        amountLeft = SafeMath.sub(amountLeft, u64(maxAmountOut))
+        amountLeft = SafeMath.sub(amountLeft, requireU64(maxAmountOut))
     }
 
     if (!amountLeft.isZero()) {
@@ -710,13 +715,14 @@ export function calculateBaseToQuoteFromAmountOut(
         if (nextSqrtPrice.lt(configState.sqrtStartPrice)) {
             throw new Error(ProgramError.InsufficientLiquidity)
         }
-        totalAmountIn = addU64(
-            totalAmountIn,
-            getDeltaAmountBaseUnsigned(
-                nextSqrtPrice,
-                sqrtPrice,
-                liquidity,
-                Rounding.Up
+        totalAmountIn = requireU64(
+            totalAmountIn.add(
+                getDeltaAmountBaseUnsigned(
+                    nextSqrtPrice,
+                    sqrtPrice,
+                    liquidity,
+                    Rounding.Up
+                )
             )
         )
         sqrtPrice = nextSqrtPrice
@@ -756,13 +762,14 @@ export function calculateQuoteToBaseFromAmountOut(
                 amountLeft,
                 false
             )
-            totalInAmount = addU64(
-                totalInAmount,
-                getDeltaAmountQuoteUnsigned(
-                    sqrtPrice,
-                    nextSqrtPrice,
-                    point.liquidity,
-                    Rounding.Up
+            totalInAmount = requireU64(
+                totalInAmount.add(
+                    getDeltaAmountQuoteUnsigned(
+                        sqrtPrice,
+                        nextSqrtPrice,
+                        point.liquidity,
+                        Rounding.Up
+                    )
                 )
             )
             sqrtPrice = nextSqrtPrice
@@ -770,17 +777,18 @@ export function calculateQuoteToBaseFromAmountOut(
             break
         }
 
-        totalInAmount = addU64(
-            totalInAmount,
-            getDeltaAmountQuoteUnsigned(
-                sqrtPrice,
-                point.sqrtPrice,
-                point.liquidity,
-                Rounding.Up
+        totalInAmount = requireU64(
+            totalInAmount.add(
+                getDeltaAmountQuoteUnsigned(
+                    sqrtPrice,
+                    point.sqrtPrice,
+                    point.liquidity,
+                    Rounding.Up
+                )
             )
         )
         sqrtPrice = point.sqrtPrice
-        amountLeft = SafeMath.sub(amountLeft, u64(maxAmountOut))
+        amountLeft = SafeMath.sub(amountLeft, requireU64(maxAmountOut))
     }
 
     if (!amountLeft.isZero()) {
@@ -790,12 +798,49 @@ export function calculateQuoteToBaseFromAmountOut(
     return { amountIn: totalInAmount, nextSqrtPrice: sqrtPrice }
 }
 
-function quoteExactIn(
+/** Exact-in quote in the legacy SwapResult shape. */
+export function swapQuote(
     virtualPool: QuoteVirtualPool,
     config: QuotePoolConfig,
     swapBaseForQuote: boolean,
     amountIn: BN,
-    slippageBps: number,
+    slippageBps: number = 0,
+    hasReferral: boolean,
+    currentPoint: BN,
+    eligibleForFirstSwapWithMinFee: boolean,
+    transferFees?: QuoteTransferFees
+): SwapQuoteResult {
+    const result = swapQuoteExactIn(
+        virtualPool,
+        config,
+        swapBaseForQuote,
+        amountIn,
+        slippageBps,
+        hasReferral,
+        currentPoint,
+        eligibleForFirstSwapWithMinFee,
+        transferFees
+    )
+    return {
+        actualInputAmount: result.excludedFeeInputAmount,
+        outputAmount: result.outputAmount,
+        nextSqrtPrice: result.nextSqrtPrice,
+        tradingFee: result.tradingFee,
+        protocolFee: result.protocolFee,
+        referralFee: result.referralFee,
+        minimumAmountOut: result.minimumAmountOut,
+        includedTransferFeeAmountIn: result.includedTransferFeeAmountIn,
+        excludedTransferFeeAmountOut: result.excludedTransferFeeAmountOut,
+    }
+}
+
+/** Exact-in quote; amountIn includes any transfer fee on the input mint. */
+export function swapQuoteExactIn(
+    virtualPool: QuoteVirtualPool,
+    config: QuotePoolConfig,
+    swapBaseForQuote: boolean,
+    amountIn: BN,
+    slippageBps: number = 0,
     hasReferral: boolean,
     currentPoint: BN,
     eligibleForFirstSwapWithMinFee: boolean,
@@ -845,67 +890,6 @@ function quoteExactIn(
         includedTransferFeeAmountIn: amountIn,
         excludedTransferFeeAmountOut: excludedAmountOut,
     }
-}
-
-/** Exact-in quote in the legacy SwapResult shape. */
-export function swapQuote(
-    virtualPool: QuoteVirtualPool,
-    config: QuotePoolConfig,
-    swapBaseForQuote: boolean,
-    amountIn: BN,
-    slippageBps: number = 0,
-    hasReferral: boolean,
-    currentPoint: BN,
-    eligibleForFirstSwapWithMinFee: boolean,
-    transferFees?: QuoteTransferFees
-): SwapQuoteResult {
-    const result = quoteExactIn(
-        virtualPool,
-        config,
-        swapBaseForQuote,
-        amountIn,
-        slippageBps,
-        hasReferral,
-        currentPoint,
-        eligibleForFirstSwapWithMinFee,
-        transferFees
-    )
-    return {
-        actualInputAmount: result.excludedFeeInputAmount,
-        outputAmount: result.outputAmount,
-        nextSqrtPrice: result.nextSqrtPrice,
-        tradingFee: result.tradingFee,
-        protocolFee: result.protocolFee,
-        referralFee: result.referralFee,
-        minimumAmountOut: result.minimumAmountOut,
-        includedTransferFeeAmountIn: result.includedTransferFeeAmountIn,
-        excludedTransferFeeAmountOut: result.excludedTransferFeeAmountOut,
-    }
-}
-
-/** Exact-in quote; amountIn includes any transfer fee on the input mint. */
-export function swapQuoteExactIn(
-    virtualPool: QuoteVirtualPool,
-    config: QuotePoolConfig,
-    swapBaseForQuote: boolean,
-    amountIn: BN,
-    slippageBps: number = 0,
-    hasReferral: boolean,
-    currentPoint: BN,
-    eligibleForFirstSwapWithMinFee: boolean,
-    transferFees?: QuoteTransferFees
-): SwapQuote2Result {
-    return quoteExactIn(
-        virtualPool,
-        config,
-        swapBaseForQuote,
-        amountIn,
-        slippageBps,
-        hasReferral,
-        currentPoint,
-        eligibleForFirstSwapWithMinFee,
-        transferFees
-    )
 }
 
 /** Partial-fill quote; the input the pool can take is reported in includedTransferFeeAmountIn. */
@@ -1000,9 +984,6 @@ export function swapQuoteExactOut(
         output,
         outAmount
     ).amount
-    if (includedAmountOut.isZero()) {
-        throw new Error(ProgramError.AmountIsZero)
-    }
 
     const result = getSwapResultFromExactOutput(
         virtualPool,

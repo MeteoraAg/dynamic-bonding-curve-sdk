@@ -251,10 +251,7 @@ export type CreateConfigParams = ConfigParameters & {
     leftoverReceiver: PublicKey
     quoteMint: PublicKey
     payer: PublicKey
-    /**
-     * The DBC token badge of the quote mint, required when the mint is not
-     * permissionless-supported (a Token-2022 mint with other extensions).
-     */
+    /** @deprecated The SDK derives the quote mint's token badge when the mint needs one, and throws if this is a different address. */
     tokenBadge?: PublicKey
 }
 
@@ -429,6 +426,7 @@ export type InitializePoolBaseParams = {
     baseVault: PublicKey
     quoteVault: PublicKey
     quoteMint: PublicKey
+    /** @deprecated The SDK derives the quote mint's token badge when the mint needs one, and throws if this is a different address. */
     tokenBadge?: PublicKey
 }
 
@@ -440,11 +438,13 @@ export type CreatePoolParams = {
     poolCreator: PublicKey
     config: PublicKey
     baseMint: PublicKey
+    /** @deprecated The SDK derives the quote mint's token badge when the mint needs one, and throws if this is a different address. */
     tokenBadge?: PublicKey
 }
 
 export type CreatePoolWithTransferHookParams = CreatePoolParams & {
-    transferHookProgram: PublicKey
+    /** Defaults to the config's transfer hook program; a different program throws. */
+    transferHookProgram?: PublicKey
 }
 
 export type CreateConfigAndPoolParams = CreateConfigParams & {
@@ -511,7 +511,7 @@ export type TransferHookRemainingAccounts = {
 }
 
 export type FirstBuyWithTransferHookParams = FirstBuyParams &
-    Partial<TransferHookRemainingAccounts>
+    TransferHookRemainingAccounts
 
 export type PartnerFirstBuyParams = {
     partner: PublicKey
@@ -522,7 +522,7 @@ export type PartnerFirstBuyParams = {
 }
 
 export type PartnerFirstBuyWithTransferHookParams = PartnerFirstBuyParams &
-    Partial<TransferHookRemainingAccounts>
+    TransferHookRemainingAccounts
 
 export type CreatorFirstBuyParams = {
     creator: PublicKey
@@ -533,7 +533,7 @@ export type CreatorFirstBuyParams = {
 }
 
 export type CreatorFirstBuyWithTransferHookParams = CreatorFirstBuyParams &
-    Partial<TransferHookRemainingAccounts>
+    TransferHookRemainingAccounts
 
 export type SwapParams = {
     owner: PublicKey
@@ -577,8 +577,9 @@ export type SwapQuoteParams = {
     swapBaseForQuote: boolean
     amountIn: BN
     slippageBps?: number
-    hasReferral: boolean
-    eligibleForFirstSwapWithMinFee: boolean // only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
+    hasReferral?: boolean
+    /** True only for the pool's first swap when bundled with initialize_pool, such as the partner's buy in a partner-and-creator first buy. */
+    eligibleForFirstSwapWithMinFee?: boolean
     currentPoint: BN
 } & QuoteTransferFees
 
@@ -593,8 +594,9 @@ export type SwapQuote2Params = {
     virtualPool: VirtualPool
     config: PoolConfig
     swapBaseForQuote: boolean
-    hasReferral: boolean
-    eligibleForFirstSwapWithMinFee: boolean // only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
+    hasReferral?: boolean
+    /** True only for the pool's first swap when bundled with initialize_pool, such as the partner's buy in a partner-and-creator first buy. */
+    eligibleForFirstSwapWithMinFee?: boolean
     currentPoint: BN
     slippageBps?: number
 } & (
@@ -614,12 +616,13 @@ export type SwapQuote2Params = {
     QuoteTransferFees
 
 export type SimulatedQuoteBaseParams = {
-    config: ConfigParameters
+    config: ConfigParameters | PoolConfig
     swapBaseForQuote: boolean
     slippageBps?: number
     hasReferral?: boolean
     currentPoint?: BN
     eligibleForFirstSwapWithMinFee?: boolean
+    /** Must match the stored flag when `config` is a decoded PoolConfig. */
     quoteTokenFlag?: number
 } & QuoteTransferFees
 
@@ -635,7 +638,8 @@ export type SimulatedQuoteFromOutputAmountParams = SimulatedQuoteBaseParams & {
 export type MigrateToDammV1Params = {
     payer: PublicKey
     pool: PublicKey
-    dammConfig: PublicKey
+    /** Defaults to the config for the pool config's migrationFeeOption. */
+    dammConfig?: PublicKey
 }
 
 export type MigrateToDammV2Params = MigrateToDammV1Params
@@ -649,7 +653,8 @@ export type MigrateToDammV2Response = {
 export type DammLpTokenParams = {
     payer: PublicKey
     pool: PublicKey
-    dammConfig: PublicKey
+    /** Defaults to the config for the pool config's migrationFeeOption. */
+    dammConfig?: PublicKey
     isPartner: boolean
 }
 

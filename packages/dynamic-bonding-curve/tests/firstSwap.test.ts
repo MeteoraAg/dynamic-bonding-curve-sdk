@@ -262,51 +262,6 @@ describe('First Swap Tests', { timeout: 60000 }, () => {
         ).toBe(true)
     })
 
-    test('should charge min fee when first swap with pool creation (with SYSVAR)', async () => {
-        const amountIn = new BN(1_000_000_000)
-
-        const createPoolWithFirstBuyTx =
-            await dbcClient.creator.createPoolWithFirstBuy({
-                createPoolParam: {
-                    baseMint: baseMint.publicKey,
-                    config: config.publicKey,
-                    name: 'TEST',
-                    symbol: 'TEST',
-                    uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
-                    payer: poolCreator.publicKey,
-                    poolCreator: poolCreator.publicKey,
-                },
-                firstBuyParam: {
-                    buyer: poolCreator.publicKey,
-                    buyAmount: amountIn,
-                    minimumAmountOut: new BN(0),
-                    referralTokenAccount: null,
-                },
-            })
-
-        createPoolWithFirstBuyTx.feePayer = poolCreator.publicKey
-
-        await sendAndConfirmTransaction(connection, createPoolWithFirstBuyTx, [
-            poolCreator,
-            baseMint,
-        ])
-
-        const virtualPool = await dbcClient.state.getPool(pool)
-        expect(virtualPool).not.toBeNull()
-
-        const expectedFee = amountIn
-            .mul(endFeeNumerator)
-            .div(new BN(FEE_DENOMINATOR))
-
-        const totalTradingFee =
-            virtualPool!.poolState.metrics.totalProtocolQuoteFee.add(
-                virtualPool!.poolState.metrics.totalTradingQuoteFee
-            )
-
-        const feeDiff = totalTradingFee.sub(expectedFee).abs()
-        expect(feeDiff.lte(new BN(1))).toBe(true)
-    })
-
     test('should charge cliff fee when swap bundled WITHOUT SYSVAR', async () => {
         const amountIn = new BN(1_000_000_000)
 

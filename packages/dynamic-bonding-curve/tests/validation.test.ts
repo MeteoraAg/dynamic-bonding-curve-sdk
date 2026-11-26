@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import { Keypair, PublicKey } from '@solana/web3.js'
+import BN from 'bn.js'
 import {
     buildCurve,
+    DammV2BaseFeeMode,
     DammV2DynamicFeeMode,
     MigratedCollectFeeMode,
     MigrationFeeOption,
@@ -41,6 +43,15 @@ describe('validateConfigParameters', () => {
         expect(() =>
             validateConfigParameters(config, { feeClaimer: PublicKey.default })
         ).toThrow('Invalid fee claimer')
+    })
+
+    test('rejects a default leftover receiver as InvalidLeftoverAddress', () => {
+        expect(() =>
+            validateConfigParameters({
+                ...config,
+                leftoverReceiver: PublicKey.default,
+            })
+        ).toThrow('Invalid leftover address')
     })
 
     test('checks the curve shape before running curve math on it', () => {
@@ -120,6 +131,28 @@ describe('validateMigratedPoolFee', () => {
                 MigrationFeeOption.Customizable,
                 undefined,
                 100
+            )
+        ).toBe(false)
+    })
+
+    test('a linear market cap scheduler that reduces past the cliff fee fails', () => {
+        expect(
+            validateMigratedPoolFee(
+                {
+                    collectFeeMode: MigratedCollectFeeMode.QuoteToken,
+                    dynamicFee: DammV2DynamicFeeMode.Disabled,
+                    poolFeeBps: 300,
+                },
+                MigrationOption.MET_DAMM_V2,
+                MigrationFeeOption.Customizable,
+                {
+                    numberOfPeriod: 1,
+                    sqrtPriceStepBps: 100,
+                    schedulerExpirationDuration: 3600,
+                    reductionFactor: new BN(30_000_001),
+                },
+                0,
+                DammV2BaseFeeMode.FeeMarketCapSchedulerLinear
             )
         ).toBe(false)
     })
