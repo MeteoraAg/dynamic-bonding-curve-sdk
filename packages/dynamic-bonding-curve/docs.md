@@ -3021,7 +3021,7 @@ type SimulatedQuoteFromInputAmountParams = {
     hasReferral?: boolean
     currentPoint?: BN // Initialization point. Omit to use 0
     eligibleForFirstSwapWithMinFee?: boolean
-    quoteTokenFlag?: number // TokenType.Token2022 when the quote mint is Token-2022. Ignored when config is a PoolConfig
+    quoteTokenFlag?: number // TokenType.Token2022 when the quote mint is Token-2022. Must match the stored flag when config is a PoolConfig
 } & QuoteTransferFees
 ```
 
@@ -3105,7 +3105,7 @@ type SimulatedQuoteFromOutputAmountParams = {
     hasReferral?: boolean
     currentPoint?: BN // Initialization point. Omit to use 0
     eligibleForFirstSwapWithMinFee?: boolean
-    quoteTokenFlag?: number // Ignored when config is a PoolConfig
+    quoteTokenFlag?: number // TokenType.Token2022 when the quote mint is Token-2022. Must match the stored flag when config is a PoolConfig
 } & QuoteTransferFees
 ```
 
